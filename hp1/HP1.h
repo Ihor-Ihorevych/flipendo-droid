@@ -6,6 +6,8 @@
 // lives under hp1/. Every hook is already gated by engine->LaunchInfo.IsHarryPotter1().
 
 class UActor;
+class Rotator;
+class UCanvas;
 class UPawn;
 class UAnimation;
 class USkeletalMesh;
@@ -36,6 +38,15 @@ namespace HP1
 
 	// RenderSubsystem::DrawGame, before presenting: HP1_SHOTS debug screenshots (hp1/HP1Debug.cpp).
 	void OnFrameRendered(RenderDevice* device);
+	// Engine::Tick, after PlayerCalcView: HP1_CAMERA="x,y,z,pitch,yaw" replaces the view (hp1/HP1Debug.cpp).
+	void DebugCamera(vec3& location, Rotator& rotation);
+
+	// Additions the original game doesn't have (hp1/mods/). Engine::Tick, after the console tick.
+	void TickMods(float realElapsed);
+	// Engine::OnWindowKeyDown, before the key is routed anywhere (EInputKey value).
+	void ModsKeyDown(int key);
+	// RenderSubsystem::PostRender, after the HUD and the console/menus.
+	void PostRenderMods(UCanvas* canvas);
 
 	// UActor::UpdateBspInfo: world space render box of a skeletal mesh actor (culling, BSP placement).
 	BBox GetRenderBoundingBox(UActor* actor, USkeletalMesh* mesh);
@@ -66,6 +77,17 @@ namespace HP1
 	void PawnPhysicsTime(UPawn* pawn, float elapsed);
 	// UPawn::TickRotating / UPlayerPawn::TickRotating: APawn::physicsRotation.
 	void PawnPhysicsRotation(UPawn* pawn, float elapsed);
+	// ParticleFX (hp1/HP1ParticleFX.cpp). UActor::Tick: AParticleFX::Tick (ages the system, destroys it when done).
+	void TickParticleFX(UActor* actor, float elapsed);
+	// UActor::Destroy: frees the particle list.
+	void ParticleFXDestroyed(UActor* actor);
+	// UActor::UpdateBspInfo for DrawType DT_Particles.
+	BBox GetParticleBoundingBox(UActor* actor);
+	// VisibleActor::DrawTranslucent for DrawType DT_Particles: URender::DrawParticleSystem (hp1/HP1ParticleRender.cpp).
+	void DrawParticleSystem(VisibleFrame* frame, UActor* actor);
+
 	// UPawn::TickMoveTo: APawn::moveToward. Returns true when the latent move is done.
 	bool PawnMoveToward(UPawn* pawn, const vec3& dest);
+	// UActor::PreparePawnMovementTick / TickRolling: whether this physics mode fires FellOutOfWorld in zone 0.
+	bool PhysicsChecksLeftWorld(UActor* actor);
 }

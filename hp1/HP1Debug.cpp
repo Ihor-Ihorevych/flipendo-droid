@@ -18,6 +18,7 @@
 //                              digit, Up/Down/Left/Right, Space, Shift, Ctrl, Enter, Escape, or a number
 //                              (EInputKey value)
 //   HP1_TRACE="Harry,gen_"     log every actor whose name starts with one of these, every 0.5 s
+//   HP1_CAMERA="x,y,z,p,y"     fixed camera location and rotation (pitch/yaw in Unreal units), from the first frame
 
 namespace HP1
 {
@@ -111,8 +112,8 @@ namespace HP1
 				continue;
 
 			char buf[700];
-			int n = snprintf(buf, sizeof(buf), "HP1 trace t=%.1f %s state=%s loc=(%.0f,%.0f,%.0f) vel=(%.0f,%.0f,%.0f) acc=(%.0f,%.0f) phys=%d rot=%d drot=%d anim=%s rate=%.2f frame=%.2f tween=%.2f",
-				now, name.c_str(), a->GetStateName().ToString().c_str(), a->Location().x, a->Location().y, a->Location().z,
+			int n = snprintf(buf, sizeof(buf), "HP1 trace t=%.1f %s state=%s zone=%d loc=(%.0f,%.0f,%.0f) vel=(%.0f,%.0f,%.0f) acc=(%.0f,%.0f) phys=%d rot=%d drot=%d anim=%s rate=%.2f frame=%.2f tween=%.2f",
+				now, name.c_str(), a->GetStateName().ToString().c_str(), (int)a->Region().ZoneNumber, a->Location().x, a->Location().y, a->Location().z,
 				a->Velocity().x, a->Velocity().y, a->Velocity().z, a->Acceleration().x, a->Acceleration().y, (int)a->Physics(),
 				a->Rotation().Yaw & 0xffff, a->DesiredRotation().Yaw & 0xffff, a->AnimSequence().ToString().c_str(), a->AnimRate(), a->AnimFrame(), TweenAlpha(a));
 			if (UPawn* pawn = UObject::TryCast<UPawn>(a))
@@ -184,5 +185,37 @@ namespace HP1
 			f.write((const char*)row.data(), rowSize);
 		}
 		LogMessage("HP1 screenshot " + dir + name);
+	}
+
+	void DebugCamera(vec3& location, Rotator& rotation)
+	{
+		static bool parsed = false;
+		static bool enabled = false;
+		static vec3 camLocation;
+		static Rotator camRotation;
+		if (!parsed)
+		{
+			parsed = true;
+			if (const char* s = getenv("HP1_CAMERA"))
+			{
+				float v[5] = {};
+				std::stringstream ss(s);
+				std::string item;
+				int n = 0;
+				while (n < 5 && std::getline(ss, item, ','))
+					v[n++] = std::stof(item);
+				if (n == 5)
+				{
+					enabled = true;
+					camLocation = vec3(v[0], v[1], v[2]);
+					camRotation = Rotator((int)v[3], (int)v[4], 0);
+				}
+			}
+		}
+		if (enabled)
+		{
+			location = camLocation;
+			rotation = camRotation;
+		}
 	}
 }

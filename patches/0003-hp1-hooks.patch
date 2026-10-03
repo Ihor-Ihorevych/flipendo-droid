@@ -107,7 +107,7 @@ index aef803f8..5b27c846 100644
  		if (t < tmax)
  		{
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 34ee5181..d8bf6ea5 100644
+index 34ee5181..22a88081 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,7 @@
@@ -118,16 +118,28 @@ index 34ee5181..d8bf6ea5 100644
  #include "Utils/File.h"
  #include "Utils/StrTools.h"
  #include "Utils/SHA1Sum.h"
-@@ -229,6 +230,8 @@ void Engine::Run()
+@@ -199,6 +200,8 @@ void Engine::Run()
+ 
+ 		// Do NOT pause this Tick event otherwise some messages will stay on screen forever.
+ 		CallEvent(console, EventName::Tick, { ExpressionValue::FloatValue(levelElapsed) });
++		if (LaunchInfo.IsHarryPotter1()) // hp1_re: hp1/mods (cutscene skip, launch skips)
++			HP1::TickMods(realTimeElapsed);
+ 
+ 		// To do: set these to true if the frame rate is too low
+ 		if (LaunchInfo.ue1Version >= 436)
+@@ -229,6 +232,11 @@ void Engine::Run()
  				ExpressionValue::Variable(&CameraLocation, vecprop),
  				ExpressionValue::Variable(&CameraRotation, rotprop)
  				});
-+			if (LaunchInfo.IsHarryPotter1()) // hp1_re: Hor+ field of view
++			if (LaunchInfo.IsHarryPotter1()) // hp1_re: Hor+ field of view, HP1_CAMERA debug override
++			{
 +				CameraFovAngle = HP1::ViewFovAngle(CameraFovAngle, window->GetPixelWidth(), window->GetPixelHeight());
++				HP1::DebugCamera(CameraLocation, CameraRotation);
++			}
  		}
  
  		UpdateAudio();
-@@ -1148,8 +1151,8 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1148,8 +1156,8 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  	}*/
  	else if (command == "getres")
  	{
@@ -138,7 +150,7 @@ index 34ee5181..d8bf6ea5 100644
  		return window->GetAvailableResolutions();
  	}
  	else if (command == "getcolordepths")
-@@ -1454,6 +1457,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
+@@ -1454,6 +1462,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
  			endpos = command.size();
  
  		std::string subcommand = command.substr(pos, endpos - pos);
@@ -149,7 +161,7 @@ index 34ee5181..d8bf6ea5 100644
  		if (!subcommand.empty())
  			subcommands.push_back(subcommand);
  		pos = endpos + 1;
-@@ -1616,6 +1623,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
+@@ -1616,6 +1628,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
  	{
  		viewport->WindowsMouseX() = (float)(pos.x * window->GetDpiScale());
  		viewport->WindowsMouseY() = (float)(pos.y * window->GetDpiScale());
@@ -158,6 +170,42 @@ index 34ee5181..d8bf6ea5 100644
  	}
  }
  
+@@ -1689,6 +1703,9 @@ void Engine::OnWindowKeyChar(std::string chars)
+ 
+ void Engine::OnWindowKeyDown(EInputKey key)
+ {
++	if (LaunchInfo.IsHarryPotter1()) // hp1_re: hp1/mods see key presses (skip prompts)
++		HP1::ModsKeyDown((int)key);
++
+ 	if (playingAvi)
+ 	{
+ 		if (key == EInputKey::IK_Escape)
+diff --git a/SurrealEngine/Native/NObject.cpp b/SurrealEngine/Native/NObject.cpp
+index 1081c358..d043cef6 100644
+--- a/SurrealEngine/Native/NObject.cpp
++++ b/SurrealEngine/Native/NObject.cpp
+@@ -676,6 +676,10 @@ void NObject::DynamicLoadObject(const std::string& ObjectName, UObject* ObjectCl
+ 		{
+ 			std::string packageName = ObjectName.substr(0, dotpos);
+ 			std::string objectName = ObjectName.substr(dotpos + 1);
++			// hp1_re: "Package.Group.Name" - look the object up by its name (HP1's storybook loads
++			// "StoryBookTest.default.3_1_001"); the group is ignored like for "Package.Name".
++			if (objectName.rfind('.') != std::string::npos)
++				objectName = objectName.substr(objectName.rfind('.') + 1);
+ 
+ 			try
+ 			{
+@@ -704,6 +708,10 @@ void NObject::DynamicLoadObject_219(const std::string& ObjectName, UObject* Obje
+ 		{
+ 			std::string packageName = ObjectName.substr(0, dotpos);
+ 			std::string objectName = ObjectName.substr(dotpos + 1);
++			// hp1_re: "Package.Group.Name" - look the object up by its name (HP1's storybook loads
++			// "StoryBookTest.default.3_1_001"); the group is ignored like for "Package.Name".
++			if (objectName.rfind('.') != std::string::npos)
++				objectName = objectName.substr(objectName.rfind('.') + 1);
+ 
+ 			try
+ 			{
 diff --git a/SurrealEngine/Package/PackageManager.cpp b/SurrealEngine/Package/PackageManager.cpp
 index cdb045bf..4c41b7b2 100644
 --- a/SurrealEngine/Package/PackageManager.cpp
@@ -246,6 +294,42 @@ index e3c87b45..99c1ef1e 100644
  	if (Physics() == PHYS_Spider)
  		return;
  
+diff --git a/SurrealEngine/Packages/Engine/Actors/UActor.cpp b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
+index 29c45a1c..44f43514 100644
+--- a/SurrealEngine/Packages/Engine/Actors/UActor.cpp
++++ b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
+@@ -9,6 +9,7 @@
+ #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
+ #include "Packages/Engine/Resources/Level/ULevel.h"
+ #include "Packages/Engine/Resources/Level/UModel.h"
++#include "HP1.h" // hp1_re
+ #include "Packages/Engine/Subsystems/USurrealAudioDevice.h"
+ #include "Utils/Logger.h"
+ #include "Engine.h"
+@@ -122,6 +123,9 @@ bool UActor::Destroy()
+ 
+ 	bDeleteMe() = true;
+ 
++	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: free the ParticleFX particle list
++		HP1::ParticleFXDestroyed(this);
++
+ 	//GotoState({}, {}); // What should happen to function calls after Destroy() has been called? Razor2 calls SetRoll afterwards!
+ 	SetBase(nullptr, true);
+ 
+@@ -168,6 +172,13 @@ bool UActor::Destroy()
+ 
+ void UActor::Tick(float elapsed)
+ {
++	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: AParticleFX::Tick
++	{
++		HP1::TickParticleFX(this, elapsed);
++		if (bDeleteMe())
++			return;
++	}
++
+ 	if (engine->LaunchInfo.IsDeusEx())
+ 	{
+ 		DistanceFromPlayer() = length(engine->viewport->Actor()->Location() - Location());
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
 index aceba9af..7d5ed5e0 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
@@ -271,6 +355,27 @@ index aceba9af..7d5ed5e0 100644
  	if (StateFrame && StateFrame->LatentState == LatentRunState::FinishAnim)
  	{
  		if (!IsAnimating() || AnimFrame() >= AnimLast())
+diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
+index 07b200e2..30ab0759 100644
+--- a/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
++++ b/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
+@@ -8,6 +8,7 @@
+ #include "Packages/Engine/Actors/Info/ULevelInfo.h"
+ #include "Packages/Engine/Resources/Level/ULevel.h"
+ #include "Packages/Engine/Resources/Level/UModel.h"
++#include "HP1.h" // hp1_re
+ 
+ void UActor::TickPhysics(float elapsed)
+ {
+@@ -210,7 +211,7 @@ UPawn* UActor::PreparePawnMovementTick()
+ 	if (!pawn)
+ 		return nullptr;
+ 
+-	if (HasLeftWorld())
++	if ((!engine->LaunchInfo.IsHarryPotter1() || HP1::PhysicsChecksLeftWorld(this)) && HasLeftWorld()) // hp1_re: only physWalking checks
+ 		return nullptr;
+ 
+ 	OldLocation() = Location();
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp
 index 22b4b664..429c520d 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp
@@ -303,8 +408,41 @@ index 22b4b664..429c520d 100644
  	}
  
  	if (elapsed > 0.0f)
+diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysRolling.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysRolling.cpp
+index 31d7896f..eb5463ec 100644
+--- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysRolling.cpp
++++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysRolling.cpp
+@@ -9,10 +9,11 @@
+ #include "Packages/Engine/Resources/Level/ULevel.h"
+ #include "Packages/Engine/Resources/Level/UModel.h"
+ #include "Engine.h"
++#include "HP1.h" // hp1_re
+ 
+ void UActor::TickRolling(float elapsed)
+ {
+-	if (HasLeftWorld())
++	if ((!engine->LaunchInfo.IsHarryPotter1() || HP1::PhysicsChecksLeftWorld(this)) && HasLeftWorld()) // hp1_re: physRolling has no check
+ 		return;
+ 
+ 	// Save our starting point and state
+diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp
+index 71dc2525..2712419c 100644
+--- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp
++++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp
+@@ -120,7 +120,10 @@ void UActor::TickWalking(float elapsed)
+ 
+ 			if (hit.Fraction < 1.0f)
+ 			{
+-				if (player && hit.Actor)
++				// hp1_re: HP1's APawn::stepUp (Engine.dll 0x103EC690) only special-cases pushing a decoration; every other
++				// actor hit slides along like a wall. Without this the player sticks to Lev_Tut1's BlockAll stair walls.
++				bool hp1PushHit = player && hit.Actor && UObject::IsType<UDecoration>(hit.Actor) && UObject::Cast<UDecoration>(hit.Actor)->bPushable() && dot(hit.Normal, moveDelta) < -0.9f;
++				if (player && hit.Actor && (!engine->LaunchInfo.IsHarryPotter1() || hp1PushHit))
+ 				{
+ 					if (UObject::IsType<UDecoration>(hit.Actor) && UObject::Cast<UDecoration>(hit.Actor)->bPushable() && dot(hit.Normal, moveDelta) < -0.9f)
+ 					{
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp
-index a457b9a0..e7c52100 100644
+index a457b9a0..f06ad1a7 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp
 @@ -6,6 +6,8 @@
@@ -326,6 +464,17 @@ index a457b9a0..e7c52100 100644
  	}
  	else if ((dt == DT_Sprite || dt == DT_SpriteAnimOnce) && (Texture()))
  	{
+@@ -30,6 +35,10 @@ void UActor::UpdateBspInfo()
+ 		bbox.min = location - extents;
+ 		bbox.max = location + extents;
+ 	}
++	else if (dt == 8 && engine->LaunchInfo.IsHarryPotter1()) // hp1_re: DT_Particles (ParticleFX)
++	{
++		bbox = HP1::GetParticleBoundingBox(this);
++	}
+ 	else if (dt == DT_Brush && Brush())
+ 	{
+ 		UModel* brush = Brush();
 diff --git a/SurrealEngine/Packages/Engine/Resources/Mesh/UAnimation.cpp b/SurrealEngine/Packages/Engine/Resources/Mesh/UAnimation.cpp
 index 53982dc0..8dc63eb1 100644
 --- a/SurrealEngine/Packages/Engine/Resources/Mesh/UAnimation.cpp
@@ -352,7 +501,7 @@ index 53982dc0..8dc63eb1 100644
  
  	int NumRefBones = stream->ReadIndex();
 diff --git a/SurrealEngine/Render/RenderCanvas.cpp b/SurrealEngine/Render/RenderCanvas.cpp
-index 4b2aa5c5..45e3c219 100644
+index 4b2aa5c5..7ece3924 100644
 --- a/SurrealEngine/Render/RenderCanvas.cpp
 +++ b/SurrealEngine/Render/RenderCanvas.cpp
 @@ -14,6 +14,7 @@
@@ -386,7 +535,7 @@ index 4b2aa5c5..45e3c219 100644
  
  	//engine->viewport->bShowWindowsMouse() = true; // bShowWindowsMouse is set to true by WindowConsole if mouse cursor should be visible
  	//engine->viewport->bWindowsMouseAvailable() = true; // if true then RenderUWindow updates mouse pos from (WindowsMouseX,WindowsMouseY), otherwise it uses KeyEvent(IK_MouseX, delta) + KeyEvent(IK_MouseY, delta). Maybe used for windowed mode?
-@@ -101,7 +101,17 @@ void RenderSubsystem::PostRender()
+@@ -101,7 +101,18 @@ void RenderSubsystem::PostRender()
  	Device->SetSceneNode(&Canvas.Frame);
  	if (engine->viewport->Actor())
  		CallEvent(engine->viewport->Actor(), EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
@@ -400,11 +549,12 @@ index 4b2aa5c5..45e3c219 100644
 +	{
 +		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, false);
 +		Device->SetSceneNode(&Canvas.Frame);
++		HP1::PostRenderMods(engine->canvas); // hp1/mods overlays (skip prompts), on top of HUD and menus
 +	}
  	DrawTimedemoStats();
  	
  	if (ShowCollisionDebug)
-@@ -133,10 +143,10 @@ void RenderSubsystem::DrawActor(UActor* actor, bool WireFrame, bool ClearZ)
+@@ -133,10 +144,10 @@ void RenderSubsystem::DrawActor(UActor* actor, bool WireFrame, bool ClearZ)
  void RenderSubsystem::DrawClippedActor(UActor* actor, bool WireFrame, int X, int Y, int XB, int YB, bool ClearZ)
  {
  	SceneNode frame;
@@ -454,6 +604,53 @@ index 0f88fc9c..3ab3b405 100644
  		int fps = 0;
  		int framesDrawn = 0;
  		uint64_t startFPSTime = 0;
+diff --git a/SurrealEngine/Render/VisibleActor.cpp b/SurrealEngine/Render/VisibleActor.cpp
+index 984fdbfc..ecf9edc8 100644
+--- a/SurrealEngine/Render/VisibleActor.cpp
++++ b/SurrealEngine/Render/VisibleActor.cpp
+@@ -9,6 +9,8 @@
+ #include "Packages/Engine/Actors/Pawn/UPawn.h"
+ #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
+ #include "Packages/Engine/Actors/Brush/UMover.h"
++#include "Engine.h" // hp1_re
++#include "HP1.h" // hp1_re
+ 
+ void VisibleActor::Process(VisibleFrame* frame, UActor* actor)
+ {
+@@ -75,6 +77,12 @@ void VisibleActor::Process(VisibleFrame* frame, UActor* actor)
+ 		Actor = actor;
+ 		frame->Actors.push_back(*this);
+ 	}
++	else if (dt == 8 && engine->LaunchInfo.IsHarryPotter1()) // hp1_re: DT_Particles (ParticleFX)
++	{
++		Type = dt;
++		Actor = actor;
++		frame->Actors.push_back(*this);
++	}
+ }
+ 
+ void VisibleActor::DrawOpaque(VisibleFrame* frame)
+@@ -103,6 +111,11 @@ void VisibleActor::DrawOpaque(VisibleFrame* frame)
+ 			frame->Translucents.emplace_back(*this, dot(v, v));
+ 		}
+ 	}
++	else if (Type == 8) // hp1_re: DT_Particles are drawn in the translucent pass
++	{
++		vec3 v = Actor->Location() - frame->ViewLocation.xyz();
++		frame->Translucents.emplace_back(*this, dot(v, v));
++	}
+ }
+ 
+ void VisibleActor::DrawTranslucent(VisibleFrame* frame)
+@@ -122,4 +135,8 @@ void VisibleActor::DrawTranslucent(VisibleFrame* frame)
+ 		VisibleBrush visbrush;
+ 		visbrush.Draw(frame, Actor, true);
+ 	}
++	else if (Type == 8) // hp1_re: DT_Particles (ParticleFX)
++	{
++		HP1::DrawParticleSystem(frame, Actor);
++	}
+ }
 diff --git a/SurrealEngine/Render/VisibleMesh.cpp b/SurrealEngine/Render/VisibleMesh.cpp
 index 7f5e8efb..75100770 100644
 --- a/SurrealEngine/Render/VisibleMesh.cpp

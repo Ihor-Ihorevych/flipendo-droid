@@ -13,6 +13,8 @@ SurrealEngine fork. Read `README.md` first for layout, build and run commands.
   `tools/build.sh`). To change a hook: edit the patched file in `engine/`, run
   `tools/refresh_patches.sh`, commit `patches/`. Temporary debug edits in `engine/` must be reverted
   (`tools/apply_patches.sh --reset`) before refreshing patches.
+- **Features the original game doesn't have go in `hp1/mods/`** (see its README): optional, off with
+  `--vanilla`, hooked only through `HP1::TickMods`/`ModsKeyDown`/`PostRenderMods`. The rest of `hp1/` is the faithful port.
 - **HP1 code goes in `hp1/`, not in `engine/`.** `engine/` is upstream SurrealEngine (actively
   developed); every line we change there is a future merge conflict. Engine files only get small
   hooks that call into `hp1/` (see the table in `ROADMAP.md`). Prefer overriding natives from
@@ -95,8 +97,11 @@ in `docs/re/<topic>.md`.
   `build/<Config>/`. A full build takes a few minutes; `--target SurrealEngine` for the game only.
 - Rebuilding fails if `SurrealEngine.exe` is running (file lock). The user is fine with Claude killing it
   (`taskkill //IM SurrealEngine.exe //F`) to rebuild or relaunch.
-- `tools/run_hp1.sh [secs]` — `--autolaunch --logfile=build/hp1_run.log` against `../game-work`.
+- `tools/run_hp1.sh [secs] [args]` — `--autolaunch --logfile=build/hp1_run.log` against `../game-work`.
+  `--skip-splash` goes straight to the main menu, `--skip-intro` skips the New Game storybook,
+  `--vanilla` disables the default-on mods (`hp1/mods/`).
 - Debug env vars (`hp1/HP1Debug.cpp`, times in seconds since the first frame): `HP1_SHOTS="5,8.5"` +
   `HP1_SHOT_DIR` for in-engine screenshots (never capture the desktop), `HP1_KEYS="62:Up:3,66:Left:0.6"`
   to press keys (the Lev_Tut1 intro hands control to the player at ~58 s), `HP1_TRACE="harry0,gen_"` to
-  log actors by name prefix every 0.5 s (state, location, velocity, rotation, anim, tween, pawn speed/input).
+  log actors by name prefix every 0.5 s (state, zone, location, velocity, rotation, anim, tween, pawn speed/input),
+  `HP1_CAMERA="x,y,z,pitch,yaw"` to look at something from a fixed camera (e.g. a particle effect).

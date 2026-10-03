@@ -17,6 +17,19 @@
 
 namespace HP1
 {
+	// Only physWalking and physFalling test Region.ZoneNumber == 0 and fire FellOutOfWorld; physFlying,
+	// physSwimming and physRolling never do. Upstream checks it for every pawn movement mode, which killed
+	// Lev_Tut1's flying tut1Peeves0 (parked outside the BSP in state waitforTrigger) on the first tick.
+	// Falling has its own check in UActor::TickFalling.
+	// IDA Engine.dll: ?physWalking@APawn@@QAEXMH@Z [HP1 0x103E6B60]
+	// IDA Engine.dll: ?physFlying@APawn@@QAEXMH@Z [HP1 0x103F13A0] (no zone check)
+	// IDA Engine.dll: ?physSwimming@APawn@@QAEXMH@Z [HP1 0x103F20A0] (no zone check)
+	// IDA Engine.dll: ?physRolling@AActor@@QAEXMH@Z [HP1 0x103F3040] (no zone check)
+	bool PhysicsChecksLeftWorld(UActor* actor)
+	{
+		return actor->Physics() == PHYS_Walking;
+	}
+
 	// IDA Engine.dll: ?performPhysics@APawn@@UAEXM@Z [HP1 0x103E5520]
 	void PawnPhysicsTime(UPawn* pawn, float elapsed)
 	{

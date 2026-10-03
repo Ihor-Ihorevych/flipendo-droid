@@ -58,4 +58,7 @@ namespace HP1
 
 	// USkeletalMesh::BoneIndex
 	int BoneIndex(USkeletalMesh* mesh, const NameString& name);
+
+	// USkeletalMesh::GetFrame: posed world-space vertices, indexed like the mesh's Points/Wedges.
+	bool GetSkeletalFrameVerts(UActor* actor, USkeletalMesh* mesh, Array<vec3>& outVerts);
 }
