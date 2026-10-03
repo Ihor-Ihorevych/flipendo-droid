@@ -6,12 +6,9 @@ live in `docs/re/`. The native-level checklist is `docs/native_audit.md` (`pytho
 Legend: [x] done · [~] partly done / in progress · [ ] not started
 
 ## Next up (in order)
-1. **Lev_Tut1 jump room** (zone 2, x 1950-3450, y -3000..-3950). The autopilot gets Harry to box B (2640,-3488) and
-   onto the stepped structure north of it (2650,-3150), but no route to the jumpexit doors (3072-3200,-4024) is known
-   yet: box B to boxes C/D (x 3050-3300) is ~330 units, Harry's jump ~190 (JumpZ 245, gravity 512), and the far
-   wall is too high to grab when falling. Physics, jump arc and falling grab match the original, so this is route
-   finding: play it by hand once, or map more of the room with `HP1_HEIGHTMAP`. Then on: jumpexit doors → wizard
-   cards (2990,-4960) → FGsec2/DADA doors → CUTFLIPBEGIN (956,-6699), and the level change to Lev_Tut1b.
+1. **Lev_Tut1 after the jump room**: the autopilot now crosses the jump room and leaves through the jumpexit doors
+   (3140,-4061, ~205 s). Next: wizard cards (2990,-4960) → FGsec2/DADA doors → CUTFLIPBEGIN (956,-6699), and the
+   level change to Lev_Tut1b.
 2. **InterpolationManager** (`AInterpolationManager::performPhysics` 0x103F7BA0, 6.4 KB): raises
    `FinishedInterpolation` and `UpdateCamera`. Only the broom and Quidditch scripts spawn it (BroomHarry, QuidPlayer,
    QuidditchPawn), so it is needed for those levels, not the tutorial.
@@ -96,7 +93,13 @@ disc, `tools/extract_scripts.sh`), not other script exports.
       stairs → Ron cutscene → door D1stA → CutScene52 → Fred & George's room (~126 s) → bookcase climb (`137:Up:2.5`)
       → shelves along the jelly-bean trail (-32,-4470; 600,-4470; 768,-4432; 864,-3952; 1056,-3744) → climbexit
       trigger (1541,-3749) → jumping-help cutscene → jump room (2080,-3808; 2304,-3824; 2288,-3456; 2640,-3488;
-      2650,-3392,J; 2650,-3150) works. Peeves patrols (Pawn.FindPath). Stuck in the jump room: see "Next up"
+      2650,-3392,J; 2650,-3150 = the west balcony) → through the west arch past the candle stand (2656,-3020;
+      2656,-2944) → corridor (2656,-2790; 3136,-2790) → east arch (3136,-2960; 3150,-3030) → jump down onto box C
+      (3150,-3068,J; 3150,-3300) → box D (3150,-3346,J; 3150,-3640) → south ledge (3150,-3748,J; 3150,-3930) →
+      jumpexit doors (3136,-4100) works. Peeves patrols (Pawn.FindPath). See "Next up"
+- [x] Flying pawns keep their vertical velocity (upstream TickFlying zeroed it; HP1's physFlying doesn't). Peeves
+      pitched up towards his higher nav point but couldn't climb and orbited it forever; now he flies his patrol,
+      waitforTrigger2, attackCamera, Taunt and obspatrol
 - [x] Ledge grabbing: `APawn::Mount` (`hp1/HP1Pawn.cpp`), called from walking (stepUp) and falling wall hits. Only
       BSP surfaces with PolyFlags 0x1000 (PF_SpecialPoly = HP1's "mountable") qualify. Upstream's cylinder collision
       can report the node of a neighbouring plane, so the face is re-found with a zero-extent ray
@@ -203,3 +206,4 @@ minimal so upstream updates rarely conflict.
 | `Native/NPlayerPawn.cpp` | ClientTravel raises PreClientTravel |
 | `Engine.cpp` (after the level tick), `Render/RenderSubsystem.cpp` | ViewFlash event; `HP1::ViewFlashParams` for the screen flash |
 | `Packages/Engine/Subsystems/USurrealAudioDevice.cpp` | music plays despite `UseDigitalMusic=False` (HP1's shipped ini; its mp2 songs play in the original) |
+| `Packages/Engine/Actors/UActor_PhysFlying.cpp` | flying keeps Velocity.z (HP1 physFlying 0x103F13A0) |
