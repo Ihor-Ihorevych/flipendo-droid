@@ -1,4 +1,4 @@
-Required Notice: Copyright (c) 2026 the hp1_re authors (https://github.com/kroplabeskidu/hp1_re)
+Required Notice: Copyright (c) 2026 the Flipendo authors (https://github.com/kroplabeskidu/flipendo)
 
 # PolyForm Noncommercial License 1.0.0
 

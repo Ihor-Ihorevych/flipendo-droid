@@ -28,7 +28,7 @@ disc, `tools/extract_scripts.sh`), not other script exports.
       submodule, our extractor `tools/uelib_dump/`).
       `uelib_dump props <package>` dumps every export of a package (maps: all actors with properties)
 - [x] IDA database of `Engine.dll`: `../ida/Engine.dll.i64`
-- [x] HP1 code lives in `hp1/`, engine changes are small `hp1_re:` hooks in `patches/`
+- [x] HP1 code lives in `hp1/`, engine changes are small `flipendo:` hooks in `patches/`
 - [x] Debug env vars: `HP1_HEIGHTMAP` floor heights over a grid (route planning), `HP1_SHOTS`/`HP1_SHOT_DIR` screenshots, `HP1_KEYS` scripted key presses,
       `HP1_MOUSE` scripted raw mouse moves, `HP1_TRACE` actor state log (now with zone, pitch, view rotation), `HP1_CAMERA` fixed camera,
       `HP1_DUMP` actor list (class, state, location, Tag, Event), `HP1_GOTO` waypoint autopilot with jump/wait steps (`hp1/HP1Debug.cpp`)

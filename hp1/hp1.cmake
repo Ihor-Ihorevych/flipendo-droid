@@ -1,4 +1,4 @@
-# Harry Potter 1 port sources. Included from engine/CMakeLists.txt (one hp1_re: line) so that all
+# Harry Potter 1 port sources. Included from engine/CMakeLists.txt (one flipendo: line) so that all
 # HP1 code lives outside the SurrealEngine subtree and upstream merges never touch it.
 file(GLOB_RECURSE HP1_SOURCES CONFIGURE_DEPENDS
 	${CMAKE_CURRENT_LIST_DIR}/*.cpp

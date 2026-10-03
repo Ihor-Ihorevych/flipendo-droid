@@ -1,4 +1,16 @@
-# hp1_re
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/branding/flipendo-logo-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/branding/flipendo-logo.png">
+    <img src="docs/branding/flipendo-logo.png" alt="Flipendo" width="560">
+  </picture>
+</p>
+
+<p align="center">
+  <b>Harry Potter and the Philosopher's Stone (2001 PC) on a modern engine:<br>
+  any resolution, real widescreen, no SafeDisc.</b><br>
+  <sub>Named after the first spell Harry learns in the game.</sub>
+</p>
 
 A source port of **Harry Potter and the Philosopher's Stone** (PC, 2001, KnowWonder / EA,
 Unreal Engine 1 build 433) built on [SurrealEngine](https://github.com/dpjudas/SurrealEngine),
@@ -12,7 +24,7 @@ repository, and you need your own copy of the game.
 ## Why play it this way? (no programming needed)
 
 The 2001 PC release is getting hard to run: the disc's copy protection (SafeDisc) doesn't work on
-Windows 10/11, the menus stop at 1024x768, and widescreen needs community fixes. hp1_re runs the
+Windows 10/11, the menus stop at 1024x768, and widescreen needs community fixes. Flipendo runs the
 **original, unmodified game files** on a modern engine instead:
 
 - **Any resolution, real widescreen.** Renders at your monitor's native resolution (1440p, 4K,
@@ -113,23 +125,23 @@ python tools/native_audit.py
 
 ## Upstream & licence
 
-hp1_re's own code (`hp1/`, `patches/`, `tools/`, `docs/`) is licensed under the
+Flipendo's own code (`hp1/`, `patches/`, `tools/`, `docs/`) is licensed under the
 [PolyForm Noncommercial License 1.0.0](LICENSE.md): free to use, modify and share, not for commercial use.
 It is written from HP1's own binaries and scripts and from observing the original game; the project
 does not use Epic source code or headers as a reference.
 
-hp1_re is an independent project, **not affiliated with or endorsed by SurrealEngine**. Please report
+Flipendo is an independent project, **not affiliated with or endorsed by SurrealEngine**. Please report
 problems here, not upstream.
 
 `engine/` is unmodified SurrealEngine (zlib licence, see `engine/LICENSE.md`). Our changes to it are
 the `patches/*.patch` files, applied to the submodule's working tree by `tools/build.sh`
-(`tools/apply_patches.sh`); altered lines are marked with `hp1_re:` comments as the licence requires.
+(`tools/apply_patches.sh`); altered lines are marked with `flipendo:` comments as the licence requires.
 Upstream asks that
 LLM-assisted changes are **not** sent as pull requests (`engine/NO-AI Code Rule.md`), so this fork
 stays separate.
 
 ```sh
-git clone --recursive https://github.com/kroplabeskidu/hp1_re   # or: git submodule update --init
+git clone --recursive https://github.com/kroplabeskidu/flipendo   # or: git submodule update --init
 tools/update_engine.sh --check   # new upstream commits + which patched files they touch
 tools/update_engine.sh           # move engine/ to upstream master and re-apply patches/
 tools/update_engine.sh <sha>     # or a specific commit

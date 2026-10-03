@@ -4,7 +4,7 @@
 #include "Math/mat.h"
 #include "Math/rotator.h"
 
-// Entry points called from the few hp1_re: hooks inside engine/. Everything else HP1-specific
+// Entry points called from the few flipendo: hooks inside engine/. Everything else HP1-specific
 // lives under hp1/. Every hook is already gated by engine->LaunchInfo.IsHarryPotter1().
 
 class UActor;
