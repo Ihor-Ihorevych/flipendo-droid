@@ -27,7 +27,7 @@ tracks in order and points each one at the next slice of the shared pools.
 
 ## Data: `USkeletalMesh` (sizeof 684)
 
-Serialize order matches upstream SurrealEngine's loader: ULodMesh, ExtWedges, Points, RefSkeleton (bone, 64 B
+Serialize order matches SurrealEngine's loader: ULodMesh, ExtWedges, Points, RefSkeleton (bone, 64 B
 in memory: Name, Flags, BonePos{Orientation, Position, Length, XSize, YSize, ZSize}, ParentIndex @52, NumChildren @56,
 Depth @60; on disk NumChildren comes before ParentIndex), BoneWeightIdx, BoneWeights, LocalPoints, SkeletalDepth,
 DefaultAnimation, WeaponBoneIndex, WeaponAdjust. `MeanBoundingBox` is computed on load (not serialized).
@@ -35,7 +35,7 @@ DefaultAnimation, WeaponBoneIndex, WeaponAdjust. `MeanBoundingBox` is computed o
 ## Sequence lookup: `AActor::GetAnim`
 
 Skeletal mesh: `(SkelAnim ? SkelAnim : Mesh.DefaultAnimation)->GetAnimSeq(name)`. Otherwise the classic
-`UMesh::GetAnimSeq`. No fallback to the first sequence (upstream's `UMesh::GetSequence` has one).
+`UMesh::GetAnimSeq`. No fallback to the first sequence (SurrealEngine's `UMesh::GetSequence` has one).
 `LinkSkelAnim(Anim)` just sets `SkelAnim`.
 
 ## Actor animation state

@@ -8,122 +8,168 @@
 
 <p align="center">
   <b>Harry Potter and the Philosopher's Stone (2001 PC) on a modern engine:<br>
-  any resolution, real widescreen, no SafeDisc.</b><br>
+  any resolution, real widescreen, no SafeDisc, moddable.</b><br>
   <sub>Named after the first spell Harry learns in the game.</sub>
 </p>
 
-A source port of **Harry Potter and the Philosopher's Stone** (PC, 2001, KnowWonder / EA,
-Unreal Engine 1 build 433) built on [SurrealEngine](https://github.com/dpjudas/SurrealEngine),
+<p align="center">
+  <a href="#status">Status</a> ·
+  <a href="#getting-started">Getting started</a> ·
+  <a href="#modding">Modding</a> ·
+  <a href="#contributing">Contributing</a> ·
+  <a href="ROADMAP.md">Roadmap</a> ·
+  <a href="docs/README.md">Docs</a>
+</p>
+
+Flipendo is a source port of **Harry Potter and the Philosopher's Stone** (PC, 2001, KnowWonder / EA,
+Unreal Engine 1 build 433). It is built on [SurrealEngine](https://github.com/dpjudas/SurrealEngine),
 an open-source reimplementation of Unreal Engine 1.
 
-The game's logic is ~all UnrealScript that ships inside its `.u` packages. SurrealEngine runs that
-bytecode as-is, so the port is the *engine*: the HP-specific native functions and classes from
-KnowWonder's modified `Engine.dll`, reimplemented in C++. No Epic or KnowWonder code is in this
-repository, and you need your own copy of the game.
+Almost all of the game's logic is UnrealScript that ships inside its `.u` packages, and SurrealEngine
+runs that bytecode unchanged. So the port is the *engine*: the HP-specific native code from
+KnowWonder's modified `Engine.dll`, reimplemented in C++. This repository contains no Epic or
+KnowWonder code. **You need your own copy of the game.**
 
-## Why play it this way? (no programming needed)
+## Why play it this way?
 
-The 2001 PC release is getting hard to run: the disc's copy protection (SafeDisc) doesn't work on
-Windows 10/11, the menus stop at 1024x768, and widescreen needs community fixes. Flipendo runs the
-**original, unmodified game files** on a modern engine instead:
+The 2001 PC release is getting hard to run. Its SafeDisc copy protection doesn't work on Windows 10/11,
+the menus stop at 1024x768, and widescreen needs community fixes. Flipendo runs the **original,
+unmodified game files** on a modern engine instead:
 
-- **Any resolution, real widescreen.** Renders at your monitor's native resolution (1440p, 4K,
+- **Any resolution, real widescreen.** It renders at your monitor's native resolution (1440p, 4K,
   ultrawide). The 3D view gets wider instead of being cropped ("Hor+"), the HUD and cutscene bars fill
-  the screen, and the menu book stays in its original 4:3 shape.
+  the screen, and the menu book keeps its original 4:3 shape.
 - **Modern renderer.** Vulkan (default), Direct3D 11/12 or OpenGL instead of 2001's Direct3D 7/Glide.
 - **No disc, no SafeDisc, no compatibility patches.** Point it at an installed copy of the game.
-- **Same game.** The levels, scripts, dialogue and voice acting are the ones from your copy; nothing is
+- **Same game.** The levels, scripts, dialogue and voice acting come from your copy. Nothing is
   remade or altered.
-- **Fixable.** Bugs in the engine can be fixed in source, and cross-platform support (Linux, macOS,
-  Steam Deck) becomes possible because SurrealEngine already runs on them.
-
-You still need **your own copy of the game**. None of its data is in this repository.
+- **Optional extras.** Cutscene and storybook skipping, faster startup, and more to come (see
+  [Modding](#modding)). `--vanilla` turns them all off.
+- **Fixable and portable.** Engine bugs can be fixed in source. Linux, macOS and Steam Deck become
+  possible because SurrealEngine already runs on them.
 
 ## Status
 
-**Not playable start to finish yet.** It's an early work in progress; see [`ROADMAP.md`](ROADMAP.md).
+> **Early work in progress. The game is not playable start to finish yet.** There are no prebuilt
+> downloads; you build it yourself (below). [`ROADMAP.md`](ROADMAP.md) has the detailed checklist.
 
-- Works: front-end menu book, loading levels, characters with skeletal animation, the `Lev_Tut1` intro
-  cutscene, Harry walking around, doors, widescreen at any resolution.
-- Not yet: spells (particles and the spell-drawing gestures), save games, Quidditch and broom levels,
-  a full playthrough.
+| Area | State |
+|---|---|
+| Front-end menu book, options, New Game storybook | works |
+| Widescreen / any resolution, music, screen fades | works |
+| Characters: skeletal animation, root motion (climbing), ledge grabbing, Harry's wand | works; not yet compared side by side with the original |
+| First level (`Lev_Tut1`): intro cutscene, Ron, Fred & George's room, bookcase climb, jump room | works up to the jump room exit |
+| Doors, cutscenes, NPC pathing, Peeves | works |
+| Spells: gesture drawing recognition, particle effects (fires, trails) | mostly works; some particle types and spell targeting missing |
+| Broom and Quidditch levels | load and run their intros; not playable yet |
+| Save games, level-to-level travel, full playthrough | not yet |
 
-[`docs/native_audit.md`](docs/native_audit.md) is the full list of what's missing (generated by
+[`docs/native_audit.md`](docs/native_audit.md) lists every native function still missing (generated by
 `tools/native_audit.py`).
 
-## How you can help
+## Getting started
 
-- **Playtesters** (no coding): run a level, compare it with the original game, and report what looks or
-  behaves differently. Screenshots or short clips from both side by side help most.
-- **Other game versions**: only a few `System/HP.exe` builds are recognised (UK 1.1, EN retail, a
-  community No-CD). If yours is another language or release, it may not be detected yet; reporting its
-  SHA-1 helps.
-- **Reverse engineers**: the remaining work is reimplementing KnowWonder's native code from
-  `Engine.dll` (IDA). Each reimplemented function is tagged with the original's decorated name and
-  address.
-- **C++ developers**: everything HP1-specific lives in `hp1/`; the README sections below and
-  [`CLAUDE.md`](CLAUDE.md) describe the layout and conventions.
+### What you need
 
-Much of this port is written with LLM assistance (Claude), which is why it isn't contributed to
-upstream SurrealEngine (see below).
+- An installed copy of **Harry Potter and the Philosopher's Stone (PC, 2001)**: the folder containing
+  `System/`, `Maps/`, `Textures/`, ... Recognised `System/HP.exe` builds: UK 1.1, EN retail (SafeDisc)
+  and a community No-CD. If yours is another language or release it may not be detected yet; please
+  open an issue with its SHA-1.
+- **Windows**: Visual Studio 2026 (v18) with the C++ workload. Its bundled CMake is used if `cmake`
+  isn't on `PATH`. **Linux/macOS**: see [`engine/Docs/Building.md`](engine/Docs/Building.md) (untested
+  with Flipendo so far).
 
-## Layout
+### Build
 
-| Path | What |
-|---|---|
-| `hp1/` | The HP1 port: native functions, animation, etc. Built into the engine via `hp1/hp1.cmake`. |
-| `engine/` | SurrealEngine, a **git submodule** of [upstream SurrealEngine](https://github.com/dpjudas/SurrealEngine). Never edited or committed to directly. |
-| `patches/` | Our small changes to SurrealEngine (hooks into `hp1/`, HP1 exe detection, launcher flags), applied to `engine/` by the build. |
-| `tools/` | Build, run and audit scripts. |
-| `docs/` | Reverse-engineering notes and generated reports. |
-| `reference/` | Scripts extracted from your own install by `tools/extract_scripts.sh`. **Gitignored** (derived from the game). |
-
-## Building (Windows)
-
-Requires Visual Studio 2026 (v18) with the C++ workload; its bundled CMake is used if `cmake`
-isn't on `PATH`. From Git Bash:
+From Git Bash:
 
 ```sh
+git clone --recursive https://github.com/kroplabeskidu/flipendo   # or: git submodule update --init
+cd flipendo
 tools/build.sh            # Release; binaries in build/Release/
 tools/build.sh Debug
 ```
 
-Linux/macOS: see [`engine/Docs/Building.md`](engine/Docs/Building.md).
-
-## Running
-
-Point it at an installed HP1 folder (the one containing `System/`, `Maps/`, ...):
+### Run
 
 ```sh
-build/Release/SurrealEngine.exe "C:/Games/Harry Potter"           # launcher
-HP1_GAME_DIR="C:/Games/Harry Potter" tools/run_hp1.sh             # skip launcher, log to build/hp1_run.log
-HP1_GAME_DIR="C:/Games/Harry Potter" tools/run_hp1.sh 60          # same, quit after 60s, summarise Unimplemented calls
-HP1_GAME_DIR="C:/Games/Harry Potter" tools/run_hp1.sh 0 --skip-splash --skip-intro  # straight to the menu; New Game skips the storybook
+build/Release/SurrealEngine.exe "C:/Games/Harry Potter"           # opens the launcher
 ```
 
-Fork-only flags: `--autolaunch` (boot the first detected game, no launcher, no modal error box) and
-`--logfile=<path>` (stream the log to a file, survives crashes), `--skip-splash` (HP1: skip the EA/KnowWonder/title
-splash screens and open the main menu), `--skip-intro` (HP1: New Game goes straight to the first level), `--vanilla` (HP1: turn off our additions such as
-the "Press Space to skip" cutscene skip; see `hp1/mods/README.md`).
+| Flag | What it does |
+|---|---|
+| `--autolaunch` | boot the first detected game, no launcher and no modal error boxes |
+| `--logfile=<path>` | stream the log to a file (survives crashes) |
+| `--skip-splash` | skip the EA/KnowWonder/title splash screens |
+| `--skip-intro` | New Game goes straight to the first level |
+| `--vanilla` | turn off every addition the original doesn't have |
 
-Recognised `System/HP.exe` builds are listed in `engine/SurrealEngine/UE1GameDatabase.h`
-(UK 1.1, EN retail SafeDisc, community No-CD).
-
-## Reference material
+If the game doesn't start, the error says which folder or file is missing and where it was looked for;
+[docs/troubleshooting.md](docs/troubleshooting.md) explains each message. For development,
+`tools/run_hp1.sh` launches straight into the game and logs to `build/hp1_run.log`:
 
 ```sh
-tools/extract_scripts.sh   # -> reference/hp1/ScriptSource/ (our disc's scripts; needs the .NET 10 SDK)
-python tools/native_audit.py
+HP1_GAME_DIR="C:/Games/Harry Potter" tools/run_hp1.sh                # play, log to build/hp1_run.log
+HP1_GAME_DIR="C:/Games/Harry Potter" tools/run_hp1.sh 60             # quit after 60 s, list Unimplemented calls
+HP1_GAME_DIR="C:/Games/Harry Potter" tools/run_hp1.sh 0 --skip-splash --skip-intro
 ```
 
-- **Our own scripts**: the HP1 packages embed their UnrealScript source text; `tools/extract_scripts.sh`
-  extracts it from your install with [UELib](https://github.com/EliotVU/Unreal-Library) (`tools/Unreal-Library`
-  submodule, our extractor in `tools/uelib_dump/`). `tools/uelib_dump props <package> <file>` dumps every
-  export of a package with its properties (e.g. all actors of a map).
-- Harry Potter modding community resources:
-  [HarryPotterUnrealWiki](https://github.com/metallicafan212/HarryPotterUnrealWiki/wiki/Main-Resources)
+## Modding
 
-## Upstream & licence
+Flipendo keeps the **faithful port** apart from **additions**. Additions never change vanilla behaviour
+unless switched on, and `--vanilla` switches all of them off. Today's built-in mods:
+
+| Mod | Default | What it does |
+|---|---|---|
+| Cutscene skip | on | "Press Space to skip" during cutscenes |
+| Storybook skip | on | "Press Space to skip" in storybooks (New Game intro, chapter interludes) |
+| Launch skips | off (`--skip-splash`, `--skip-intro`) | skip the splash screens and the New Game storybook |
+
+A mod is one C++ file in `hp1/mods/` that reads and drives the game's own script state through three hooks:
+a per-frame tick, key presses, and drawing on top of the HUD and menus.
+
+The whole game is UnrealScript, and SurrealEngine already loads packages from the folders in the game's ini,
+so Flipendo can grow into a mod platform: per-mod settings and an in-game *Extras* page, drop-in
+`Mods/<name>/` folders for texture packs, custom levels and script mods with no recompiling, and running the
+HP1 community's custom levels. **[docs/modding.md](docs/modding.md)** has the guide to writing a mod and the plan.
+Ideas and requests are welcome in the issues.
+
+## Contributing
+
+There's work for every skill level, and much of it needs no programming:
+
+- **Playtesters**: run a level, compare it with the original game, and report what looks or behaves
+  differently. Side-by-side screenshots or short clips help most. Comparing animations with the
+  original is on the [roadmap](ROADMAP.md) right now.
+- **Owners of other game versions**: if your `HP.exe` isn't detected, the error shows its SHA-1; report it
+  with the language and release.
+- **Modders**: build an extra in `hp1/mods/`, or help design the content-mod loading
+  ([docs/modding.md](docs/modding.md)).
+- **Reverse engineers**: the remaining work is reimplementing KnowWonder's native code from
+  `Engine.dll`. Every reimplemented function is tagged with the original's decorated name and address, and
+  [`docs/re/`](docs/re/) has what's been learned so far.
+- **C++ developers**: everything HP1-specific lives in `hp1/`. Start with
+  [docs/development.md](docs/development.md): layout, ground rules, the game's scripts as reference,
+  debug tools. [`docs/native_audit.md`](docs/native_audit.md) lists what's missing.
+
+Two ground rules: never use Epic's UE1 source or headers (or header sets derived from them) as a
+reference, and never commit game data or anything extracted from it.
+
+Much of this port is written with LLM assistance (Claude), which is why our engine patches aren't sent to
+the SurrealEngine project (see [below](#surrealengine--licence)).
+
+## Documentation
+
+| | |
+|---|---|
+| [ROADMAP.md](ROADMAP.md) | what's done and what's next |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | where the game files are expected, error messages |
+| [docs/modding.md](docs/modding.md) | built-in mods, writing your own, where modding is going |
+| [docs/development.md](docs/development.md) | code layout, ground rules, reference material, debug tools |
+| [docs/engine-hooks.md](docs/engine-hooks.md) | how Flipendo patches SurrealEngine, updating SurrealEngine |
+| [docs/re/](docs/re/) | reverse-engineering notes |
+
+## SurrealEngine & licence
 
 Flipendo's own code (`hp1/`, `patches/`, `tools/`, `docs/`) is licensed under the
 [PolyForm Noncommercial License 1.0.0](LICENSE.md): free to use, modify and share, not for commercial use.
@@ -131,25 +177,12 @@ It is written from HP1's own binaries and scripts and from observing the origina
 does not use Epic source code or headers as a reference.
 
 Flipendo is an independent project, **not affiliated with or endorsed by SurrealEngine**. Please report
-problems here, not upstream.
+problems here, not to SurrealEngine.
 
-`engine/` is unmodified SurrealEngine (zlib licence, see `engine/LICENSE.md`). Our changes to it are
-the `patches/*.patch` files, applied to the submodule's working tree by `tools/build.sh`
-(`tools/apply_patches.sh`); altered lines are marked with `flipendo:` comments as the licence requires.
-Upstream asks that
-LLM-assisted changes are **not** sent as pull requests (`engine/NO-AI Code Rule.md`), so this fork
-stays separate.
-
-```sh
-git clone --recursive https://github.com/kroplabeskidu/flipendo   # or: git submodule update --init
-tools/update_engine.sh --check   # new upstream commits + which patched files they touch
-tools/update_engine.sh           # move engine/ to upstream master and re-apply patches/
-tools/update_engine.sh <sha>     # or a specific commit
-```
-
-If a patch no longer applies, `apply_patches.sh` reports `CONFLICT`: redo that hook by hand in
-`engine/`, run `tools/refresh_patches.sh` to regenerate `patches/`, rebuild, commit `patches/` and
-the new `engine` submodule pointer.
+`engine/` is SurrealEngine (zlib licence, see `engine/LICENSE.md`), used as a git submodule. Our changes to it
+are the `patches/*.patch` files, applied by the build, with altered lines marked `flipendo:` as the licence
+requires ([docs/engine-hooks.md](docs/engine-hooks.md)). SurrealEngine asks that LLM-assisted changes are
+**not** sent as pull requests (`engine/NO-AI Code Rule.md`), so our patches stay in this repository.
 
 Harry Potter is a trademark of Warner Bros. Entertainment. The game data is copyright EA /
 KnowWonder and is not included.

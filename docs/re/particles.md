@@ -19,6 +19,13 @@ Addresses are the `..._0` bodies in `../ida/Engine.dll.i64`. `EmitParticles` doe
 Doubly linked list in insertion order (148-byte nodes = 8 link bytes + 140-byte UParticle), with an
 iterator (`Current`, `bAdvanced`) so the current node can be removed while iterating.
 
+`Engine.u` imports `Class Engine.ParticleList` (it's a native class with no script body). SurrealEngine registers
+no such class, so the import resolves to null; since the missing-import log was added, every start logs
+`Package Engine imports Class Engine.ParticleList, which Engine does not contain`. `hp1/HP1ParticleFX.cpp`
+keeps its own particle list per actor in a side table (`ParticleList` stays None, and no HP1 script reads it), so the
+missing class has no effect.
+(The other import logged on every start, `HPBase` → `Texture HPEdit.Icons.Icons.station`, is an editor icon.)
+
 | vtbl | method |
 |---|---|
 | +112 | First() |

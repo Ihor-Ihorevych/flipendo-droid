@@ -1,7 +1,11 @@
 # Roadmap
 
-Where the HP1 port stands and what's next. Update this when a step lands. Details of what was reversed
-live in `docs/re/`. The native-level checklist is `docs/native_audit.md` (`python tools/native_audit.py`).
+Where the HP1 port stands and what's next. Update this when a step lands.
+
+This file is the checklist only: what works, what doesn't, what's next. How things work goes in `docs/`
+([docs/README.md](docs/README.md)): what was reversed in `docs/re/`, the SurrealEngine hooks in
+[docs/engine-hooks.md](docs/engine-hooks.md), workflow and tools in [docs/development.md](docs/development.md).
+The native-level checklist is [docs/native_audit.md](docs/native_audit.md) (`python tools/native_audit.py`).
 
 Legend: [x] done · [~] partly done / in progress · [ ] not started
 
@@ -14,13 +18,9 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 3. Broom / Quidditch levels now load and their paths fly (see phase 5). Next there: Lev4_Sneak stops on
    `goto lcloop` (gargoyle.lookaround: "Could not find label").
 
-Before reversing anything, search the decompiled dump (`../ida/decomp/`) and `docs/re/script_events.md`: a state the
-script never enters is usually an event the engine doesn't raise. Read scripts in `reference/hp1/ScriptSource/` (our
-disc, `tools/extract_scripts.sh`), not other script exports.
-
 ## 0. Groundwork
-- [x] SurrealEngine as a git submodule (`engine/`, upstream SurrealEngine) + our changes as `patches/`;
-      `tools/update_engine.sh` to move to newer upstream
+- [x] SurrealEngine as a git submodule (`engine/`, SurrealEngine) + our changes as `patches/`;
+      `tools/update_engine.sh` to move to newer SurrealEngine
 - [x] HP1 retail exe detection (SafeDisc + No-CD hashes), `--autolaunch`, `--logfile`
 - [x] Native audit vs our disc's scripts (`tools/native_audit.py` → `docs/native_audit.md`)
 - [x] Our own scripts: `tools/extract_scripts.sh` extracts the source text embedded in our `.u` files (1247 classes,
@@ -45,6 +45,11 @@ disc, `tools/extract_scripts.sh`), not other script exports.
       and for HP2)
 - [x] Mouse cursor is only recentered, and raw mouse/keyboard input only used, while the game window is the
       foreground window (patch 0004; raw input arrives in the background, moving the mouse elsewhere turned the camera)
+- [x] Missing game data is reported ([docs/troubleshooting.md](docs/troubleshooting.md)): an unrecognised game folder
+      says why (no such folder, the System folder itself, no `System/HP.exe`, unknown exe SHA-1); a missing package
+      names who needs it and every `Paths=` folder searched; missing maps, missing `Paths=` folders, failed
+      DynamicLoadObject calls and imports a package lacks are logged
+- [x] Documentation split: README (users), ROADMAP (status), `docs/` (how things work)
 
 ## 1. Characters move (skeletal animation) ← current
 - [x] `UAnimation` HP1 format loader (`hp1/Anim/HP1Animation.cpp`)
@@ -63,7 +68,7 @@ disc, `tools/extract_scripts.sh`), not other script exports.
       (`hp1/Anim/HP1Skeletal.cpp`, `hp1/HP1Attach.cpp`, `docs/re/animation.md`): Harry holds his wand. The weapon frame is
       GetFrame's (WeaponAdjust in the weapon bone, orthonormalized, Y negated), it sets Pawn.WeaponLoc/WeaponRot and the
       weapon's ThirdPersonMesh is drawn in it. `physTrailer` follows the owner's bone AnimBone-1 (broom trail at
-      'BroomTail'). The wand was also invisible because upstream raised RenderOverlays in third person:
+      'BroomTail'). The wand was also invisible because SurrealEngine raised RenderOverlays in third person:
       Weapon.RenderOverlays → Canvas.DrawActor leaves the weapon bHidden (HP1 only raises it without bBehindView)
 - [ ] GetRenderExtent, GetWorldCollisionBox (skeletal bounds)
 - [x] Transient channel cleanup (done in ApplyAnim, like the original)
@@ -82,7 +87,7 @@ disc, `tools/extract_scripts.sh`), not other script exports.
         teleported by the cutscene timeout = the "pop-in"). Also affects Triggers/CutScene volumes
   - [x] `APawn::moveToward` port (`hp1/HP1Pawn.cpp`): 16-unit arrival, steering damping, speed reduction,
         AvgPhysicsTime; kids no longer circle patrol points or wedge against the open door
-- [x] Player input: HP1 binds `Up=MoveForward | Button bBroomPitchUp`; upstream didn't trim `|`
+- [x] Player input: HP1 binds `Up=MoveForward | Button bBroomPitchUp`; SurrealEngine didn't trim `|`
       subcommands, so the alias was never found and Harry couldn't move (`Engine::GetSubcommands`)
 - [x] `APawn::physicsRotation` port: pawns, including the player, turn towards DesiredRotation every physics
       step (Harry ran sideways in cutscenes). Flying/swimming roll banking not ported yet
@@ -90,8 +95,8 @@ disc, `tools/extract_scripts.sh`), not other script exports.
       finished tweens; needs a closer look at which ones)
 - [ ] Kids spawned on the same patrol point can overlap (UE1 Spawn fails when the spot is occupied?)
 - [ ] Verify CT_Box against `UBox::LineCheck/PointCheck` (Engine.dll 0x103FE620/0x103FE590); CT_Shape
-      (decorations/movers: box from mesh/brush) still uses upstream's cylinder/brush collision
-- [x] The player slides along actor walls instead of sticking to them (upstream TickWalking left player-vs-actor
+      (decorations/movers: box from mesh/brush) still uses SurrealEngine's cylinder/brush collision
+- [x] The player slides along actor walls instead of sticking to them (SurrealEngine TickWalking left player-vs-actor
       hits as a TODO; HP1's `APawn::stepUp` slides). Harry can now run up the Lev_Tut1 stairs along the
       BlockAll banister and reach the Ron cutscene
 - [~] Play through Lev_Tut1 + Lev_Tut1b, fix what breaks (`tools/run_hp1.sh 60 --url=Lev_Tut1`). With `HP1_GOTO`:
@@ -102,23 +107,23 @@ disc, `tools/extract_scripts.sh`), not other script exports.
       2656,-2944) → corridor (2656,-2790; 3136,-2790) → east arch (3136,-2960; 3150,-3030) → jump down onto box C
       (3150,-3068,J; 3150,-3300) → box D (3150,-3346,J; 3150,-3640) → south ledge (3150,-3748,J; 3150,-3930) →
       jumpexit doors (3136,-4100) works. Peeves patrols (Pawn.FindPath). See "Next up"
-- [x] Flying pawns keep their vertical velocity (upstream TickFlying zeroed it; HP1's physFlying doesn't). Peeves
+- [x] Flying pawns keep their vertical velocity (SurrealEngine TickFlying zeroed it; HP1's physFlying doesn't). Peeves
       pitched up towards his higher nav point but couldn't climb and orbited it forever; now he flies his patrol,
       waitforTrigger2, attackCamera, Taunt and obspatrol
 - [x] Ledge grabbing: `APawn::Mount` (`hp1/HP1Pawn.cpp`), called from walking (stepUp) and falling wall hits. Only
-      BSP surfaces with PolyFlags 0x1000 (PF_SpecialPoly = HP1's "mountable") qualify. Upstream's cylinder collision
+      BSP surfaces with PolyFlags 0x1000 (PF_SpecialPoly = HP1's "mountable") qualify. SurrealEngine's cylinder collision
       can report the node of a neighbouring plane, so the face is re-found with a zero-extent ray
 - [x] `Actor.SetCollisionSize` has HP1's optional third parameter NewWidth (MountFinish passes three values)
 - [x] Gameplay events SurrealEngine never raised (`docs/re/script_events.md`, `hp1/HP1Pawn.cpp`):
   - [x] `Falling` when walking or rolling off a ledge, before PHYS_Falling (Pawn.Falling → PlayInAir: Harry's fall
         animation; the boulder stops its rolling sound). Not from physSpider/findNewFloor (PHYS_Spider is unused)
   - [x] physWalking's ledge rule: MayFall once, then a pawn without bCanJump or with bIsWalking stops at the edge
-        (upstream let them walk off)
+        (SurrealEngine let them walk off)
   - [x] `DoJump` for PlayerPawn.bAutoJump (options menu "Auto Jump"): edge search + the landing predictor
         (sub_103E6310); jumps when that lands > 10 units higher. Harry clears the jump room's gaps by himself
   - [x] `AlterDestination` (PollMoveToward with HP1's Destination/Focus handling, PollStrafeFacing),
         `LongFall` (WaitForLanding: LatentFloat 2.5 s, latent only while falling)
-  - [x] `KeyFrameReached` from mover physics instead of upstream's InterpolateEnd(None)
+  - [x] `KeyFrameReached` from mover physics instead of SurrealEngine's InterpolateEnd(None)
 - [x] `PreClientTravel` raised by ClientTravel (only PlayerPawn's empty handler in HP1; the level change itself is
       untested, the playthrough doesn't get there yet)
 - [x] `Pawn.FindPath` (553, KnowWonder's station pathing; tut1Peeves crashed the game without it,
@@ -136,7 +141,7 @@ disc, `tools/extract_scripts.sh`), not other script exports.
       768 units tall, like 1024x768), and the options page lists the display's real resolutions
       (`FEOptionsPage.IsSupportedResolution` replaced by a native)
 - [x] Camera flew off towards the world origin when looking up (mouse up): `Actor.TraceActors` (309) overridden
-      (`hp1/HP1TraceTexture.cpp`, from execTraceActors/MultiLineCheck). Upstream's iterator returned HitLocation
+      (`hp1/HP1TraceTexture.cpp`, from execTraceActors/MultiLineCheck). SurrealEngine's iterator returned HitLocation
       (0,0,0), traced End->Start and never reported BSP hits as LevelInfo, which `BaseCam.CheckPosition` relies on
 - [ ] Windowed mode: menu mouse mapping (`WindowsMouseX/Y` into the 4:3 area) not yet tested in game
 
@@ -172,56 +177,25 @@ disc, `tools/extract_scripts.sh`), not other script exports.
 - [ ] Full game playthrough; per-level bug list
 - [ ] Editor-only natives (BrushBuilders) — low priority
 
+## 6. Modding (`hp1/mods/` and beyond)
+- [x] `hp1/mods/` with `--vanilla`: cutscene skip, storybook skip, `--skip-splash`, `--skip-intro`
+- [ ] Per-mod on/off and settings in an ini section (`[Flipendo.Mods]`), not only command-line flags; an *Extras*
+      page in the options book (FEBook) to toggle them in game
+- [ ] Drop-in content mods: `Mods/<name>/` folders added to the package search path ahead of the originals
+      (`PackageManager::ScanPaths` already reads `Core.System` Paths from the ini, and `ScanFolder` keeps the first
+      folder that has a package of that name, so mod folders must be scanned before the originals). Define load
+      order between mods, and test a texture pack and a custom map
+- [ ] Script mods: replace a game class with a mod subclass at spawn time (e.g. `HarryPotter.harry` → `MyMod.MyHarry`),
+      configured in the ini, without touching the original packages
+- [ ] Run custom levels made by the HP1 modding community (collect a few test maps, list what breaks)
+- [ ] More built-in extras: FOV slider, frame limiter / uncapped framerate, controller support, speedrun timer,
+      free camera
+- [~] Modder docs: [docs/modding.md](docs/modding.md) (writing a mod, hooks, tools); still missing a worked
+      "first mod" walkthrough
+
 ## Later: the other KnowWonder games
 - [ ] HP2 (Chamber of Secrets, UE1 build 433, packages 79): same pipeline. The `// IDA` tags use decorated names so
       the same functions can be found in HP2's DLLs; UELib reads its packages
 - [ ] HP3 (Prisoner of Azkaban, UE2 build 2226, packages 129): no UE2 counterpart of SurrealEngine exists. First check,
       with UELib: how many native classes/functions its gameplay packages have (HP1's have none). Mostly script =
       extending SurrealEngine towards UE2 is worth a look; otherwise fixes for the original exe are the better route
-
-## Engine hooks (upstream files we touch)
-
-These live in `patches/` (0001 exe detection, 0002 launcher flags, 0003 hooks into `hp1/`, 0004 cursor
-recentering only while focused) and are kept
-minimal so upstream updates rarely conflict.
-
-| File | Hook |
-|---|---|
-| `engine/CMakeLists.txt` | includes `hp1/hp1.cmake` |
-| `Package/PackageManager.cpp` | `HP1::RegisterNatives()` after upstream natives |
-| `Packages/Engine/Resources/Mesh/UAnimation.cpp` | `HP1::LoadAnimation` |
-| `Packages/Engine/Actors/UActor_Animation.cpp` | `HP1::TickAnimation` |
-| `Render/VisibleMesh.cpp` | `HP1::DrawSkeletalMesh` in `DrawSkeletalMesh` |
-| `Packages/Engine/Actors/UActor_Render.cpp` | `HP1::GetRenderBoundingBox` in `UpdateBspInfo` |
-| `Packages/Engine/Actors/UActor_PhysMovingBrush.cpp` | `HP1::MoverPhysicsBegin/End` (Mover's shadowed PhysAlpha/PhysRate) |
-| `Render/RenderSubsystem.cpp` | `HP1::OnFrameRendered` (`HP1_SHOTS` debug screenshots) |
-| `Render/RenderCanvas.cpp`, `RenderSubsystem.h` | `HP1::CanvasUIScale` (float `uiscale`), `HP1::SetCanvasArea` (full-width HUD, 4:3 console/menus); `DrawClippedActor` relative to the canvas area |
-| `Engine.cpp` | `HP1::ViewFovAngle` after PlayerCalcView (Hor+ FOV); trim `\|` input subcommands; `SET Input` takes the rest of the line (multi-word aliases; no alias unbinds); `getres` → `HP1::AvailableResolutions`; `HP1::MenuMousePosition` in `OnWindowMouseMove` |
-| `Collision/TopLevel/TraceTest.cpp`, `OverlapTest.cpp`, `CollisionSystem.cpp` | CT_Box trace/overlap/hash extents |
-| `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `HP1::PawnMoveToward`, `HP1::PawnPhysicsTime`, `HP1::PawnPhysicsRotation` |
-| `Packages/Engine/Actors/Pawn/UPlayerPawn.cpp` | `HP1::PawnPhysicsRotation` |
-| `UE1GameDatabase.h`, `GameApp.cpp` | exe hashes, `--autolaunch` / `--logfile` |
-| `SurrealWidgets/.../win32_display_window.cpp` | cursor recentering and raw mouse/keyboard input need foreground focus (0004; raw input is RIDEV_INPUTSINK, so moving the mouse in another app turned the camera) |
-| `Packages/Engine/Actors/UActor_Phys.cpp`, `UActor_PhysRolling.cpp` | `HP1::PhysicsChecksLeftWorld` (zone-0 FellOutOfWorld only while walking) |
-| `Packages/Engine/Actors/UActor_PhysWalking.cpp` | player slides along actors it hits (no pushable decoration); `HP1::PawnMount` before the step up |
-| `Packages/Engine/Actors/UActor_PhysFalling.cpp` | `HP1::PawnMount` on a wall hit |
-| `Packages/Engine/Actors/UActor.cpp` | `HP1::TickParticleFX` in Tick, `HP1::ParticleFXDestroyed` in Destroy |
-| `Packages/Engine/Actors/UActor_Render.cpp` | `HP1::GetParticleBoundingBox` for DT_Particles (8) |
-| `Render/VisibleActor.cpp` | DT_Particles actors drawn in the translucent pass by `HP1::DrawParticleSystem` |
-| `Engine.cpp` | `HP1::DebugCamera` after PlayerCalcView (`HP1_CAMERA`); `HP1::TickMods` after the console tick; `HP1::ModsKeyDown` in OnWindowKeyDown |
-| `Render/RenderCanvas.cpp` (PostRender) | `HP1::PostRenderMods` after the HUD and console/menus |
-| `Native/NObject.cpp` | DynamicLoadObject resolves "Package.Group.Name" |
-| `Packages/Engine/Actors/UActor.cpp` (Tick end) | `HP1::TickRootMotion` (bAnimMove root motion) |
-| `Packages/Engine/Actors/UActor_PhysWalking.cpp`, `UActor_PhysRolling.cpp` | `HP1::PawnWalkOffLedge` / `HP1::StartFalling` (MayFall, ledge rule, auto-jump, Falling) |
-| `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `HP1::PawnPollMoveToward`, `PawnPollStrafeFacing`, `PawnPollWaitForLanding`; WaitForLanding sets LatentFloat |
-| `Packages/Engine/Actors/UActor_PhysMovingBrush.cpp` | KeyFrameReached instead of InterpolateEnd(None) |
-| `Native/NPlayerPawn.cpp` | ClientTravel raises PreClientTravel |
-| `Engine.cpp` (after the level tick), `Render/RenderSubsystem.cpp` | ViewFlash event; `HP1::ViewFlashParams` for the screen flash |
-| `Packages/Engine/Subsystems/USurrealAudioDevice.cpp` | music plays despite `UseDigitalMusic=False` (HP1's shipped ini; its mp2 songs play in the original) |
-| `Packages/Engine/Actors/UActor_PhysFlying.cpp` | flying keeps Velocity.z (HP1 physFlying 0x103F13A0) |
-| `Packages/Engine/Actors/UActor_Phys.cpp` | an InterpolationManager runs `HP1::InterpolationManagerPhysics` instead of the physics modes |
-| `Packages/Engine/Subsystems/USurrealAudioDevice.cpp/.h` | `ModifySoundHP1` / `StopSoundHP1` (Galaxy.dll's slot + sound match) |
-| `Packages/Core/Properties/UStructProperty.cpp` | struct members that are fixed arrays load/save every element |
-| `Packages/Engine/Actors/UActor_PhysTrailer.cpp` | `HP1::PhysTrailer` (AnimBone attachment, HP1's rotation rules) |
-| `Render/VisibleMesh.cpp` | weapon on a skeletal pawn: `HP1::PawnWeaponFrame` (WeaponLoc/WeaponRot) + `Begin/EndWeaponDraw` around the weapon draw |
-| `Render/RenderCanvas.cpp` | RenderOverlays only without bBehindView, on the ViewTarget |

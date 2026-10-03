@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CONFIG="${1:-Release}"
 TARGET="${2:-}"
 
-# engine/ is a submodule of upstream SurrealEngine; our hooks are applied from patches/.
+# engine/ is a submodule of SurrealEngine; our hooks are applied from patches/.
 "$ROOT/tools/apply_patches.sh"
 
 CMAKE="${CMAKE:-}"
