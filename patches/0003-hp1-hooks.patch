@@ -687,6 +687,20 @@ index 53982dc0..8dc63eb1 100644
  		return; // To do: format changed. Figure out how. Maybe the arrays became skippable?
  
  	int NumRefBones = stream->ReadIndex();
+diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
+index d5615c73..31ff3dc3 100644
+--- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
++++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
+@@ -356,7 +356,8 @@ void USurrealAudioDevice::UpdateMusic()
+ 		CurrentSong = m_Viewport->Actor()->Song();
+ 		CurrentSection = m_Viewport->Actor()->SongSection();
+ 
+-		if (CurrentSong && UseDigitalMusic)
++		// hp1_re: HP1 ships UseDigitalMusic=False yet plays its mp2 music; its audio driver doesn't gate on the flag
++		if (CurrentSong && (UseDigitalMusic || engine->LaunchInfo.IsHarryPotter1()))
+ 		{
+ 			int subsong = CurrentSection != 255 ? CurrentSection : 0;
+ 
 diff --git a/SurrealEngine/Render/RenderCanvas.cpp b/SurrealEngine/Render/RenderCanvas.cpp
 index 4b2aa5c5..7ece3924 100644
 --- a/SurrealEngine/Render/RenderCanvas.cpp
