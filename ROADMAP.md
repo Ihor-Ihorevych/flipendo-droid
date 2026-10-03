@@ -9,7 +9,8 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 - [x] SurrealEngine as a git submodule (`engine/`, our mirror) + our changes as `patches/`;
       `tools/update_engine.sh` to move to newer upstream
 - [x] HP1 retail exe detection (SafeDisc + No-CD hashes), `--autolaunch`, `--logfile`
-- [x] HP1 code lives in `hp1/`, engine changes are small `hp1_re:` hooks (see "Code layout" in CLAUDE.md)
+- [x] HP1 code lives in `hp1/`, engine changes are small `hp1_re:` hooks in `patches/`
+- [x] `HP1_SHOTS` / `HP1_SHOT_DIR` in-engine screenshots for checking scenes without a desktop capture
 
 ## 1. Characters move (skeletal animation) ← current
 - [x] `UAnimation` HP1 format loader (`hp1/Anim/HP1Animation.cpp`)
@@ -27,6 +28,13 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 
 ## 2. Playable tutorial (Lev_Tut1)
 - [x] TraceTexture at HP1's native index 285 (footsteps); decals not traced yet
+- [x] Doors (Movers) move: HP1's Mover shadows PhysAlpha/PhysRate (`hp1/HP1Mover.cpp`). This also fixed
+      cutscene walks (MoveSmooth + timeout teleport) popping characters through closed doors
+- [x] Skeletal render box for culling/BSP placement (`USkeletalMesh::GetRenderBoundingBox`)
+- [~] Intro cutscene (CutScene4): doors open, kids run, Harry runs out. Remaining:
+  - [ ] Dumbledore is drawn (all faces, textures, right place) but not visible on screen; check skinned verts
+  - [ ] Kids spawned by `TriggerSpwnBsChrOnPPnt` stop on the bottom of the stairs and never leave
+  - [ ] Kids run with odd rotation (pawn turning: RotationRate / DesiredRotation in upstream physics?)
 - [ ] Play through Lev_Tut1 + Lev_Tut1b, fix what breaks (`tools/run_hp1.sh 60 --url=Lev_Tut1`)
 - [ ] Missing Actor natives: ModifySound(567), StopSound(568), SaveGameExists(3972), Wind.GetWind,
       PlayerPawn.ScreenToWorld, Pawn.FindPath, Console.CreateNativeFont
