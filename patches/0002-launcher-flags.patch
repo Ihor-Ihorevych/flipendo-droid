@@ -1,4 +1,4 @@
-hp1_re: --autolaunch and --logfile command line flags
+flipendo: --autolaunch and --logfile command line flags
 
 diff --git a/SurrealEngine/GameApp.cpp b/SurrealEngine/GameApp.cpp
 index 3b059e5c..03c6e475 100644
@@ -14,7 +14,7 @@ index 3b059e5c..03c6e475 100644
  {
  	InitWidgetResources("dark");
  
-+	// hp1_re: headless-friendly dev mode. --autolaunch skips the launcher window and boots the
++	// flipendo: headless-friendly dev mode. --autolaunch skips the launcher window and boots the
 +	// first game found in the given folder; --logfile=<path> streams every log line to a file
 +	// as it is written, so the log survives a hard crash.
 +	bool autolaunch = false;
@@ -62,7 +62,7 @@ index 3b059e5c..03c6e475 100644
  	}
  	catch (const std::exception& e)
  	{
-+		// hp1_re: in autolaunch mode never block on a modal dialog; report and exit non-zero
++		// flipendo: in autolaunch mode never block on a modal dialog; report and exit non-zero
 +		if (autolaunch)
 +		{
 +			if (logfile.is_open())

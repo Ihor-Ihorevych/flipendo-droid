@@ -1,4 +1,4 @@
-hp1_re: hooks into the HP1 port code in ../hp1
+flipendo: hooks into the HP1 port code in ../hp1
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 74ab008f..335fb6e8 100644
@@ -8,7 +8,7 @@ index 74ab008f..335fb6e8 100644
  set_target_properties(SurrealVideo PROPERTIES CXX_STANDARD 20)
  set_target_properties(SurrealVideo PROPERTIES C_STANDARD 17)
  
-+# hp1_re: Harry Potter 1 port code lives outside this subtree, in ../hp1
++# flipendo: Harry Potter 1 port code lives outside this subtree, in ../hp1
 +include(${CMAKE_CURRENT_SOURCE_DIR}/../hp1/hp1.cmake OPTIONAL)
 +
  add_library(SurrealCommon STATIC ${SURREALCOMMON_SOURCES} ${THIRDPARTY_SOURCES})
@@ -21,8 +21,8 @@ index 051ad9f9..6efd380e 100644
 @@ -1,5 +1,7 @@
  
  #include "Precomp.h"
-+#include "Engine.h" // hp1_re
-+#include "HP1.h" // hp1_re
++#include "Engine.h" // flipendo
++#include "HP1.h" // flipendo
  #include "CollisionSystem.h"
  #include "Packages/Engine/Actors/UActor.h"
  #include "Packages/Engine/Actors/Brush/UMover.h"
@@ -30,7 +30,7 @@ index 051ad9f9..6efd380e 100644
  				extents = bbox.extents() + 0.1f; // 0.1 for numerical stability
  			}
  		}
-+		else if (engine->LaunchInfo.IsHarryPotter1() && HP1::IsBoxCollider(actor)) // hp1_re: CollideType CT_Box
++		else if (engine->LaunchInfo.IsHarryPotter1() && HP1::IsBoxCollider(actor)) // flipendo: CollideType CT_Box
 +		{
 +			extents = HP1::BoxCollisionExtents(actor) + 0.1f;
 +		}
@@ -44,8 +44,8 @@ index badaaaf5..d3e4714e 100644
 @@ -1,5 +1,7 @@
  
  #include "Precomp.h"
-+#include "Engine.h" // hp1_re
-+#include "HP1.h" // hp1_re
++#include "Engine.h" // flipendo
++#include "HP1.h" // flipendo
  #include "OverlapTest.h"
  #include "Collision/BottomLevel/OverlapAABBModel.h"
  #include "Packages/Engine/Actors/UActor.h"
@@ -53,7 +53,7 @@ index badaaaf5..d3e4714e 100644
  
  bool OverlapTester::IsOverlapping(UActor* actor1, UActor* actor2)
  {
-+	if (engine->LaunchInfo.IsHarryPotter1() && HP1::IsBoxCollider(actor1) && !HP1::IsBoxCollider(actor2)) // hp1_re: CollideType CT_Box
++	if (engine->LaunchInfo.IsHarryPotter1() && HP1::IsBoxCollider(actor1) && !HP1::IsBoxCollider(actor2)) // flipendo: CollideType CT_Box
 +		return CylinderActorOverlap(to_dvec3(actor2->Location()), actor2->CollisionHeight(), actor2->CollisionRadius(), actor1);
  	return CylinderActorOverlap(to_dvec3(actor1->Location()), actor1->CollisionHeight(), actor1->CollisionRadius(), actor2);
  }
@@ -62,7 +62,7 @@ index badaaaf5..d3e4714e 100644
  	if (actor->Brush()) // Ignore brushes for now
  		return false;
  
-+	if (engine->LaunchInfo.IsHarryPotter1() && HP1::IsBoxCollider(actor)) // hp1_re: CollideType CT_Box
++	if (engine->LaunchInfo.IsHarryPotter1() && HP1::IsBoxCollider(actor)) // flipendo: CollideType CT_Box
 +		return HP1::BoxActorOverlapSphere(actor, sphereCenter, sphereRadius);
 +
  	dvec3 center = to_dvec3(actor->Location());
@@ -72,7 +72,7 @@ index badaaaf5..d3e4714e 100644
  	if (actor->Brush()) // Ignore brushes for now
  		return false;
  
-+	if (engine->LaunchInfo.IsHarryPotter1() && HP1::IsBoxCollider(actor)) // hp1_re: CollideType CT_Box
++	if (engine->LaunchInfo.IsHarryPotter1() && HP1::IsBoxCollider(actor)) // flipendo: CollideType CT_Box
 +		return HP1::BoxActorOverlapCylinder(actor, origin, cylinderHeight, cylinderRadius);
 +
  	dvec3 center = to_dvec3(actor->Location());
@@ -85,8 +85,8 @@ index aef803f8..5b27c846 100644
 @@ -1,5 +1,7 @@
  
  #include "Precomp.h"
-+#include "Engine.h" // hp1_re
-+#include "HP1.h" // hp1_re
++#include "Engine.h" // flipendo
++#include "HP1.h" // flipendo
  #include "TraceTest.h"
  #include "Collision/BottomLevel/TraceAABBModel.h"
  #include "Collision/BottomLevel/TraceRayModel.h"
@@ -94,7 +94,7 @@ index aef803f8..5b27c846 100644
  		if (!traceActors || visibilityOnly)
  			return;
  
-+		if (engine->LaunchInfo.IsHarryPotter1() && HP1::IsBoxCollider(actor)) // hp1_re: CollideType CT_Box
++		if (engine->LaunchInfo.IsHarryPotter1() && HP1::IsBoxCollider(actor)) // flipendo: CollideType CT_Box
 +		{
 +			vec3 normal;
 +			double t = HP1::BoxActorTrace(actor, origin, tmin, dirNormalized, tmax, height, radius, normal);
@@ -114,7 +114,7 @@ index 34ee5181..0bcb15c1 100644
  
  #include "Precomp.h"
  #include "Engine.h"
-+#include "HP1.h" // hp1_re
++#include "HP1.h" // flipendo
  #include "Utils/File.h"
  #include "Utils/StrTools.h"
  #include "Utils/SHA1Sum.h"
@@ -122,7 +122,7 @@ index 34ee5181..0bcb15c1 100644
  
  		// Do NOT pause this Tick event otherwise some messages will stay on screen forever.
  		CallEvent(console, EventName::Tick, { ExpressionValue::FloatValue(levelElapsed) });
-+		if (LaunchInfo.IsHarryPotter1()) // hp1_re: hp1/mods (cutscene skip, launch skips)
++		if (LaunchInfo.IsHarryPotter1()) // flipendo: hp1/mods (cutscene skip, launch skips)
 +			HP1::TickMods(realTimeElapsed);
  
  		// To do: set these to true if the frame rate is too low
@@ -131,7 +131,7 @@ index 34ee5181..0bcb15c1 100644
  		if (EntryLevel)
  			EntryLevel->Tick(entryLevelElapsed, m_GamePaused);
  		Level->Tick(levelElapsed, m_GamePaused);
-+		if (LaunchInfo.IsHarryPotter1() && viewport->Actor()) // hp1_re: UGameEngine::Tick raises ViewFlash (screen fades)
++		if (LaunchInfo.IsHarryPotter1() && viewport->Actor()) // flipendo: UGameEngine::Tick raises ViewFlash (screen fades)
 +			CallEvent(viewport->Actor(), "ViewFlash", { ExpressionValue::FloatValue(realTimeElapsed) });
  
  		if (dxRootWindow)
@@ -140,7 +140,7 @@ index 34ee5181..0bcb15c1 100644
  				ExpressionValue::Variable(&CameraLocation, vecprop),
  				ExpressionValue::Variable(&CameraRotation, rotprop)
  				});
-+			if (LaunchInfo.IsHarryPotter1()) // hp1_re: Hor+ field of view, HP1_CAMERA debug override
++			if (LaunchInfo.IsHarryPotter1()) // flipendo: Hor+ field of view, HP1_CAMERA debug override
 +			{
 +				CameraFovAngle = HP1::ViewFovAngle(CameraFovAngle, window->GetPixelWidth(), window->GetPixelHeight());
 +				HP1::DebugCamera(CameraLocation, CameraRotation);
@@ -154,7 +154,7 @@ index 34ee5181..0bcb15c1 100644
  	{
 -		if (LaunchInfo.IsHarryPotter1()) // FEOptionsPage.IsSupportedResolution is so sad :)
 -			return "1024x768";
-+		if (LaunchInfo.IsHarryPotter1()) // hp1_re: real modes, FEOptionsPage cap lifted (hp1/HP1Canvas.cpp)
++		if (LaunchInfo.IsHarryPotter1()) // flipendo: real modes, FEOptionsPage cap lifted (hp1/HP1Canvas.cpp)
 +			return HP1::AvailableResolutions(window.get());
  		return window->GetAvailableResolutions();
  	}
@@ -163,7 +163,7 @@ index 34ee5181..0bcb15c1 100644
  			}
  		}
  	}
-+	// hp1_re: "SET Input <key> <alias>" takes the REST of the line as the alias, and no alias unbinds the key.
++	// flipendo: "SET Input <key> <alias>" takes the REST of the line as the alias, and no alias unbinds the key.
 +	// Menus rebind with multi-word aliases ("SET Input W MoveForward | button bBroomPitchUp") and clear with
 +	// "SET Input W"; the 4-argument check below dropped both, so a rebind showed in the menu and did nothing.
 +	else if (command == "set" && args.size() >= 3 && ParseClassName(args[1]) == "input")
@@ -209,7 +209,7 @@ index 34ee5181..0bcb15c1 100644
  			endpos = command.size();
  
  		std::string subcommand = command.substr(pos, endpos - pos);
-+		// hp1_re: trim, so "MoveForward | Button bX" finds the alias "MoveForward" (HP1's default bindings)
++		// flipendo: trim, so "MoveForward | Button bX" finds the alias "MoveForward" (HP1's default bindings)
 +		size_t first = subcommand.find_first_not_of(" \t");
 +		size_t last = subcommand.find_last_not_of(" \t");
 +		subcommand = first == std::string::npos ? std::string() : subcommand.substr(first, last - first + 1);
@@ -220,7 +220,7 @@ index 34ee5181..0bcb15c1 100644
  	{
  		viewport->WindowsMouseX() = (float)(pos.x * window->GetDpiScale());
  		viewport->WindowsMouseY() = (float)(pos.y * window->GetDpiScale());
-+		if (LaunchInfo.IsHarryPotter1()) // hp1_re: into the menu canvas (hp1/HP1Canvas.cpp)
++		if (LaunchInfo.IsHarryPotter1()) // flipendo: into the menu canvas (hp1/HP1Canvas.cpp)
 +			HP1::MenuMousePosition(viewport->WindowsMouseX(), viewport->WindowsMouseY());
  	}
  }
@@ -229,7 +229,7 @@ index 34ee5181..0bcb15c1 100644
  
  void Engine::OnWindowKeyDown(EInputKey key)
  {
-+	if (LaunchInfo.IsHarryPotter1()) // hp1_re: hp1/mods see key presses (skip prompts)
++	if (LaunchInfo.IsHarryPotter1()) // flipendo: hp1/mods see key presses (skip prompts)
 +		HP1::ModsKeyDown((int)key);
 +
  	if (playingAvi)
@@ -243,7 +243,7 @@ index 1081c358..d043cef6 100644
  		{
  			std::string packageName = ObjectName.substr(0, dotpos);
  			std::string objectName = ObjectName.substr(dotpos + 1);
-+			// hp1_re: "Package.Group.Name" - look the object up by its name (HP1's storybook loads
++			// flipendo: "Package.Group.Name" - look the object up by its name (HP1's storybook loads
 +			// "StoryBookTest.default.3_1_001"); the group is ignored like for "Package.Name".
 +			if (objectName.rfind('.') != std::string::npos)
 +				objectName = objectName.substr(objectName.rfind('.') + 1);
@@ -254,7 +254,7 @@ index 1081c358..d043cef6 100644
  		{
  			std::string packageName = ObjectName.substr(0, dotpos);
  			std::string objectName = ObjectName.substr(dotpos + 1);
-+			// hp1_re: "Package.Group.Name" - look the object up by its name (HP1's storybook loads
++			// flipendo: "Package.Group.Name" - look the object up by its name (HP1's storybook loads
 +			// "StoryBookTest.default.3_1_001"); the group is ignored like for "Package.Name".
 +			if (objectName.rfind('.') != std::string::npos)
 +				objectName = objectName.substr(objectName.rfind('.') + 1);
@@ -269,7 +269,7 @@ index 287956c1..39dac782 100644
  {
  	if (engine->LaunchInfo.IsDeusEx())
  		CallEvent(Self, "PreTravel", {});
-+	if (engine->LaunchInfo.IsHarryPotter1() && UObject::Cast<UPlayerPawn>(Self)->Player()) // hp1_re: execClientTravel raises PreClientTravel
++	if (engine->LaunchInfo.IsHarryPotter1() && UObject::Cast<UPlayerPawn>(Self)->Player()) // flipendo: execClientTravel raises PreClientTravel
 +		CallEvent(Self, "PreClientTravel", {});
  	engine->ClientTravel(URL, static_cast<ETravelType>(TravelType), bItems);
  }
@@ -282,7 +282,7 @@ index cdb045bf..4c41b7b2 100644
  #include "Packages/ConSys/Events/UConEventSetFlag.h"
  #include "Packages/ConSys/Events/UConEventSpeech.h"
  #include "Packages/ConSys/Events/UConEventTrade.h"
-+#include "HP1.h" // hp1_re
++#include "HP1.h" // flipendo
  #include "Packages/ConSys/Events/UConEventTransferObject.h"
  #include "Packages/ConSys/Events/UConEventTrigger.h"
  #include "Packages/ConSys/History/UConHistory.h"
@@ -291,7 +291,7 @@ index cdb045bf..4c41b7b2 100644
  		NRMusicPlayer::RegisterFunctions();
  	}
 +
-+	if (launchInfo.IsHarryPotter1()) // hp1_re: HP1 natives (hp1/), overriding upstream stubs
++	if (launchInfo.IsHarryPotter1()) // flipendo: HP1 natives (hp1/), overriding upstream stubs
 +		HP1::RegisterNatives();
  }
  
@@ -306,7 +306,7 @@ index 2f91f141..e06f4cdc 100644
  	{
 -		void* fielddata = (uint8_t*)data + fieldprop->DataOffset.DataOffset;
 -		fieldprop->LoadStructMemberValue(fielddata, stream);
-+		// hp1_re: a fixed array member (HP1's QuidCommentator: CommentInfo Variant[8]) is serialized element by element
++		// flipendo: a fixed array member (HP1's QuidCommentator: CommentInfo Variant[8]) is serialized element by element
 +		for (int i = 0; i < fieldprop->ArrayDimension; i++)
 +		{
 +			void* fielddata = (uint8_t*)data + fieldprop->DataOffset.DataOffset + i * fieldprop->ElementPitch();
@@ -321,7 +321,7 @@ index 2f91f141..e06f4cdc 100644
  	{
 -		void* fielddata = (uint8_t*)data + fieldprop->DataOffset.DataOffset;
 -		fieldprop->SaveStructMemberValue(fielddata, stream);
-+		// hp1_re: a fixed array member (HP1's QuidCommentator: CommentInfo Variant[8]) is serialized element by element
++		// flipendo: a fixed array member (HP1's QuidCommentator: CommentInfo Variant[8]) is serialized element by element
 +		for (int i = 0; i < fieldprop->ArrayDimension; i++)
 +		{
 +			void* fielddata = (uint8_t*)data + fieldprop->DataOffset.DataOffset + i * fieldprop->ElementPitch();
@@ -338,12 +338,12 @@ index de07166c..b798cc3a 100644
  #include "Packages/Engine/Actors/Inventory/UWeapon.h"
  #include "Utils/Logger.h"
  #include "Engine.h"
-+#include "HP1.h" // hp1_re
++#include "HP1.h" // flipendo
  
  void UPawn::Tick(float elapsed)
  {
  	MoveTimer() -= elapsed;
-+	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: AvgPhysicsTime for moveToward
++	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: AvgPhysicsTime for moveToward
 +		HP1::PawnPhysicsTime(this, elapsed);
  
  	if (StateFrame)
@@ -352,7 +352,7 @@ index de07166c..b798cc3a 100644
  			if (TickMoveTo(Destination()))
  				StateFrame->LatentState = LatentRunState::Continue;
  		}
-+		else if (StateFrame->LatentState == LatentRunState::MoveToward && engine->LaunchInfo.IsHarryPotter1()) // hp1_re: APawn::execPollMoveToward (AlterDestination)
++		else if (StateFrame->LatentState == LatentRunState::MoveToward && engine->LaunchInfo.IsHarryPotter1()) // flipendo: APawn::execPollMoveToward (AlterDestination)
 +		{
 +			if (HP1::PawnPollMoveToward(this))
 +				StateFrame->LatentState = LatentRunState::Continue;
@@ -364,7 +364,7 @@ index de07166c..b798cc3a 100644
  			if (TickMoveTo(Destination()))
  				StateFrame->LatentState = LatentRunState::Continue;
  		}
-+		else if (StateFrame->LatentState == LatentRunState::StrafeFacing && engine->LaunchInfo.IsHarryPotter1()) // hp1_re: APawn::execPollStrafeFacing (AlterDestination)
++		else if (StateFrame->LatentState == LatentRunState::StrafeFacing && engine->LaunchInfo.IsHarryPotter1()) // flipendo: APawn::execPollStrafeFacing (AlterDestination)
 +		{
 +			if (HP1::PawnPollStrafeFacing(this))
 +				StateFrame->LatentState = LatentRunState::Continue;
@@ -376,7 +376,7 @@ index de07166c..b798cc3a 100644
  				StateFrame->LatentState = LatentRunState::Continue;
  			}
  		}
-+		else if (StateFrame->LatentState == LatentRunState::WaitForLanding && engine->LaunchInfo.IsHarryPotter1()) // hp1_re: APawn::execPollWaitForLanding (LongFall)
++		else if (StateFrame->LatentState == LatentRunState::WaitForLanding && engine->LaunchInfo.IsHarryPotter1()) // flipendo: APawn::execPollWaitForLanding (LongFall)
 +		{
 +			if (HP1::PawnPollWaitForLanding(this, elapsed))
 +				StateFrame->LatentState = LatentRunState::Continue;
@@ -388,7 +388,7 @@ index de07166c..b798cc3a 100644
  
  void UPawn::TickRotating(float elapsed)
  {
-+	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: APawn::physicsRotation
++	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: APawn::physicsRotation
 +	{
 +		HP1::PawnPhysicsRotation(this, elapsed);
 +		return;
@@ -401,7 +401,7 @@ index de07166c..b798cc3a 100644
  
  bool UPawn::TickMoveTo(const vec3& target)
  {
-+	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: APawn::moveToward
++	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: APawn::moveToward
 +		return HP1::PawnMoveToward(this, target);
 +
  	if (MoveTimer() < 0.0f)
@@ -411,7 +411,7 @@ index de07166c..b798cc3a 100644
  
  void UPawn::WaitForLanding()
  {
-+	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: APawn::execWaitForLanding: 2.5 s until LongFall, no wait unless falling
++	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: APawn::execWaitForLanding: 2.5 s until LongFall, no wait unless falling
 +	{
 +		LatentFloat() = 2.5f;
 +		if (StateFrame && Physics() == PHYS_Falling)
@@ -430,7 +430,7 @@ index e3c87b45..99c1ef1e 100644
  #include "UPlayerPawn.h"
  #include "UCamera.h"
  #include "Engine.h"
-+#include "HP1.h" // hp1_re
++#include "HP1.h" // flipendo
  #include "Package/PackageManager.h"
  #include "Package/IniProperty.h"
  #include "VM/ScriptCall.h"
@@ -438,7 +438,7 @@ index e3c87b45..99c1ef1e 100644
  
  void UPlayerPawn::TickRotating(float elapsed)
  {
-+	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: APawn::physicsRotation
++	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: APawn::physicsRotation
 +	{
 +		HP1::PawnPhysicsRotation(this, elapsed);
 +		return;
@@ -455,7 +455,7 @@ index 29c45a1c..3fabbbf1 100644
  #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
  #include "Packages/Engine/Resources/Level/ULevel.h"
  #include "Packages/Engine/Resources/Level/UModel.h"
-+#include "HP1.h" // hp1_re
++#include "HP1.h" // flipendo
  #include "Packages/Engine/Subsystems/USurrealAudioDevice.h"
  #include "Utils/Logger.h"
  #include "Engine.h"
@@ -463,7 +463,7 @@ index 29c45a1c..3fabbbf1 100644
  
  	bDeleteMe() = true;
  
-+	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: free the ParticleFX particle list
++	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: free the ParticleFX particle list
 +		HP1::ParticleFXDestroyed(this);
 +
  	//GotoState({}, {}); // What should happen to function calls after Destroy() has been called? Razor2 calls SetRoll afterwards!
@@ -473,7 +473,7 @@ index 29c45a1c..3fabbbf1 100644
  
  void UActor::Tick(float elapsed)
  {
-+	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: AParticleFX::Tick
++	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: AParticleFX::Tick
 +	{
 +		HP1::TickParticleFX(this, elapsed);
 +		if (bDeleteMe())
@@ -488,7 +488,7 @@ index 29c45a1c..3fabbbf1 100644
  		}
  	}
 +
-+	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: bAnimMove root motion (end of AActor::Tick)
++	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: bAnimMove root motion (end of AActor::Tick)
 +		HP1::TickRootMotion(this);
  }
  
@@ -501,7 +501,7 @@ index aceba9af..7d5ed5e0 100644
  #include "VM/Frame.h"
  #include "Packages/Engine/Resources/Mesh/USkeletalMesh.h"
  #include "Engine.h"
-+#include "HP1.h" // hp1_re
++#include "HP1.h" // flipendo
  
  bool UActor::HasAnim(const NameString& sequence)
  {
@@ -509,7 +509,7 @@ index aceba9af..7d5ed5e0 100644
  
  void UActor::TickAnimation(float elapsed)
  {
-+	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: HP1 anim channels/tweening (hp1/Anim)
++	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: HP1 anim channels/tweening (hp1/Anim)
 +	{
 +		HP1::TickAnimation(this, elapsed);
 +		return;
@@ -526,11 +526,11 @@ index 07b200e2..0dad1bfa 100644
  #include "Packages/Engine/Actors/Info/ULevelInfo.h"
  #include "Packages/Engine/Resources/Level/ULevel.h"
  #include "Packages/Engine/Resources/Level/UModel.h"
-+#include "HP1.h" // hp1_re
++#include "HP1.h" // flipendo
  
  void UActor::TickPhysics(float elapsed)
  {
-+	// hp1_re: HP1's InterpolationManager overrides performPhysics (one call per tick, moves its Owner)
++	// flipendo: HP1's InterpolationManager overrides performPhysics (one call per tick, moves its Owner)
 +	if (engine->LaunchInfo.IsHarryPotter1() && Physics() == PHYS_Interpolating && HP1::IsInterpolationManager(this))
 +	{
 +		HP1::InterpolationManagerPhysics(this, elapsed);
@@ -546,7 +546,7 @@ index 07b200e2..0dad1bfa 100644
  		return nullptr;
  
 -	if (HasLeftWorld())
-+	if ((!engine->LaunchInfo.IsHarryPotter1() || HP1::PhysicsChecksLeftWorld(this)) && HasLeftWorld()) // hp1_re: only physWalking checks
++	if ((!engine->LaunchInfo.IsHarryPotter1() || HP1::PhysicsChecksLeftWorld(this)) && HasLeftWorld()) // flipendo: only physWalking checks
  		return nullptr;
  
  	OldLocation() = Location();
@@ -558,7 +558,7 @@ index 7fa151c8..a4be2991 100644
  #include "Packages/Engine/Resources/Level/ULevel.h"
  #include "Packages/Engine/Resources/Level/UModel.h"
  #include "Engine.h"
-+#include "HP1.h" // hp1_re
++#include "HP1.h" // flipendo
  
  void UActor::TickFalling(float elapsed)
  {
@@ -566,7 +566,7 @@ index 7fa151c8..a4be2991 100644
  
  		if (hit.Fraction < 1.0f)
  		{
-+			// hp1_re: HP1's physFalling lets a pawn grab a ledge (APawn::Mount) when it hits a wall, before processHitWall.
++			// flipendo: HP1's physFalling lets a pawn grab a ledge (APawn::Mount) when it hits a wall, before processHitWall.
 +			if (pawn && !bBounce() && hit.Normal.z <= 0.7f && engine->LaunchInfo.IsHarryPotter1())
 +				HP1::PawnMount(pawn, vec3(0.0f, 0.0f, 1.0f), hit);
 +
@@ -582,7 +582,7 @@ index 6ccfaa27..01351be7 100644
  
  	RecomputeVelocityFromDisplacement(elapsed);
 -	Velocity().z = 0.0f;
-+	// hp1_re: HP1's physFlying (Engine.dll 0x103F13A0) keeps the vertical velocity; clearing it left climbing
++	// flipendo: HP1's physFlying (Engine.dll 0x103F13A0) keeps the vertical velocity; clearing it left climbing
 +	// flyers (Peeves) circling a higher nav point forever
 +	if (!engine->LaunchInfo.IsHarryPotter1())
 +		Velocity().z = 0.0f;
@@ -595,7 +595,7 @@ index 22b4b664..e0463545 100644
  #include "Packages/Engine/Resources/Level/ULevel.h"
  #include "Packages/Engine/Resources/Level/UModel.h"
  #include "Engine.h"
-+#include "HP1.h" // hp1_re
++#include "HP1.h" // flipendo
  
  void UActor::TickMovingBrush(float elapsed)
  {
@@ -603,7 +603,7 @@ index 22b4b664..e0463545 100644
  	UMover* mover = UObject::TryCast<UMover>(this);
  	if (mover)
  	{
-+		if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: HP1 Mover shadows PhysAlpha/PhysRate (hp1/HP1Mover.cpp)
++		if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: HP1 Mover shadows PhysAlpha/PhysRate (hp1/HP1Mover.cpp)
 +			HP1::MoverPhysicsBegin(this);
 +
  		float timeLeft = elapsed;
@@ -614,7 +614,7 @@ index 22b4b664..e0463545 100644
  				{
  					bInterpolating() = false;
 -					CallEvent(this, EventName::InterpolateEnd, { ExpressionValue::ObjectValue(nullptr) });
-+					if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: physMovingBrush raises KeyFrameReached (Mover's calls InterpolateEnd(self))
++					if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: physMovingBrush raises KeyFrameReached (Mover's calls InterpolateEnd(self))
 +						CallEvent(this, NameString("KeyFrameReached"));
 +					else
 +						CallEvent(this, EventName::InterpolateEnd, { ExpressionValue::ObjectValue(nullptr) });
@@ -622,7 +622,7 @@ index 22b4b664..e0463545 100644
  			}
  		}
 +
-+		if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re
++		if (engine->LaunchInfo.IsHarryPotter1()) // flipendo
 +			HP1::MoverPhysicsEnd(this);
  	}
  
@@ -635,12 +635,12 @@ index 31d7896f..0957dc13 100644
  #include "Packages/Engine/Resources/Level/ULevel.h"
  #include "Packages/Engine/Resources/Level/UModel.h"
  #include "Engine.h"
-+#include "HP1.h" // hp1_re
++#include "HP1.h" // flipendo
  
  void UActor::TickRolling(float elapsed)
  {
 -	if (HasLeftWorld())
-+	if ((!engine->LaunchInfo.IsHarryPotter1() || HP1::PhysicsChecksLeftWorld(this)) && HasLeftWorld()) // hp1_re: physRolling has no check
++	if ((!engine->LaunchInfo.IsHarryPotter1() || HP1::PhysicsChecksLeftWorld(this)) && HasLeftWorld()) // flipendo: physRolling has no check
  		return;
  
  	// Save our starting point and state
@@ -650,7 +650,7 @@ index 31d7896f..0957dc13 100644
  	{
 -		SetPhysics(PHYS_Falling);
 -		SetBase(nullptr, true);
-+		if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: physRolling raises Falling before PHYS_Falling
++		if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: physRolling raises Falling before PHYS_Falling
 +		{
 +			if (HP1::StartFalling(this))
 +				SetBase(nullptr, true);
@@ -671,11 +671,11 @@ index 519c390d..a55b11d3 100644
  #include "Precomp.h"
  #include "UActor.h"
  #include "Engine.h"
-+#include "HP1.h" // hp1_re
++#include "HP1.h" // flipendo
  
  void UActor::TickTrailer(float elapsed)
  {
-+	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: physTrailer with AnimBone (AttachToOwner) and HP1's rotation rules
++	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: physTrailer with AnimBone (AttachToOwner) and HP1's rotation rules
 +	{
 +		HP1::PhysTrailer(this);
 +		return;
@@ -692,11 +692,11 @@ index 71dc2525..0328f1ca 100644
  #include "Packages/Engine/Resources/Level/ULevel.h"
  #include "Packages/Engine/Resources/Level/UModel.h"
  #include "Engine.h"
-+#include "HP1.h" // hp1_re
++#include "HP1.h" // flipendo
  
  bool UActor::ShouldAbortJumping(UPawn* pawn, vec3 oldPosition, vec3 stepDownDelta)
  {
-+	// hp1_re: a Falling event already ended the walk this tick (it must not be raised twice)
++	// flipendo: a Falling event already ended the walk this tick (it must not be raised twice)
 +	if (engine->LaunchInfo.IsHarryPotter1() && Physics() != PHYS_Walking)
 +		return true;
 +
@@ -706,7 +706,7 @@ index 71dc2525..0328f1ca 100644
  		return false;
  	}
  
-+	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: APawn::physWalking's ledge rule, then Falling before PHYS_Falling
++	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: APawn::physWalking's ledge rule, then Falling before PHYS_Falling
 +		return HP1::PawnWalkOffLedge(pawn);
 +
  	if (pawn->bCanJump())
@@ -716,7 +716,7 @@ index 71dc2525..0328f1ca 100644
  			if (ShouldAbortJumping(pawn, oldPosition, stepDownDelta))
  				return;
  
-+			// hp1_re: HP1's APawn::stepUp first tries APawn::Mount(-GravDir) (ledge grab); a mount replaces the step up.
++			// flipendo: HP1's APawn::stepUp first tries APawn::Mount(-GravDir) (ledge grab); a mount replaces the step up.
 +			if (hit.Fraction < 1.0f && engine->LaunchInfo.IsHarryPotter1() && HP1::PawnMount(pawn, vec3(0.0f, 0.0f, -gravityDirection), hit))
 +				return;
 +
@@ -728,7 +728,7 @@ index 71dc2525..0328f1ca 100644
  			if (hit.Fraction < 1.0f)
  			{
 -				if (player && hit.Actor)
-+				// hp1_re: HP1's APawn::stepUp (Engine.dll 0x103EC690) only special-cases pushing a decoration; every other
++				// flipendo: HP1's APawn::stepUp (Engine.dll 0x103EC690) only special-cases pushing a decoration; every other
 +				// actor hit slides along like a wall. Without this the player sticks to Lev_Tut1's BlockAll stair walls.
 +				bool hp1PushHit = player && hit.Actor && UObject::IsType<UDecoration>(hit.Actor) && UObject::Cast<UDecoration>(hit.Actor)->bPushable() && dot(hit.Normal, moveDelta) < -0.9f;
 +				if (player && hit.Actor && (!engine->LaunchInfo.IsHarryPotter1() || hp1PushHit))
@@ -741,7 +741,7 @@ index 71dc2525..0328f1ca 100644
  		{
 -			SetPhysics(PHYS_Falling);
 -			SetBase(nullptr, true);
-+			if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: physWalking raises Falling before PHYS_Falling
++			if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: physWalking raises Falling before PHYS_Falling
 +			{
 +				if (HP1::StartFalling(this))
 +					SetBase(nullptr, true);
@@ -762,8 +762,8 @@ index a457b9a0..f06ad1a7 100644
  #include "Packages/Engine/Resources/Level/UModel.h"
  #include "Packages/Engine/Resources/Mesh/USkeletalMesh.h"
  #include "Packages/Engine/Resources/Textures/UTexture.h"
-+#include "Engine.h" // hp1_re
-+#include "HP1.h" // hp1_re
++#include "Engine.h" // flipendo
++#include "HP1.h" // flipendo
  
  void UActor::UpdateBspInfo()
  {
@@ -771,7 +771,7 @@ index a457b9a0..f06ad1a7 100644
  		mat4 objectToWorld = mat4::translate(Location() + PrePivot()) * Coords::Rotation(Rotation()).ToMatrix() * mat4::scale(DrawScale());
  		mat4 meshToWorld = objectToWorld * mesh->meshToObject;
  		bbox = mesh->BoundingBox.transform(meshToWorld);
-+		if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: HP1 skeletal render box (hp1/Anim)
++		if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: HP1 skeletal render box (hp1/Anim)
 +			if (auto skel = UObject::TryCast<USkeletalMesh>(mesh))
 +				bbox = HP1::GetRenderBoundingBox(this, skel);
  	}
@@ -781,7 +781,7 @@ index a457b9a0..f06ad1a7 100644
  		bbox.min = location - extents;
  		bbox.max = location + extents;
  	}
-+	else if (dt == 8 && engine->LaunchInfo.IsHarryPotter1()) // hp1_re: DT_Particles (ParticleFX)
++	else if (dt == 8 && engine->LaunchInfo.IsHarryPotter1()) // flipendo: DT_Particles (ParticleFX)
 +	{
 +		bbox = HP1::GetParticleBoundingBox(this);
 +	}
@@ -796,14 +796,14 @@ index 53982dc0..8dc63eb1 100644
  #include "Precomp.h"
  #include "UAnimation.h"
  #include "Engine.h"
-+#include "HP1.h" // hp1_re
++#include "HP1.h" // flipendo
  
  void UAnimation::Load(ObjectStream* stream)
  {
  	UObject::Load(stream);
  
 -	if (engine->LaunchInfo.IsHarryPotter1() || engine->LaunchInfo.IsHarryPotter2())
-+	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: HP1 animation format (hp1/Anim)
++	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: HP1 animation format (hp1/Anim)
 +	{
 +		HP1::LoadAnimation(this, stream);
 +		return;
@@ -822,7 +822,7 @@ index d5615c73..2cf41bb7 100644
  		CurrentSection = m_Viewport->Actor()->SongSection();
  
 -		if (CurrentSong && UseDigitalMusic)
-+		// hp1_re: HP1 ships UseDigitalMusic=False yet plays its mp2 music; its audio driver doesn't gate on the flag
++		// flipendo: HP1 ships UseDigitalMusic=False yet plays its mp2 music; its audio driver doesn't gate on the flag
 +		if (CurrentSong && (UseDigitalMusic || engine->LaunchInfo.IsHarryPotter1()))
  		{
  			int subsong = CurrentSection != 255 ? CurrentSection : 0;
@@ -831,7 +831,7 @@ index d5615c73..2cf41bb7 100644
  	}
  }
  
-+// hp1_re: Galaxy.dll UGalaxyAudioSubsystem::ModifySound / StopSound (HP1's audio driver). Param 0 = volume,
++// flipendo: Galaxy.dll UGalaxyAudioSubsystem::ModifySound / StopSound (HP1's audio driver). Param 0 = volume,
 +// 1 = radius, 2 = pitch. Volume gets the same normalization as PlaySound.
 +bool USurrealAudioDevice::ModifySoundHP1(int Id, USound* Sound, int Param, float Value)
 +{
@@ -875,7 +875,7 @@ index 81534ba9..cc68dc1a 100644
  
  	bool PlaySound(UActor* Actor, int Id, USound* Sound, vec3 Location, float Volume, float Radius, float Pitch, bool isTalk);
  	void StopSound(UActor* Actor, int Id);
-+	// hp1_re: HP1's ModifySound / StopSound(Sound, Slot): first sound whose Id matches (ignoring bit 0) and, if given, Sound
++	// flipendo: HP1's ModifySound / StopSound(Sound, Slot): first sound whose Id matches (ignoring bit 0) and, if given, Sound
 +	bool ModifySoundHP1(int Id, USound* Sound, int Param, float Value);
 +	bool StopSoundHP1(int Id, USound* Sound);
  	void ActorDestroyed(UActor* Actor);
@@ -889,7 +889,7 @@ index 4b2aa5c5..b801d9a1 100644
  #include "GameWindow.h"
  #include "VM/ScriptCall.h"
  #include "Engine.h"
-+#include "HP1.h" // hp1_re
++#include "HP1.h" // flipendo
  
  void RenderSubsystem::ResetCanvas()
  {
@@ -897,7 +897,7 @@ index 4b2aa5c5..b801d9a1 100644
  	// Assume 1280x960 for UT and newer.
  	int vertResolution = engine->LaunchInfo.ue1Version < 400 ? 768 : 960;
  	Canvas.uiscale = std::max((engine->viewport->ViewportHeight() + vertResolution / 2) / vertResolution, 1);
-+	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: fractional UI scale (hp1/HP1Canvas.cpp)
++	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: fractional UI scale (hp1/HP1Canvas.cpp)
 +		Canvas.uiscale = HP1::CanvasUIScale(engine->viewport->ViewportHeight());
  
  	SceneNode frame;
@@ -911,7 +911,7 @@ index 4b2aa5c5..b801d9a1 100644
 -		engine->canvas->ClipX() = (float)sizeY * (4.0f / 3.0f);
 -		engine->canvas->SizeX() = (int)std::round(sizeY * (4.0f / 3.0f));
 -	}
-+	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: full-width HUD canvas; menus get a 4:3 area in PostRender (hp1/HP1Canvas.cpp)
++	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: full-width HUD canvas; menus get a 4:3 area in PostRender (hp1/HP1Canvas.cpp)
 +		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, false);
  
  	//engine->viewport->bShowWindowsMouse() = true; // bShowWindowsMouse is set to true by WindowConsole if mouse cursor should be visible
@@ -923,7 +923,7 @@ index 4b2aa5c5..b801d9a1 100644
 -		if (engine->LaunchInfo.ue1Version > 219)
 +		if (engine->LaunchInfo.IsHarryPotter1())
 +		{
-+			// hp1_re: URender::DrawWorld only raises RenderOverlays without bBehindView, on the ViewTarget if any.
++			// flipendo: URender::DrawWorld only raises RenderOverlays without bBehindView, on the ViewTarget if any.
 +			// (Weapon.RenderOverlays draws the first person weapon with Canvas.DrawActor, which leaves it bHidden:
 +			// in third person that hid Harry's wand for good.)
 +			UPlayerPawn* player = engine->viewport->Actor();
@@ -938,13 +938,13 @@ index 4b2aa5c5..b801d9a1 100644
  	Device->SetSceneNode(&Canvas.Frame);
  	if (engine->viewport->Actor())
  		CallEvent(engine->viewport->Actor(), EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
-+	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: console/menus in a centred 4:3 area (hp1/HP1Canvas.cpp)
++	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: console/menus in a centred 4:3 area (hp1/HP1Canvas.cpp)
 +	{
 +		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, true);
 +		Device->SetSceneNode(&Canvas.Frame);
 +	}
  	CallEvent(engine->console, EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
-+	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re
++	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo
 +	{
 +		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, false);
 +		Device->SetSceneNode(&Canvas.Frame);
@@ -961,7 +961,7 @@ index 4b2aa5c5..b801d9a1 100644
 -	frame.YB = YB * Canvas.uiscale;
 -	frame.X = X * Canvas.uiscale;
 -	frame.Y = Y * Canvas.uiscale;
-+	frame.XB = Canvas.Frame.XB + (int)(XB * Canvas.uiscale); // hp1_re: relative to the canvas area, float uiscale
++	frame.XB = Canvas.Frame.XB + (int)(XB * Canvas.uiscale); // flipendo: relative to the canvas area, float uiscale
 +	frame.YB = (int)(YB * Canvas.uiscale);
 +	frame.X = (int)(X * Canvas.uiscale);
 +	frame.Y = (int)(Y * Canvas.uiscale);
@@ -976,7 +976,7 @@ index f3fcef6d..7ce0d3c4 100644
  #include "Packages/Engine/Resources/Level/UPolys.h"
  #include "VM/ScriptCall.h"
  #include "Engine.h"
-+#include "HP1.h" // hp1_re
++#include "HP1.h" // flipendo
  
  RenderSubsystem::RenderSubsystem(RenderDevice* renderdevice) : Device(renderdevice)
  {
@@ -986,7 +986,7 @@ index f3fcef6d..7ce0d3c4 100644
  	{
 -		flashScale = player->FlashScale();
 -		flashFog = player->FlashFog();
-+		if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: HP1 has no FlashScale; FlashFog.W is the brightness
++		if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: HP1 has no FlashScale; FlashFog.W is the brightness
 +		{
 +			HP1::ViewFlashParams(player, flashScale, flashFog);
 +		}
@@ -1002,7 +1002,7 @@ index f3fcef6d..7ce0d3c4 100644
  
  	PostRender();
  
-+	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: HP1_SHOTS debug screenshots
++	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: HP1_SHOTS debug screenshots
 +		HP1::OnFrameRendered(Device);
 +
  	Device->Unlock(true);
@@ -1017,7 +1017,7 @@ index 0f88fc9c..3ab3b405 100644
  	struct
  	{
 -		int uiscale = 1;
-+		float uiscale = 1.0f; // hp1_re: float, HP1 uses a fractional UI scale
++		float uiscale = 1.0f; // flipendo: float, HP1 uses a fractional UI scale
  		int fps = 0;
  		int framesDrawn = 0;
  		uint64_t startFPSTime = 0;
@@ -1029,8 +1029,8 @@ index 984fdbfc..ecf9edc8 100644
  #include "Packages/Engine/Actors/Pawn/UPawn.h"
  #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
  #include "Packages/Engine/Actors/Brush/UMover.h"
-+#include "Engine.h" // hp1_re
-+#include "HP1.h" // hp1_re
++#include "Engine.h" // flipendo
++#include "HP1.h" // flipendo
  
  void VisibleActor::Process(VisibleFrame* frame, UActor* actor)
  {
@@ -1038,7 +1038,7 @@ index 984fdbfc..ecf9edc8 100644
  		Actor = actor;
  		frame->Actors.push_back(*this);
  	}
-+	else if (dt == 8 && engine->LaunchInfo.IsHarryPotter1()) // hp1_re: DT_Particles (ParticleFX)
++	else if (dt == 8 && engine->LaunchInfo.IsHarryPotter1()) // flipendo: DT_Particles (ParticleFX)
 +	{
 +		Type = dt;
 +		Actor = actor;
@@ -1051,7 +1051,7 @@ index 984fdbfc..ecf9edc8 100644
  			frame->Translucents.emplace_back(*this, dot(v, v));
  		}
  	}
-+	else if (Type == 8) // hp1_re: DT_Particles are drawn in the translucent pass
++	else if (Type == 8) // flipendo: DT_Particles are drawn in the translucent pass
 +	{
 +		vec3 v = Actor->Location() - frame->ViewLocation.xyz();
 +		frame->Translucents.emplace_back(*this, dot(v, v));
@@ -1063,7 +1063,7 @@ index 984fdbfc..ecf9edc8 100644
  		VisibleBrush visbrush;
  		visbrush.Draw(frame, Actor, true);
  	}
-+	else if (Type == 8) // hp1_re: DT_Particles (ParticleFX)
++	else if (Type == 8) // flipendo: DT_Particles (ParticleFX)
 +	{
 +		HP1::DrawParticleSystem(frame, Actor);
 +	}
@@ -1076,7 +1076,7 @@ index 7f5e8efb..914e9da3 100644
  #include "Packages/Engine/Actors/NavigationPoint/UNavigationPoint.h"
  #include "Packages/Engine/Resources/Mesh/USkeletalMesh.h"
  #include "Packages/Engine/Resources/Level/UModel.h"
-+#include "HP1.h" // hp1_re
++#include "HP1.h" // flipendo
  
  bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, bool wireframe, bool translucentPass)
  {
@@ -1086,7 +1086,7 @@ index 7f5e8efb..914e9da3 100644
  		UMesh* weaponMesh = weapon ? weapon->ThirdPersonMesh() : nullptr;
 -		if (weaponMesh && pawnLodMesh && attachmentTris.size() >= 3)
 +		mat4 hp1WeaponFrame;
-+		if (engine->LaunchInfo.IsHarryPotter1() && HP1::PawnWeaponFrame(pawn, hp1WeaponFrame)) // hp1_re: weapon on a bone (WeaponBoneIndex/WeaponAdjust)
++		if (engine->LaunchInfo.IsHarryPotter1() && HP1::PawnWeaponFrame(pawn, hp1WeaponFrame)) // flipendo: weapon on a bone (WeaponBoneIndex/WeaponAdjust)
 +		{
 +			if (weaponMesh && !weapon->bHidden())
 +			{
@@ -1105,7 +1105,7 @@ index 7f5e8efb..914e9da3 100644
  
  bool VisibleMesh::DrawSkeletalMesh(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, USkeletalMesh* mesh, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, bool translucentPass)
  {
-+	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: HP1 skeletal pose + skinning (hp1/Anim)
++	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: HP1 skeletal pose + skinning (hp1/Anim)
 +	{
 +		SetupLodMeshTextures(actor, mesh);
 +		return HP1::DrawSkeletalMesh(frame, actor, lightLocationActor, mesh, translucentPass);

@@ -1,4 +1,4 @@
-# CLAUDE.md — hp1_re
+# CLAUDE.md — Flipendo
 
 Source port of Harry Potter and the Philosopher's Stone (PC 2001, UE1 build 433) on a
 SurrealEngine fork. Read `README.md` first for layout, build and run commands.
@@ -30,7 +30,7 @@ SurrealEngine fork. Read `README.md` first for layout, build and run commands.
   `not exported: sub_XXXXXXXX [HP1 0xXXXXXXXX]` plus how to find it again (exported caller/callee, string,
   xref). If the code was not reversed (written from script comments or stock UE1 behaviour), say so in
   the tag ("NOT yet verified against ..."). Add the tag in the same change that adds the function.
-- **Mark every change under `engine/` with an `hp1_re:` comment** (zlib licence requires altered
+- **Mark every change under `engine/` with a `flipendo:` comment** (zlib licence requires altered
   source to be marked). Gate HP1-only behaviour behind `engine->LaunchInfo.IsHarryPotter1()` so
   other UE1 games keep working.
 - **Never commit `reference/` or game data** (`*.u *.unr *.utx *.uax *.umx`, exes, DLLs).
@@ -39,7 +39,7 @@ SurrealEngine fork. Read `README.md` first for layout, build and run commands.
   from them (e.g. the "HP1 public headers" on archive.org). Layouts and behaviour come from HP1's own
   binaries and scripts (IDA, `.u` files), SurrealEngine, and observing the original game. Don't copy
   Epic type or field names that don't appear in HP1's exports or scripts; name things yourself.
-- **hp1_re is licensed PolyForm Noncommercial 1.0.0** (`LICENSE.md`); `engine/` stays zlib.
+- **Flipendo is licensed PolyForm Noncommercial 1.0.0** (`LICENSE.md`); `engine/` stays zlib.
 - Don't push to `origin` without explicit permission.
 - Never modify `../harry-potter-unpacked/` or `../harry-potter/` (pristine retail copies).
   Runs use `../game-work/` (disposable copy, SurrealEngine writes ini/save files into it).
@@ -101,7 +101,7 @@ in `docs/re/<topic>.md`.
      `OverrideNative(index, [] { RegisterVMNativeFunc_<argc>("Class", "Name", &Fn, index); })`
      (upstream may already have a stub at that index);
    - HP-only Actor properties: accessors in `hp1/HP1Actor.h` (offsets looked up by name);
-   - only if there's no other way, a gated `hp1_re:` hook in an engine file, added to the ROADMAP table;
+   - only if there's no other way, a gated `flipendo:` hook in an engine file, added to the ROADMAP table;
    - the `// IDA <dll>: <decorated name> [HP1 0x...]` tag above every reimplemented function (see Rules).
 5. Rebuild, `tools/run_hp1.sh 60`, check the `Unimplemented:` summary, rerun the audit.
 
