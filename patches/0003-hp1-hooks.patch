@@ -1,7 +1,7 @@
 flipendo: hooks into the HP1 port code in ../hp1
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 74ab008f..335fb6e8 100644
+index 74ab008f..9d30cdc7 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -1136,6 +1136,9 @@ target_include_directories(SurrealVideo PRIVATE SurrealVideo)
@@ -15,7 +15,7 @@ index 74ab008f..335fb6e8 100644
  set_target_properties(SurrealCommon PROPERTIES CXX_STANDARD 20)
  target_precompile_headers(SurrealCommon PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/SurrealEngine/Precomp.h>)
 diff --git a/SurrealEngine/Collision/TopLevel/CollisionSystem.cpp b/SurrealEngine/Collision/TopLevel/CollisionSystem.cpp
-index 051ad9f9..6efd380e 100644
+index 051ad9f9..ed878abb 100644
 --- a/SurrealEngine/Collision/TopLevel/CollisionSystem.cpp
 +++ b/SurrealEngine/Collision/TopLevel/CollisionSystem.cpp
 @@ -1,5 +1,7 @@
@@ -38,7 +38,7 @@ index 051ad9f9..6efd380e 100644
  		actor->Collision.Inserted = true;
  		actor->Collision.Location = location;
 diff --git a/SurrealEngine/Collision/TopLevel/OverlapTest.cpp b/SurrealEngine/Collision/TopLevel/OverlapTest.cpp
-index badaaaf5..d3e4714e 100644
+index badaaaf5..994177be 100644
 --- a/SurrealEngine/Collision/TopLevel/OverlapTest.cpp
 +++ b/SurrealEngine/Collision/TopLevel/OverlapTest.cpp
 @@ -1,5 +1,7 @@
@@ -79,7 +79,7 @@ index badaaaf5..d3e4714e 100644
  	double height = actor->CollisionHeight();
  	double radius = actor->CollisionRadius();
 diff --git a/SurrealEngine/Collision/TopLevel/TraceTest.cpp b/SurrealEngine/Collision/TopLevel/TraceTest.cpp
-index aef803f8..5b27c846 100644
+index aef803f8..91255987 100644
 --- a/SurrealEngine/Collision/TopLevel/TraceTest.cpp
 +++ b/SurrealEngine/Collision/TopLevel/TraceTest.cpp
 @@ -1,5 +1,7 @@
@@ -107,7 +107,7 @@ index aef803f8..5b27c846 100644
  		if (t < tmax)
  		{
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 34ee5181..0bcb15c1 100644
+index 34ee5181..0b7ed7d5 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,7 @@
@@ -235,11 +235,88 @@ index 34ee5181..0bcb15c1 100644
  	if (playingAvi)
  	{
  		if (key == EInputKey::IK_Escape)
+diff --git a/SurrealEngine/GameFolder.cpp b/SurrealEngine/GameFolder.cpp
+index 473146a7..639fff8a 100644
+--- a/SurrealEngine/GameFolder.cpp
++++ b/SurrealEngine/GameFolder.cpp
+@@ -9,16 +9,21 @@
+ #include <filesystem>
+ 
+ Array<GameLaunchInfo> GameFolderSelection::Games;
++Array<std::string> GameFolderSelection::Problems; // flipendo
+ 
+ void GameFolderSelection::UpdateList()
+ {
+ 	Games.clear();
++	Problems.clear();
+ 
+ 	for (const std::string& folder : commandline->GetItems())
+ 	{
+-		GameLaunchInfo game = ExamineFolder(folder);
++		std::string problem; // flipendo
++		GameLaunchInfo game = ExamineFolder(folder, &problem);
+ 		if (!game.gameName.empty())
+ 			Games.push_back(game);
++		else if (!problem.empty())
++			Problems.push_back(problem);
+ 	}
+ 
+ 	if (Games.empty())
+@@ -57,14 +62,14 @@ GameLaunchInfo GameFolderSelection::GetLaunchInfo(int selectedGame)
+ 	return info;
+ }
+ 
+-GameLaunchInfo GameFolderSelection::ExamineFolder(const std::string& path)
++GameLaunchInfo GameFolderSelection::ExamineFolder(const std::string& path, std::string* problem)
+ {
+ 	GameLaunchInfo info;
+ 
+ 	if (path.empty())
+ 		return info;
+ 
+-	auto ue1_game = FindUE1GameInPath(path);
++	auto ue1_game = FindUE1GameInPath(path, problem);
+ 
+ 	if (ue1_game.first != KnownUE1Games::UE1_GAME_NOT_FOUND)
+ 	{
+diff --git a/SurrealEngine/GameFolder.h b/SurrealEngine/GameFolder.h
+index 1a03615b..8b6862b6 100644
+--- a/SurrealEngine/GameFolder.h
++++ b/SurrealEngine/GameFolder.h
+@@ -34,9 +34,11 @@ public:
+ 	static GameLaunchInfo GetLaunchInfo(int selectedGame);
+ 
+ 	static Array<GameLaunchInfo> Games;
++	// flipendo: why each folder given on the command line wasn't recognised
++	static Array<std::string> Problems;
+ 
+ private:
+-	static GameLaunchInfo ExamineFolder(const std::string& path);
++	static GameLaunchInfo ExamineFolder(const std::string& path, std::string* problem = nullptr);
+ 	static Array<std::string> FindGameFolders();
+ 	static std::string GetExePath();
+ };
 diff --git a/SurrealEngine/Native/NObject.cpp b/SurrealEngine/Native/NObject.cpp
-index 1081c358..d043cef6 100644
+index 1081c358..8bf87781 100644
 --- a/SurrealEngine/Native/NObject.cpp
 +++ b/SurrealEngine/Native/NObject.cpp
-@@ -676,6 +676,10 @@ void NObject::DynamicLoadObject(const std::string& ObjectName, UObject* ObjectCl
+@@ -12,6 +12,7 @@
+ #include "Packages/Core/UClass.h"
+ #include "Packages/Core/UEnum.h"
+ #include <cmath>
++#include <set> // flipendo
+ 
+ #ifdef _MSC_VER
+ #pragma warning(disable: 4244) // warning C4244: '/=': conversion from 'float' to 'int', possible loss of data
+@@ -668,6 +669,7 @@ void NObject::Dot_QuatQuat_U227(quaternion& A, quaternion& B, float& ReturnValue
+ void NObject::DynamicLoadObject(const std::string& ObjectName, UObject* ObjectClass, std::optional<bool> MayFail, UObject*& ReturnValue)
+ {
+ 	ReturnValue = nullptr;
++	std::string reason; // flipendo
+ 
+ 	if (!ObjectName.empty())
+ 	{
+@@ -676,26 +678,41 @@ void NObject::DynamicLoadObject(const std::string& ObjectName, UObject* ObjectCl
  		{
  			std::string packageName = ObjectName.substr(0, dotpos);
  			std::string objectName = ObjectName.substr(dotpos + 1);
@@ -248,9 +325,42 @@ index 1081c358..d043cef6 100644
 +			if (objectName.rfind('.') != std::string::npos)
 +				objectName = objectName.substr(objectName.rfind('.') + 1);
  
++			// flipendo: keep why it failed (missing package and where it was looked for, or missing object)
  			try
  			{
-@@ -704,6 +708,10 @@ void NObject::DynamicLoadObject_219(const std::string& ObjectName, UObject* Obje
+ 				ReturnValue = engine->packages->GetPackage(packageName)->GetUObject(ObjectClass->Name, objectName);
++				if (!ReturnValue)
++					reason = "package " + packageName + " has no " + ObjectClass->Name.ToString() + " named " + objectName;
+ 			}
+-			catch (...)
++			catch (const std::exception& e)
+ 			{
++				reason = e.what();
++				// a missing package: keep the searched folders the first time, drop the stack trace
++				static std::set<std::string> listed;
++				size_t end = reason.find("\nCheck that");
++				if (end == std::string::npos || !listed.insert(packageName).second)
++					end = reason.find('\n');
++				reason = reason.substr(0, end);
+ 			}
+ 		}
+ 	}
+ 
+ 	if (!ReturnValue && (!MayFail || *MayFail == false))
+ 	{
+-		LogMessage("Object.DynamicLoadObject: could not load '" + ObjectName + "'");
++		LogMessage("Object.DynamicLoadObject: could not load '" + ObjectName + "'" + (reason.empty() ? "" : ": " + reason)); // flipendo: reason
+ 	}
+ }
+ 
+ void NObject::DynamicLoadObject_219(const std::string& ObjectName, UObject* ObjectClass, UObject*& ReturnValue)
+ {
+ 	ReturnValue = nullptr;
++	std::string reason; // flipendo
+ 
+ 	if (!ObjectName.empty())
+ 	{
+@@ -704,20 +721,34 @@ void NObject::DynamicLoadObject_219(const std::string& ObjectName, UObject* Obje
  		{
  			std::string packageName = ObjectName.substr(0, dotpos);
  			std::string objectName = ObjectName.substr(dotpos + 1);
@@ -259,10 +369,36 @@ index 1081c358..d043cef6 100644
 +			if (objectName.rfind('.') != std::string::npos)
 +				objectName = objectName.substr(objectName.rfind('.') + 1);
  
++			// flipendo: keep why it failed (missing package and where it was looked for, or missing object)
  			try
  			{
+ 				ReturnValue = engine->packages->GetPackage(packageName)->GetUObject(ObjectClass->Name, objectName);
++				if (!ReturnValue)
++					reason = "package " + packageName + " has no " + ObjectClass->Name.ToString() + " named " + objectName;
+ 			}
+-			catch (...)
++			catch (const std::exception& e)
+ 			{
++				reason = e.what();
++				// a missing package: keep the searched folders the first time, drop the stack trace
++				static std::set<std::string> listed;
++				size_t end = reason.find("\nCheck that");
++				if (end == std::string::npos || !listed.insert(packageName).second)
++					end = reason.find('\n');
++				reason = reason.substr(0, end);
+ 			}
+ 		}
+ 	}
+ 
+ 	if (!ReturnValue)
+ 	{
+-		LogMessage("Object.DynamicLoadObject: could not load '" + ObjectName + "'");
++		LogMessage("Object.DynamicLoadObject: could not load '" + ObjectName + "'" + (reason.empty() ? "" : ": " + reason)); // flipendo: reason
+ 	}
+ }
+ 
 diff --git a/SurrealEngine/Native/NPlayerPawn.cpp b/SurrealEngine/Native/NPlayerPawn.cpp
-index 287956c1..39dac782 100644
+index 287956c1..a4e35445 100644
 --- a/SurrealEngine/Native/NPlayerPawn.cpp
 +++ b/SurrealEngine/Native/NPlayerPawn.cpp
 @@ -40,6 +40,8 @@ void NPlayerPawn::ClientTravel(UObject* Self, const std::string& URL, uint8_t Tr
@@ -274,11 +410,53 @@ index 287956c1..39dac782 100644
  	engine->ClientTravel(URL, static_cast<ETravelType>(TravelType), bItems);
  }
  
+diff --git a/SurrealEngine/Package/Package.cpp b/SurrealEngine/Package/Package.cpp
+index 78b0a27d..262b8d22 100644
+--- a/SurrealEngine/Package/Package.cpp
++++ b/SurrealEngine/Package/Package.cpp
+@@ -5,6 +5,8 @@
+ #include "PackageStream.h"
+ #include "PackageManager.h"
+ #include "Utils/File.h"
++#include "Utils/Logger.h" // flipendo: missing import messages
++#include <set> // flipendo
+ #include "Packages/Core/UObject.h"
+ #include "Packages/Core/UClass.h"
+ 
+@@ -180,11 +182,19 @@ UObject* Package::GetUObject(int objref)
+ 
+ 		NameString packageName = GetName(outerEntry->ObjName);
+ 
+-		UObject* obj = Packages->GetPackage(packageName)->GetUObject(className, objectName, group);
++		// flipendo: pass our name so a missing package says who imports it; log imports the package lacks
++		UObject* obj = Packages->GetPackage(packageName, Name)->GetUObject(className, objectName, group);
+ 		if (!obj && packageName == "UnrealI")
+ 			obj = Packages->GetPackage("UnrealShare")->GetUObject(className, objectName, group);
+ 		else if (!obj && packageName == "UnrealShare")
+ 			obj = Packages->GetPackage("UnrealI")->GetUObject(className, objectName, group);
++		if (!obj)
++		{
++			static std::set<std::string> reported;
++			std::string path = packageName.ToString() + "." + (group.empty() ? "" : group + ".") + objectName.ToString();
++			if (reported.insert(Name.ToString() + ":" + path).second)
++				LogMessage("Package " + Name.ToString() + " imports " + className.ToString() + " " + path + ", which " + packageName.ToString() + " does not contain");
++		}
+ 		return obj;
+ 	}
+ 	else
 diff --git a/SurrealEngine/Package/PackageManager.cpp b/SurrealEngine/Package/PackageManager.cpp
-index cdb045bf..4c41b7b2 100644
+index cdb045bf..f038f0f5 100644
 --- a/SurrealEngine/Package/PackageManager.cpp
 +++ b/SurrealEngine/Package/PackageManager.cpp
-@@ -38,6 +38,7 @@
+@@ -6,6 +6,7 @@
+ #include "IniFile.h"
+ #include "PackageWriter.h"
+ #include "Utils/File.h"
++#include "Utils/Logger.h" // flipendo: missing data messages
+ #include "Utils/StrTools.h"
+ #include "VM/NativeFunc.h"
+ #include "Packages/ConSys/UConAudioList.h"
+@@ -38,6 +39,7 @@
  #include "Packages/ConSys/Events/UConEventSetFlag.h"
  #include "Packages/ConSys/Events/UConEventSpeech.h"
  #include "Packages/ConSys/Events/UConEventTrade.h"
@@ -286,7 +464,78 @@ index cdb045bf..4c41b7b2 100644
  #include "Packages/ConSys/Events/UConEventTransferObject.h"
  #include "Packages/ConSys/Events/UConEventTrigger.h"
  #include "Packages/ConSys/History/UConHistory.h"
-@@ -1114,6 +1115,9 @@ void PackageManager::RegisterFunctions()
+@@ -339,7 +341,7 @@ void PackageManager::CreateTransientPackage()
+ 	packages["Transient"].set(GC::Alloc<Package>(this, "Transient", ""));
+ }
+ 
+-Package* PackageManager::GetPackage(const NameString& name)
++Package* PackageManager::GetPackage(const NameString& name, const NameString& neededBy)
+ {
+ 	auto& package = packages[name];
+ 	if (package)
+@@ -352,12 +354,26 @@ Package* PackageManager::GetPackage(const NameString& name)
+ 	}
+ 	else
+ 	{
+-		Exception::Throw("Could not find package " + name.ToString());
++		// flipendo: say who needs the package and where it was looked for (missing or misplaced game data)
++		Exception::Throw(MissingPackageMessage(name, neededBy));
+ 	}
+ 
+ 	return package.get();
+ }
+ 
++// flipendo: the message for a package that isn't in any [Core.System] Paths folder
++std::string PackageManager::MissingPackageMessage(const NameString& name, const NameString& neededBy) const
++{
++	std::string text = "Could not find package '" + name.ToString() + "'";
++	if (!neededBy.IsNone())
++		text += " (needed by package '" + neededBy.ToString() + "')";
++	text += ".\nPackages are looked up by name in the folders listed as Paths= under [Core.System] in the game's ini:\n";
++	for (const auto& [entry, folder] : searchPaths)
++		text += "  " + folder + "   (Paths=" + entry + ")" + (fs::exists(folder) ? "" : "   <- folder does not exist") + "\n";
++	text += "Check that the game is fully installed in " + gameRootFolderPath.string() + " (System, Maps, Textures, Sounds, Music).";
++	return text;
++}
++
+ Package* PackageManager::LoadMap(const std::string& path)
+ {
+ 	const auto mapPath = convert_path_separators(path);
+@@ -395,6 +411,21 @@ Package* PackageManager::LoadMap(const std::string& path)
+ 	if (!absolute_path.has_extension())
+ 		absolute_path.replace_extension(GetMapExtension());
+ 
++	// flipendo: a missing map gets a message that says where it was looked for instead of "Could not open"
++	if (!fs::exists(absolute_path))
++	{
++		std::string text = "Could not find map '" + mapFilename.string() + "'. Looked in:";
++		bool listed = false;
++		for (auto& folder : mapFolders)
++		{
++			text += "\n  " + folder;
++			listed = listed || fs::path(folder) == absolute_path.parent_path();
++		}
++		if (!listed)
++			text += "\n  " + absolute_path.parent_path().string();
++		Exception::Throw(text);
++	}
++
+ 	return GC::Alloc<Package>(this, mapFilename.stem().string(), absolute_path.string());
+ }
+ 
+@@ -523,6 +554,11 @@ void PackageManager::ScanPaths()
+ 		// Calculate the final, absolute path
+ 		auto finalPath = (gameSystemFolderPath / currentPath).lexically_normal().parent_path();
+ 
++		// flipendo: remember the search folders for missing data messages, and report missing ones right away
++		searchPaths.push_back({ currentPathStr, finalPath.string() });
++		if (!fs::exists(finalPath))
++			LogMessage("Game data folder missing: " + finalPath.string() + " (Paths=" + currentPathStr + " in [Core.System])");
++
+ 		// Add map folders in a separate list, so ScanForMaps() can use them
+ 		if (filename.string() == "*." + GetMapExtension())
+ 			mapFolders.push_back(finalPath.string());
+@@ -1114,6 +1150,9 @@ void PackageManager::RegisterFunctions()
  	{
  		NRMusicPlayer::RegisterFunctions();
  	}
@@ -296,8 +545,32 @@ index cdb045bf..4c41b7b2 100644
  }
  
  void PackageManager::RegisterNativeClasses()
+diff --git a/SurrealEngine/Package/PackageManager.h b/SurrealEngine/Package/PackageManager.h
+index 7ea7c66b..5ffb3f66 100644
+--- a/SurrealEngine/Package/PackageManager.h
++++ b/SurrealEngine/Package/PackageManager.h
+@@ -50,7 +50,8 @@ public:
+ 	fs::path GetSaveFolderPath() const { return gameSaveFolderPath; }
+ 	fs::path GetCacheFolderPath() const { return gameCacheFolderPath; }
+ 
+-	Package* GetPackage(const NameString& name);
++	// flipendo: neededBy names the package that imports it, for the "could not find package" message
++	Package* GetPackage(const NameString& name, const NameString& neededBy = {});
+ 	Array<NameString> GetPackageNames() const;
+ 	Package* GetSaveInfoPackage(const NameString& saveFolderName);
+ 	void RemoveSaveInfoPackage(const NameString& saveFolderName);
+@@ -142,6 +143,9 @@ private:
+ 	std::unique_ptr<IniFile> defaultUserFile; // Holds DefUser.ini
+ 
+ 	Array<std::string> mapFolders;
++	// flipendo: every [Core.System] Paths entry and the folder it resolved to (for missing data messages)
++	Array<std::pair<std::string, std::string>> searchPaths;
++	std::string MissingPackageMessage(const NameString& name, const NameString& neededBy) const;
+ 	Array<std::string> maps;
+ 
+ 	// So that we don't have to build fs::path()s all over the place
 diff --git a/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp b/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp
-index 2f91f141..e06f4cdc 100644
+index 2f91f141..94c234e9 100644
 --- a/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp
 +++ b/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp
 @@ -49,8 +49,12 @@ void UStructProperty::LoadStructMemberValue(void* data, ObjectStream* stream)
@@ -331,7 +604,7 @@ index 2f91f141..e06f4cdc 100644
  }
  
 diff --git a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
-index de07166c..b798cc3a 100644
+index de07166c..8be94c4f 100644
 --- a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
 @@ -7,10 +7,13 @@
@@ -423,7 +696,7 @@ index de07166c..b798cc3a 100644
  		StateFrame->LatentState = LatentRunState::WaitForLanding;
  }
 diff --git a/SurrealEngine/Packages/Engine/Actors/Pawn/UPlayerPawn.cpp b/SurrealEngine/Packages/Engine/Actors/Pawn/UPlayerPawn.cpp
-index e3c87b45..99c1ef1e 100644
+index e3c87b45..fce70354 100644
 --- a/SurrealEngine/Packages/Engine/Actors/Pawn/UPlayerPawn.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/Pawn/UPlayerPawn.cpp
 @@ -3,6 +3,7 @@
@@ -448,7 +721,7 @@ index e3c87b45..99c1ef1e 100644
  		return;
  
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor.cpp b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
-index 29c45a1c..3fabbbf1 100644
+index 29c45a1c..fcd06f9c 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
 @@ -9,6 +9,7 @@
@@ -494,7 +767,7 @@ index 29c45a1c..3fabbbf1 100644
  
  bool UActor::Move(const vec3& delta)
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
-index aceba9af..7d5ed5e0 100644
+index aceba9af..9b2a02ac 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
 @@ -6,6 +6,7 @@
@@ -519,7 +792,7 @@ index aceba9af..7d5ed5e0 100644
  	{
  		if (!IsAnimating() || AnimFrame() >= AnimLast())
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
-index 07b200e2..0dad1bfa 100644
+index 07b200e2..d302df3c 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
 @@ -8,9 +8,18 @@
@@ -551,7 +824,7 @@ index 07b200e2..0dad1bfa 100644
  
  	OldLocation() = Location();
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysFalling.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysFalling.cpp
-index 7fa151c8..a4be2991 100644
+index 7fa151c8..5bebe20d 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysFalling.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysFalling.cpp
 @@ -9,6 +9,7 @@
@@ -574,7 +847,7 @@ index 7fa151c8..a4be2991 100644
  			{
  				// So projectiles don't think they hit a wall.
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysFlying.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysFlying.cpp
-index 6ccfaa27..01351be7 100644
+index 6ccfaa27..a55e8a67 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysFlying.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysFlying.cpp
 @@ -64,5 +64,8 @@ void UActor::TickFlying(float elapsed)
@@ -588,7 +861,7 @@ index 6ccfaa27..01351be7 100644
 +		Velocity().z = 0.0f;
  }
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp
-index 22b4b664..e0463545 100644
+index 22b4b664..c2a5de31 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp
 @@ -9,6 +9,7 @@
@@ -628,7 +901,7 @@ index 22b4b664..e0463545 100644
  
  	if (elapsed > 0.0f)
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysRolling.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysRolling.cpp
-index 31d7896f..0957dc13 100644
+index 31d7896f..357c26b8 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysRolling.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysRolling.cpp
 @@ -9,10 +9,11 @@
@@ -664,7 +937,7 @@ index 31d7896f..0957dc13 100644
  
  
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysTrailer.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysTrailer.cpp
-index 519c390d..a55b11d3 100644
+index 519c390d..a16d942b 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysTrailer.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysTrailer.cpp
 @@ -2,9 +2,16 @@
@@ -685,7 +958,7 @@ index 519c390d..a55b11d3 100644
  		return;
  
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp
-index 71dc2525..0328f1ca 100644
+index 71dc2525..46f3443c 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp
 @@ -9,15 +9,23 @@
@@ -755,7 +1028,7 @@ index 71dc2525..0328f1ca 100644
  	}
  
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp
-index a457b9a0..f06ad1a7 100644
+index a457b9a0..873692ce 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp
 @@ -6,6 +6,8 @@
@@ -789,7 +1062,7 @@ index a457b9a0..f06ad1a7 100644
  	{
  		UModel* brush = Brush();
 diff --git a/SurrealEngine/Packages/Engine/Resources/Mesh/UAnimation.cpp b/SurrealEngine/Packages/Engine/Resources/Mesh/UAnimation.cpp
-index 53982dc0..8dc63eb1 100644
+index 53982dc0..6bf3a6bb 100644
 --- a/SurrealEngine/Packages/Engine/Resources/Mesh/UAnimation.cpp
 +++ b/SurrealEngine/Packages/Engine/Resources/Mesh/UAnimation.cpp
 @@ -2,12 +2,19 @@
@@ -814,7 +1087,7 @@ index 53982dc0..8dc63eb1 100644
  
  	int NumRefBones = stream->ReadIndex();
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
-index d5615c73..2cf41bb7 100644
+index d5615c73..dc6e1eed 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 +++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 @@ -356,7 +356,8 @@ void USurrealAudioDevice::UpdateMusic()
@@ -868,7 +1141,7 @@ index d5615c73..2cf41bb7 100644
  {
  	PlayingSound& Playing = PlayingSounds[index];
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h
-index 81534ba9..cc68dc1a 100644
+index 81534ba9..80a076e6 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h
 +++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h
 @@ -64,6 +64,9 @@ public:
@@ -882,7 +1155,7 @@ index 81534ba9..cc68dc1a 100644
  	void StopSounds();
  
 diff --git a/SurrealEngine/Render/RenderCanvas.cpp b/SurrealEngine/Render/RenderCanvas.cpp
-index 4b2aa5c5..b801d9a1 100644
+index 4b2aa5c5..78b3dddd 100644
 --- a/SurrealEngine/Render/RenderCanvas.cpp
 +++ b/SurrealEngine/Render/RenderCanvas.cpp
 @@ -14,6 +14,7 @@
@@ -969,7 +1242,7 @@ index 4b2aa5c5..b801d9a1 100644
  	frame.FY = (float)Y * Canvas.uiscale;
  	frame.FX2 = frame.FX * 0.5f;
 diff --git a/SurrealEngine/Render/RenderSubsystem.cpp b/SurrealEngine/Render/RenderSubsystem.cpp
-index f3fcef6d..7ce0d3c4 100644
+index f3fcef6d..8400563b 100644
 --- a/SurrealEngine/Render/RenderSubsystem.cpp
 +++ b/SurrealEngine/Render/RenderSubsystem.cpp
 @@ -12,6 +12,7 @@
@@ -1009,7 +1282,7 @@ index f3fcef6d..7ce0d3c4 100644
  }
  
 diff --git a/SurrealEngine/Render/RenderSubsystem.h b/SurrealEngine/Render/RenderSubsystem.h
-index 0f88fc9c..3ab3b405 100644
+index 0f88fc9c..e56917b9 100644
 --- a/SurrealEngine/Render/RenderSubsystem.h
 +++ b/SurrealEngine/Render/RenderSubsystem.h
 @@ -105,7 +105,7 @@ private:
@@ -1022,7 +1295,7 @@ index 0f88fc9c..3ab3b405 100644
  		int framesDrawn = 0;
  		uint64_t startFPSTime = 0;
 diff --git a/SurrealEngine/Render/VisibleActor.cpp b/SurrealEngine/Render/VisibleActor.cpp
-index 984fdbfc..ecf9edc8 100644
+index 984fdbfc..22161da6 100644
 --- a/SurrealEngine/Render/VisibleActor.cpp
 +++ b/SurrealEngine/Render/VisibleActor.cpp
 @@ -9,6 +9,8 @@
@@ -1069,7 +1342,7 @@ index 984fdbfc..ecf9edc8 100644
 +	}
  }
 diff --git a/SurrealEngine/Render/VisibleMesh.cpp b/SurrealEngine/Render/VisibleMesh.cpp
-index 7f5e8efb..914e9da3 100644
+index 7f5e8efb..1f75d1d0 100644
 --- a/SurrealEngine/Render/VisibleMesh.cpp
 +++ b/SurrealEngine/Render/VisibleMesh.cpp
 @@ -12,6 +12,7 @@
@@ -1114,3 +1387,53 @@ index 7f5e8efb..914e9da3 100644
  	return DrawLodMesh(frame, actor, lightLocationActor, mesh, ObjectToWorld, ObjectNormalToWorld, translucentPass);
  }
  
+diff --git a/SurrealEngine/UE1GameDatabase.cpp b/SurrealEngine/UE1GameDatabase.cpp
+index bf6912eb..3afeb79e 100644
+--- a/SurrealEngine/UE1GameDatabase.cpp
++++ b/SurrealEngine/UE1GameDatabase.cpp
+@@ -4,13 +4,20 @@
+ #include "Utils/SHA1Sum.h"
+ #include <iostream>
+ 
+-std::pair<KnownUE1Games, std::string> FindUE1GameInPath(const std::string& ue1_game_root_folder_path)
++std::pair<KnownUE1Games, std::string> FindUE1GameInPath(const std::string& ue1_game_root_folder_path, std::string* problem)
+ {
++	// flipendo: report why a folder isn't recognised instead of skipping it silently
++	auto notFound = [&](const std::string& why) {
++		if (problem)
++			*problem = why;
++		return std::make_pair(KnownUE1Games::UE1_GAME_NOT_FOUND, std::string());
++	};
++
+ 	if (ue1_game_root_folder_path.empty())
+-		return std::make_pair(KnownUE1Games::UE1_GAME_NOT_FOUND, "");
++		return notFound("no folder given");
+ 
+ 	if (!fs::exists(ue1_game_root_folder_path) || !fs::is_directory(ue1_game_root_folder_path))
+-		return std::make_pair(KnownUE1Games::UE1_GAME_NOT_FOUND, "");
++		return notFound(ue1_game_root_folder_path + ": folder does not exist");
+ 
+ 	const auto UE1GameSystemPath = fs::path(ue1_game_root_folder_path) / "System";
+ 	const auto UE1GameSystem64Path = fs::path(ue1_game_root_folder_path) / "System64";
+@@ -31,7 +38,8 @@ std::pair<KnownUE1Games, std::string> FindUE1GameInPath(const std::string& ue1_g
+ 		const auto it = !sha1sum64.empty() ? SHA1Database.find(sha1sum64) : SHA1Database.find(sha1sum);
+ 		
+ 		if (it == SHA1Database.end())
+-			return std::make_pair(KnownUE1Games::UE1_GAME_NOT_FOUND, "");
++			return notFound((!sha1sum64.empty() ? executablePath64 : executablePath).string() + " is not a recognised version (SHA-1 " +
++				(!sha1sum64.empty() ? sha1sum64 : sha1sum) + "). Please report it with the game's language and release.");
+ 
+ 		// Hack: Tactical-Ops has a version that contains the exact same UTv469d executable. Handle that here
+ 		if (it->second == KnownUE1Games::UT99_469d && executable_name == "TacticalOps.exe")
+@@ -40,5 +48,9 @@ std::pair<KnownUE1Games, std::string> FindUE1GameInPath(const std::string& ue1_g
+ 	}
+ 
+ 	// We got nothing here
+-	return std::make_pair(KnownUE1Games::UE1_GAME_NOT_FOUND, "");
++	// flipendo: a common mistake is pointing at the System folder itself instead of the game folder
++	if (fs::path(ue1_game_root_folder_path).filename() == "System" || fs::exists(fs::path(ue1_game_root_folder_path) / "Core.u"))
++		return notFound(ue1_game_root_folder_path + " looks like the game's System folder; use the folder above it (the one that contains System, Maps, Textures)");
++	return notFound(ue1_game_root_folder_path + ": no known game executable in its System folder (for Harry Potter: System/HP.exe). "
++		"Use the game's install folder, the one that contains System, Maps, Textures");
+ }
+\ No newline at end of file
