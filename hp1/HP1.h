@@ -53,6 +53,8 @@ namespace HP1
 
 	// UPawn::Tick: APawn::performPhysics' AvgPhysicsTime running average (hp1/HP1Pawn.cpp).
 	void PawnPhysicsTime(UPawn* pawn, float elapsed);
+	// UPawn::TickRotating / UPlayerPawn::TickRotating: APawn::physicsRotation.
+	void PawnPhysicsRotation(UPawn* pawn, float elapsed);
 	// UPawn::TickMoveTo: APawn::moveToward. Returns true when the latent move is done.
 	bool PawnMoveToward(UPawn* pawn, const vec3& dest);
 }

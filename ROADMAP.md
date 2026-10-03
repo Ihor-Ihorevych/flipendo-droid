@@ -10,7 +10,8 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
       `tools/update_engine.sh` to move to newer upstream
 - [x] HP1 retail exe detection (SafeDisc + No-CD hashes), `--autolaunch`, `--logfile`
 - [x] HP1 code lives in `hp1/`, engine changes are small `hp1_re:` hooks in `patches/`
-- [x] `HP1_SHOTS` / `HP1_SHOT_DIR` in-engine screenshots for checking scenes without a desktop capture
+- [x] Debug env vars: `HP1_SHOTS`/`HP1_SHOT_DIR` screenshots, `HP1_KEYS` scripted key presses,
+      `HP1_TRACE` actor state log (`hp1/HP1Debug.cpp`)
 - [x] `// IDA <dll>: <decorated name> [HP1 0x...]` tags on every reimplemented function (for re-checking
       and for HP2)
 - [x] Mouse cursor is only recentered while the game window is the foreground window (patch 0004)
@@ -43,6 +44,13 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
         teleported by the cutscene timeout = the "pop-in"). Also affects Triggers/CutScene volumes
   - [x] `APawn::moveToward` port (`hp1/HP1Pawn.cpp`): 16-unit arrival, steering damping, speed reduction,
         AvgPhysicsTime; kids no longer circle patrol points or wedge against the open door
+- [x] Player input: HP1 binds `Up=MoveForward | Button bBroomPitchUp`; upstream didn't trim `|`
+      subcommands, so the alias was never found and Harry couldn't move (`Engine::GetSubcommands`)
+- [x] `APawn::physicsRotation` port: pawns, including the player, turn towards DesiredRotation every physics
+      step (Harry ran sideways in cutscenes). Flying/swimming roll banking not ported yet
+- [ ] Some cutscene kids reportedly look like they walk while running (all play `run` at rate 1.5 with
+      finished tweens; needs a closer look at which ones)
+- [ ] Kids spawned on the same patrol point can overlap (UE1 Spawn fails when the spot is occupied?)
 - [ ] Verify CT_Box against `UBox::LineCheck/PointCheck` (Engine.dll 0x103FE620/0x103FE590); CT_Shape
       (decorations/movers: box from mesh/brush) still uses upstream's cylinder/brush collision
 - [ ] Play through Lev_Tut1 + Lev_Tut1b, fix what breaks (`tools/run_hp1.sh 60 --url=Lev_Tut1`)
@@ -84,8 +92,9 @@ minimal so upstream updates rarely conflict.
 | `Packages/Engine/Actors/UActor_Render.cpp` | `HP1::GetRenderBoundingBox` in `UpdateBspInfo` |
 | `Packages/Engine/Actors/UActor_PhysMovingBrush.cpp` | `HP1::MoverPhysicsBegin/End` (Mover's shadowed PhysAlpha/PhysRate) |
 | `Render/RenderSubsystem.cpp` | `HP1::OnFrameRendered` (`HP1_SHOTS` debug screenshots) |
-| `Engine.cpp` | `HP1::ViewFovAngle` after PlayerCalcView (Hor+ FOV) |
+| `Engine.cpp` | `HP1::ViewFovAngle` after PlayerCalcView (Hor+ FOV); trim `\|` input subcommands |
 | `Collision/TopLevel/TraceTest.cpp`, `OverlapTest.cpp`, `CollisionSystem.cpp` | CT_Box trace/overlap/hash extents |
-| `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `HP1::PawnMoveToward`, `HP1::PawnPhysicsTime` |
+| `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `HP1::PawnMoveToward`, `HP1::PawnPhysicsTime`, `HP1::PawnPhysicsRotation` |
+| `Packages/Engine/Actors/Pawn/UPlayerPawn.cpp` | `HP1::PawnPhysicsRotation` |
 | `UE1GameDatabase.h`, `GameApp.cpp` | exe hashes, `--autolaunch` / `--logfile` |
 | `SurrealWidgets/.../win32_display_window.cpp` | cursor recentering needs foreground focus (0004) |

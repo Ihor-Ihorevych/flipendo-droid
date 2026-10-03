@@ -96,3 +96,7 @@ in `docs/re/<topic>.md`.
 - Rebuilding fails if `SurrealEngine.exe` is running (file lock). The user is fine with Claude killing it
   (`taskkill //IM SurrealEngine.exe //F`) to rebuild or relaunch.
 - `tools/run_hp1.sh [secs]` — `--autolaunch --logfile=build/hp1_run.log` against `../game-work`.
+- Debug env vars (`hp1/HP1Debug.cpp`, times in seconds since the first frame): `HP1_SHOTS="5,8.5"` +
+  `HP1_SHOT_DIR` for in-engine screenshots (never capture the desktop), `HP1_KEYS="62:Up:3,66:Left:0.6"`
+  to press keys (the Lev_Tut1 intro hands control to the player at ~58 s), `HP1_TRACE="harry0,gen_"` to
+  log actors by name prefix every 0.5 s (state, location, velocity, rotation, anim, tween, pawn speed/input).
