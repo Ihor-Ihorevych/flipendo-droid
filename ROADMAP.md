@@ -30,7 +30,9 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
       GetMeshCoords incl. the Y mirror, Wideness, bAlignBottom)
 - [~] Channel blending in the pose (AuxAnims per bone subtree) — implemented, not yet verified in game
 - [ ] Verify animations visually against the original (walk/run/breathe, tween blends)
-- [ ] Root motion (`bAnimMove`: GetRootMovement / AdjustRootMovement / AnimCycleMovement)
+- [ ] Root motion (`bAnimMove`: GetRootMovement / AdjustRootMovement / AnimCycleMovement). **Blocks Lev_Tut1**:
+      harry.uc's MountFinish subtracts the climb anims' own movement (30 forward + 32/64/96 up) from MountDelta, so
+      without root motion a ledge grab plays climb96start/end in place and Harry never gets onto the ledge
 - [ ] BonePos, GetBoneCoords, weapon/wand attachment (WeaponBoneIndex, WeaponAdjust), AttachToOwner
 - [ ] GetRenderExtent, GetWorldCollisionBox (skeletal bounds)
 - [x] Transient channel cleanup (done in ApplyAnim, like the original)
@@ -61,7 +63,14 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 - [x] The player slides along actor walls instead of sticking to them (upstream TickWalking left player-vs-actor
       hits as a TODO; HP1's `APawn::stepUp` slides). Harry can now run up the Lev_Tut1 stairs along the
       BlockAll banister and reach the Ron cutscene
-- [ ] Play through Lev_Tut1 + Lev_Tut1b, fix what breaks (`tools/run_hp1.sh 60 --url=Lev_Tut1`)
+- [~] Play through Lev_Tut1 + Lev_Tut1b, fix what breaks (`tools/run_hp1.sh 60 --url=Lev_Tut1`). With `HP1_GOTO`:
+      stairs → Ron cutscene → door D1stA → CutScene52 → Fred & George's bookcase room (~126 s) works; stuck at the
+      bookcase climb (root motion, phase 1). Route ahead (from `HP1_DUMP`): climbexit door (1032,-3744) → jumping
+      help (1700,-3930) → Peeves → wizard cards (2990,-4960) → FGsec2/DADA doors → CUTFLIPBEGIN (956,-6699)
+- [x] Ledge grabbing: `APawn::Mount` (`hp1/HP1Pawn.cpp`), called from walking (stepUp) and falling wall hits. Only
+      BSP surfaces with PolyFlags 0x1000 (PF_SpecialPoly = HP1's "mountable") qualify. Upstream's cylinder collision
+      can report the node of a neighbouring plane, so the face is re-found with a zero-extent ray
+- [x] `Actor.SetCollisionSize` has HP1's optional third parameter NewWidth (MountFinish passes three values)
 - [ ] Missing Actor natives: ModifySound(567), StopSound(568), SaveGameExists(3972), Wind.GetWind,
       PlayerPawn.ScreenToWorld, Pawn.FindPath, Console.CreateNativeFont
 - [ ] Unknown console command `Snap` (FEBook.OpenBook `Snap 3`: screenshot for the save thumbnail, see phase 4)
@@ -123,9 +132,10 @@ minimal so upstream updates rarely conflict.
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `HP1::PawnMoveToward`, `HP1::PawnPhysicsTime`, `HP1::PawnPhysicsRotation` |
 | `Packages/Engine/Actors/Pawn/UPlayerPawn.cpp` | `HP1::PawnPhysicsRotation` |
 | `UE1GameDatabase.h`, `GameApp.cpp` | exe hashes, `--autolaunch` / `--logfile` |
-| `SurrealWidgets/.../win32_display_window.cpp` | cursor recentering needs foreground focus (0004) |
+| `SurrealWidgets/.../win32_display_window.cpp` | cursor recentering and raw mouse/keyboard input need foreground focus (0004; raw input is RIDEV_INPUTSINK, so moving the mouse in another app turned the camera) |
 | `Packages/Engine/Actors/UActor_Phys.cpp`, `UActor_PhysRolling.cpp` | `HP1::PhysicsChecksLeftWorld` (zone-0 FellOutOfWorld only while walking) |
-| `Packages/Engine/Actors/UActor_PhysWalking.cpp` | player slides along actors it hits (no pushable decoration) |
+| `Packages/Engine/Actors/UActor_PhysWalking.cpp` | player slides along actors it hits (no pushable decoration); `HP1::PawnMount` before the step up |
+| `Packages/Engine/Actors/UActor_PhysFalling.cpp` | `HP1::PawnMount` on a wall hit |
 | `Packages/Engine/Actors/UActor.cpp` | `HP1::TickParticleFX` in Tick, `HP1::ParticleFXDestroyed` in Destroy |
 | `Packages/Engine/Actors/UActor_Render.cpp` | `HP1::GetParticleBoundingBox` for DT_Particles (8) |
 | `Render/VisibleActor.cpp` | DT_Particles actors drawn in the translucent pass by `HP1::DrawParticleSystem` |

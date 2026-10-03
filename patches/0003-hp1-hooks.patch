@@ -376,6 +376,29 @@ index 07b200e2..30ab0759 100644
  		return nullptr;
  
  	OldLocation() = Location();
+diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysFalling.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysFalling.cpp
+index 7fa151c8..a4be2991 100644
+--- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysFalling.cpp
++++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysFalling.cpp
+@@ -9,6 +9,7 @@
+ #include "Packages/Engine/Resources/Level/ULevel.h"
+ #include "Packages/Engine/Resources/Level/UModel.h"
+ #include "Engine.h"
++#include "HP1.h" // hp1_re
+ 
+ void UActor::TickFalling(float elapsed)
+ {
+@@ -87,6 +88,10 @@ void UActor::TickFalling(float elapsed)
+ 
+ 		if (hit.Fraction < 1.0f)
+ 		{
++			// hp1_re: HP1's physFalling lets a pawn grab a ledge (APawn::Mount) when it hits a wall, before processHitWall.
++			if (pawn && !bBounce() && hit.Normal.z <= 0.7f && engine->LaunchInfo.IsHarryPotter1())
++				HP1::PawnMount(pawn, vec3(0.0f, 0.0f, 1.0f), hit);
++
+ 			if (hit.Actor && hit.Actor->IsA("Pawn"))
+ 			{
+ 				// So projectiles don't think they hit a wall.
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp
 index 22b4b664..429c520d 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp
@@ -426,10 +449,29 @@ index 31d7896f..eb5463ec 100644
  
  	// Save our starting point and state
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp
-index 71dc2525..2712419c 100644
+index 71dc2525..6e3109e4 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp
-@@ -120,7 +120,10 @@ void UActor::TickWalking(float elapsed)
+@@ -9,6 +9,7 @@
+ #include "Packages/Engine/Resources/Level/ULevel.h"
+ #include "Packages/Engine/Resources/Level/UModel.h"
+ #include "Engine.h"
++#include "HP1.h" // hp1_re
+ 
+ bool UActor::ShouldAbortJumping(UPawn* pawn, vec3 oldPosition, vec3 stepDownDelta)
+ {
+@@ -97,6 +98,10 @@ void UActor::TickWalking(float elapsed)
+ 			if (ShouldAbortJumping(pawn, oldPosition, stepDownDelta))
+ 				return;
+ 
++			// hp1_re: HP1's APawn::stepUp first tries APawn::Mount(-GravDir) (ledge grab); a mount replaces the step up.
++			if (hit.Fraction < 1.0f && engine->LaunchInfo.IsHarryPotter1() && HP1::PawnMount(pawn, vec3(0.0f, 0.0f, -gravityDirection), hit))
++				return;
++
+ 			// if hit, step up and try again - maybe there was a ledge to get over
+ 			if (hit.Fraction < 1.0f)
+ 			{
+@@ -120,7 +125,10 @@ void UActor::TickWalking(float elapsed)
  
  			if (hit.Fraction < 1.0f)
  			{

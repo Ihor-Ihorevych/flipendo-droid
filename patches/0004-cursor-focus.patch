@@ -1,10 +1,21 @@
-hp1_re: only recenter the mouse cursor while the game window is the active (foreground) window
+hp1_re: only recenter the mouse cursor, and only act on raw mouse/keyboard input, while the game window is the active (foreground) window
 
 diff --git a/SurrealWidgets/src/window/win32/win32_display_window.cpp b/SurrealWidgets/src/window/win32/win32_display_window.cpp
-index 03451a7d..574c8a6f 100644
+index 03451a7d..8fa4cc2e 100644
 --- a/SurrealWidgets/src/window/win32/win32_display_window.cpp
 +++ b/SurrealWidgets/src/window/win32/win32_display_window.cpp
-@@ -777,7 +777,8 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
+@@ -723,7 +723,9 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
+ 
+ 	if (msg == WM_INPUT)
+ 	{
+-		bool hasFocus = GetFocus() == WindowHandle.hwnd;
++		// hp1_re: raw input is registered with RIDEV_INPUTSINK, so it also arrives while another application is in front;
++		// only act on it while we are the foreground window (mouse moves turned the camera in the background)
++		bool hasFocus = GetForegroundWindow() == WindowHandle.hwnd && GetFocus() == WindowHandle.hwnd;
+ 
+ 		HRAWINPUT handle = (HRAWINPUT)lparam;
+ 		UINT size = 0;
+@@ -777,7 +779,8 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
  	}
  	else if (msg == WM_MOUSEMOVE)
  	{

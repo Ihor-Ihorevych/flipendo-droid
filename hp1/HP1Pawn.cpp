@@ -6,6 +6,12 @@
 #include "Packages/Core/UClass.h"
 #include "VM/ScriptCall.h"
 #include "Math/coords.h"
+#include "Packages/Engine/Resources/Level/ULevel.h"
+#include "Packages/Engine/Resources/Level/UModel.h"
+#include "Packages/Engine/Actors/Brush/UMover.h"
+#include "Package/PackageManager.h"
+#include "Engine.h"
+#include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include <cmath>
 
 // APawn::moveToward (Engine.dll 0x103D96F0), used by the latent MoveTo / MoveToward / StrafeTo polls.
@@ -152,5 +158,152 @@ namespace HP1
 				return true;
 		}
 		return false;
+	}
+
+	// Pawn.MaxMountHeight is an HP1 addition (Harry: 96.5), not in upstream's PropertyOffsets.
+	static float& MaxMountHeight(UPawn* pawn)
+	{
+		static PropertyDataOffset offset;
+		static bool initialized = false;
+		if (!initialized)
+		{
+			offset = engine->packages->FindClass("Engine.Pawn")->GetPropertyDataOffset("MaxMountHeight");
+			initialized = true;
+		}
+		return pawn->Value<float>(offset);
+	}
+
+	// The BSP surface a collision hit landed on. The original walks the hit node's coplanar chain (BspNode.Plane)
+	// for the polygon that contains the hit location within `tolerance` of its edges and returns its surface.
+	// For mover hits it first moves the hit into the brush's local space; here a mover hit just uses the node
+	// the collision code reported.
+	// IDA Engine.dll: not exported: sub_103FF1B0 [HP1 0x103FF1B0] (FCheckResult -> FBspSurf*; called from APawn::Mount_0 with the max cylinder extent)
+	// IDA Engine.dll: not exported: sub_103FEBD0 [HP1 0x103FEBD0] (FCheckResult -> FBspNode*; the coplanar point-in-polygon search, callee of sub_103FF1B0)
+	static const BspSurface* HitSurface(const CollisionHit& hit, const vec3& location, float tolerance)
+	{
+		if (!hit.Node)
+			return nullptr;
+
+		UModel* model = engine->Level->Model;
+		if (hit.Node < model->Nodes.data() || hit.Node >= model->Nodes.data() + model->Nodes.size())
+		{
+			UMover* mover = UObject::TryCast<UMover>(hit.Actor);
+			UModel* brush = mover ? mover->Brush() : nullptr;
+			if (!brush || hit.Node < brush->Nodes.data() || hit.Node >= brush->Nodes.data() + brush->Nodes.size() || hit.Node->Surf < 0)
+				return nullptr;
+			return &brush->Surfaces[hit.Node->Surf];
+		}
+
+		const BspNode* candidate = nullptr;
+		int index = (int)(hit.Node - model->Nodes.data());
+
+		// Upstream's cylinder-vs-BSP collision can report a node of a neighbouring plane (e.g. the top of the
+		// bookcase whose front was hit), where UE1's Hit.Item is the node of the face hit. Then find that face
+		// with a zero-extent ray from the pawn's centre into the wall.
+		const BspNode& reported = model->Nodes[index];
+		if (dot(vec3(reported.PlaneX, reported.PlaneY, reported.PlaneZ), hit.Normal) < 0.99f)
+		{
+			index = -1;
+			float best = 2.0f;
+			for (const CollisionHit& h : engine->Level->Collision.Trace(location, location - hit.Normal * (2.0f * tolerance), 0.0f, 0.0f, false, true, false))
+			{
+				if (h.Node && h.Fraction < best && h.Node >= model->Nodes.data() && h.Node < model->Nodes.data() + model->Nodes.size())
+				{
+					best = h.Fraction;
+					index = (int)(h.Node - model->Nodes.data());
+				}
+			}
+		}
+		while (index != -1)
+		{
+			const BspNode& node = model->Nodes[index];
+			vec3 planeNormal(node.PlaneX, node.PlaneY, node.PlaneZ);
+			if (node.NumVertices != 0 && dot(planeNormal, hit.Normal) >= 0.99f)
+			{
+				candidate = &node;
+				float side = 1.0f;
+				int i = 0;
+				vec3 prev = model->Points[model->Vertices[node.VertPool + node.NumVertices - 1].Vertex];
+				for (; i < node.NumVertices; i++)
+				{
+					vec3 cur = model->Points[model->Vertices[node.VertPool + i].Vertex];
+					vec3 edgeNormal = cross(planeNormal, cur - prev);
+					float len2 = dot(edgeNormal, edgeNormal);
+					if (len2 >= 1e-8f)
+						edgeNormal = edgeNormal * (1.0f / std::sqrt(len2));
+					if (-tolerance > dot(edgeNormal, location - cur) * side)
+					{
+						if (i != 0)
+							break;
+						side = -1.0f; // the first edge decides the winding
+					}
+					prev = cur;
+				}
+				if (i == node.NumVertices)
+					return node.Surf >= 0 ? &model->Surfaces[node.Surf] : nullptr;
+			}
+			index = node.Plane;
+		}
+		return (tolerance == 0.0f && candidate && candidate->Surf >= 0) ? &model->Surfaces[candidate->Surf] : nullptr;
+	}
+
+	// Ledge grabbing. physFalling calls this with (0,0,1) when a falling pawn hits a wall, stepUp with -GravDir
+	// when a walking pawn runs into one. Only BSP surfaces flagged PF_SpecialPoly (0x1000, HP1's "mountable")
+	// qualify. It looks for a floor at most MaxMountHeight up just behind the wall, checks the way up and over is
+	// clear, sets the base and raises Pawn.Mount(ledge - Location); harry.uc's Mounting states do the climb.
+	// IDA Engine.dll: ?Mount@APawn@@QAE_NABVFVector@@AAUFCheckResult@@@Z [HP1 0x103EBFB0]
+	bool PawnMount(UPawn* pawn, const vec3& delta, const CollisionHit& hit)
+	{
+		float maxMount = MaxMountHeight(pawn);
+		if (maxMount <= 0.0f)
+			return false;
+		if (hit.Normal.z <= -0.1f || hit.Normal.z >= 0.7f)
+			return false;
+
+		// Must be facing the wall.
+		vec3 x, y, z;
+		Coords::Rotation(pawn->Rotation()).GetAxes(x, y, z);
+		if (dot(x, hit.Normal) >= 0.0f)
+			return false;
+
+		vec3 extent(pawn->CollisionRadius(), pawn->CollisionRadius(), pawn->CollisionHeight());
+		float maxExtent = std::max(std::max(std::abs(extent.x), std::abs(extent.y)), std::abs(extent.z));
+		const BspSurface* surf = HitSurface(hit, pawn->Location(), maxExtent);
+		if (!surf || (surf->PolyFlags & PF_SpecialPoly) == 0)
+			return false;
+
+		// Horizontal direction into the wall.
+		vec3 into(-hit.Normal.x, -hit.Normal.y, 0.0f);
+		float len2 = into.x * into.x + into.y * into.y;
+		if (len2 >= 1e-8f)
+			into = into * (1.0f / std::sqrt(len2));
+
+		// Trace down from MaxMountHeight above, just past the wall, to find the ledge.
+		vec3 top = pawn->Location() + delta * maxMount;
+		vec3 start = top + into * (2.0f * pawn->CollisionRadius() + maxMount * hit.Normal.z);
+		vec3 end = start - delta * maxMount - into * (maxMount * hit.Normal.z);
+		TraceFlags flags;
+		flags.movers = true;
+		flags.world = true; // TRACE_Level | TRACE_Movers
+		CollisionSystem& collision = pawn->XLevel()->Collision;
+		CollisionHit ledgeHit = collision.TraceFirstHit(start, end, pawn, extent, flags);
+		if (ledgeHit.Fraction >= 1.0f)
+			return false;
+		vec3 ledge = start + (end - start) * ledgeHit.Fraction;
+
+		float minHeight = pawn->Physics() == PHYS_Falling ? 0.0f : pawn->MaxStepHeight();
+		if (ledge.z - pawn->Location().z < minHeight)
+			return false;
+
+		// The way straight up and then over onto the ledge must be clear.
+		vec3 dest(ledge.x, ledge.y, ledge.z + 2.0f);
+		vec3 up(top.x, top.y, dest.z);
+		if (collision.TraceFirstHit(pawn->Location(), up, pawn, extent, flags).Fraction < 1.0f ||
+			collision.TraceFirstHit(up, dest, pawn, extent, flags).Fraction < 1.0f)
+			return false;
+
+		pawn->SetBase(hit.Actor ? hit.Actor : (UActor*)pawn->Level(), true);
+		CallEvent(pawn, NameString("Mount"), { ExpressionValue::VectorValue(dest - pawn->Location()) });
+		return true;
 	}
 }

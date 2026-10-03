@@ -2,6 +2,7 @@
 #include "HP1.h"
 #include "HP1Actor.h"
 #include "Math/coords.h"
+#include "VM/NativeFunc.h"
 #include <cmath>
 
 // HP1 actors pick their collision primitive with Actor.CollideType. CT_Box is an oriented box centered on
@@ -166,5 +167,25 @@ namespace HP1
 			for (int j = 0; j < 3; j++)
 				e[i] += std::abs(box.Axis[j][i]) * box.Extents[j];
 		return vec3((float)e.x, (float)e.y, (float)e.z);
+	}
+
+	void OverrideNative(int index, void (*registerFunc)());
+
+	// HP1 adds an optional third parameter: SetCollisionSize(NewRadius, NewHeight, optional NewWidth). NewWidth
+	// defaults to the current CollisionWidth and is stored there; MountFinish (harry.uc) passes three values.
+	// Always returns true (no room check).
+	// IDA Engine.dll: ?execSetCollisionSize@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x1040A870]
+	// IDA Engine.dll: ?SetCollisionSize@AActor@@QAEXMM@Z [HP1 0x10379C80]
+	static void NSetCollisionSize(UObject* Self, float NewRadius, float NewHeight, std::optional<float> NewWidth, BitfieldBool& ReturnValue)
+	{
+		UActor* actor = UObject::Cast<UActor>(Self);
+		CollisionWidth(actor) = NewWidth.value_or(CollisionWidth(actor));
+		actor->SetCollisionSize(NewRadius, NewHeight);
+		ReturnValue = true;
+	}
+
+	void RegisterCollisionNatives()
+	{
+		OverrideNative(283, [] { RegisterVMNativeFunc_4("Actor", "SetCollisionSize", &NSetCollisionSize, 283); });
 	}
 }
