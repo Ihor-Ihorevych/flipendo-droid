@@ -18,3 +18,7 @@
 *.id1
 *.id2
 *.nam
+
+# tools/uelib_dump build output
+tools/uelib_dump/bin/
+tools/uelib_dump/obj/
