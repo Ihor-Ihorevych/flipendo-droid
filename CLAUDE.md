@@ -89,7 +89,7 @@ in `docs/re/<topic>.md`.
 
 ## Build / run
 
-- `tools/update_engine.sh [--check|ref]` — move the `engine/` submodule to a newer mirror commit and
+- `tools/update_engine.sh [--check|ref]` — move the `engine/` submodule to a newer upstream commit and
   re-apply `patches/`. `tools/apply_patches.sh [--reset]`, `tools/refresh_patches.sh` for the patch set.
 - `tools/build.sh [Release|Debug|RelWithDebInfo] [target]` — VS 18 (2026) generator, x64, output in
   `build/<Config>/`. A full build takes a few minutes; `--target SurrealEngine` for the game only.

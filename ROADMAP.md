@@ -6,7 +6,7 @@ live in `docs/re/`. The native-level checklist is `docs/native_audit.md` (`pytho
 Legend: [x] done · [~] partly done / in progress · [ ] not started
 
 ## 0. Groundwork
-- [x] SurrealEngine as a git submodule (`engine/`, our mirror) + our changes as `patches/`;
+- [x] SurrealEngine as a git submodule (`engine/`, upstream SurrealEngine) + our changes as `patches/`;
       `tools/update_engine.sh` to move to newer upstream
 - [x] HP1 retail exe detection (SafeDisc + No-CD hashes), `--autolaunch`, `--logfile`
 - [x] HP1 code lives in `hp1/`, engine changes are small `hp1_re:` hooks in `patches/`

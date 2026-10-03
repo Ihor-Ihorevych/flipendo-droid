@@ -114,7 +114,7 @@ stays separate.
 ```sh
 git clone --recursive https://github.com/kroplabeskidu/hp1_re   # or: git submodule update --init
 tools/update_engine.sh --check   # new upstream commits + which patched files they touch
-tools/update_engine.sh           # move engine/ to the mirror's master and re-apply patches/
+tools/update_engine.sh           # move engine/ to upstream master and re-apply patches/
 tools/update_engine.sh <sha>     # or a specific commit
 ```
 
