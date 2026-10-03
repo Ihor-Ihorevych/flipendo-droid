@@ -482,6 +482,20 @@ index 7fa151c8..a4be2991 100644
  			if (hit.Actor && hit.Actor->IsA("Pawn"))
  			{
  				// So projectiles don't think they hit a wall.
+diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysFlying.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysFlying.cpp
+index 6ccfaa27..01351be7 100644
+--- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysFlying.cpp
++++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysFlying.cpp
+@@ -64,5 +64,8 @@ void UActor::TickFlying(float elapsed)
+ 	}
+ 
+ 	RecomputeVelocityFromDisplacement(elapsed);
+-	Velocity().z = 0.0f;
++	// hp1_re: HP1's physFlying (Engine.dll 0x103F13A0) keeps the vertical velocity; clearing it left climbing
++	// flyers (Peeves) circling a higher nav point forever
++	if (!engine->LaunchInfo.IsHarryPotter1())
++		Velocity().z = 0.0f;
+ }
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp
 index 22b4b664..e0463545 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp
