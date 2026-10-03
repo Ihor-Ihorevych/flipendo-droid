@@ -55,6 +55,7 @@ namespace HP1
 	struct Snapshot { float Alpha, Rate; };
 	static std::unordered_map<UActor*, Snapshot> Snapshots;
 
+	// IDA Engine.dll: ?physMovingBrush@AActor@@QAEXM@Z [HP1 0x104061F0] (reads the Mover-class PhysAlpha/PhysRate)
 	void MoverPhysicsBegin(UActor* mover)
 	{
 		const MoverProps& p = GetMoverProps();

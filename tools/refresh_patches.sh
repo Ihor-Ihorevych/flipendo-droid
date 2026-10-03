@@ -2,7 +2,7 @@
 # Regenerate patches/*.patch from the engine/ submodule's working-tree changes.
 # Workflow for changing an engine hook: tools/apply_patches.sh, edit the file under engine/, run this,
 # commit patches/. Never commit inside engine/ (it's a mirror of upstream SurrealEngine).
-# A changed file goes to the patch that already touches it; new files go to the last patch.
+# A changed file goes to the patch that already touches it; other files go to the *-hp1-hooks patch.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -24,8 +24,9 @@ untracked = subprocess.run(['git', '-C', engine, 'ls-files', '--others', '--excl
 if untracked:
     sys.exit('untracked files in engine/ (put new code in hp1/ instead): ' + ' '.join(untracked))
 files = {p: [] for p in patches}
+default = next((p for p in patches if p.endswith('-hp1-hooks.patch')), patches[-1])
 for f in changed:
-    files[owner.get(f, patches[-1])].append(f)
+    files[owner.get(f, default)].append(f)
 for p in patches:
     body = subprocess.run(['git', '-C', engine, 'diff', '--no-color', '--'] + files[p], capture_output=True, text=True, check=True).stdout if files[p] else ''
     if not body:

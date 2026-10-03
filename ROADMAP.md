@@ -11,6 +11,9 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 - [x] HP1 retail exe detection (SafeDisc + No-CD hashes), `--autolaunch`, `--logfile`
 - [x] HP1 code lives in `hp1/`, engine changes are small `hp1_re:` hooks in `patches/`
 - [x] `HP1_SHOTS` / `HP1_SHOT_DIR` in-engine screenshots for checking scenes without a desktop capture
+- [x] `// IDA <dll>: <decorated name> [HP1 0x...]` tags on every reimplemented function (for re-checking
+      and for HP2)
+- [x] Mouse cursor is only recentered while the game window is the foreground window (patch 0004)
 
 ## 1. Characters move (skeletal animation) ← current
 - [x] `UAnimation` HP1 format loader (`hp1/Anim/HP1Animation.cpp`)
@@ -31,10 +34,17 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 - [x] Doors (Movers) move: HP1's Mover shadows PhysAlpha/PhysRate (`hp1/HP1Mover.cpp`). This also fixed
       cutscene walks (MoveSmooth + timeout teleport) popping characters through closed doors
 - [x] Skeletal render box for culling/BSP placement (`USkeletalMesh::GetRenderBoundingBox`)
-- [~] Intro cutscene (CutScene4): doors open, kids run, Harry runs out. Remaining:
-  - [ ] Dumbledore is drawn (all faces, textures, right place) but not visible on screen; check skinned verts
-  - [ ] Kids spawned by `TriggerSpwnBsChrOnPPnt` stop on the bottom of the stairs and never leave
-  - [ ] Kids run with odd rotation (pawn turning: RotationRate / DesiredRotation in upstream physics?)
+- [x] Intro cutscene (CutScene4): doors open, kids run through and up the stairs, Harry runs out,
+      Dumbledore walks down and greets him. Fixed by:
+  - [x] Hor+ field of view (`hp1/HP1View.cpp`): shots are framed for 4:3; at 16:9 Dumbledore sat under
+        the letterbox bar
+  - [x] `CollideType` CT_Box collision (`hp1/HP1Collision.cpp`): BlockAll walls along the stairs were
+        250-radius cylinders that closed the staircase (kids froze; Dumbledore got stuck and was
+        teleported by the cutscene timeout = the "pop-in"). Also affects Triggers/CutScene volumes
+  - [x] `APawn::moveToward` port (`hp1/HP1Pawn.cpp`): 16-unit arrival, steering damping, speed reduction,
+        AvgPhysicsTime; kids no longer circle patrol points or wedge against the open door
+- [ ] Verify CT_Box against `UBox::LineCheck/PointCheck` (Engine.dll 0x103FE620/0x103FE590); CT_Shape
+      (decorations/movers: box from mesh/brush) still uses upstream's cylinder/brush collision
 - [ ] Play through Lev_Tut1 + Lev_Tut1b, fix what breaks (`tools/run_hp1.sh 60 --url=Lev_Tut1`)
 - [ ] Missing Actor natives: ModifySound(567), StopSound(568), SaveGameExists(3972), Wind.GetWind,
       PlayerPawn.ScreenToWorld, Pawn.FindPath, Console.CreateNativeFont
@@ -60,7 +70,8 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 
 ## Engine hooks (upstream files we touch)
 
-These live in `patches/` (0001 exe detection, 0002 launcher flags, 0003 hooks into `hp1/`) and are kept
+These live in `patches/` (0001 exe detection, 0002 launcher flags, 0003 hooks into `hp1/`, 0004 cursor
+recentering only while focused) and are kept
 minimal so upstream updates rarely conflict.
 
 | File | Hook |
@@ -73,4 +84,8 @@ minimal so upstream updates rarely conflict.
 | `Packages/Engine/Actors/UActor_Render.cpp` | `HP1::GetRenderBoundingBox` in `UpdateBspInfo` |
 | `Packages/Engine/Actors/UActor_PhysMovingBrush.cpp` | `HP1::MoverPhysicsBegin/End` (Mover's shadowed PhysAlpha/PhysRate) |
 | `Render/RenderSubsystem.cpp` | `HP1::OnFrameRendered` (`HP1_SHOTS` debug screenshots) |
+| `Engine.cpp` | `HP1::ViewFovAngle` after PlayerCalcView (Hor+ FOV) |
+| `Collision/TopLevel/TraceTest.cpp`, `OverlapTest.cpp`, `CollisionSystem.cpp` | CT_Box trace/overlap/hash extents |
+| `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `HP1::PawnMoveToward`, `HP1::PawnPhysicsTime` |
 | `UE1GameDatabase.h`, `GameApp.cpp` | exe hashes, `--autolaunch` / `--logfile` |
+| `SurrealWidgets/.../win32_display_window.cpp` | cursor recentering needs foreground focus (0004) |

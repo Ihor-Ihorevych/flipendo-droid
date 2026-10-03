@@ -14,6 +14,119 @@ index 74ab008f..335fb6e8 100644
  add_library(SurrealCommon STATIC ${SURREALCOMMON_SOURCES} ${THIRDPARTY_SOURCES})
  set_target_properties(SurrealCommon PROPERTIES CXX_STANDARD 20)
  target_precompile_headers(SurrealCommon PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/SurrealEngine/Precomp.h>)
+diff --git a/SurrealEngine/Collision/TopLevel/CollisionSystem.cpp b/SurrealEngine/Collision/TopLevel/CollisionSystem.cpp
+index 051ad9f9..6efd380e 100644
+--- a/SurrealEngine/Collision/TopLevel/CollisionSystem.cpp
++++ b/SurrealEngine/Collision/TopLevel/CollisionSystem.cpp
+@@ -1,5 +1,7 @@
+ 
+ #include "Precomp.h"
++#include "Engine.h" // hp1_re
++#include "HP1.h" // hp1_re
+ #include "CollisionSystem.h"
+ #include "Packages/Engine/Actors/UActor.h"
+ #include "Packages/Engine/Actors/Brush/UMover.h"
+@@ -127,6 +129,10 @@ void CollisionSystem::AddToCollision(UActor* actor)
+ 				extents = bbox.extents() + 0.1f; // 0.1 for numerical stability
+ 			}
+ 		}
++		else if (engine->LaunchInfo.IsHarryPotter1() && HP1::IsBoxCollider(actor)) // hp1_re: CollideType CT_Box
++		{
++			extents = HP1::BoxCollisionExtents(actor) + 0.1f;
++		}
+ 
+ 		actor->Collision.Inserted = true;
+ 		actor->Collision.Location = location;
+diff --git a/SurrealEngine/Collision/TopLevel/OverlapTest.cpp b/SurrealEngine/Collision/TopLevel/OverlapTest.cpp
+index badaaaf5..d3e4714e 100644
+--- a/SurrealEngine/Collision/TopLevel/OverlapTest.cpp
++++ b/SurrealEngine/Collision/TopLevel/OverlapTest.cpp
+@@ -1,5 +1,7 @@
+ 
+ #include "Precomp.h"
++#include "Engine.h" // hp1_re
++#include "HP1.h" // hp1_re
+ #include "OverlapTest.h"
+ #include "Collision/BottomLevel/OverlapAABBModel.h"
+ #include "Packages/Engine/Actors/UActor.h"
+@@ -281,6 +283,8 @@ Array<UActor*> OverlapTester::EncroachingActors(UActor* actor)
+ 
+ bool OverlapTester::IsOverlapping(UActor* actor1, UActor* actor2)
+ {
++	if (engine->LaunchInfo.IsHarryPotter1() && HP1::IsBoxCollider(actor1) && !HP1::IsBoxCollider(actor2)) // hp1_re: CollideType CT_Box
++		return CylinderActorOverlap(to_dvec3(actor2->Location()), actor2->CollisionHeight(), actor2->CollisionRadius(), actor1);
+ 	return CylinderActorOverlap(to_dvec3(actor1->Location()), actor1->CollisionHeight(), actor1->CollisionRadius(), actor2);
+ }
+ 
+@@ -333,6 +337,9 @@ bool OverlapTester::SphereActorOverlap(const dvec3& sphereCenter, double sphereR
+ 	if (actor->Brush()) // Ignore brushes for now
+ 		return false;
+ 
++	if (engine->LaunchInfo.IsHarryPotter1() && HP1::IsBoxCollider(actor)) // hp1_re: CollideType CT_Box
++		return HP1::BoxActorOverlapSphere(actor, sphereCenter, sphereRadius);
++
+ 	dvec3 center = to_dvec3(actor->Location());
+ 	double height = actor->CollisionHeight();
+ 	double radius = actor->CollisionRadius();
+@@ -346,6 +353,9 @@ bool OverlapTester::CylinderActorOverlap(const dvec3& origin, double cylinderHei
+ 	if (actor->Brush()) // Ignore brushes for now
+ 		return false;
+ 
++	if (engine->LaunchInfo.IsHarryPotter1() && HP1::IsBoxCollider(actor)) // hp1_re: CollideType CT_Box
++		return HP1::BoxActorOverlapCylinder(actor, origin, cylinderHeight, cylinderRadius);
++
+ 	dvec3 center = to_dvec3(actor->Location());
+ 	double height = actor->CollisionHeight();
+ 	double radius = actor->CollisionRadius();
+diff --git a/SurrealEngine/Collision/TopLevel/TraceTest.cpp b/SurrealEngine/Collision/TopLevel/TraceTest.cpp
+index aef803f8..5b27c846 100644
+--- a/SurrealEngine/Collision/TopLevel/TraceTest.cpp
++++ b/SurrealEngine/Collision/TopLevel/TraceTest.cpp
+@@ -1,5 +1,7 @@
+ 
+ #include "Precomp.h"
++#include "Engine.h" // hp1_re
++#include "HP1.h" // hp1_re
+ #include "TraceTest.h"
+ #include "Collision/BottomLevel/TraceAABBModel.h"
+ #include "Collision/BottomLevel/TraceRayModel.h"
+@@ -249,6 +251,15 @@ void TraceTester::TraceActor(UActor* actor, const dvec3& origin, double tmin, co
+ 		if (!traceActors || visibilityOnly)
+ 			return;
+ 
++		if (engine->LaunchInfo.IsHarryPotter1() && HP1::IsBoxCollider(actor)) // hp1_re: CollideType CT_Box
++		{
++			vec3 normal;
++			double t = HP1::BoxActorTrace(actor, origin, tmin, dirNormalized, tmax, height, radius, normal);
++			if (t < tmax)
++				hits.push_back({ (float)t, normal, actor, nullptr, nullptr });
++			return;
++		}
++
+ 		double t = CylinderActorTrace(origin, tmin, dirNormalized, tmax, height, radius, actor);
+ 		if (t < tmax)
+ 		{
+diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
+index 34ee5181..6dcfcf7d 100644
+--- a/SurrealEngine/Engine.cpp
++++ b/SurrealEngine/Engine.cpp
+@@ -1,6 +1,7 @@
+ 
+ #include "Precomp.h"
+ #include "Engine.h"
++#include "HP1.h" // hp1_re
+ #include "Utils/File.h"
+ #include "Utils/StrTools.h"
+ #include "Utils/SHA1Sum.h"
+@@ -229,6 +230,8 @@ void Engine::Run()
+ 				ExpressionValue::Variable(&CameraLocation, vecprop),
+ 				ExpressionValue::Variable(&CameraRotation, rotprop)
+ 				});
++			if (LaunchInfo.IsHarryPotter1()) // hp1_re: Hor+ field of view
++				CameraFovAngle = HP1::ViewFovAngle(CameraFovAngle, window->GetPixelWidth(), window->GetPixelHeight());
+ 		}
+ 
+ 		UpdateAudio();
 diff --git a/SurrealEngine/Package/PackageManager.cpp b/SurrealEngine/Package/PackageManager.cpp
 index cdb045bf..4c41b7b2 100644
 --- a/SurrealEngine/Package/PackageManager.cpp
@@ -36,6 +149,34 @@ index cdb045bf..4c41b7b2 100644
  }
  
  void PackageManager::RegisterNativeClasses()
+diff --git a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
+index de07166c..3dd2255a 100644
+--- a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
++++ b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
+@@ -7,10 +7,13 @@
+ #include "Packages/Engine/Actors/Inventory/UWeapon.h"
+ #include "Utils/Logger.h"
+ #include "Engine.h"
++#include "HP1.h" // hp1_re
+ 
+ void UPawn::Tick(float elapsed)
+ {
+ 	MoveTimer() -= elapsed;
++	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: AvgPhysicsTime for moveToward
++		HP1::PawnPhysicsTime(this, elapsed);
+ 
+ 	if (StateFrame)
+ 	{
+@@ -236,6 +239,9 @@ bool UPawn::TickRotateTo(const vec3& target)
+ 
+ bool UPawn::TickMoveTo(const vec3& target)
+ {
++	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: APawn::moveToward
++		return HP1::PawnMoveToward(this, target);
++
+ 	if (MoveTimer() < 0.0f)
+ 		return true;
+ 
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
 index aceba9af..7d5ed5e0 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp

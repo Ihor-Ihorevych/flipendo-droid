@@ -18,6 +18,7 @@ namespace HP1
 {
 	void OverrideNative(int index, void (*registerFunc)());
 
+	// IDA Engine.dll: ?execTraceTexture@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x1037ABA0]
 	static void NTraceTexture(UObject* Self, const vec3& TraceEnd, const vec3& TraceStart, int& Flags, std::optional<bool> bTraceDecals, UObject*& ReturnValue)
 	{
 		Flags = 0;
