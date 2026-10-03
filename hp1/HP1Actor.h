@@ -13,6 +13,9 @@ namespace HP1
 		PropertyDataOffset TweenAlpha;
 		PropertyDataOffset bAnimTransient;
 		PropertyDataOffset bAnimMove;
+		PropertyDataOffset Wideness;
+		PropertyDataOffset CollideType;
+		PropertyDataOffset bAlignBottom;
 	};
 	const ActorProps& GetActorProps();
 
@@ -21,4 +24,7 @@ namespace HP1
 	inline float& TweenAlpha(UActor* a) { return a->Value<float>(GetActorProps().TweenAlpha); }
 	inline BitfieldBool bAnimTransient(UActor* a) { return a->BoolValue(GetActorProps().bAnimTransient); }
 	inline BitfieldBool bAnimMove(UActor* a) { return a->BoolValue(GetActorProps().bAnimMove); }
+	inline uint8_t& Wideness(UActor* a) { return a->Value<uint8_t>(GetActorProps().Wideness); }
+	inline uint8_t& CollideType(UActor* a) { return a->Value<uint8_t>(GetActorProps().CollideType); }
+	inline BitfieldBool bAlignBottom(UActor* a) { return a->BoolValue(GetActorProps().bAlignBottom); }
 }

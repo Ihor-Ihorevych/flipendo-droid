@@ -84,10 +84,48 @@ Animator = Owner if (AnimBone != 0 && bAnimTransient) else self. Up to 4 iterati
    bAnimFinished, animator.AnimEnd.
 AnimEnd is skipped for bSimulatedPawn (network only).
 
-## Still to reverse
+## Pose: `USkeletalMesh::ApplyAnim(Owner, Header, bRootOnly)`
 
-- `USkeletalMesh::GetFrame` / `ApplyAnim` (pose evaluation, channel blending, TweenAlpha blend, KeyTime use)
-  → needed to render characters.
+Per-actor cache (`CFSkelHeader`, in GCache keyed by actor index): Mesh, linked UAnimation, last
+AnimFrame/TweenAlpha/AnimSequence, a "has pose" flag, BoneMap[numBones] (mesh bone -> animation track,
+matched by bone name; track index == animation RefBones index), Places[numBones] (FPlace: quat + pos),
+MeshCoords (GetMeshCoords), root motion accumulators.
+
+- SkelAnim null → set it to Mesh.DefaultAnimation (persistent side effect).
+- time = min(AnimFrame, 1) * Move.TrackTime.
+- Track sampling: KeyTime.Num == 1 → key 0. Else KeyTime[k] (k >= 1) * KeyTimeScale is the delta from key k-1
+  (key 0 at time 0). Find the first key with time > t; prev = the one before. Exactly on prev → prev. Past the
+  last key → interpolate from the last key to key 0 at TrackTime. Quat: SlerpQuat; pos: lerp (KeyPos.Num == 1
+  → KeyPos[0] for every key).
+- Bone 0: if the mesh root isn't the animation root, the ancestors' keys are folded in
+  (quat = -(child * parent), pos = FCoords(parent) applied to the child pos).
+- bAnimMove: root position replaced by the reference pose position; its movement is banked for GetRootMovement.
+- Unmapped bones: main actor → reference pose; channels skip them.
+- Tween: a = (has pose && TweenRate != 0) ? 1 - TweenAlpha : 0; place = Slerp(new, previous place, a),
+  pos = new*(1-a) + prev*a. The "previous place" is the last evaluated pose (not a snapshot).
+- Channels: after the main pose, each AuxAnims entry runs ApplyAnim(channel, mainHeader), mapping only bones
+  in [AnimBone, AnimBone + NumChildren] (inclusive) and writing them into the main pose. A transient channel
+  that is not looping and has AnimFrame >= AnimLast is destroyed and removed here.
+
+## Frame: `USkeletalMesh::GetFrame(Verts, Size, Coords, Owner, LODRequest)`
+
+Animator = Owner.Owner if bAnimByOwner. Bone coords: B[0] = FCoords(Place[0]), B[i] = B[parent] ∘ FCoords(Place[i]),
+everything ∘ MeshCoords and the inverse of the camera Coords. Skinning: one BoneWeightIdx entry → all
+LocalPoints by bone 0; else for each bone n, weights k in [WeightIndex, WeightIndex+Number):
+Verts[BoneWeights[k].PointIndex] += B[n](LocalPoints[k]) * BoneWeight/65535.
+
+Core.dll math (KnowWonder additions): `FCoords(FPlace)` standard quat→matrix (axes are the matrix rows);
+`A /= B` (FCoords) = apply A then B; `SlerpQuat` shortest path + renormalize.
+
+## Placement: `USkeletalMesh::GetMeshCoords`
+
+World = Location + Rotation( PrePivot + MeshAdjust + RotOrigin( Scale' * (p - Mesh.Origin) ) ) with
+Scale' = (Mesh.Scale.x*DrawScale*W, -Mesh.Scale.y*DrawScale*W, Mesh.Scale.z*DrawScale), W = Wideness/128.
+Note the **negated Y** (skeletal meshes are mirrored) and that PrePivot is rotated with the actor.
+MeshAdjust (bAlignBottom && bCollideWorld && Physics != 0 && CollideType != CT_Box?): z =
+(Mesh.Origin.z - Mesh.BoundingBox.Min.z) * Mesh.Scale.z * DrawScale - (CollisionHeight + 2.5).
+
+## Still to reverse
 - `GetRootMovement` / `AdjustRootMovement` / `AnimCycleMovement` (bAnimMove root motion).
 - `GetBoneCoords`, `BonePos`, weapon attachment (`WeaponBoneIndex`, `WeaponAdjust`).
 - Who destroys finished transient channels.

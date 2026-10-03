@@ -20,6 +20,9 @@ namespace HP1
 			props.TweenAlpha = cls->GetPropertyDataOffset("TweenAlpha");
 			props.bAnimTransient = cls->GetPropertyDataOffset("bAnimTransient");
 			props.bAnimMove = cls->GetPropertyDataOffset("bAnimMove");
+			props.Wideness = cls->GetPropertyDataOffset("Wideness");
+			props.CollideType = cls->GetPropertyDataOffset("CollideType");
+			props.bAlignBottom = cls->GetPropertyDataOffset("bAlignBottom");
 			initialized = true;
 		}
 		return props;

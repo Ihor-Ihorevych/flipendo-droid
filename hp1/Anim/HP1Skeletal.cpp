@@ -1,0 +1,518 @@
+#include "Precomp.h"
+#include "HP1.h"
+#include "HP1Actor.h"
+#include "Anim/HP1Animation.h"
+#include "Packages/Engine/Actors/UActor.h"
+#include "Packages/Engine/Actors/Info/UZoneInfo.h"
+#include "Packages/Engine/Resources/Mesh/USkeletalMesh.h"
+#include "Packages/Engine/Resources/Mesh/UAnimation.h"
+#include "Packages/Engine/Resources/Level/ULevel.h"
+#include "Packages/Engine/Resources/Level/UModel.h"
+#include "Packages/Engine/Resources/Textures/UTexture.h"
+#include "Render/VisibleFrame.h"
+#include "Render/RenderSubsystem.h"
+#include "RenderDevice/RenderDevice.h"
+#include "Light/LightSystem.h"
+#include "Math/coords.h"
+#include "Engine.h"
+#include <unordered_map>
+
+// HP1 skeletal pose evaluation and skinning, reimplemented from HP1 Engine.dll:
+//   USkeletalMesh::ApplyAnim   - bone places (quat + pos) for the current AnimSequence/AnimFrame, tween blend,
+//                                aux channel overrides, root handling
+//   USkeletalMesh::GetFrame    - bone hierarchy -> coords, linear blend skinning of LocalPoints
+//   USkeletalMesh::GetMeshCoords - mesh to world placement
+//   Core.dll: FCoords(FPlace), FCoords::operator/=(FCoords), SlerpQuat
+// See docs/re/animation.md.
+
+namespace HP1
+{
+	// FPlace
+	struct Place
+	{
+		quaternion Orientation;
+		vec3 Position = vec3(0.0f);
+	};
+
+	// FCoords with KnowWonder's composition. Apply(p) = Origin + XAxis*p.x + YAxis*p.y + ZAxis*p.z
+	struct BoneCoords
+	{
+		vec3 Origin = vec3(0.0f);
+		vec3 XAxis = vec3(1.0f, 0.0f, 0.0f);
+		vec3 YAxis = vec3(0.0f, 1.0f, 0.0f);
+		vec3 ZAxis = vec3(0.0f, 0.0f, 1.0f);
+
+		vec3 ApplyVector(const vec3& v) const { return XAxis * v.x + YAxis * v.y + ZAxis * v.z; }
+		vec3 Apply(const vec3& p) const { return Origin + ApplyVector(p); }
+	};
+
+	// Core.dll FCoords::FCoords(const FPlace&)
+	static BoneCoords ToCoords(const Place& p)
+	{
+		const quaternion& q = p.Orientation;
+		float x2 = q.x + q.x, y2 = q.y + q.y, z2 = q.z + q.z;
+		float xx = x2 * q.x, xy = y2 * q.x, xz = z2 * q.x;
+		float yy = y2 * q.y, yz = z2 * q.y, zz = z2 * q.z;
+		float wx = x2 * q.w, wy = y2 * q.w, wz = z2 * q.w;
+
+		BoneCoords c;
+		c.Origin = p.Position;
+		c.XAxis = vec3(1.0f - (zz + yy), xy - wz, wy + xz);
+		c.YAxis = vec3(wz + xy, 1.0f - (zz + xx), yz - wx);
+		c.ZAxis = vec3(xz - wy, wx + yz, 1.0f - (yy + xx));
+		return c;
+	}
+
+	// Core.dll FCoords::operator/=(const FCoords& B) on A: result applies A first, then B.
+	static BoneCoords Compose(const BoneCoords& b, const BoneCoords& a)
+	{
+		BoneCoords r;
+		r.XAxis = b.ApplyVector(a.XAxis);
+		r.YAxis = b.ApplyVector(a.YAxis);
+		r.ZAxis = b.ApplyVector(a.ZAxis);
+		r.Origin = b.Apply(a.Origin);
+		return r;
+	}
+
+	// Core.dll SlerpQuat: shortest path, then a one-step renormalization.
+	static quaternion SlerpQuat(const quaternion& a, const quaternion& b, float alpha)
+	{
+		float rawCos = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
+		float cosom = std::abs(rawCos);
+		if (cosom >= 1.0f)
+			return a;
+
+		float omega = std::acos(cosom);
+		float invSin = 1.0f / std::sin(omega);
+		float scale0 = std::sin((1.0f - alpha) * omega) * invSin;
+		float scale1 = std::sin(alpha * omega) * invSin;
+		if (rawCos < 0.0f)
+			scale1 = -scale1;
+
+		quaternion r(scale0 * a.x + scale1 * b.x, scale0 * a.y + scale1 * b.y, scale0 * a.z + scale1 * b.z, scale0 * a.w + scale1 * b.w);
+		float sq = r.x * r.x + r.y * r.y + r.z * r.z + r.w * r.w;
+		if (std::abs(sq - 1.0f) > 0.00001f)
+		{
+			if (sq < 0.00001f)
+			{
+				r = quaternion(0.0f, 0.0f, 0.1f, 0.0f);
+			}
+			else
+			{
+				float s = 1.5f - sq * 0.5f;
+				r = quaternion(r.x * s, r.y * s, r.z * s, r.w * s);
+			}
+		}
+		return r;
+	}
+
+	static Place RefPlace(const RefSkeletonBone& bone)
+	{
+		Place p;
+		p.Orientation = bone.Orientation;
+		p.Position = bone.Position;
+		return p;
+	}
+
+	// Key sampling from ApplyAnim. KeyTime[k] (k >= 1) is the delta from key k-1, key 0 is at time 0;
+	// past the last key it interpolates towards key 0 at TrackTime.
+	static Place SampleTrack(const AnimTrack& track, float time, float trackTime)
+	{
+		Place p;
+		int numKeys = (int)track.KeyTime.size();
+		if (numKeys <= 1 || track.KeyQuat.empty())
+		{
+			if (!track.KeyQuat.empty()) p.Orientation = track.KeyQuat[0];
+			if (!track.KeyPos.empty()) p.Position = track.KeyPos[0];
+			return p;
+		}
+
+		float prevTime = 0.0f;
+		float nextTime = 0.0f;
+		int next = 1;
+		while (next < numKeys)
+		{
+			nextTime += track.KeyTime[next] * track.KeyTimeScale;
+			if (nextTime > time)
+				break;
+			prevTime = nextTime;
+			next++;
+		}
+		int prev = next - 1;
+
+		auto keyQuat = [&](int k) { return track.KeyQuat[std::min(k, (int)track.KeyQuat.size() - 1)]; };
+		auto keyPos = [&](int k) { return track.KeyPos.size() == 1 ? track.KeyPos[0] : track.KeyPos[std::min(k, (int)track.KeyPos.size() - 1)]; };
+
+		if (prevTime != time && next >= numKeys)
+		{
+			next = 0;
+			nextTime = trackTime;
+			prev = numKeys - 1;
+		}
+
+		if (prevTime == time || prev == next)
+		{
+			p.Orientation = keyQuat(prev);
+			if (!track.KeyPos.empty()) p.Position = keyPos(prev);
+			return p;
+		}
+
+		float alpha = (time - prevTime) / (nextTime - prevTime);
+		p.Orientation = SlerpQuat(keyQuat(prev), keyQuat(next), alpha);
+		if (!track.KeyPos.empty())
+			p.Position = mix(keyPos(prev), keyPos(next), alpha);
+		return p;
+	}
+
+	// The per-actor CFSkelHeader from the original's GCache: last pose (for the TweenAlpha blend) and the
+	// mesh bone -> animation track map.
+	struct SkelCache
+	{
+		USkeletalMesh* Mesh = nullptr;
+		UAnimation* LinkedAnim = nullptr;
+		bool HasPose = false;
+		Array<int> BoneMap;
+		Array<Place> Places;
+	};
+	static std::unordered_map<UActor*, SkelCache> SkelCaches;
+
+	static SkelCache& GetSkelCache(UActor* actor, USkeletalMesh* mesh)
+	{
+		SkelCache& cache = SkelCaches[actor];
+		if (cache.Mesh != mesh)
+		{
+			cache = {};
+			cache.Mesh = mesh;
+			cache.BoneMap.resize(mesh->RefSkeleton.size(), -1);
+			cache.Places.resize(mesh->RefSkeleton.size());
+		}
+		return cache;
+	}
+
+	// USkeletalMesh::ApplyAnim(Owner, Header, false). header != nullptr means 'actor' is an aux channel
+	// writing into its owner's pose.
+	static void ApplyAnim(USkeletalMesh* mesh, UActor* actor, SkelCache* header)
+	{
+		SkelCache& cache = GetSkelCache(actor, mesh);
+		bool isChannel = header != nullptr;
+		if (!header)
+			header = &cache;
+
+		size_t numBones = mesh->RefSkeleton.size();
+
+		if (!actor->SkelAnim() && mesh->DefaultAnimation)
+			actor->SkelAnim() = mesh->DefaultAnimation;
+
+		UAnimation* anim = actor->SkelAnim();
+		AnimationData* data = anim ? GetAnimationData(anim) : nullptr;
+		MeshAnimSeq* seq = data ? data->GetSequence(actor->AnimSequence()) : nullptr;
+		AnimMove* move = data ? data->GetMove(actor->AnimSequence()) : nullptr;
+
+		if (seq && move)
+		{
+			if (anim != cache.LinkedAnim)
+			{
+				int animBone = AnimBone(actor);
+				for (size_t i = 0; i < numBones; i++)
+				{
+					cache.BoneMap[i] = -1;
+					if (isChannel && ((int)i < animBone || (int)i > animBone + (int)mesh->RefSkeleton[animBone].NumChildren))
+						continue;
+					for (size_t j = 0; j < move->AnimTracks.size() && j < data->RefBones.size(); j++)
+					{
+						if (mesh->RefSkeleton[i].Name == data->RefBones[j].Name)
+						{
+							cache.BoneMap[i] = (int)j;
+							break;
+						}
+					}
+				}
+				cache.LinkedAnim = anim;
+			}
+
+			if (!move->AnimTracks.empty())
+			{
+				float time = std::min(actor->AnimFrame(), 1.0f) * move->TrackTime;
+				float tween = (cache.HasPose && actor->TweenRate() != 0.0f) ? 1.0f - TweenAlpha(actor) : 0.0f;
+
+				for (size_t i = 0; i < numBones; i++)
+				{
+					int track = cache.BoneMap[i];
+					Place place;
+					if (track < 0)
+					{
+						if (isChannel)
+							continue;
+						place = RefPlace(mesh->RefSkeleton[i]);
+					}
+					else
+					{
+						place = SampleTrack(move->AnimTracks[track], time, move->TrackTime);
+
+						if (i == 0)
+						{
+							// The mesh root may be below the animation's root: fold in the ancestors' keys.
+							int child = track;
+							int parent = data->RefBones[child].ParentIndex;
+							while (parent != child && parent >= 0 && parent < (int)move->AnimTracks.size())
+							{
+								Place pp = SampleTrack(move->AnimTracks[parent], time, move->TrackTime);
+								BoneCoords pc = ToCoords(pp);
+								const quaternion& c = place.Orientation;
+								const quaternion& q = pp.Orientation;
+								// -(c * q): same rotation, the sign is what the original produces
+								place.Orientation = quaternion(
+									q.y * c.z - c.x * q.w - q.x * c.w - q.z * c.y,
+									c.x * q.z - q.w * c.y - q.y * c.w - q.x * c.z,
+									q.x * c.y - q.w * c.z - q.z * c.w - c.x * q.y,
+									q.z * c.z + q.y * c.y + c.x * q.x - q.w * c.w);
+								place.Position = pc.Apply(place.Position);
+								child = parent;
+								parent = data->RefBones[child].ParentIndex;
+							}
+
+							// bAnimMove: the root stays at its reference position; the original banks the
+							// root's movement for GetRootMovement. TODO(hp1): root motion.
+							if (bAnimMove(actor))
+								place.Position = mesh->RefSkeleton[0].Position;
+						}
+					}
+
+					if (tween != 0.0f)
+					{
+						const Place& old = cache.Places[i];
+						place.Orientation = SlerpQuat(place.Orientation, old.Orientation, tween);
+						place.Position = place.Position * (1.0f - tween) + old.Position * tween;
+					}
+
+					cache.Places[i] = place;
+					if (header != &cache)
+						header->Places[i] = place;
+				}
+			}
+		}
+		else if (!isChannel)
+		{
+			for (size_t i = 0; i < numBones; i++)
+				cache.Places[i] = RefPlace(mesh->RefSkeleton[i]);
+			cache.LinkedAnim = nullptr;
+		}
+
+		cache.HasPose = true;
+
+		// Aux channels override their bone subtrees, in AuxAnims order. Finished transient channels are
+		// destroyed here (this is where the original cleans them up).
+		auto aux = AuxAnims(actor);
+		for (size_t i = 0; i < aux.size(); i++)
+		{
+			UActor* ch = aux[i];
+			if (!ch)
+				continue;
+			ApplyAnim(mesh, ch, header);
+			if (bAnimTransient(ch) && !ch->bAnimLoop() && ch->AnimFrame() >= ch->AnimLast())
+			{
+				SkelCaches.erase(ch);
+				ch->Destroy();
+				aux.Array->Remove(i, 1);
+				i--;
+			}
+		}
+	}
+
+	// USkeletalMesh::GetMeshCoords as a matrix: mesh space -> world.
+	static mat4 GetMeshToWorld(UActor* actor, USkeletalMesh* mesh)
+	{
+		float drawScale = actor->DrawScale();
+		float wide = Wideness(actor) / 128.0f;
+		vec3 scale(mesh->Scale.x * drawScale * wide, -mesh->Scale.y * drawScale * wide, mesh->Scale.z * drawScale);
+
+		vec3 adjust(0.0f);
+		if (bAlignBottom(actor) && actor->bCollideWorld() && actor->Physics() != 0 && CollideType(actor) != 3)
+			adjust.z = (mesh->Origin.z - mesh->BoundingBox.min.z) * mesh->Scale.z * drawScale - (actor->CollisionHeight() + 2.5f);
+
+		return mat4::translate(actor->Location()) * Coords::Rotation(actor->Rotation()).ToMatrix() *
+			mat4::translate(actor->PrePivot() + adjust) * Coords::Rotation(mesh->RotOrigin).ToMatrix() *
+			mat4::scale(scale) * mat4::translate(-mesh->Origin);
+	}
+
+	// USkeletalMesh::GetFrame: world-space vertex positions, indexed like Points.
+	static bool GetFrame(UActor* actor, USkeletalMesh* mesh, Array<vec3>& outVerts)
+	{
+		if (mesh->RefSkeleton.empty() || mesh->BoneWeightIndices.empty())
+			return false;
+
+		UActor* animator = actor;
+		if (actor->bAnimByOwner() && actor->Owner())
+			animator = actor->Owner();
+
+		ApplyAnim(mesh, animator, nullptr);
+		SkelCache& cache = GetSkelCache(animator, mesh);
+
+		size_t numBones = mesh->RefSkeleton.size();
+		Array<BoneCoords> bones(numBones);
+		bones[0] = ToCoords(cache.Places[0]);
+		for (size_t i = 1; i < numBones; i++)
+		{
+			uint32_t parent = mesh->RefSkeleton[i].ParentIndex;
+			if (parent >= i)
+				parent = 0;
+			bones[i] = Compose(bones[parent], ToCoords(cache.Places[i]));
+		}
+
+		size_t numVerts = mesh->Points.size();
+		outVerts.clear();
+		outVerts.resize(numVerts, vec3(0.0f));
+
+		if (mesh->BoneWeightIndices.size() == 1)
+		{
+			size_t count = std::min<size_t>(mesh->BoneWeightIndices[0].Number, std::min(numVerts, mesh->LocalPoints.size()));
+			for (size_t k = 0; k < count; k++)
+				outVerts[k] = bones[0].Apply(mesh->LocalPoints[k]);
+		}
+		else
+		{
+			for (size_t n = 0; n < mesh->BoneWeightIndices.size() && n < numBones; n++)
+			{
+				const BoneWeightIndex& index = mesh->BoneWeightIndices[n];
+				for (size_t k = index.WeightIndex; k < (size_t)index.WeightIndex + index.Number; k++)
+				{
+					if (k >= mesh->BoneWeights.size() || k >= mesh->LocalPoints.size())
+						break;
+					uint32_t point = mesh->BoneWeights[k].PointIndex;
+					if (point >= numVerts)
+						break;
+					float weight = mesh->BoneWeights[k].BoneWeight * (1.0f / 65535.0f);
+					outVerts[point] += bones[n].Apply(mesh->LocalPoints[k]) * weight;
+				}
+			}
+		}
+
+		mat4 meshToWorld = GetMeshToWorld(actor, mesh);
+		for (vec3& v : outVerts)
+			v = (meshToWorld * vec4(v, 1.0f)).xyz();
+		return true;
+	}
+
+	bool DrawSkeletalMesh(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, USkeletalMesh* mesh, bool translucentPass)
+	{
+		static Array<vec3> verts;
+		static Array<vec3> normals;
+		if (!GetFrame(actor, mesh, verts))
+			return false;
+
+		bool useExtWedges = !mesh->ExtWedges.empty();
+		auto wedgeVertex = [&](int w) -> int { return useExtWedges ? mesh->ExtWedges[w].Vertex : mesh->Wedges[w].Vertex; };
+		size_t numWedges = useExtWedges ? mesh->ExtWedges.size() : mesh->Wedges.size();
+
+		// Smooth normals from the skinned triangles. The Y mirror in GetMeshCoords flips the winding,
+		// hence the cross product order.
+		normals.clear();
+		normals.resize(verts.size(), vec3(0.0f));
+		for (const MeshFace& face : mesh->Faces)
+		{
+			if (face.Indices[0] >= numWedges || face.Indices[1] >= numWedges || face.Indices[2] >= numWedges)
+				continue;
+			int i0 = wedgeVertex(face.Indices[0]), i1 = wedgeVertex(face.Indices[1]), i2 = wedgeVertex(face.Indices[2]);
+			if (i0 >= (int)verts.size() || i1 >= (int)verts.size() || i2 >= (int)verts.size())
+				continue;
+			vec3 n = cross(verts[i2] - verts[i0], verts[i1] - verts[i0]);
+			normals[i0] += n;
+			normals[i1] += n;
+			normals[i2] += n;
+		}
+		for (vec3& n : normals)
+		{
+			float len = length(n);
+			n = len > 0.0f ? n / len : vec3(0.0f, 0.0f, 1.0f);
+		}
+
+		auto lightsys = &engine->Level->Light;
+
+		uint32_t polyFlags = 0;
+		switch (actor->Style())
+		{
+		default: break;
+		case STY_Masked: polyFlags |= PF_Masked; break;
+		case STY_Translucent: polyFlags |= PF_Translucent; break;
+		case STY_Modulated: polyFlags |= PF_Modulated; break;
+		}
+		if (actor->bNoSmooth()) polyFlags |= PF_NoSmooth;
+		if (actor->bSelected()) polyFlags |= PF_Selected;
+		if (actor->bMeshEnviroMap()) polyFlags |= PF_Environment;
+		if (actor->bMeshCurvy()) polyFlags |= PF_Flat;
+		if (actor->bUnlit() || actor->Region().ZoneNumber == 0) polyFlags |= PF_Unlit;
+
+		UZoneInfo* zoneActor = engine->GetZoneActor(actor->Region().ZoneNumber);
+		VertexLight vertexLight;
+		lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor);
+
+		bool needTranslucentPass = false;
+		GouraudVertex vertices[3];
+		for (const MeshFace& face : mesh->Faces)
+		{
+			if (face.MaterialIndex >= mesh->Materials.size())
+				continue;
+			const MeshMaterial& material = mesh->Materials[face.MaterialIndex];
+			if (material.PolyFlags & PF_Invisible)
+				continue;
+
+			uint32_t renderflags = material.PolyFlags | polyFlags;
+			UTexture* tex = (renderflags & PF_Environment) ? engine->render->Mesh.envmap : (material.TextureIndex < engine->render->Mesh.textures.size() ? engine->render->Mesh.textures[material.TextureIndex] : nullptr);
+			if (!tex)
+				continue;
+
+			bool isTranslucent = (renderflags & (PF_Translucent | PF_Modulated | PF_Highlighted)) != 0;
+			if (isTranslucent != translucentPass)
+			{
+				needTranslucentPass |= isTranslucent;
+				continue;
+			}
+
+			engine->render->UpdateTexture(tex);
+			TextureInfo texinfo;
+			engine->render->UpdateTextureInfo(texinfo, tex);
+
+			float width = texinfo.Texture ? (float)texinfo.Texture->UsedMipmaps.front().Width : 256.0f;
+			float height = texinfo.Texture ? (float)texinfo.Texture->UsedMipmaps.front().Height : 256.0f;
+
+			bool valid = true;
+			vec3 faceNormals[3];
+			for (int i = 0; i < 3; i++)
+			{
+				int w = face.Indices[i];
+				if (w >= (int)numWedges) { valid = false; break; }
+				int v = wedgeVertex(w);
+				if (v >= (int)verts.size()) { valid = false; break; }
+
+				vertices[i].Point = verts[v];
+				if (useExtWedges)
+					vertices[i].UV = { mesh->ExtWedges[w].U * width, mesh->ExtWedges[w].V * height };
+				else
+					vertices[i].UV = { mesh->Wedges[w].U * width / 255.0f, mesh->Wedges[w].V * height / 255.0f };
+				faceNormals[i] = normals[v];
+			}
+			if (!valid)
+				continue;
+
+			if (renderflags & PF_Environment)
+			{
+				mat3 rotmat = mat3(frame->Frame.WorldToView * frame->Frame.ObjectToWorld);
+				for (int i = 0; i < 3; i++)
+				{
+					vec3 v = normalize(vertices[i].Point);
+					vec3 p = rotmat * reflect(v, faceNormals[i]);
+					vertices[i].UV = { (p.x + 1.0f) * 128.0f * width / 255.0f, (p.y + 1.0f) * 128.0f * height / 255.0f };
+				}
+			}
+
+			for (int i = 0; i < 3; i++)
+			{
+				vertices[i].Light = vertexLight.GetVertexLight(vertices[i].Point, faceNormals[i], !!(renderflags & PF_Unlit), !!(renderflags & PF_TwoSided));
+				vertices[i].Fog = vertexLight.GetVertexFog(vertices[i].Point);
+			}
+
+			frame->Device->DrawGouraudPolygon(&frame->Frame, texinfo, vertices, 3, renderflags | PF_RenderFog);
+		}
+		return needTranslucentPass;
+	}
+}
