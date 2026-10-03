@@ -13,6 +13,8 @@ class ObjectStream;
 class VisibleFrame;
 class BBox;
 class RenderDevice;
+class GameWindow;
+struct SceneNode;
 
 namespace HP1
 {
@@ -40,6 +42,15 @@ namespace HP1
 
 	// Engine::Tick, after PlayerCalcView: the camera's horizontal FOV for the window's aspect ratio.
 	float ViewFovAngle(float fovAngle, int width, int height);
+
+	// Widescreen 2D (hp1/HP1Canvas.cpp). RenderSubsystem::ResetCanvas: UI scale for the viewport height.
+	float CanvasUIScale(int viewportHeight);
+	// RenderSubsystem::ResetCanvas / PostRender: full-width canvas (HUD), or the centred 4:3 area (console/menus).
+	void SetCanvasArea(SceneNode& frame, float uiscale, bool menuArea);
+	// Engine::OnWindowMouseMove: OS mouse position (pixels) to menu canvas units, for HPConsole's WindowsMouseX/Y.
+	void MenuMousePosition(float& x, float& y);
+	// Engine::ConsoleCommand "getres": the display's modes, with FEOptionsPage's 1024x768 cap lifted.
+	std::string AvailableResolutions(GameWindow* window);
 
 	// Collision (hp1/HP1Collision.cpp): actors with CollideType CT_Box are oriented boxes, not cylinders.
 	bool IsBoxCollider(UActor* actor);
