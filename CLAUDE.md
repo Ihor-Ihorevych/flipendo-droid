@@ -74,6 +74,6 @@ in `docs/re/<topic>.md`.
 - `tools/update_engine.sh [--check]` — pull newer SurrealEngine into `engine/` (subtree merge).
 - `tools/build.sh [Release|Debug|RelWithDebInfo] [target]` — VS 18 (2026) generator, x64, output in
   `build/<Config>/`. A full build takes a few minutes; `--target SurrealEngine` for the game only.
-- Rebuilding fails if `SurrealEngine.exe` is running (file lock) — check `tasklist` first, don't
-  kill a game the user started.
+- Rebuilding fails if `SurrealEngine.exe` is running (file lock). The user is fine with Claude killing it
+  (`taskkill //IM SurrealEngine.exe //F`) to rebuild or relaunch.
 - `tools/run_hp1.sh [secs]` — `--autolaunch --logfile=build/hp1_run.log` against `../game-work`.
