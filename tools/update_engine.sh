@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Move the engine/ submodule (mirror of upstream SurrealEngine) to a newer commit and re-apply patches/.
+# Move the engine/ submodule (upstream SurrealEngine) to a newer commit and re-apply patches/.
 #   tools/update_engine.sh --check   list new upstream commits and which patched files they touch
 #   tools/update_engine.sh [ref]     update to ref (default: origin/master), re-apply patches
 # On CONFLICT: fix the hook in engine/ by hand, run tools/refresh_patches.sh, rebuild.
