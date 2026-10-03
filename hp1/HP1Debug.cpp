@@ -17,6 +17,8 @@
 //   HP1_KEYS="30:W:4,36:Up:1"  press <key> at <sec> and hold it for <dur> seconds. Keys: a letter or
 //                              digit, Up/Down/Left/Right, Space, Shift, Ctrl, Enter, Escape, or a number
 //                              (EInputKey value)
+//   HP1_MOUSE="60:0:-40:1"      from <sec>, for <dur> seconds, move the mouse by <dx>,<dy> raw counts every
+//                              frame (same path as real raw mouse input; dy>0 is towards the user)
 //   HP1_TRACE="Harry,gen_"     log every actor whose name starts with one of these, every 0.5 s
 //   HP1_CAMERA="x,y,z,p,y"     fixed camera location and rotation (pitch/yaw in Unreal units), from the first frame
 
@@ -80,6 +82,32 @@ namespace HP1
 		}
 	}
 
+	static void TickDebugMouse(float now)
+	{
+		struct MouseMove { float Time; int DX, DY; float Duration; };
+		static bool parsed = false;
+		static Array<MouseMove> moves;
+		if (!parsed)
+		{
+			parsed = true;
+			if (const char* s = getenv("HP1_MOUSE"))
+			{
+				std::stringstream ss(s);
+				std::string item;
+				while (std::getline(ss, item, ','))
+				{
+					float t = 0.0f, d = 0.0f;
+					int dx = 0, dy = 0;
+					if (sscanf(item.c_str(), "%f:%d:%d:%f", &t, &dx, &dy, &d) == 4)
+						moves.push_back({ t, dx, dy, d });
+				}
+			}
+		}
+		for (const MouseMove& m : moves)
+			if (now >= m.Time && now < m.Time + m.Duration)
+				engine->OnWindowRawMouseMove(m.DX, m.DY);
+	}
+
 	static void TickDebugTrace(float now)
 	{
 		static bool parsed = false;
@@ -111,17 +139,18 @@ namespace HP1
 			if (!match)
 				continue;
 
-			char buf[700];
-			int n = snprintf(buf, sizeof(buf), "HP1 trace t=%.1f %s state=%s zone=%d loc=(%.0f,%.0f,%.0f) vel=(%.0f,%.0f,%.0f) acc=(%.0f,%.0f) phys=%d rot=%d drot=%d anim=%s rate=%.2f frame=%.2f tween=%.2f",
+			char buf[1000];
+			int n = snprintf(buf, sizeof(buf), "HP1 trace t=%.1f %s state=%s zone=%d loc=(%.0f,%.0f,%.0f) vel=(%.0f,%.0f,%.0f) acc=(%.0f,%.0f) phys=%d rot=%d pitch=%d drot=%d anim=%s rate=%.2f frame=%.2f tween=%.2f",
 				now, name.c_str(), a->GetStateName().ToString().c_str(), (int)a->Region().ZoneNumber, a->Location().x, a->Location().y, a->Location().z,
 				a->Velocity().x, a->Velocity().y, a->Velocity().z, a->Acceleration().x, a->Acceleration().y, (int)a->Physics(),
-				a->Rotation().Yaw & 0xffff, a->DesiredRotation().Yaw & 0xffff, a->AnimSequence().ToString().c_str(), a->AnimRate(), a->AnimFrame(), TweenAlpha(a));
+				a->Rotation().Yaw & 0xffff, a->Rotation().Pitch & 0xffff, a->DesiredRotation().Yaw & 0xffff, a->AnimSequence().ToString().c_str(), a->AnimRate(), a->AnimFrame(), TweenAlpha(a));
 			if (UPawn* pawn = UObject::TryCast<UPawn>(a))
 				n += snprintf(buf + n, sizeof(buf) - n, " ground=%.0f desired=%.2f rrate=%d walking=%d",
 					pawn->GroundSpeed(), pawn->DesiredSpeed(), pawn->RotationRate().Yaw, (int)pawn->bIsWalking());
 			if (UPlayerPawn* player = UObject::TryCast<UPlayerPawn>(a))
-				snprintf(buf + n, sizeof(buf) - n, " bRun=%d bDuck=%d aForward=%.0f aBaseY=%.0f",
-					(int)player->bRun(), (int)player->bDuck(), player->aForward(), player->aBaseY());
+				snprintf(buf + n, sizeof(buf) - n, " bRun=%d bDuck=%d aForward=%.0f aBaseY=%.0f view=(%d,%d) smoothY=%.0f aLookUp=%.0f",
+					(int)player->bRun(), (int)player->bDuck(), player->aForward(), player->aBaseY(),
+					player->ViewRotation().Pitch & 0xffff, player->ViewRotation().Yaw & 0xffff, player->SmoothMouseY(), player->aLookUp());
 			LogMessage(buf);
 		}
 	}
@@ -130,6 +159,7 @@ namespace HP1
 	{
 		float frameTime = SecondsSinceFirstFrame();
 		TickDebugKeys(frameTime);
+		TickDebugMouse(frameTime);
 		TickDebugTrace(frameTime);
 
 		static bool parsed = false;

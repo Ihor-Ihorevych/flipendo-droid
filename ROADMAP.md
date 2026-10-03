@@ -11,7 +11,7 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 - [x] HP1 retail exe detection (SafeDisc + No-CD hashes), `--autolaunch`, `--logfile`
 - [x] HP1 code lives in `hp1/`, engine changes are small `hp1_re:` hooks in `patches/`
 - [x] Debug env vars: `HP1_SHOTS`/`HP1_SHOT_DIR` screenshots, `HP1_KEYS` scripted key presses,
-      `HP1_TRACE` actor state log (now with zone), `HP1_CAMERA` fixed camera (`hp1/HP1Debug.cpp`)
+      `HP1_MOUSE` scripted raw mouse moves, `HP1_TRACE` actor state log (now with zone, pitch, view rotation), `HP1_CAMERA` fixed camera (`hp1/HP1Debug.cpp`)
 - [x] `tools/native_audit.py` also reads our `hp1/` overrides (they win for HP1)
 - [x] `hp1/mods/`: additions the original doesn't have, kept apart from the port (`--vanilla` turns the
       default-on ones off). Cutscene and storybook skip ("Press Space to skip"), `--skip-splash`, `--skip-intro`
@@ -72,6 +72,9 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
       menus (FEBook, story book, message boxes) are drawn in a centred 4:3 area, UI scale is fractional (canvas
       768 units tall, like 1024x768), and the options page lists the display's real resolutions
       (`FEOptionsPage.IsSupportedResolution` replaced by a native)
+- [x] Camera flew off towards the world origin when looking up (mouse up): `Actor.TraceActors` (309) overridden
+      (`hp1/HP1TraceTexture.cpp`, from execTraceActors/MultiLineCheck). Upstream's iterator returned HitLocation
+      (0,0,0), traced End->Start and never reported BSP hits as LevelInfo, which `BaseCam.CheckPosition` relies on
 - [ ] Windowed mode: menu mouse mapping (`WindowsMouseX/Y` into the 4:3 area) not yet tested in game
 
 ## 3. Spells
