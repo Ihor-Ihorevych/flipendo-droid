@@ -1,67 +1,37 @@
 #!/usr/bin/env bash
-# Pull the latest SurrealEngine into engine/ (git subtree, full history), keeping our hp1_re changes.
-#
-# Usage: tools/update_engine.sh [ref]        ref defaults to upstream master
-#        tools/update_engine.sh --check      only show what upstream has that we don't
-#
-# On conflicts: git stops mid-merge. Resolve (keep the hp1_re: blocks, take upstream for the rest),
-# `git add` the files, `git commit`, then rebuild and rerun the audit.
+# Move the engine/ submodule (mirror of upstream SurrealEngine) to a newer commit and re-apply patches/.
+#   tools/update_engine.sh --check   list new upstream commits and which patched files they touch
+#   tools/update_engine.sh [ref]     update to ref (default: origin/master), re-apply patches
+# On CONFLICT: fix the hook in engine/ by hand, run tools/refresh_patches.sh, rebuild.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-UPSTREAM_URL="https://github.com/dpjudas/SurrealEngine.git"
-PREFIX="engine"
+ENGINE="$ROOT/engine"
 cd "$ROOT"
 
-CHECK=0
-REF="master"
-case "${1:-}" in
-	--check) CHECK=1 ;;
-	"") ;;
-	*) REF="$1" ;;
-esac
+git submodule update --init engine
+git -C "$ENGINE" fetch -q origin
 
-# A fresh clone of hp1_re has no 'upstream' remote - add it (fetch-only: pushing is disabled).
-if ! git remote get-url upstream >/dev/null 2>&1; then
-	git remote add upstream "$UPSTREAM_URL"
-	git remote set-url --push upstream DISABLED
-	echo "added remote 'upstream' -> $UPSTREAM_URL (push disabled)"
-fi
+CHECK=0; REF="origin/master"
+case "${1:-}" in --check) CHECK=1 ;; "") ;; *) REF="$1" ;; esac
 
-git fetch --quiet upstream "$REF"
-NEW="$(git rev-parse FETCH_HEAD)"
+CUR="$(git -C "$ENGINE" rev-parse HEAD)"
+NEW="$(git -C "$ENGINE" rev-parse "$REF")"
+COUNT="$(git -C "$ENGINE" rev-list --count "$CUR..$NEW")"
+echo "engine/ at ${CUR:0:8}, $REF at ${NEW:0:8}: $COUNT new commit(s)"
+[ "$COUNT" = 0 ] && exit 0
+git -C "$ENGINE" log --oneline --no-decorate "$CUR..$NEW" | head -40
 
-# Last upstream commit already merged into engine/.
-CUR="$(git log --format=%H -n1 --grep="^git-subtree-split:" HEAD | xargs -r git log -n1 --format=%B | sed -n 's/^git-subtree-split: //p')"
-if [ -z "$CUR" ]; then
-	# Imported with `subtree add` from full history: upstream commits are ancestors of HEAD.
-	CUR="$(git merge-base HEAD "$NEW" || true)"
-fi
-
-COUNT="$(git rev-list --count "${CUR:+$CUR..}$NEW")"
-echo "engine/ at upstream ${CUR:0:8}, upstream $REF at ${NEW:0:8}: $COUNT new commit(s)"
-if [ "$COUNT" = 0 ]; then
-	exit 0
-fi
-git log --oneline --no-decorate "${CUR:+$CUR..}$NEW" | head -40
-
-# Files we changed that upstream also touched - likely merge-conflict spots.
-OURS="$(git grep -l "hp1_re:" -- "$PREFIX" || true)"
-if [ -n "$OURS" ] && [ -n "$CUR" ]; then
-	TOUCHED="$(git diff --name-only "$CUR" "$NEW" | sed "s|^|$PREFIX/|")"
-	BOTH="$(comm -12 <(echo "$OURS" | sort) <(echo "$TOUCHED" | sort))"
-	[ -n "$BOTH" ] && { echo; echo "upstream also changed these hp1_re-modified files:"; echo "$BOTH" | sed 's/^/  /'; }
-fi
+PATCHED="$(grep -h '^diff --git a/' patches/*.patch | awk '{print substr($3,3)}' | sort -u)"
+TOUCHED="$(git -C "$ENGINE" diff --name-only "$CUR" "$NEW" | sort -u)"
+BOTH="$(comm -12 <(echo "$PATCHED") <(echo "$TOUCHED"))"
+[ -n "$BOTH" ] && { echo; echo "upstream also changed these patched files:"; echo "$BOTH" | sed 's/^/  /'; }
 
 [ "$CHECK" = 1 ] && exit 0
 
-if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
-	echo "working tree has uncommitted changes - commit or stash first" >&2
-	exit 1
-fi
-
-git subtree pull --prefix="$PREFIX" upstream "$REF" \
-	-m "Merge SurrealEngine upstream ${NEW:0:8} into $PREFIX/"
-
+git -C "$ENGINE" checkout -q -- . && git -C "$ENGINE" clean -qfd
+git -C "$ENGINE" checkout -q "$NEW"
+tools/apply_patches.sh
+git add engine
 echo
-echo "merged. next: tools/build.sh && python tools/native_audit.py && tools/run_hp1.sh 60"
+echo "engine/ -> ${NEW:0:8}, patches applied. next: tools/build.sh && tools/run_hp1.sh 60, then commit."

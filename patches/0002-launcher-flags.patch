@@ -1,0 +1,76 @@
+hp1_re: --autolaunch and --logfile command line flags
+
+diff --git a/SurrealEngine/GameApp.cpp b/SurrealEngine/GameApp.cpp
+index 3b059e5c..e8e581e2 100644
+--- a/SurrealEngine/GameApp.cpp
++++ b/SurrealEngine/GameApp.cpp
+@@ -12,11 +12,18 @@
+ #include "Utils/File.h"
+ #include <stdexcept>
+ #include <iostream>
++#include <fstream>
+ 
+ int GameApp::main(Array<std::string> args)
+ {
+ 	InitWidgetResources("dark");
+ 
++	// hp1_re: headless-friendly dev mode. --autolaunch skips the launcher window and boots the
++	// first game found in the given folder; --logfile=<path> streams every log line to a file
++	// as it is written, so the log survives a hard crash.
++	bool autolaunch = false;
++	std::ofstream logfile;
++
+ 	try
+ 	{
+ 		CommandLine cmd(args);
+@@ -27,11 +34,32 @@ int GameApp::main(Array<std::string> args)
+ 
+ 		if (commandline->HasArg("-h", "--help"))
+ 		{
+-			std::cout << "SurrealEngine [--url=<mapname>] [--engineversion=X] [Path to game folder]\n";
++			std::cout << "SurrealEngine [--url=<mapname>] [--engineversion=X] [--autolaunch] [--logfile=<path>] [Path to game folder]\n";
+ 			return 0;
+ 		}
+ 
+-		int selectedGameIndex = LauncherWindow::ExecModal();
++		autolaunch = commandline->HasArg("", "--autolaunch");
++		std::string logfilename = commandline->GetArg("", "--logfile", "");
++		if (!logfilename.empty())
++		{
++			logfile.open(logfilename, std::ios::out | std::ios::trunc);
++			Logger::Get()->SetCallback([&](const LogMessageLine& line) {
++				logfile << "[" << line.Time << "] " << line.Source << (line.Source.empty() ? "" : ": ") << line.Text << std::endl;
++			});
++		}
++
++		int selectedGameIndex = -1;
++		if (autolaunch)
++		{
++			GameFolderSelection::UpdateList();
++			if (GameFolderSelection::Games.empty())
++				throw std::runtime_error("--autolaunch: no known UE1 game found in the given folder");
++			selectedGameIndex = 0;
++		}
++		else
++		{
++			selectedGameIndex = LauncherWindow::ExecModal();
++		}
+ 		if (selectedGameIndex >= 0)
+ 		{
+ 			GameLaunchInfo info = GameFolderSelection::GetLaunchInfo(selectedGameIndex);
+@@ -41,6 +69,15 @@ int GameApp::main(Array<std::string> args)
+ 	}
+ 	catch (const std::exception& e)
+ 	{
++		// hp1_re: in autolaunch mode never block on a modal dialog; report and exit non-zero
++		if (autolaunch)
++		{
++			if (logfile.is_open())
++				logfile << "FATAL: " << e.what() << std::endl;
++			std::cerr << "FATAL: " << e.what() << std::endl;
++			DeinitWidgetResources();
++			return 1;
++		}
+ 		ErrorWindow::ExecModal(e.what(), Logger::Get()->GetLog());
+ 	}
+ 
