@@ -11,12 +11,12 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
    (physWalking, findNewFloor, physRolling, physSpider), `DoJump` (physWalking), `AlterDestination` (PollMoveToward /
    PollStrafeFacing; our `HP1::PawnMoveToward` port doesn't raise it), `LongFall` (PollWaitForLanding). Compare each
    call site in `../ida/decomp/Engine/` with the matching SurrealEngine code.
-3. **Continue the Lev_Tut1 playthrough** with `HP1_GOTO` along the route below (phase 2) and fix what breaks.
+3. **Continue the Lev_Tut1 playthrough** with `HP1_GOTO` along the route below (phase 2) and fix what breaks. Plan
+   the route offline from the map: `tools/uelib_dump/bin/Release/net10.0/uelib_dump props ../game-work/Maps/Lev_Tut1.unr
+   <file>` lists every actor with all its properties (Tag/Event chains, CutScene scripts, mover keys).
 4. Later events: `KeyFrameReached` (physMovingBrush), `FinishedInterpolation` / `UpdateCamera`
    (InterpolationManager, phase 5), `ViewFlash`, `PreClientTravel` (level change, Lev_Tut1 → Lev_Tut1b).
 
-Before reversing anything, search the decompiled dump (`../ida/decomp/`) and `docs/re/script_events.md`: a state the
-script never enters is usually an event the engine doesn't raise.
 
 ## 0. Groundwork
 - [x] SurrealEngine as a git submodule (`engine/`, upstream SurrealEngine) + our changes as `patches/`;
@@ -134,6 +134,13 @@ script never enters is usually an event the engine doesn't raise.
 - [ ] Quidditch / broom levels
 - [ ] Full game playthrough; per-level bug list
 - [ ] Editor-only natives (BrushBuilders) — low priority
+
+## Later: the other KnowWonder games
+- [ ] HP2 (Chamber of Secrets, UE1 build 433, packages 79): same pipeline. The `// IDA` tags use decorated names so
+      the same functions can be found in HP2's DLLs; UELib reads its packages
+- [ ] HP3 (Prisoner of Azkaban, UE2 build 2226, packages 129): no UE2 counterpart of SurrealEngine exists. First check,
+      with UELib: how many native classes/functions its gameplay packages have (HP1's have none). Mostly script =
+      extending SurrealEngine towards UE2 is worth a look; otherwise fixes for the original exe are the better route
 
 ## Engine hooks (upstream files we touch)
 
