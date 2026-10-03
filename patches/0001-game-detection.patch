@@ -1,7 +1,7 @@
 flipendo: recognise the HP1 retail (SafeDisc) and No-CD HP.exe builds
 
 diff --git a/SurrealEngine/UE1GameDatabase.h b/SurrealEngine/UE1GameDatabase.h
-index 18ca9c13..ed8ba662 100644
+index 18ca9c13..4063dc70 100644
 --- a/SurrealEngine/UE1GameDatabase.h
 +++ b/SurrealEngine/UE1GameDatabase.h
 @@ -197,6 +197,12 @@ static const std::map<std::string, KnownUE1Games> SHA1Database = {
@@ -17,3 +17,10 @@ index 18ca9c13..ed8ba662 100644
  	// Harry Potter 2 (UK)
  	{"3a43d9ec8be7ec441b18a8dc710b4bdd5b29bda3", KnownUE1Games::HARRYPOTTER2_433},
  
+@@ -230,4 +236,5 @@ static const Array<std::string> knownUE1ExecutableNames = {
+ };
+ 
+ // Returns a pair of UE1-Game type and executable name
+-std::pair<KnownUE1Games, std::string> FindUE1GameInPath(const std::string& ue1_game_root_folder_path);
++// flipendo: problem (if given) says why nothing was found: missing folder, no known executable, unknown exe hash
++std::pair<KnownUE1Games, std::string> FindUE1GameInPath(const std::string& ue1_game_root_folder_path, std::string* problem = nullptr);

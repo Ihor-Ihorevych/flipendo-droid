@@ -1,7 +1,7 @@
 flipendo: --autolaunch and --logfile command line flags
 
 diff --git a/SurrealEngine/GameApp.cpp b/SurrealEngine/GameApp.cpp
-index 3b059e5c..03c6e475 100644
+index 3b059e5c..a56c86aa 100644
 --- a/SurrealEngine/GameApp.cpp
 +++ b/SurrealEngine/GameApp.cpp
 @@ -12,11 +12,18 @@
@@ -23,7 +23,7 @@ index 3b059e5c..03c6e475 100644
  	try
  	{
  		CommandLine cmd(args);
-@@ -27,11 +34,32 @@ int GameApp::main(Array<std::string> args)
+@@ -27,11 +34,43 @@ int GameApp::main(Array<std::string> args)
  
  		if (commandline->HasArg("-h", "--help"))
  		{
@@ -43,22 +43,33 @@ index 3b059e5c..03c6e475 100644
 +			});
 +		}
 +
++		// flipendo: a folder given on the command line that isn't a recognised game says why
++		auto noGameFound = [](const std::string& prefix) {
++			std::string text = prefix + "no known game found.";
++			for (const std::string& problem : GameFolderSelection::Problems)
++				text += "\n" + problem;
++			return std::runtime_error(text);
++		};
++
 +		int selectedGameIndex = -1;
 +		if (autolaunch)
 +		{
 +			GameFolderSelection::UpdateList();
 +			if (GameFolderSelection::Games.empty())
-+				throw std::runtime_error("--autolaunch: no known UE1 game found in the given folder");
++				throw noGameFound("--autolaunch: ");
 +			selectedGameIndex = 0;
 +		}
 +		else
 +		{
++			GameFolderSelection::UpdateList();
++			if (GameFolderSelection::Games.empty() && !GameFolderSelection::Problems.empty())
++				throw noGameFound("");
 +			selectedGameIndex = LauncherWindow::ExecModal();
 +		}
  		if (selectedGameIndex >= 0)
  		{
  			GameLaunchInfo info = GameFolderSelection::GetLaunchInfo(selectedGameIndex);
-@@ -41,6 +69,15 @@ int GameApp::main(Array<std::string> args)
+@@ -41,6 +80,15 @@ int GameApp::main(Array<std::string> args)
  	}
  	catch (const std::exception& e)
  	{
