@@ -66,11 +66,17 @@ python tools/native_audit.py
 `engine/` is SurrealEngine (zlib licence, see `engine/LICENSE.md`) with modifications; altered
 files are marked with `hp1_re:` comments as the licence requires. Upstream asks that
 LLM-assisted changes are **not** sent as pull requests (`engine/NO-AI Code Rule.md`), so this fork
-stays separate. Pull upstream fixes with:
+stays separate. Pull a newer SurrealEngine with:
 
 ```sh
-git fetch upstream && git subtree pull --prefix=engine upstream master
+tools/update_engine.sh --check   # list new upstream commits + which hp1_re-modified files they touch
+tools/update_engine.sh           # merge upstream master into engine/ (git subtree, history kept)
+tools/update_engine.sh <sha>     # or a specific upstream commit/branch
 ```
+
+The script adds the `upstream` remote (push disabled) on a fresh clone. If the merge conflicts, keep
+the `hp1_re:` blocks, take upstream for everything else, `git add` + `git commit`, then rebuild
+and rerun `tools/native_audit.py`.
 
 Harry Potter is a trademark of Warner Bros. Entertainment. The game data is copyright EA /
 KnowWonder and is not included.
