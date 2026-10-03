@@ -107,7 +107,7 @@ index aef803f8..5b27c846 100644
  		if (t < tmax)
  		{
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 34ee5181..625b9919 100644
+index 34ee5181..0bcb15c1 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,7 @@
@@ -159,7 +159,53 @@ index 34ee5181..625b9919 100644
  		return window->GetAvailableResolutions();
  	}
  	else if (command == "getcolordepths")
-@@ -1454,6 +1464,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
+@@ -1304,20 +1314,37 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+ 			}
+ 		}
+ 	}
++	// hp1_re: "SET Input <key> <alias>" takes the REST of the line as the alias, and no alias unbinds the key.
++	// Menus rebind with multi-word aliases ("SET Input W MoveForward | button bBroomPitchUp") and clear with
++	// "SET Input W"; the 4-argument check below dropped both, so a rebind showed in the menu and did nothing.
++	else if (command == "set" && args.size() >= 3 && ParseClassName(args[1]) == "input")
++	{
++		NameString propertyName = args[2];
++		std::string value;
++		size_t pos = 0;
++		for (int i = 0; i < 3; i++)
++		{
++			pos = commandline.find_first_not_of(" \t", pos);
++			pos = commandline.find_first_of(" \t", pos);
++		}
++		if (pos != std::string::npos)
++		{
++			size_t first = commandline.find_first_not_of(" \t", pos);
++			size_t last = commandline.find_last_not_of(" \t");
++			if (first != std::string::npos)
++				value = commandline.substr(first, last - first + 1);
++		}
++
++		keybindings[propertyName.ToString()] = value;
++		packages->SetIniValue("user", "Engine.Input", propertyName, value);
++		return {};
++	}
+ 	else if (command == "set" && args.size() == 4)
+ 	{
+ 		NameString className = ParseClassName(args[1]);
+ 		NameString propertyName = args[2];
+ 		std::string value = args[3];
+ 
+-		// Special input setting handling
+-		if (className == "input")
+-		{
+-			keybindings[propertyName.ToString()] = value;
+-			packages->SetIniValue("user", "Engine.Input", propertyName, value);
+-			return {};
+-		}
+-
+ 		UClass* cls = packages->FindClass(className);
+ 		if (!cls)
+ 		{
+@@ -1454,6 +1481,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
  			endpos = command.size();
  
  		std::string subcommand = command.substr(pos, endpos - pos);
@@ -170,7 +216,7 @@ index 34ee5181..625b9919 100644
  		if (!subcommand.empty())
  			subcommands.push_back(subcommand);
  		pos = endpos + 1;
-@@ -1616,6 +1630,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
+@@ -1616,6 +1647,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
  	{
  		viewport->WindowsMouseX() = (float)(pos.x * window->GetDpiScale());
  		viewport->WindowsMouseY() = (float)(pos.y * window->GetDpiScale());
@@ -179,7 +225,7 @@ index 34ee5181..625b9919 100644
  	}
  }
  
-@@ -1689,6 +1705,9 @@ void Engine::OnWindowKeyChar(std::string chars)
+@@ -1689,6 +1722,9 @@ void Engine::OnWindowKeyChar(std::string chars)
  
  void Engine::OnWindowKeyDown(EInputKey key)
  {
