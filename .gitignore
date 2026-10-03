@@ -1,0 +1,20 @@
+# Scripts extracted from the game (tools/extract_scripts.sh). Derived from EA's files - never commit.
+/reference/
+
+# Retail game files - user supplies their own copy.
+*.u
+*.unr
+*.utx
+*.uax
+*.umx
+
+# Build output
+/build/
+/out/
+*.idb
+*.i64
+*.til
+*.id0
+*.id1
+*.id2
+*.nam
