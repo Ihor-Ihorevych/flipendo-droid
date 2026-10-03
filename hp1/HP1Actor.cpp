@@ -23,6 +23,7 @@ namespace HP1
 			props.Wideness = cls->GetPropertyDataOffset("Wideness");
 			props.CollideType = cls->GetPropertyDataOffset("CollideType");
 			props.bAlignBottom = cls->GetPropertyDataOffset("bAlignBottom");
+			props.CollisionWidth = cls->GetPropertyDataOffset("CollisionWidth");
 			initialized = true;
 		}
 		return props;

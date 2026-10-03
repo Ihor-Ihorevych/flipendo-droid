@@ -17,6 +17,17 @@ SurrealEngine fork. Read `README.md` first for layout, build and run commands.
   developed); every line we change there is a future merge conflict. Engine files only get small
   hooks that call into `hp1/` (see the table in `ROADMAP.md`). Prefer overriding natives from
   `hp1/HP1Natives.cpp` (`OverrideNative`) and side tables over editing upstream classes.
+- **Every function in `hp1/` that reimplements engine code carries an IDA tag** directly above its
+  definition, one line per original function, in exactly this format (greppable with `// IDA `):
+  ```cpp
+  // IDA Engine.dll: ?PlayAnim@AActor@@QAEHVFName@@_NMMMW4EAnimType@@0@Z [HP1 0x10408E20]
+  // IDA Core.dll: ?SlerpQuat@@YA?AVFQuat@@ABV1@0M@Z [HP1 Core 0x1014F5A0]
+  ```
+  The decorated export name is the key (it survives rebuilds and lets the same code be found in HP2's
+  DLLs); the address is the real body (`..._0`) in our HP1 database. For non-exported functions write
+  `not exported: sub_XXXXXXXX [HP1 0xXXXXXXXX]` plus how to find it again (exported caller/callee, string,
+  xref). If the code was not reversed (written from script comments or stock UE1 behaviour), say so in
+  the tag ("NOT yet verified against ..."). Add the tag in the same change that adds the function.
 - **Mark every change under `engine/` with an `hp1_re:` comment** (zlib licence requires altered
   source to be marked). Gate HP1-only behaviour behind `engine->LaunchInfo.IsHarryPotter1()` so
   other UE1 games keep working.
@@ -61,7 +72,8 @@ in `docs/re/<topic>.md`.
      `OverrideNative(index, [] { RegisterVMNativeFunc_<argc>("Class", "Name", &Fn, index); })`
      (upstream may already have a stub at that index);
    - HP-only Actor properties: accessors in `hp1/HP1Actor.h` (offsets looked up by name);
-   - only if there's no other way, a gated `hp1_re:` hook in an engine file, added to the ROADMAP table.
+   - only if there's no other way, a gated `hp1_re:` hook in an engine file, added to the ROADMAP table;
+   - the `// IDA <dll>: <decorated name> [HP1 0x...]` tag above every reimplemented function (see Rules).
 5. Rebuild, `tools/run_hp1.sh 60`, check the `Unimplemented:` summary, rerun the audit.
 
 ## Where things are in SurrealEngine

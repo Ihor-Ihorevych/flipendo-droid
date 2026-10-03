@@ -69,6 +69,7 @@ namespace HP1
 		}
 	}
 
+	// IDA Engine.dll: ?CreateAnimChannel@AActor@@QAEPAV1@PAVUClass@@W4EAnimType@@VFName@@_N@Z [HP1 0x10408600]
 	UActor* CreateAnimChannel(UActor* actor, UClass* newClass, EAnimType type, const NameString& rootBone, bool bTransient)
 	{
 		auto skel = UObject::TryCast<USkeletalMesh>(actor->Mesh());
@@ -106,6 +107,7 @@ namespace HP1
 		return ch;
 	}
 
+	// IDA Engine.dll: ?PlayAnim@AActor@@QAEHVFName@@_NMMMW4EAnimType@@0@Z [HP1 0x10408E20]
 	bool PlayAnim(UActor* actor, NameString sequence, bool bLoop, float rate, float tweenTime, float minRate, EAnimType type, NameString rootBone)
 	{
 		if (!actor->Mesh())
@@ -208,6 +210,7 @@ namespace HP1
 		return true;
 	}
 
+	// IDA Engine.dll: ?IsAnimating@AActor@@QBEHXZ [HP1 0x1031C3A0] (+ channel lookup in execIsAnimating)
 	static bool IsAnimating(UActor* actor, const NameString& rootBone)
 	{
 		if (rootBone.IsNone())
@@ -220,6 +223,8 @@ namespace HP1
 		return ch && IsAnimatingSelf(ch);
 	}
 
+	// IDA Engine.dll: ?execFinishAnim@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x10408250]
+	// IDA Engine.dll: ?execPollFinishAnim@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x10408460]
 	static void FinishAnim(UActor* actor, const NameString& rootBone)
 	{
 		UActor* target = actor;
@@ -250,6 +255,7 @@ namespace HP1
 		CallEvent(a, EventName::AnimEnd);
 	}
 
+	// IDA Engine.dll: ?Tick@AActor@@UAEHMW4ELevelTick@@@Z [HP1 0x103B3840] (animation part)
 	void TickAnimation(UActor* actor, float elapsed)
 	{
 		// execPollFinishAnim: the latent FinishAnim ends once bAnimFinished is set.
@@ -357,58 +363,70 @@ namespace HP1
 	// Natives
 	//
 
+	// IDA Engine.dll: ?execPlayAnim@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x10409E20]
 	static void NPlayAnim(UObject* self, const NameString& Sequence, std::optional<float> Rate, std::optional<float> TweenTime, std::optional<uint8_t> Type, std::optional<NameString> RootBone)
 	{
 		PlayAnim(UObject::Cast<UActor>(self), Sequence, false, Rate.value_or(1.0f), TweenTime.value_or(-1.0f), 0.0f, (EAnimType)Type.value_or(0), RootBone.value_or(NameString()));
 	}
 
+	// IDA Engine.dll: ?execLoopAnim@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x10409F60]
 	static void NLoopAnim(UObject* self, const NameString& Sequence, std::optional<float> Rate, std::optional<float> TweenTime, std::optional<float> MinRate, std::optional<uint8_t> Type, std::optional<NameString> RootBone)
 	{
 		PlayAnim(UObject::Cast<UActor>(self), Sequence, true, Rate.value_or(1.0f), TweenTime.value_or(-1.0f), MinRate.value_or(0.0f), (EAnimType)Type.value_or(0), RootBone.value_or(NameString()));
 	}
 
+	// IDA Engine.dll: ?execTweenAnim@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x1040A0D0]
 	static void NTweenAnim(UObject* self, const NameString& Sequence, float Time)
 	{
 		PlayAnim(UObject::Cast<UActor>(self), Sequence, false, 0.0f, Time, 0.0f, EAnimType::AT_Replace, {});
 	}
 
+	// IDA Engine.dll: ?execIsAnimating@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x1040A170]
 	static void NIsAnimating(UObject* self, std::optional<NameString> RootBone, BitfieldBool& ReturnValue)
 	{
 		ReturnValue = IsAnimating(UObject::Cast<UActor>(self), RootBone.value_or(NameString()));
 	}
 
+	// IDA Engine.dll: ?execFinishAnim@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x10408250]
 	static void NFinishAnim(UObject* self, std::optional<NameString> RootBone)
 	{
 		FinishAnim(UObject::Cast<UActor>(self), RootBone.value_or(NameString()));
 	}
 
+	// IDA Engine.dll: ?execCreateAnimChannel@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x10408C50]
 	static void NCreateAnimChannel(UObject* self, UObject* NewClass, uint8_t Type, const NameString& RootBone, std::optional<bool> bTransient, UObject*& ReturnValue)
 	{
 		ReturnValue = CreateAnimChannel(UObject::Cast<UActor>(self), UObject::Cast<UClass>(NewClass), (EAnimType)Type, RootBone, bTransient.value_or(false));
 	}
 
+	// IDA Engine.dll: ?execHasAnim@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x1040A3D0]
 	static void NHasAnim(UObject* self, const NameString& Sequence, BitfieldBool& ReturnValue)
 	{
 		ReturnValue = GetAnimSeq(UObject::Cast<UActor>(self), Sequence) != nullptr;
 	}
 
+	// IDA Engine.dll: ?execGetAnimGroup@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x1040A2E0]
 	static void NGetAnimGroup(UObject* self, const NameString& Sequence, NameString& ReturnValue)
 	{
 		MeshAnimSeq* seq = GetAnimSeq(UObject::Cast<UActor>(self), Sequence);
 		ReturnValue = seq ? seq->Group : NameString();
 	}
 
+	// IDA Engine.dll: ?execLinkSkelAnim@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x1040A700]
 	static void NLinkSkelAnim(UObject* self, UObject* Anim)
 	{
 		UObject::Cast<UActor>(self)->SkelAnim() = UObject::TryCast<UAnimation>(Anim);
 	}
 
+	// IDA Engine.dll: ?execBoneNumber@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x1040A470]
 	static void NBoneNumber(UObject* self, const NameString& Bone, int& ReturnValue)
 	{
 		auto skel = UObject::TryCast<USkeletalMesh>(UObject::Cast<UActor>(self)->Mesh());
 		ReturnValue = skel ? BoneIndex(skel, Bone) : -1;
 	}
 
+	// IDA Engine.dll: ?execBoneName@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x1040A530]
+	// IDA Engine.dll: ?BoneName@USkeletalMesh@@QBE?AVFName@@H@Z [HP1 0x1041DF00]
 	static void NBoneName(UObject* self, int Bone, NameString& ReturnValue)
 	{
 		auto skel = UObject::TryCast<USkeletalMesh>(UObject::Cast<UActor>(self)->Mesh());

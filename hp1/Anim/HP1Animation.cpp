@@ -20,6 +20,7 @@ namespace HP1
 		return it != AnimationTable.end() ? it->second.get() : nullptr;
 	}
 
+	// IDA Engine.dll: ?GetAnimSeq@UAnimation@@UAEPAUFMeshAnimSeq@@VFName@@@Z [HP1 0x10405580]
 	MeshAnimSeq* AnimationData::GetSequence(const NameString& name)
 	{
 		for (MeshAnimSeq& seq : AnimSeqs)
@@ -28,6 +29,7 @@ namespace HP1
 		return nullptr;
 	}
 
+	// IDA Engine.dll: ?GetMovement@UAnimation@@UAEPAUMotionChunk@@VFName@@@Z [HP1 0x10405620]
 	AnimMove* AnimationData::GetMove(const NameString& name)
 	{
 		for (size_t i = 0; i < AnimSeqs.size() && i < Moves.size(); i++)
@@ -76,6 +78,7 @@ namespace HP1
 	// After loading, each track's keys are consecutive slices of the three pools, in Moves/AnimTracks order.
 	// FAnimVec (3x int16): FAnimVec::Quat: xyz = sin(v * (pi/2) / 32767), w = sqrt(1 - x^2 - y^2 - z^2)
 	//                      FAnimVec::Vector(Scale): v * Scale / 32767
+	// IDA Engine.dll: ?Serialize@UAnimation@@UAEXAAVFArchive@@@Z [HP1 0x1041A2F0]
 	void LoadAnimation(UAnimation* anim, ObjectStream* stream)
 	{
 		auto data = std::make_unique<AnimationData>();

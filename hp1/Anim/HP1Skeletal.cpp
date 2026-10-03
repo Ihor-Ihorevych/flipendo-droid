@@ -47,6 +47,7 @@ namespace HP1
 	};
 
 	// Core.dll FCoords::FCoords(const FPlace&)
+	// IDA Core.dll: ??0FCoords@@QAE@ABVFPlace@@@Z [HP1 Core 0x1014F7A0]
 	static BoneCoords ToCoords(const Place& p)
 	{
 		const quaternion& q = p.Orientation;
@@ -75,6 +76,7 @@ namespace HP1
 	}
 
 	// Core.dll SlerpQuat: shortest path, then a one-step renormalization.
+	// IDA Core.dll: ?SlerpQuat@@YA?AVFQuat@@ABV1@0M@Z [HP1 Core 0x1014F5A0]
 	static quaternion SlerpQuat(const quaternion& a, const quaternion& b, float alpha)
 	{
 		float rawCos = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
@@ -193,6 +195,7 @@ namespace HP1
 
 	// USkeletalMesh::ApplyAnim(Owner, Header, false). header != nullptr means 'actor' is an aux channel
 	// writing into its owner's pose.
+	// IDA Engine.dll: ?ApplyAnim@USkeletalMesh@@ABEXPAVAActor@@PAUCFSkelHeader@1@_N@Z [HP1 0x1041BA60] (RefPlace/SampleTrack are inlined in it)
 	static void ApplyAnim(USkeletalMesh* mesh, UActor* actor, SkelCache* header)
 	{
 		SkelCache& cache = GetSkelCache(actor, mesh);
@@ -322,6 +325,7 @@ namespace HP1
 	}
 
 	// USkeletalMesh::GetMeshCoords as a matrix: mesh space -> world.
+	// IDA Engine.dll: ?GetMeshCoords@USkeletalMesh@@ABE?AVFCoords@@PBVAActor@@@Z [HP1 0x1041AEF0]
 	static mat4 GetMeshToWorld(UActor* actor, USkeletalMesh* mesh)
 	{
 		float drawScale = actor->DrawScale();
@@ -338,6 +342,8 @@ namespace HP1
 	}
 
 	// USkeletalMesh::GetFrame: world-space vertex positions, indexed like Points.
+	// IDA Engine.dll: ?GetFrame@USkeletalMesh@@UAEXPAVFVector@@HVFCoords@@PAVAActor@@AAH@Z [HP1 0x1041DF50]
+	// IDA Engine.dll: ?GetFrame@USkeletalMesh@@UAEXPAVFVector@@HVFCoords@@PAVAActor@@@Z [HP1 0x10404470] (wrapper)
 	static bool GetFrame(UActor* actor, USkeletalMesh* mesh, Array<vec3>& outVerts)
 	{
 		if (mesh->RefSkeleton.empty() || mesh->BoneWeightIndices.empty())
@@ -397,6 +403,7 @@ namespace HP1
 
 	// sub_1041B500: animation bounding box in root bone space. Mesh.BoundingBoxes is indexed like the
 	// animation's AnimSeqs; while tweening it is unioned with the previous box, and with the aux channels' boxes.
+	// IDA Engine.dll: not exported: sub_1041B500 [HP1 0x1041B500]; find it as the only callee of USkeletalMesh::GetRenderBoundingBox that also calls itself (aux channels)
 	static bool GetAnimBox(UActor* actor, USkeletalMesh* mesh, BBox& outBox)
 	{
 		bool valid = false;
@@ -443,6 +450,7 @@ namespace HP1
 	}
 
 	// USkeletalMesh::GetRenderBoundingBox, as a world space AABB for culling/BSP placement.
+	// IDA Engine.dll: ?GetRenderBoundingBox@USkeletalMesh@@UAE?AVFCoords@@PBVAActor@@H@Z [HP1 0x1041B2F0]
 	BBox GetRenderBoundingBox(UActor* actor, USkeletalMesh* mesh)
 	{
 		mat4 meshToWorld = GetMeshToWorld(actor, mesh);
@@ -481,6 +489,7 @@ namespace HP1
 		return result;
 	}
 
+	// IDA Engine.dll: none: drawing is our own (HP1 renders through Render.dll/D3DDrv); pose and skinning come from GetFrame above
 	bool DrawSkeletalMesh(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, USkeletalMesh* mesh, bool translucentPass)
 	{
 		static Array<vec3> verts;

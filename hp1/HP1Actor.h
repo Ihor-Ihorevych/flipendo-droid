@@ -16,8 +16,18 @@ namespace HP1
 		PropertyDataOffset Wideness;
 		PropertyDataOffset CollideType;
 		PropertyDataOffset bAlignBottom;
+		PropertyDataOffset CollisionWidth;
 	};
 	const ActorProps& GetActorProps();
+
+	// Actor.ECollideType
+	enum ECollideType : uint8_t
+	{
+		CT_AlignedCylinder,
+		CT_OrientedCylinder,
+		CT_Box,
+		CT_Shape
+	};
 
 	inline TypedScriptArray<UActor*> AuxAnims(UActor* a) { return a->DynamicArray<UActor*>(GetActorProps().AuxAnims); }
 	inline uint8_t& AnimBone(UActor* a) { return a->Value<uint8_t>(GetActorProps().AnimBone); }
@@ -27,4 +37,5 @@ namespace HP1
 	inline uint8_t& Wideness(UActor* a) { return a->Value<uint8_t>(GetActorProps().Wideness); }
 	inline uint8_t& CollideType(UActor* a) { return a->Value<uint8_t>(GetActorProps().CollideType); }
 	inline BitfieldBool bAlignBottom(UActor* a) { return a->BoolValue(GetActorProps().bAlignBottom); }
+	inline float& CollisionWidth(UActor* a) { return a->Value<float>(GetActorProps().CollisionWidth); }
 }
