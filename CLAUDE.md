@@ -63,6 +63,12 @@ in `docs/re/<topic>.md`.
 - Engine.dll was built with incremental linking: `?Foo@...` at 0x103xxxxx is a `jmp` thunk, the real body
   is the `..._0` name. Set `this`/arg types on the `_0` function before decompiling.
 - FArchive vtable: +4 Serialize, +20 CountBytes, +24 `<<UObject*`, +28 `<<FName`.
+- **Decompiled dump** (search here first, before decompiling in IDA): `../ida/decomp/<Engine|Core|Render>/<ADDR>_<name>.c`,
+  one file per function, headed with the decorated name and `[HP1 0x...]` (the `// IDA` tag key); index
+  `../ida/decomp/<Dll>_index.tsv`. Regenerate with `tools/ida_dump.py` inside IDA (`dump_all('Engine')`). Not in the repo
+  (derived from EA's binaries).
+- `docs/re/script_events.md`: every script event HP1's native code raises, and which ones SurrealEngine never
+  raises (the `Mount` kind of gap). Check it when a script state never gets entered.
 
 ## Workflow for porting a native
 
