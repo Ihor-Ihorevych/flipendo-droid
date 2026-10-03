@@ -7,9 +7,8 @@
 #include "Engine.h"
 #include <unordered_map>
 
-// HP1's Mover.uc re-declares PhysAlpha and PhysRate, shadowing Actor's.
-// own FLOAT PhysAlpha, PhysRate). Mover script (InterpolateTo etc.) and KnowWonder's native mover physics use the
-// Mover copies; upstream's TickMovingBrush uses Actor's, which stay 0, so doors were triggered but never moved.
+// HP1's Mover.uc re-declares PhysAlpha and PhysRate, shadowing Actor's. Mover script (InterpolateTo etc.) and
+// KnowWonder's native mover physics use the Mover copies; upstream's TickMovingBrush uses Actor's, which stay 0, so doors were triggered but never moved.
 // The hook in TickMovingBrush copies the Mover values in before upstream's logic and back out afterwards.
 
 namespace HP1

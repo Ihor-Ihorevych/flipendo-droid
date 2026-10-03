@@ -1,7 +1,7 @@
 // Package extractor for the HP games, built on UELib (tools/Unreal-Library).
 //
 //   uelib_dump scripts <System dir> <out dir>
-//       For every *.u package: every class's UnrealScript into <out>/<Package>/Classes/<Class>.uc (the layout of
+//       For every *.u package: every class's UnrealScript into <out>/<Package>/Classes/<Class>.uc (the usual
 //       `ucc batchexport` layout). Uses the source text embedded in the package (ScriptText, with the original
 //       comments); falls back to UELib's bytecode decompiler, marked in the first line, when a class has none.
 //   uelib_dump props <package> <out file>

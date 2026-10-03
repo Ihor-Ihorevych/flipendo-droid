@@ -69,12 +69,12 @@ namespace HP1
 
 	// UAnimation::Serialize in HP1 Engine.dll:
 	//   RefBones  array of AnimBone  { name, flags, parent index }
-	//   TArray<MotionChunk>  Moves      { FVector RootSpeed3D; FLOAT TrackTime; INT StartBone; DWORD Flags;
+	//   Moves     array of AnimMove  { RootSpeed3D, TrackTime, StartBone, Flags, BoneIndices[], AnimTracks[] }
 	//     AnimTrack                  { Flags, KeyQuat count, KeyPos count, KeyTime count, KeyPosScale, KeyTimeScale }
 	//                                  (only the key counts are stored per track; the keys are in the pools below)
-	//   TArray<FMeshAnimSeq> AnimSeqs   (stock layout)
-	//   TArray<FAnimVec>     KeyQuats, KeyPoses   (bulk, 6 bytes each)
-	//   TArray<BYTE>         KeyTimes             (bulk)
+	//   AnimSeqs  array of MeshAnimSeq (stock layout)
+	//   KeyQuats, KeyPoses   pools of FAnimVec (3x int16, 6 bytes each)
+	//   KeyTimes             pool of bytes
 	// After loading, each track's keys are consecutive slices of the three pools, in Moves/AnimTracks order.
 	// FAnimVec (3x int16): FAnimVec::Quat: xyz = sin(v * (pi/2) / 32767), w = sqrt(1 - x^2 - y^2 - z^2)
 	//                      FAnimVec::Vector(Scale): v * Scale / 32767

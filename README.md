@@ -64,6 +64,7 @@ upstream SurrealEngine (see below).
 | `patches/` | Our small changes to SurrealEngine (hooks into `hp1/`, HP1 exe detection, launcher flags), applied to `engine/` by the build. |
 | `tools/` | Build, run and audit scripts. |
 | `docs/` | Reverse-engineering notes and generated reports. |
+| `reference/` | Scripts extracted from your own install by `tools/extract_scripts.sh`. **Gitignored** (derived from the game). |
 
 ## Building (Windows)
 
@@ -111,6 +112,14 @@ python tools/native_audit.py
   [HarryPotterUnrealWiki](https://github.com/metallicafan212/HarryPotterUnrealWiki/wiki/Main-Resources)
 
 ## Upstream & licence
+
+hp1_re's own code (`hp1/`, `patches/`, `tools/`, `docs/`) is licensed under the
+[PolyForm Noncommercial License 1.0.0](LICENSE.md): free to use, modify and share, not for commercial use.
+It is written from HP1's own binaries and scripts and from observing the original game; the project
+does not use Epic source code or headers as a reference.
+
+hp1_re is an independent project, **not affiliated with or endorsed by SurrealEngine**. Please report
+problems here, not upstream.
 
 `engine/` is unmodified SurrealEngine (zlib licence, see `engine/LICENSE.md`). Our changes to it are
 the `patches/*.patch` files, applied to the submodule's working tree by `tools/build.sh`

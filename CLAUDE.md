@@ -33,6 +33,13 @@ SurrealEngine fork. Read `README.md` first for layout, build and run commands.
 - **Mark every change under `engine/` with an `hp1_re:` comment** (zlib licence requires altered
   source to be marked). Gate HP1-only behaviour behind `engine->LaunchInfo.IsHarryPotter1()` so
   other UE1 games keep working.
+- **Never commit `reference/` or game data** (`*.u *.unr *.utx *.uax *.umx`, exes, DLLs).
+  The extracted scripts are derived from the game; `.gitignore` covers them.
+- **Never use Epic's UE1 source or headers as a reference**, including third-party header sets built
+  from them (e.g. the "HP1 public headers" on archive.org). Layouts and behaviour come from HP1's own
+  binaries and scripts (IDA, `.u` files), SurrealEngine, and observing the original game. Don't copy
+  Epic type or field names that don't appear in HP1's exports or scripts; name things yourself.
+- **hp1_re is licensed PolyForm Noncommercial 1.0.0** (`LICENSE.md`); `engine/` stays zlib.
 - Don't push to `origin` without explicit permission.
 - Never modify `../harry-potter-unpacked/` or `../harry-potter/` (pristine retail copies).
   Runs use `../game-work/` (disposable copy, SurrealEngine writes ini/save files into it).
@@ -41,8 +48,18 @@ SurrealEngine fork. Read `README.md` first for layout, build and run commands.
 ## Ground truth / facts established
 
 - Game: KnowWonder UE1 build **433, Unicode**. Package file version **76** (`.u`), maps **72** (`.unr`).
+- The retail disc (readme says "Version 1.0", files dated 2001-10-29) **already contains the 1.1
+  script fixes** — every 1.1 marker checked is present (`IsOSVer2kOrXP`, `CreateNativeFont`,
+  `FEOptionsPage.IsSupportedResolution`, ...). No need for the official patch. Other script exports floating
+  around are different builds (a few classes differ); only read ours.
+- **Our scripts come from our own disc**: the `.u` files embed the original source text (with comments), which
+  `tools/extract_scripts.sh` writes to `reference/hp1/ScriptSource/<Pkg>/Classes/` (UELib, `tools/Unreal-Library`
+  submodule + `tools/uelib_dump`), 1247 classes. The defaultproperties blocks are generated (UELib formatting:
+  enums as numbers, all struct fields written).
 - `System/HP.exe` on disc is **SafeDisc-wrapped** (sections `stxt774`/`stxt371`, EP in `stxt371`);
   `drvmgt.dll`/`secdrv.sys` are SafeDisc. Ignore them — the launcher is a thin WinMain anyway.
+- The engine DLLs are **not** wrapped and **export decorated C++ names** (Core 2046, Engine 2722,
+  Window 1289 exports).
 - **All HP gameplay packages (`HarryPotter`, `HPBase`, `HPMenu`, `Hub*`, `Tut*`, ...) are pure
   UnrealScript** — zero native functions, zero native classes. All native work is in
   KnowWonder's modified `Engine.dll` (+ small bits of `Core.dll`).
@@ -60,6 +77,8 @@ in `docs/re/<topic>.md`.
 
 - Database: `../ida/Engine.dll.i64` (a copy of the retail DLL; never open the one in
   `../harry-potter-unpacked/`, IDA writes files next to it). Driven headless via the IDA MCP.
+- Types: define structs in IDA from what the binary shows: the sizeof each class registers, field accesses in
+  the decompiled code, `Serialize` order, and the script property layout from our `.u` files.
 - Engine.dll was built with incremental linking: `?Foo@...` at 0x103xxxxx is a `jmp` thunk, the real body
   is the `..._0` name. Set `this`/arg types on the `_0` function before decompiling.
 - FArchive vtable: +4 Serialize, +20 CountBytes, +24 `<<UObject*`, +28 `<<FName`.
@@ -73,6 +92,8 @@ in `docs/re/<topic>.md`.
 ## Workflow for porting a native
 
 1. `python tools/native_audit.py` → `docs/native_audit.md` lists MISSING / STUB / INDEX natives.
+2. Read the UnrealScript declaration and callers in `reference/hp1/ScriptSource/<Pkg>/Classes/` (our disc,
+   `tools/extract_scripts.sh`) to get the signature; native-only field layouts come from IDA (step 3).
 3. Reverse the real implementation in IDA from `../harry-potter-unpacked/System/Engine.dll`
    (find it by its exported/decorated name, e.g. `?execPlayAnim@AActor@@QAEXAAUFFrame@@QAX@Z`).
 4. Implement in `hp1/`:
