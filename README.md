@@ -99,9 +99,14 @@ Recognised `System/HP.exe` builds are listed in `engine/SurrealEngine/UE1GameDat
 ## Reference material
 
 ```sh
+tools/extract_scripts.sh   # -> reference/hp1/ScriptSource/ (our disc's scripts; needs the .NET 10 SDK)
 python tools/native_audit.py
 ```
 
+- **Our own scripts**: the HP1 packages embed their UnrealScript source text; `tools/extract_scripts.sh`
+  extracts it from your install with [UELib](https://github.com/EliotVU/Unreal-Library) (`tools/Unreal-Library`
+  submodule, our extractor in `tools/uelib_dump/`). `tools/uelib_dump props <package> <file>` dumps every
+  export of a package with its properties (e.g. all actors of a map).
 - Harry Potter modding community resources:
   [HarryPotterUnrealWiki](https://github.com/metallicafan212/HarryPotterUnrealWiki/wiki/Main-Resources)
 

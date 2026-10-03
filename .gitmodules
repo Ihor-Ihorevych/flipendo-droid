@@ -3,3 +3,6 @@
 	url = https://github.com/dpjudas/SurrealEngine
 	ignore = dirty
 	branch = master
+[submodule "tools/Unreal-Library"]
+	path = tools/Unreal-Library
+	url = https://github.com/EliotVU/Unreal-Library.git

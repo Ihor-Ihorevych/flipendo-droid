@@ -5,13 +5,31 @@ live in `docs/re/`. The native-level checklist is `docs/native_audit.md` (`pytho
 
 Legend: [x] done · [~] partly done / in progress · [ ] not started
 
+## Next up (in order)
+1. **Root motion** (phase 1). Blocks every ledge climb, starting with the bookcase in Fred & George's room.
+2. **Script events SurrealEngine never raises** (`docs/re/script_events.md`), gameplay ones first: `Falling`
+   (physWalking, findNewFloor, physRolling, physSpider), `DoJump` (physWalking), `AlterDestination` (PollMoveToward /
+   PollStrafeFacing; our `HP1::PawnMoveToward` port doesn't raise it), `LongFall` (PollWaitForLanding). Compare each
+   call site in `../ida/decomp/Engine/` with the matching SurrealEngine code.
+3. **Continue the Lev_Tut1 playthrough** with `HP1_GOTO` along the route below (phase 2) and fix what breaks.
+4. Later events: `KeyFrameReached` (physMovingBrush), `FinishedInterpolation` / `UpdateCamera`
+   (InterpolationManager, phase 5), `ViewFlash`, `PreClientTravel` (level change, Lev_Tut1 → Lev_Tut1b).
+
+Before reversing anything, search the decompiled dump (`../ida/decomp/`) and `docs/re/script_events.md`: a state the
+script never enters is usually an event the engine doesn't raise.
+
 ## 0. Groundwork
 - [x] SurrealEngine as a git submodule (`engine/`, upstream SurrealEngine) + our changes as `patches/`;
       `tools/update_engine.sh` to move to newer upstream
 - [x] HP1 retail exe detection (SafeDisc + No-CD hashes), `--autolaunch`, `--logfile`
 - [x] HP1 code lives in `hp1/`, engine changes are small `hp1_re:` hooks in `patches/`
 - [x] Debug env vars: `HP1_SHOTS`/`HP1_SHOT_DIR` screenshots, `HP1_KEYS` scripted key presses,
-      `HP1_MOUSE` scripted raw mouse moves, `HP1_TRACE` actor state log (now with zone, pitch, view rotation), `HP1_CAMERA` fixed camera (`hp1/HP1Debug.cpp`)
+      `HP1_MOUSE` scripted raw mouse moves, `HP1_TRACE` actor state log (now with zone, pitch, view rotation), `HP1_CAMERA` fixed camera,
+      `HP1_DUMP` actor list (class, state, location, Tag, Event), `HP1_GOTO` waypoint autopilot with jump/wait steps (`hp1/HP1Debug.cpp`)
+- [x] Decompiled dump of Engine/Core/Render.dll (3714/2318/237 functions) in `../ida/decomp/` with an index per DLL
+      (`tools/ida_dump.py`; not in the repo)
+- [x] Script events raised by HP1's natives vs SurrealEngine (`docs/re/script_events.md`): 77 raised, 18 never raised
+      by SurrealEngine (8 of them net/stat-log only)
 - [x] `tools/native_audit.py` also reads our `hp1/` overrides (they win for HP1)
 - [x] `hp1/mods/`: additions the original doesn't have, kept apart from the port (`--vanilla` turns the
       default-on ones off). Cutscene and storybook skip ("Press Space to skip"), `--skip-splash`, `--skip-intro`
@@ -19,7 +37,8 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
       storybook pictures (StoryBookTest.utx) were missing, only the subtitles showed
 - [x] `// IDA <dll>: <decorated name> [HP1 0x...]` tags on every reimplemented function (for re-checking
       and for HP2)
-- [x] Mouse cursor is only recentered while the game window is the foreground window (patch 0004)
+- [x] Mouse cursor is only recentered, and raw mouse/keyboard input only used, while the game window is the
+      foreground window (patch 0004; raw input arrives in the background, moving the mouse elsewhere turned the camera)
 
 ## 1. Characters move (skeletal animation) ← current
 - [x] `UAnimation` HP1 format loader (`hp1/Anim/HP1Animation.cpp`)
@@ -71,6 +90,10 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
       BSP surfaces with PolyFlags 0x1000 (PF_SpecialPoly = HP1's "mountable") qualify. Upstream's cylinder collision
       can report the node of a neighbouring plane, so the face is re-found with a zero-extent ray
 - [x] `Actor.SetCollisionSize` has HP1's optional third parameter NewWidth (MountFinish passes three values)
+- [ ] Raise the gameplay events SurrealEngine never raises: `Falling` (walking off an edge: physWalking, findNewFloor,
+      physRolling, physSpider), `DoJump` (physWalking), `AlterDestination` (PollMoveToward/PollStrafeFacing), `LongFall`
+      (PollWaitForLanding), `KeyFrameReached` (physMovingBrush). Addresses in `docs/re/script_events.md`
+- [ ] Level change Lev_Tut1 → Lev_Tut1b: `PreClientTravel` (execClientTravel) isn't raised
 - [ ] Missing Actor natives: ModifySound(567), StopSound(568), SaveGameExists(3972), Wind.GetWind,
       PlayerPawn.ScreenToWorld, Pawn.FindPath, Console.CreateNativeFont
 - [ ] Unknown console command `Snap` (FEBook.OpenBook `Snap 3`: screenshot for the save thumbnail, see phase 4)
@@ -105,7 +128,9 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 - [ ] FEBook pages that depend on the above
 
 ## 5. Remaining native classes and polish
-- [ ] Wind, ImpactSoundSet, SoundContainer, InterpolationManager, ClipMarker, LocationID
+- [ ] Wind, ImpactSoundSet, SoundContainer, InterpolationManager (its performPhysics raises `FinishedInterpolation` and
+      `UpdateCamera`), ClipMarker, LocationID
+- [ ] `ViewFlash` (UGameEngine::Tick) for screen flashes
 - [ ] Quidditch / broom levels
 - [ ] Full game playthrough; per-level bug list
 - [ ] Editor-only natives (BrushBuilders) — low priority

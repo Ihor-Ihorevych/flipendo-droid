@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Audit HP1 native functions against what SurrealEngine implements.
 
-Reads every `native` function/event declared in our disc's scripts
-(reference/hp1/ScriptSource) and every RegisterVMNativeFunc_N(...) call in
+Reads every `native` function/event declared in our disc's scripts (reference/hp1/ScriptSource, from
+tools/extract_scripts.sh) and every RegisterVMNativeFunc_N(...) call in
 engine/SurrealEngine/Native, plus our overrides in hp1/ (which win for HP1), then classifies each HP1 native:
 
   MISSING     declared in HP1 script, never registered by the engine
