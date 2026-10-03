@@ -85,10 +85,13 @@ Point it at an installed HP1 folder (the one containing `System/`, `Maps/`, ...)
 build/Release/SurrealEngine.exe "C:/Games/Harry Potter"           # launcher
 HP1_GAME_DIR="C:/Games/Harry Potter" tools/run_hp1.sh             # skip launcher, log to build/hp1_run.log
 HP1_GAME_DIR="C:/Games/Harry Potter" tools/run_hp1.sh 60          # same, quit after 60s, summarise Unimplemented calls
+HP1_GAME_DIR="C:/Games/Harry Potter" tools/run_hp1.sh 0 --skip-splash --skip-intro  # straight to the menu; New Game skips the storybook
 ```
 
 Fork-only flags: `--autolaunch` (boot the first detected game, no launcher, no modal error box) and
-`--logfile=<path>` (stream the log to a file, survives crashes).
+`--logfile=<path>` (stream the log to a file, survives crashes), `--skip-splash` (HP1: skip the EA/KnowWonder/title
+splash screens and open the main menu), `--skip-intro` (HP1: New Game goes straight to the first level), `--vanilla` (HP1: turn off our additions such as
+the "Press Space to skip" cutscene skip; see `hp1/mods/README.md`).
 
 Recognised `System/HP.exe` builds are listed in `engine/SurrealEngine/UE1GameDatabase.h`
 (UK 1.1, EN retail SafeDisc, community No-CD).

@@ -451,6 +451,11 @@ namespace HP1
 
 	// USkeletalMesh::GetRenderBoundingBox, as a world space AABB for culling/BSP placement.
 	// IDA Engine.dll: ?GetRenderBoundingBox@USkeletalMesh@@UAE?AVFCoords@@PBVAActor@@H@Z [HP1 0x1041B2F0]
+	bool GetSkeletalFrameVerts(UActor* actor, USkeletalMesh* mesh, Array<vec3>& outVerts)
+	{
+		return GetFrame(actor, mesh, outVerts);
+	}
+
 	BBox GetRenderBoundingBox(UActor* actor, USkeletalMesh* mesh)
 	{
 		mat4 meshToWorld = GetMeshToWorld(actor, mesh);

@@ -11,7 +11,12 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 - [x] HP1 retail exe detection (SafeDisc + No-CD hashes), `--autolaunch`, `--logfile`
 - [x] HP1 code lives in `hp1/`, engine changes are small `hp1_re:` hooks in `patches/`
 - [x] Debug env vars: `HP1_SHOTS`/`HP1_SHOT_DIR` screenshots, `HP1_KEYS` scripted key presses,
-      `HP1_TRACE` actor state log (`hp1/HP1Debug.cpp`)
+      `HP1_TRACE` actor state log (now with zone), `HP1_CAMERA` fixed camera (`hp1/HP1Debug.cpp`)
+- [x] `tools/native_audit.py` also reads our `hp1/` overrides (they win for HP1)
+- [x] `hp1/mods/`: additions the original doesn't have, kept apart from the port (`--vanilla` turns the
+      default-on ones off). Cutscene and storybook skip ("Press Space to skip"), `--skip-splash`, `--skip-intro`
+- [x] `DynamicLoadObject("Package.Group.Name")` finds the object (patch 0003, NObject.cpp): the New Game
+      storybook pictures (StoryBookTest.utx) were missing, only the subtitles showed
 - [x] `// IDA <dll>: <decorated name> [HP1 0x...]` tags on every reimplemented function (for re-checking
       and for HP2)
 - [x] Mouse cursor is only recentered while the game window is the foreground window (patch 0004)
@@ -53,11 +58,16 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 - [ ] Kids spawned on the same patrol point can overlap (UE1 Spawn fails when the spot is occupied?)
 - [ ] Verify CT_Box against `UBox::LineCheck/PointCheck` (Engine.dll 0x103FE620/0x103FE590); CT_Shape
       (decorations/movers: box from mesh/brush) still uses upstream's cylinder/brush collision
+- [x] The player slides along actor walls instead of sticking to them (upstream TickWalking left player-vs-actor
+      hits as a TODO; HP1's `APawn::stepUp` slides). Harry can now run up the Lev_Tut1 stairs along the
+      BlockAll banister and reach the Ron cutscene
 - [ ] Play through Lev_Tut1 + Lev_Tut1b, fix what breaks (`tools/run_hp1.sh 60 --url=Lev_Tut1`)
 - [ ] Missing Actor natives: ModifySound(567), StopSound(568), SaveGameExists(3972), Wind.GetWind,
       PlayerPawn.ScreenToWorld, Pawn.FindPath, Console.CreateNativeFont
-- [ ] Unknown console command `Snap`
-- [ ] Peeves and a McGonagall get `FellOutOfWorld` on the first tick (zone/physics difference vs the original)
+- [ ] Unknown console command `Snap` (FEBook.OpenBook `Snap 3`: screenshot for the save thumbnail, see phase 4)
+- [x] `FellOutOfWorld` on the first tick: HP1 only checks zone 0 in physWalking/physFalling, not flying/swimming/rolling
+      (`HP1::PhysicsChecksLeftWorld`), so the flying `tut1Peeves0` waiting outside the BSP now survives. `Tut1McGonagall4`
+      still dies: she is placed in zone 0 and falling, which kills her in the original too (leftover actor)
 - [x] Widescreen / high-res 2D (`hp1/HP1Canvas.cpp`): HUD and cutscene letterbox bars use the full window width,
       menus (FEBook, story book, message boxes) are drawn in a centred 4:3 area, UI scale is fractional (canvas
       768 units tall, like 1024x768), and the options page lists the display's real resolutions
@@ -65,8 +75,16 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 - [ ] Windowed mode: menu mouse mapping (`WindowsMouseX/Y` into the 4:3 area) not yet tested in game
 
 ## 3. Spells
-- [ ] `ParticleFX` native class (AddParticle, NumParticles, Get/SetParticleParams, RecomputeDeltas) + rendering
-- [ ] `Gesture` spell-drawing recognition (CompareGesture, CompareGesturePoint)
+- [x] `Gesture` spell-drawing recognition (CompareGesture, CompareGesturePoint) (`hp1/HP1Gesture.cpp`)
+- [x] `ParticleFX` simulation, emission and natives (`hp1/HP1ParticleFX.cpp`, `docs/re/particles.md`): Tick/Update,
+      UParticle::Update (gravity, damping, attraction, chaos, drip, colour palettes, elasticity bounce), all
+      distributions incl. owner mesh and gesture patterns, ParentBlend. Lev_Tut1's torch fires burn
+- [x] ParticleFX billboard rendering (`hp1/HP1ParticleRender.cpp`, from Render.dll `URender::DrawParticleSystem`)
+- [ ] ParticleFX: Line, Liquid, Shard, TriTube and bShellOnly passes (drawn as billboards for now; Render.dll
+      functors at 0x10B1B7D0, 0x10B17CE0, 0x10B17350, 0x10B194C0, 0x10B16C70)
+- [ ] ParticleFX: lighting for bUnlit=False systems, LodParticleDensity thinning, the billboard overdraw budget,
+      Wind (`AWind::GetTotalWind`), Mover hits for Elasticity
+- [ ] Verify particle effects against the original (spell trails, fires)
 - [ ] Spell targeting / eVulnerableToSpell paths
 
 ## 4. Save games and front end
@@ -103,3 +121,11 @@ minimal so upstream updates rarely conflict.
 | `Packages/Engine/Actors/Pawn/UPlayerPawn.cpp` | `HP1::PawnPhysicsRotation` |
 | `UE1GameDatabase.h`, `GameApp.cpp` | exe hashes, `--autolaunch` / `--logfile` |
 | `SurrealWidgets/.../win32_display_window.cpp` | cursor recentering needs foreground focus (0004) |
+| `Packages/Engine/Actors/UActor_Phys.cpp`, `UActor_PhysRolling.cpp` | `HP1::PhysicsChecksLeftWorld` (zone-0 FellOutOfWorld only while walking) |
+| `Packages/Engine/Actors/UActor_PhysWalking.cpp` | player slides along actors it hits (no pushable decoration) |
+| `Packages/Engine/Actors/UActor.cpp` | `HP1::TickParticleFX` in Tick, `HP1::ParticleFXDestroyed` in Destroy |
+| `Packages/Engine/Actors/UActor_Render.cpp` | `HP1::GetParticleBoundingBox` for DT_Particles (8) |
+| `Render/VisibleActor.cpp` | DT_Particles actors drawn in the translucent pass by `HP1::DrawParticleSystem` |
+| `Engine.cpp` | `HP1::DebugCamera` after PlayerCalcView (`HP1_CAMERA`); `HP1::TickMods` after the console tick; `HP1::ModsKeyDown` in OnWindowKeyDown |
+| `Render/RenderCanvas.cpp` (PostRender) | `HP1::PostRenderMods` after the HUD and console/menus |
+| `Native/NObject.cpp` | DynamicLoadObject resolves "Package.Group.Name" |

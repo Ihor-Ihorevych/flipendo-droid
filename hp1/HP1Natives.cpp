@@ -6,6 +6,8 @@ namespace HP1
 {
 	void RegisterAnimNatives();
 	void RegisterTraceNatives();
+	void RegisterGestureNatives();
+	void RegisterParticleNatives();
 
 	// Upstream already registered stubs for most HP1 natives, and RegisterHandler refuses to assign
 	// an index twice, so clear the slot before registering ours.
@@ -20,5 +22,7 @@ namespace HP1
 	{
 		RegisterAnimNatives();
 		RegisterTraceNatives();
+		RegisterGestureNatives();
+		RegisterParticleNatives();
 	}
 }

@@ -3,7 +3,7 @@
 
 Reads every `native` function/event declared in our disc's scripts
 (reference/hp1/ScriptSource) and every RegisterVMNativeFunc_N(...) call in
-engine/SurrealEngine/Native, then classifies each HP1 native:
+engine/SurrealEngine/Native, plus our overrides in hp1/ (which win for HP1), then classifies each HP1 native:
 
   MISSING     declared in HP1 script, never registered by the engine
   OTHER_GAME  registered, but only inside a branch for some other game
@@ -22,6 +22,7 @@ from collections import defaultdict
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS = os.path.join(ROOT, "reference", "hp1", "ScriptSource")
 ENGINE = os.path.join(ROOT, "engine", "SurrealEngine")
+HP1 = os.path.join(ROOT, "hp1")
 OUT = os.path.join(ROOT, "docs", "native_audit.md")
 
 # Conditions in SurrealEngine's RegisterFunctions() that are true for HP1.
@@ -107,6 +108,34 @@ def parse_registrations(files):
     return regs
 
 
+def read_hp1_sources():
+    files = {}
+    for dirpath, _, names in os.walk(HP1):
+        for n in names:
+            if n.endswith(".cpp"):
+                p = os.path.join(dirpath, n)
+                with open(p, encoding="utf-8", errors="replace") as f:
+                    files[p] = f.read()
+    return files
+
+
+def parse_hp1_registrations(files):
+    """hp1/ registers HP1-only natives (OverrideNative) as RegisterVMNativeFunc_N("Class", "Fn", &Handler, idx)
+    or NativeFunctions::RegisterHandler("Class", "Fn", idx, &Handler). -> dict (cls, name) -> registration"""
+    regs = {}
+    vm_re = re.compile(r'RegisterVMNativeFunc_\d+\(\s*"(\w+)"\s*,\s*"(\w+)"\s*,\s*&(\w+)\s*,\s*(\d+)\s*\)')
+    raw_re = re.compile(r'RegisterHandler\(\s*"(\w+)"\s*,\s*"(\w+)"\s*,\s*(\d+)\s*,\s*&(\w+)\s*\)')
+    for path, text in files.items():
+        for i, line in enumerate(text.split("\n")):
+            for m in vm_re.finditer(line):
+                regs[(m.group(1), m.group(2))] = dict(handler=m.group(3), index=int(m.group(4)), cond="",
+                                                      where=f"{os.path.relpath(path, ROOT)}:{i + 1}")
+            for m in raw_re.finditer(line):
+                regs[(m.group(1), m.group(2))] = dict(handler=m.group(4), index=int(m.group(3)), cond="",
+                                                      where=f"{os.path.relpath(path, ROOT)}:{i + 1}")
+    return regs
+
+
 def applies_to_hp1(cond):
     if not cond:
         return True
@@ -162,11 +191,17 @@ def main():
     natives = parse_scripts()
     files = read_engine_sources()
     regs = parse_registrations(files)
+    hp1_files = read_hp1_sources()
+    hp1_regs = parse_hp1_registrations(hp1_files)
+    files.update(hp1_files)
 
     rows = defaultdict(list)
     for n in natives:
         cands = regs.get((n["cls"], n["name"]), [])
         hp1 = [r for r in cands if applies_to_hp1(r["cond"])]
+        if (n["cls"], n["name"]) in hp1_regs:
+            cands = cands + [hp1_regs[(n["cls"], n["name"])]]
+            hp1 = [hp1_regs[(n["cls"], n["name"])]]
         if not cands:
             status, note = "MISSING", ""
         elif not hp1:

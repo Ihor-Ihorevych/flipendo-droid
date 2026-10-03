@@ -1,7 +1,7 @@
 hp1_re: --autolaunch and --logfile command line flags
 
 diff --git a/SurrealEngine/GameApp.cpp b/SurrealEngine/GameApp.cpp
-index 3b059e5c..e8e581e2 100644
+index 3b059e5c..03c6e475 100644
 --- a/SurrealEngine/GameApp.cpp
 +++ b/SurrealEngine/GameApp.cpp
 @@ -12,11 +12,18 @@
@@ -28,7 +28,7 @@ index 3b059e5c..e8e581e2 100644
  		if (commandline->HasArg("-h", "--help"))
  		{
 -			std::cout << "SurrealEngine [--url=<mapname>] [--engineversion=X] [Path to game folder]\n";
-+			std::cout << "SurrealEngine [--url=<mapname>] [--engineversion=X] [--autolaunch] [--logfile=<path>] [Path to game folder]\n";
++			std::cout << "SurrealEngine [--url=<mapname>] [--engineversion=X] [--autolaunch] [--logfile=<path>] [--skip-splash] [--skip-intro] [--vanilla] [Path to game folder]\n";
  			return 0;
  		}
  
