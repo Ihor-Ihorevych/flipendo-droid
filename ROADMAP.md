@@ -202,3 +202,4 @@ minimal so upstream updates rarely conflict.
 | `Packages/Engine/Actors/UActor_PhysMovingBrush.cpp` | KeyFrameReached instead of InterpolateEnd(None) |
 | `Native/NPlayerPawn.cpp` | ClientTravel raises PreClientTravel |
 | `Engine.cpp` (after the level tick), `Render/RenderSubsystem.cpp` | ViewFlash event; `HP1::ViewFlashParams` for the screen flash |
+| `Packages/Engine/Subsystems/USurrealAudioDevice.cpp` | music plays despite `UseDigitalMusic=False` (HP1's shipped ini; its mp2 songs play in the original) |
