@@ -9,10 +9,10 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 1. **Lev_Tut1 after the jump room**: the autopilot now crosses the jump room and leaves through the jumpexit doors
    (3140,-4061, ~205 s). Next: wizard cards (2990,-4960) → FGsec2/DADA doors → CUTFLIPBEGIN (956,-6699), and the
    level change to Lev_Tut1b.
-2. **InterpolationManager** (`AInterpolationManager::performPhysics` 0x103F7BA0, 6.4 KB): raises
-   `FinishedInterpolation` and `UpdateCamera`. Only the broom and Quidditch scripts spawn it (BroomHarry, QuidPlayer,
-   QuidditchPawn), so it is needed for those levels, not the tutorial.
-3. Verify animations visually against the original; BonePos / GetBoneCoords / wand attachment (phase 1).
+2. Verify animations visually against the original (walk/run/breathe, tween blends, aux channels): needs the original
+   game running next to ours, side by side.
+3. Broom / Quidditch levels now load and their paths fly (see phase 5). Next there: Lev4_Sneak stops on
+   `goto lcloop` (gargoyle.lookaround: "Could not find label").
 
 Before reversing anything, search the decompiled dump (`../ida/decomp/`) and `docs/re/script_events.md`: a state the
 script never enters is usually an event the engine doesn't raise. Read scripts in `reference/hp1/ScriptSource/` (our
@@ -59,7 +59,12 @@ disc, `tools/extract_scripts.sh`), not other script exports.
       AActor::Tick; `hp1/Anim/HP1Skeletal.cpp`, `docs/re/animation.md`). Harry climbs the bookcase in Fred & George's
       room (climb96start/end) and the 32-unit ledge after it (climb32). ApplyAnim also got the original's "unchanged
       frame" early-out (the tween blend ran once per draw call before). AnimCycleMovement has no caller (not ported)
-- [ ] BonePos, GetBoneCoords, weapon/wand attachment (WeaponBoneIndex, WeaponAdjust), AttachToOwner
+- [x] BonePos, GetBoneCoords, weapon/wand attachment (WeaponBoneIndex, WeaponAdjust), AttachToOwner
+      (`hp1/Anim/HP1Skeletal.cpp`, `hp1/HP1Attach.cpp`, `docs/re/animation.md`): Harry holds his wand. The weapon frame is
+      GetFrame's (WeaponAdjust in the weapon bone, orthonormalized, Y negated), it sets Pawn.WeaponLoc/WeaponRot and the
+      weapon's ThirdPersonMesh is drawn in it. `physTrailer` follows the owner's bone AnimBone-1 (broom trail at
+      'BroomTail'). The wand was also invisible because upstream raised RenderOverlays in third person:
+      Weapon.RenderOverlays → Canvas.DrawActor leaves the weapon bHidden (HP1 only raises it without bBehindView)
 - [ ] GetRenderExtent, GetWorldCollisionBox (skeletal bounds)
 - [x] Transient channel cleanup (done in ApplyAnim, like the original)
 
@@ -118,7 +123,9 @@ disc, `tools/extract_scripts.sh`), not other script exports.
       untested, the playthrough doesn't get there yet)
 - [x] `Pawn.FindPath` (553, KnowWonder's station pathing; tut1Peeves crashed the game without it,
       `hp1/HP1Navigation.cpp`)
-- [ ] Missing Actor natives: ModifySound(567), StopSound(568), SaveGameExists(3972), Wind.GetWind,
+- [x] ModifySound(567), StopSound(568) (`hp1/HP1Sound.cpp`; Galaxy.dll's match: first sound with the slot's Id and,
+      if given, the same Sound). BroomHarry crashed on the first tick without it
+- [ ] Missing Actor natives: SaveGameExists(3972), Wind.GetWind,
       PlayerPawn.ScreenToWorld, Console.CreateNativeFont
 - [ ] Unknown console command `Snap` (FEBook.OpenBook `Snap 3`: screenshot for the save thumbnail, see phase 4)
 - [x] `FellOutOfWorld` on the first tick: HP1 only checks zone 0 in physWalking/physFalling, not flying/swimming/rolling
@@ -152,11 +159,16 @@ disc, `tools/extract_scripts.sh`), not other script exports.
 - [ ] FEBook pages that depend on the above
 
 ## 5. Remaining native classes and polish
-- [ ] Wind, ImpactSoundSet, SoundContainer, InterpolationManager (its performPhysics raises `FinishedInterpolation` and
-      `UpdateCamera`), ClipMarker, LocationID
+- [x] InterpolationManager (`hp1/HP1Interpolation.cpp`): performPhysics flies the Owner along InterpolationPoint Bezier
+      segments (DesiredSpeed/IPSpeed, bConstantSpeed correction, pauses, view targets, bFaceMoveDirection, rotation
+      smoothing, Catmull-Rom bNewRotationSmoothing) and raises UpdateCamera, InterpolateEnd(manager, bForward) and
+      FinishedInterpolation. Quidditch Bludgers/Snitch/Quaffle fly their paths at ~300 u/s
+- [x] Struct defaults with fixed array members (QuidCommentator's `CommentInfo Variant[8]`) loaded only element 0, which
+      desynced every Quidditch/broom map on load ("Property value does not match property type!")
+- [ ] Wind, ImpactSoundSet, SoundContainer, ClipMarker, LocationID
 - [x] `ViewFlash` (UGameEngine::Tick) and the screen flash: HP1 has no FlashScale, FlashFog.W is the brightness
       (`hp1/HP1View.cpp`). Cutscene FadeIn/FadeOut, damage flashes and the level fade-in now show
-- [ ] Quidditch / broom levels
+- [~] Quidditch / broom levels: Lev_Tut2, Lev2_Quid1, Lev2_RemChase, Lev5_FlyKeys load and run their intros
 - [ ] Full game playthrough; per-level bug list
 - [ ] Editor-only natives (BrushBuilders) — low priority
 
@@ -207,3 +219,9 @@ minimal so upstream updates rarely conflict.
 | `Engine.cpp` (after the level tick), `Render/RenderSubsystem.cpp` | ViewFlash event; `HP1::ViewFlashParams` for the screen flash |
 | `Packages/Engine/Subsystems/USurrealAudioDevice.cpp` | music plays despite `UseDigitalMusic=False` (HP1's shipped ini; its mp2 songs play in the original) |
 | `Packages/Engine/Actors/UActor_PhysFlying.cpp` | flying keeps Velocity.z (HP1 physFlying 0x103F13A0) |
+| `Packages/Engine/Actors/UActor_Phys.cpp` | an InterpolationManager runs `HP1::InterpolationManagerPhysics` instead of the physics modes |
+| `Packages/Engine/Subsystems/USurrealAudioDevice.cpp/.h` | `ModifySoundHP1` / `StopSoundHP1` (Galaxy.dll's slot + sound match) |
+| `Packages/Core/Properties/UStructProperty.cpp` | struct members that are fixed arrays load/save every element |
+| `Packages/Engine/Actors/UActor_PhysTrailer.cpp` | `HP1::PhysTrailer` (AnimBone attachment, HP1's rotation rules) |
+| `Render/VisibleMesh.cpp` | weapon on a skeletal pawn: `HP1::PawnWeaponFrame` (WeaponLoc/WeaponRot) + `Begin/EndWeaponDraw` around the weapon draw |
+| `Render/RenderCanvas.cpp` | RenderOverlays only without bBehindView, on the ViewTarget |

@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Math/vec.h"
+#include "Math/mat.h"
+#include "Math/rotator.h"
 
 // Entry points called from the few hp1_re: hooks inside engine/. Everything else HP1-specific
 // lives under hp1/. Every hook is already gated by engine->LaunchInfo.IsHarryPotter1().
@@ -108,4 +110,27 @@ namespace HP1
 	bool StartFalling(UActor* actor);
 	// UActor::ShouldAbortJumping (no floor ahead): MayFall, stop at the ledge or start falling. True = stopped.
 	bool PawnWalkOffLedge(UPawn* pawn);
+
+	// UActor::TickPhysics for PHYS_Interpolating: an InterpolationManager runs its native performPhysics (moves its
+	// Owner along the InterpolationPoint path) instead of upstream's TickInterpolating (hp1/HP1Interpolation.cpp).
+	bool IsInterpolationManager(UActor* actor);
+	void InterpolationManagerPhysics(UActor* manager, float elapsed);
+
+	// FCoords::OrthoRotation (Core.dll): the rotator of an orthonormal frame (hp1/HP1Interpolation.cpp).
+	Rotator OrthoRotation(const vec3& x, const vec3& y, const vec3& z);
+
+	// Bones (hp1/Anim/HP1Skeletal.cpp, hp1/HP1Attach.cpp).
+	// USkeletalMesh::GetBoneCoords: world origin and axes of a bone of the actor's current pose.
+	bool GetBoneCoords(UActor* actor, USkeletalMesh* mesh, int bone, vec3& origin, vec3& x, vec3& y, vec3& z);
+	// The weapon frame (WeaponBoneIndex + WeaponAdjust) of a skeletal mesh, in world space.
+	bool SkeletalWeaponFrame(UActor* actor, USkeletalMesh* mesh, vec3& origin, vec3& x, vec3& y, vec3& z);
+	// VisibleMesh::DrawMesh, after drawing a pawn: HP1's weapon placement. Sets Pawn.WeaponLoc/WeaponRot and returns
+	// the weapon frame -> world matrix if the pawn's mesh has a weapon bone (the weapon's third person mesh goes there).
+	bool PawnWeaponFrame(UPawn* pawn, mat4& frameToWorld);
+	// Around drawing that weapon: a skeletal weapon mesh (Harry's WandMesh) is placed in the frame instead of at its
+	// own Location/Rotation, with this DrawScale (ThirdPersonScale).
+	void BeginWeaponDraw(UActor* weapon, const mat4& frameToWorld, float drawScale);
+	void EndWeaponDraw();
+	// UActor::TickTrailer: AActor::physTrailer (follows the owner, or the owner's bone AnimBone-1).
+	void PhysTrailer(UActor* actor);
 }

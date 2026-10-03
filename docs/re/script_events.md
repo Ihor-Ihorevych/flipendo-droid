@@ -26,8 +26,8 @@ function: `../ida/decomp/<Dll>/<ADDR>_<name>.c`, index in `../ida/decomp/<Dll>_i
 | UpdateCamera | AInterpolationManager::performPhysics `0x103F7BA0` |
 
 `Falling` is raised from walking and rolling (`hp1/HP1Pawn.cpp` `StartFalling`); the physSpider/findNewFloor call sites
-aren't, since no HP1 script uses PHYS_Spider. FinishedInterpolation/UpdateCamera wait for the InterpolationManager port
-(broom/Quidditch only).
+aren't, since no HP1 script uses PHYS_Spider. FinishedInterpolation/UpdateCamera (and InterpolateEnd with the manager
+and bForward) are now raised by the InterpolationManager port (`hp1/HP1Interpolation.cpp`).
 
 ## Raised by both
 

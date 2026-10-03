@@ -296,6 +296,40 @@ index cdb045bf..4c41b7b2 100644
  }
  
  void PackageManager::RegisterNativeClasses()
+diff --git a/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp b/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp
+index 2f91f141..e06f4cdc 100644
+--- a/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp
++++ b/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp
+@@ -49,8 +49,12 @@ void UStructProperty::LoadStructMemberValue(void* data, ObjectStream* stream)
+ 
+ 	for (UProperty* fieldprop : Struct->Properties)
+ 	{
+-		void* fielddata = (uint8_t*)data + fieldprop->DataOffset.DataOffset;
+-		fieldprop->LoadStructMemberValue(fielddata, stream);
++		// hp1_re: a fixed array member (HP1's QuidCommentator: CommentInfo Variant[8]) is serialized element by element
++		for (int i = 0; i < fieldprop->ArrayDimension; i++)
++		{
++			void* fielddata = (uint8_t*)data + fieldprop->DataOffset.DataOffset + i * fieldprop->ElementPitch();
++			fieldprop->LoadStructMemberValue(fielddata, stream);
++		}
+ 	}
+ }
+ 
+@@ -72,8 +76,12 @@ void UStructProperty::SaveStructMemberValue(void* data, PackageStreamWriter* str
+ 
+ 	for (UProperty* fieldprop : Struct->Properties)
+ 	{
+-		void* fielddata = (uint8_t*)data + fieldprop->DataOffset.DataOffset;
+-		fieldprop->SaveStructMemberValue(fielddata, stream);
++		// hp1_re: a fixed array member (HP1's QuidCommentator: CommentInfo Variant[8]) is serialized element by element
++		for (int i = 0; i < fieldprop->ArrayDimension; i++)
++		{
++			void* fielddata = (uint8_t*)data + fieldprop->DataOffset.DataOffset + i * fieldprop->ElementPitch();
++			fieldprop->SaveStructMemberValue(fielddata, stream);
++		}
+ 	}
+ }
+ 
 diff --git a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
 index de07166c..b798cc3a 100644
 --- a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
@@ -485,10 +519,10 @@ index aceba9af..7d5ed5e0 100644
  	{
  		if (!IsAnimating() || AnimFrame() >= AnimLast())
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
-index 07b200e2..30ab0759 100644
+index 07b200e2..0dad1bfa 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
-@@ -8,6 +8,7 @@
+@@ -8,9 +8,18 @@
  #include "Packages/Engine/Actors/Info/ULevelInfo.h"
  #include "Packages/Engine/Resources/Level/ULevel.h"
  #include "Packages/Engine/Resources/Level/UModel.h"
@@ -496,7 +530,18 @@ index 07b200e2..30ab0759 100644
  
  void UActor::TickPhysics(float elapsed)
  {
-@@ -210,7 +211,7 @@ UPawn* UActor::PreparePawnMovementTick()
++	// hp1_re: HP1's InterpolationManager overrides performPhysics (one call per tick, moves its Owner)
++	if (engine->LaunchInfo.IsHarryPotter1() && Physics() == PHYS_Interpolating && HP1::IsInterpolationManager(this))
++	{
++		HP1::InterpolationManagerPhysics(this, elapsed);
++		CheckPendingTouch();
++		return;
++	}
++
+ 	for (float timeLeft = elapsed; timeLeft > 0.0f && !bDeleteMe(); timeLeft -= 0.02f)
+ 	{
+ 		float physTimeElapsed = std::min(timeLeft, 0.02f);
+@@ -210,7 +219,7 @@ UPawn* UActor::PreparePawnMovementTick()
  	if (!pawn)
  		return nullptr;
  
@@ -617,6 +662,27 @@ index 31d7896f..0957dc13 100644
 +		}
  	}
  
+ 
+diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysTrailer.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysTrailer.cpp
+index 519c390d..a55b11d3 100644
+--- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysTrailer.cpp
++++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysTrailer.cpp
+@@ -2,9 +2,16 @@
+ #include "Precomp.h"
+ #include "UActor.h"
+ #include "Engine.h"
++#include "HP1.h" // hp1_re
+ 
+ void UActor::TickTrailer(float elapsed)
+ {
++	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: physTrailer with AnimBone (AttachToOwner) and HP1's rotation rules
++	{
++		HP1::PhysTrailer(this);
++		return;
++	}
++
+ 	if (!Owner())
+ 		return;
  
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp
 index 71dc2525..0328f1ca 100644
@@ -748,7 +814,7 @@ index 53982dc0..8dc63eb1 100644
  
  	int NumRefBones = stream->ReadIndex();
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
-index d5615c73..31ff3dc3 100644
+index d5615c73..2cf41bb7 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 +++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 @@ -356,7 +356,8 @@ void USurrealAudioDevice::UpdateMusic()
@@ -761,8 +827,62 @@ index d5615c73..31ff3dc3 100644
  		{
  			int subsong = CurrentSection != 255 ? CurrentSection : 0;
  
+@@ -475,6 +476,39 @@ void USurrealAudioDevice::StopSound(UActor* Actor, int Id)
+ 	}
+ }
+ 
++// hp1_re: Galaxy.dll UGalaxyAudioSubsystem::ModifySound / StopSound (HP1's audio driver). Param 0 = volume,
++// 1 = radius, 2 = pitch. Volume gets the same normalization as PlaySound.
++bool USurrealAudioDevice::ModifySoundHP1(int Id, USound* Sound, int Param, float Value)
++{
++	for (PlayingSound& Playing : PlayingSounds)
++	{
++		if (Playing.Id != 0 && ((Playing.Id ^ Id) & ~1) == 0 && (!Sound || Playing.Sound == Sound))
++		{
++			if (Param == 0)
++				Playing.Volume = (Value - 1.0f) * 0.25f + 1.0f;
++			else if (Param == 1)
++				Playing.Radius = Value;
++			else if (Param == 2)
++				Playing.Pitch = Value;
++			return true;
++		}
++	}
++	return false;
++}
++
++bool USurrealAudioDevice::StopSoundHP1(int Id, USound* Sound)
++{
++	for (size_t i = 0; i < PlayingSounds.size(); i++)
++	{
++		if (PlayingSounds[i].Id != 0 && ((PlayingSounds[i].Id ^ Id) & ~1) == 0 && (!Sound || PlayingSounds[i].Sound == Sound))
++		{
++			StopSound(i);
++			return true;
++		}
++	}
++	return false;
++}
++
+ void USurrealAudioDevice::StopSound(size_t index)
+ {
+ 	PlayingSound& Playing = PlayingSounds[index];
+diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h
+index 81534ba9..cc68dc1a 100644
+--- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h
++++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h
+@@ -64,6 +64,9 @@ public:
+ 
+ 	bool PlaySound(UActor* Actor, int Id, USound* Sound, vec3 Location, float Volume, float Radius, float Pitch, bool isTalk);
+ 	void StopSound(UActor* Actor, int Id);
++	// hp1_re: HP1's ModifySound / StopSound(Sound, Slot): first sound whose Id matches (ignoring bit 0) and, if given, Sound
++	bool ModifySoundHP1(int Id, USound* Sound, int Param, float Value);
++	bool StopSoundHP1(int Id, USound* Sound);
+ 	void ActorDestroyed(UActor* Actor);
+ 	void StopSounds();
+ 
 diff --git a/SurrealEngine/Render/RenderCanvas.cpp b/SurrealEngine/Render/RenderCanvas.cpp
-index 4b2aa5c5..7ece3924 100644
+index 4b2aa5c5..b801d9a1 100644
 --- a/SurrealEngine/Render/RenderCanvas.cpp
 +++ b/SurrealEngine/Render/RenderCanvas.cpp
 @@ -14,6 +14,7 @@
@@ -796,7 +916,25 @@ index 4b2aa5c5..7ece3924 100644
  
  	//engine->viewport->bShowWindowsMouse() = true; // bShowWindowsMouse is set to true by WindowConsole if mouse cursor should be visible
  	//engine->viewport->bWindowsMouseAvailable() = true; // if true then RenderUWindow updates mouse pos from (WindowsMouseX,WindowsMouseY), otherwise it uses KeyEvent(IK_MouseX, delta) + KeyEvent(IK_MouseY, delta). Maybe used for windowed mode?
-@@ -101,7 +101,18 @@ void RenderSubsystem::PostRender()
+@@ -80,7 +80,16 @@ void RenderSubsystem::RenderOverlays()
+ 	Device->SetSceneNode(&Canvas.Frame);
+ 	if (engine->viewport->Actor())
+ 	{
+-		if (engine->LaunchInfo.ue1Version > 219)
++		if (engine->LaunchInfo.IsHarryPotter1())
++		{
++			// hp1_re: URender::DrawWorld only raises RenderOverlays without bBehindView, on the ViewTarget if any.
++			// (Weapon.RenderOverlays draws the first person weapon with Canvas.DrawActor, which leaves it bHidden:
++			// in third person that hid Harry's wand for good.)
++			UPlayerPawn* player = engine->viewport->Actor();
++			if (!player->bBehindView())
++				CallEvent(player->ViewTarget() ? player->ViewTarget() : player, EventName::RenderOverlays, { ExpressionValue::ObjectValue(engine->canvas) });
++		}
++		else if (engine->LaunchInfo.ue1Version > 219)
+ 		{
+ 			CallEvent(engine->viewport->Actor(), EventName::RenderOverlays, { ExpressionValue::ObjectValue(engine->canvas) });
+ 		}
+@@ -101,7 +110,18 @@ void RenderSubsystem::PostRender()
  	Device->SetSceneNode(&Canvas.Frame);
  	if (engine->viewport->Actor())
  		CallEvent(engine->viewport->Actor(), EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
@@ -815,7 +953,7 @@ index 4b2aa5c5..7ece3924 100644
  	DrawTimedemoStats();
  	
  	if (ShowCollisionDebug)
-@@ -133,10 +144,10 @@ void RenderSubsystem::DrawActor(UActor* actor, bool WireFrame, bool ClearZ)
+@@ -133,10 +153,10 @@ void RenderSubsystem::DrawActor(UActor* actor, bool WireFrame, bool ClearZ)
  void RenderSubsystem::DrawClippedActor(UActor* actor, bool WireFrame, int X, int Y, int XB, int YB, bool ClearZ)
  {
  	SceneNode frame;
@@ -931,7 +1069,7 @@ index 984fdbfc..ecf9edc8 100644
 +	}
  }
 diff --git a/SurrealEngine/Render/VisibleMesh.cpp b/SurrealEngine/Render/VisibleMesh.cpp
-index 7f5e8efb..75100770 100644
+index 7f5e8efb..914e9da3 100644
 --- a/SurrealEngine/Render/VisibleMesh.cpp
 +++ b/SurrealEngine/Render/VisibleMesh.cpp
 @@ -12,6 +12,7 @@
@@ -942,7 +1080,28 @@ index 7f5e8efb..75100770 100644
  
  bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, bool wireframe, bool translucentPass)
  {
-@@ -558,6 +559,12 @@ bool VisibleMesh::DrawLodMeshFace(VisibleFrame* frame, UActor* actor, UActor* li
+@@ -38,7 +39,19 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, bool wireframe, b
+ 		ULodMesh* pawnLodMesh = UObject::TryCast<ULodMesh>(mesh);
+ 		UWeapon* weapon = pawn ? pawn->Weapon() : nullptr;
+ 		UMesh* weaponMesh = weapon ? weapon->ThirdPersonMesh() : nullptr;
+-		if (weaponMesh && pawnLodMesh && attachmentTris.size() >= 3)
++		mat4 hp1WeaponFrame;
++		if (engine->LaunchInfo.IsHarryPotter1() && HP1::PawnWeaponFrame(pawn, hp1WeaponFrame)) // hp1_re: weapon on a bone (WeaponBoneIndex/WeaponAdjust)
++		{
++			if (weaponMesh && !weapon->bHidden())
++			{
++				mat4 weaponMeshToWorld = hp1WeaponFrame * mat4::scale(weapon->ThirdPersonScale()) * weaponMesh->meshToObject;
++				mat3 weaponNormalToWorld = mat3::transpose(mat3(weaponMeshToWorld));
++				HP1::BeginWeaponDraw(weapon, hp1WeaponFrame, weapon->ThirdPersonScale());
++				needsTranslucentPass = DrawMeshAtLocation(frame, weapon, actor, weaponMesh, weaponMeshToWorld, weaponNormalToWorld, translucentPass) || needsTranslucentPass;
++				HP1::EndWeaponDraw();
++			}
++		}
++		else if (weaponMesh && pawnLodMesh && attachmentTris.size() >= 3)
+ 		{
+ 			// Find attachment triangle location in the world:
+ 			const vec3& v0 = attachmentTris[0];
+@@ -558,6 +571,12 @@ bool VisibleMesh::DrawLodMeshFace(VisibleFrame* frame, UActor* actor, UActor* li
  
  bool VisibleMesh::DrawSkeletalMesh(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, USkeletalMesh* mesh, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, bool translucentPass)
  {

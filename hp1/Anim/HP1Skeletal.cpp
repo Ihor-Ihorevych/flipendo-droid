@@ -450,9 +450,27 @@ namespace HP1
 
 	// USkeletalMesh::GetMeshCoords as a matrix: mesh space -> world.
 	// IDA Engine.dll: ?GetMeshCoords@USkeletalMesh@@ABE?AVFCoords@@PBVAActor@@@Z [HP1 0x1041AEF0]
+	// A pawn's weapon is drawn in the pawn's weapon frame: Render.dll passes that frame as the coords (with the
+	// weapon's Location added to its origin, which cancels the Location in the mesh coords), zeroes the weapon's
+	// Rotation and swaps ThirdPersonScale into DrawScale for the draw.
+	static struct { UActor* Actor = nullptr; mat4 Frame; float DrawScale = 1.0f; } WeaponDraw;
+
+	void BeginWeaponDraw(UActor* weapon, const mat4& frameToWorld, float drawScale)
+	{
+		WeaponDraw.Actor = weapon;
+		WeaponDraw.Frame = frameToWorld;
+		WeaponDraw.DrawScale = drawScale;
+	}
+
+	void EndWeaponDraw()
+	{
+		WeaponDraw.Actor = nullptr;
+	}
+
 	static mat4 GetMeshToWorld(UActor* actor, USkeletalMesh* mesh)
 	{
-		float drawScale = actor->DrawScale();
+		bool weaponDraw = actor == WeaponDraw.Actor;
+		float drawScale = weaponDraw ? WeaponDraw.DrawScale : actor->DrawScale();
 		float wide = Wideness(actor) / 128.0f;
 		vec3 scale(mesh->Scale.x * drawScale * wide, -mesh->Scale.y * drawScale * wide, mesh->Scale.z * drawScale);
 
@@ -460,9 +478,36 @@ namespace HP1
 		if (bAlignBottom(actor) && actor->bCollideWorld() && actor->Physics() != 0 && CollideType(actor) != 3)
 			adjust.z = (mesh->Origin.z - mesh->BoundingBox.min.z) * mesh->Scale.z * drawScale - (actor->CollisionHeight() + 2.5f);
 
-		return mat4::translate(actor->Location()) * Coords::Rotation(actor->Rotation()).ToMatrix() *
-			mat4::translate(actor->PrePivot() + adjust) * Coords::Rotation(mesh->RotOrigin).ToMatrix() *
+		mat4 placement = weaponDraw ? WeaponDraw.Frame : mat4::translate(actor->Location()) * Coords::Rotation(actor->Rotation()).ToMatrix();
+		return placement * mat4::translate(actor->PrePivot() + adjust) * Coords::Rotation(mesh->RotOrigin).ToMatrix() *
 			mat4::scale(scale) * mat4::translate(-mesh->Origin);
+	}
+
+	// GetFrame's bone coords (mesh space, before GetMeshCoords) from the pose ApplyAnim left in the cache:
+	// B[0] = FCoords(Place[0]), B[i] = B[parent] composed with FCoords(Place[i]).
+	static void ComputeBones(UActor* animator, USkeletalMesh* mesh, Array<BoneCoords>& bones)
+	{
+		SkelCache& cache = GetSkelCache(animator, mesh);
+		size_t numBones = mesh->RefSkeleton.size();
+		bones.resize(numBones);
+		bones[0] = ToCoords(cache.Places[0]);
+		for (size_t i = 1; i < numBones; i++)
+		{
+			uint32_t parent = mesh->RefSkeleton[i].ParentIndex;
+			if (parent >= i)
+				parent = 0;
+			bones[i] = Compose(bones[parent], ToCoords(cache.Places[i]));
+		}
+	}
+
+	static BoneCoords ToWorld(const mat4& meshToWorld, const BoneCoords& b)
+	{
+		BoneCoords r;
+		r.Origin = (meshToWorld * vec4(b.Origin, 1.0f)).xyz();
+		r.XAxis = (meshToWorld * vec4(b.XAxis, 0.0f)).xyz();
+		r.YAxis = (meshToWorld * vec4(b.YAxis, 0.0f)).xyz();
+		r.ZAxis = (meshToWorld * vec4(b.ZAxis, 0.0f)).xyz();
+		return r;
 	}
 
 	// USkeletalMesh::GetFrame: world-space vertex positions, indexed like Points.
@@ -478,18 +523,9 @@ namespace HP1
 			animator = actor->Owner();
 
 		ApplyAnim(mesh, animator, nullptr);
-		SkelCache& cache = GetSkelCache(animator, mesh);
-
 		size_t numBones = mesh->RefSkeleton.size();
-		Array<BoneCoords> bones(numBones);
-		bones[0] = ToCoords(cache.Places[0]);
-		for (size_t i = 1; i < numBones; i++)
-		{
-			uint32_t parent = mesh->RefSkeleton[i].ParentIndex;
-			if (parent >= i)
-				parent = 0;
-			bones[i] = Compose(bones[parent], ToCoords(cache.Places[i]));
-		}
+		Array<BoneCoords> bones;
+		ComputeBones(animator, mesh, bones);
 
 		size_t numVerts = mesh->Points.size();
 		outVerts.clear();
@@ -616,6 +652,70 @@ namespace HP1
 			}
 		}
 		return result;
+	}
+
+	// World coords of a bone: origin = the bone's world position, axes = its orientation including the mesh scale
+	// and GetMeshCoords' Y mirror. An invalid bone gives the mesh coords. Only the root is posed for bone 0.
+	// IDA Engine.dll: ?GetBoneCoords@USkeletalMesh@@UBE?AVFCoords@@PAVAActor@@H@Z [HP1 0x1041F3C0]
+	bool GetBoneCoords(UActor* actor, USkeletalMesh* mesh, int bone, vec3& origin, vec3& x, vec3& y, vec3& z)
+	{
+		if (mesh->RefSkeleton.empty())
+			return false;
+		ApplyAnim(mesh, actor, nullptr, bone == 0);
+		SkelCache& cache = GetSkelCache(actor, mesh);
+		mat4 meshToWorld = GetMeshToWorld(actor, mesh);
+
+		BoneCoords c;
+		if (bone >= 0 && bone < (int)mesh->RefSkeleton.size() && bone < (int)cache.Places.size())
+		{
+			c = ToCoords(cache.Places[bone]);
+			while (bone != 0)
+			{
+				uint32_t parent = mesh->RefSkeleton[bone].ParentIndex;
+				bone = parent < (uint32_t)bone ? (int)parent : 0;
+				c = Compose(ToCoords(cache.Places[bone]), c);
+			}
+		}
+		c = ToWorld(meshToWorld, c);
+		origin = c.Origin;
+		x = c.XAxis;
+		y = c.YAxis;
+		z = c.ZAxis;
+		return true;
+	}
+
+	// The weapon frame GetFrame leaves on the mesh for Render.dll (mesh->WeaponBoneIndex >= 0): WeaponAdjust in the
+	// weapon bone's space, orthonormalized, Y negated (undoes GetMeshCoords' mirror). World space here; the original
+	// works in camera space, which is the same rigid transform away.
+	// IDA Engine.dll: ?GetFrame@USkeletalMesh@@UAEXPAVFVector@@HVFCoords@@PAVAActor@@AAH@Z [HP1 0x1041DF50] (the WeaponBoneIndex block at its end)
+	bool SkeletalWeaponFrame(UActor* actor, USkeletalMesh* mesh, vec3& origin, vec3& x, vec3& y, vec3& z)
+	{
+		int weaponBone = (int)mesh->WeaponBoneIndex;
+		if (weaponBone < 0 || weaponBone >= (int)mesh->RefSkeleton.size() || mesh->BoneWeightIndices.empty())
+			return false;
+
+		UActor* animator = actor;
+		if (actor->bAnimByOwner() && actor->Owner())
+			animator = actor->Owner();
+		ApplyAnim(mesh, animator, nullptr);
+		Array<BoneCoords> bones;
+		ComputeBones(animator, mesh, bones);
+		BoneCoords bone = ToWorld(GetMeshToWorld(actor, mesh), bones[weaponBone]);
+
+		BoneCoords adjust;
+		adjust.Origin = mesh->WeaponAdjust.Origin;
+		adjust.XAxis = mesh->WeaponAdjust.XAxis;
+		adjust.YAxis = mesh->WeaponAdjust.YAxis;
+		adjust.ZAxis = mesh->WeaponAdjust.ZAxis;
+		BoneCoords w = Compose(bone, adjust);
+
+		auto safeNormal = [](const vec3& v) { float sq = dot(v, v); return sq >= 1e-8f ? v * (1.0f / std::sqrt(sq)) : vec3(0.0f); };
+		x = safeNormal(w.XAxis);
+		y = safeNormal(cross(x, w.ZAxis));
+		z = cross(x, y);
+		y = -y;
+		origin = w.Origin;
+		return true;
 	}
 
 	// IDA Engine.dll: none: drawing is our own (HP1 renders through Render.dll/D3DDrv); pose and skinning come from GetFrame above

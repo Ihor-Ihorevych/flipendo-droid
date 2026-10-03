@@ -149,6 +149,26 @@ so the tween blend can't run twice for one frame).
 Harry's climbs (`Mounting`/`MountFinish`) rely on it: the script moves only MountDelta minus the climb anims' own
 movement (30 forward, 32/64/96 up).
 
+## Bones and attachments
+
+Field offsets (from `USkeletalMesh::Serialize`): WeaponBoneIndex @532 (INT, -1 = none), WeaponAdjust @536 (FCoords:
+Origin, X, Y, Z), the weapon coords cache @636.
+
+- `USkeletalMesh::GetBoneCoords(Actor, Bone)` (0x1041F3C0): ApplyAnim (root only for bone 0); invalid bone → GetMeshCoords;
+  else C = FCoords(Place[bone]), then C = C /= FCoords(Place[parent]) up to the root, then C /= MeshCoords. Origin is the
+  bone's world position, the axes carry the mesh scale and the Y mirror.
+- `execBonePos(Bone)` (0x1040A5F0): skeletal mesh → GetBoneCoords(BoneIndex(Bone)).Origin; else Location.
+- `physTrailer` (0x103F5F80): non-sprite with AnimBone → Owner.Mesh->GetBoneCoords(Owner, AnimBone-1): location = Origin,
+  rotation = OrthoRotation. Otherwise location = Owner.Location (+ PrePivot rotated by Owner.Rotation if
+  bTrailerSameRotation or bTrailerPrePivot), rotation = Owner.Rotation (bTrailerSameRotation), (-Velocity).Rotation()
+  if the owner moves, else Pitch 0x4000. Sprites: + PrePivot (bTrailerPrePivot), or Location - forward*Mass
+  (bTrailerSameRotation), or Location. Script `AttachToOwner(Bone)` = PHYS_Trailer + AnimBone = BoneNumber(Bone)+1.
+- Weapon: end of `GetFrame`, if WeaponBoneIndex >= 0: W = WeaponAdjust /= B[WeaponBoneIndex] (camera space);
+  X = SafeNormal(X), Y = SafeNormal(X ^ Z), Z = X ^ Y, Y = -Y; its inverse goes into the cache @636. Render.dll
+  `DrawLodMesh` copies the cache into its weapon coords (instead of a weapon triangle) and `DrawActorSprite`, after a
+  pawn, sets WeaponLoc/WeaponRot from it and draws Weapon.ThirdPersonMesh there (Mesh/DrawScale swapped with
+  ThirdPersonMesh/ThirdPersonScale, Rotation zeroed, Location added to the coords origin) unless the weapon is bHidden.
+  HP1 meshes have no weapon triangles (skharryMesh: WeaponBoneIndex 48, skronMesh 40).
+
 ## Still to reverse
-- `GetBoneCoords`, `BonePos`, weapon attachment (`WeaponBoneIndex`, `WeaponAdjust`).
 - Who destroys finished transient channels.

@@ -10,6 +10,8 @@ namespace HP1
 	void RegisterParticleNatives();
 	void RegisterCollisionNatives();
 	void RegisterNavigationNatives();
+	void RegisterSoundNatives();
+	void RegisterAttachNatives();
 
 	// Upstream already registered stubs for most HP1 natives, and RegisterHandler refuses to assign
 	// an index twice, so clear the slot before registering ours.
@@ -28,5 +30,7 @@ namespace HP1
 		RegisterParticleNatives();
 		RegisterCollisionNatives();
 		RegisterNavigationNatives();
+		RegisterSoundNatives();
+		RegisterAttachNatives();
 	}
 }
