@@ -107,7 +107,7 @@ index aef803f8..5b27c846 100644
  		if (t < tmax)
  		{
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 34ee5181..22a88081 100644
+index 34ee5181..625b9919 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,7 @@
@@ -127,7 +127,16 @@ index 34ee5181..22a88081 100644
  
  		// To do: set these to true if the frame rate is too low
  		if (LaunchInfo.ue1Version >= 436)
-@@ -229,6 +232,11 @@ void Engine::Run()
+@@ -210,6 +213,8 @@ void Engine::Run()
+ 		if (EntryLevel)
+ 			EntryLevel->Tick(entryLevelElapsed, m_GamePaused);
+ 		Level->Tick(levelElapsed, m_GamePaused);
++		if (LaunchInfo.IsHarryPotter1() && viewport->Actor()) // hp1_re: UGameEngine::Tick raises ViewFlash (screen fades)
++			CallEvent(viewport->Actor(), "ViewFlash", { ExpressionValue::FloatValue(realTimeElapsed) });
+ 
+ 		if (dxRootWindow)
+ 			dxRootWindow->Tick(levelElapsed); // Should this maybe be realTimeElapsed?
+@@ -229,6 +234,11 @@ void Engine::Run()
  				ExpressionValue::Variable(&CameraLocation, vecprop),
  				ExpressionValue::Variable(&CameraRotation, rotprop)
  				});
@@ -139,7 +148,7 @@ index 34ee5181..22a88081 100644
  		}
  
  		UpdateAudio();
-@@ -1148,8 +1156,8 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1148,8 +1158,8 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  	}*/
  	else if (command == "getres")
  	{
@@ -150,7 +159,7 @@ index 34ee5181..22a88081 100644
  		return window->GetAvailableResolutions();
  	}
  	else if (command == "getcolordepths")
-@@ -1454,6 +1462,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
+@@ -1454,6 +1464,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
  			endpos = command.size();
  
  		std::string subcommand = command.substr(pos, endpos - pos);
@@ -161,7 +170,7 @@ index 34ee5181..22a88081 100644
  		if (!subcommand.empty())
  			subcommands.push_back(subcommand);
  		pos = endpos + 1;
-@@ -1616,6 +1628,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
+@@ -1616,6 +1630,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
  	{
  		viewport->WindowsMouseX() = (float)(pos.x * window->GetDpiScale());
  		viewport->WindowsMouseY() = (float)(pos.y * window->GetDpiScale());
@@ -170,7 +179,7 @@ index 34ee5181..22a88081 100644
  	}
  }
  
-@@ -1689,6 +1703,9 @@ void Engine::OnWindowKeyChar(std::string chars)
+@@ -1689,6 +1705,9 @@ void Engine::OnWindowKeyChar(std::string chars)
  
  void Engine::OnWindowKeyDown(EInputKey key)
  {
@@ -206,6 +215,19 @@ index 1081c358..d043cef6 100644
  
  			try
  			{
+diff --git a/SurrealEngine/Native/NPlayerPawn.cpp b/SurrealEngine/Native/NPlayerPawn.cpp
+index 287956c1..39dac782 100644
+--- a/SurrealEngine/Native/NPlayerPawn.cpp
++++ b/SurrealEngine/Native/NPlayerPawn.cpp
+@@ -40,6 +40,8 @@ void NPlayerPawn::ClientTravel(UObject* Self, const std::string& URL, uint8_t Tr
+ {
+ 	if (engine->LaunchInfo.IsDeusEx())
+ 		CallEvent(Self, "PreTravel", {});
++	if (engine->LaunchInfo.IsHarryPotter1() && UObject::Cast<UPlayerPawn>(Self)->Player()) // hp1_re: execClientTravel raises PreClientTravel
++		CallEvent(Self, "PreClientTravel", {});
+ 	engine->ClientTravel(URL, static_cast<ETravelType>(TravelType), bItems);
+ }
+ 
 diff --git a/SurrealEngine/Package/PackageManager.cpp b/SurrealEngine/Package/PackageManager.cpp
 index cdb045bf..4c41b7b2 100644
 --- a/SurrealEngine/Package/PackageManager.cpp
@@ -229,7 +251,7 @@ index cdb045bf..4c41b7b2 100644
  
  void PackageManager::RegisterNativeClasses()
 diff --git a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
-index de07166c..1b17d139 100644
+index de07166c..b798cc3a 100644
 --- a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
 @@ -7,10 +7,13 @@
@@ -246,7 +268,43 @@ index de07166c..1b17d139 100644
  
  	if (StateFrame)
  	{
-@@ -179,6 +182,12 @@ void UPawn::Tick(float elapsed)
+@@ -20,6 +23,11 @@ void UPawn::Tick(float elapsed)
+ 			if (TickMoveTo(Destination()))
+ 				StateFrame->LatentState = LatentRunState::Continue;
+ 		}
++		else if (StateFrame->LatentState == LatentRunState::MoveToward && engine->LaunchInfo.IsHarryPotter1()) // hp1_re: APawn::execPollMoveToward (AlterDestination)
++		{
++			if (HP1::PawnPollMoveToward(this))
++				StateFrame->LatentState = LatentRunState::Continue;
++		}
+ 		else if (StateFrame->LatentState == LatentRunState::MoveToward)
+ 		{
+ 			if (MoveTarget())
+@@ -40,6 +48,11 @@ void UPawn::Tick(float elapsed)
+ 			if (TickMoveTo(Destination()))
+ 				StateFrame->LatentState = LatentRunState::Continue;
+ 		}
++		else if (StateFrame->LatentState == LatentRunState::StrafeFacing && engine->LaunchInfo.IsHarryPotter1()) // hp1_re: APawn::execPollStrafeFacing (AlterDestination)
++		{
++			if (HP1::PawnPollStrafeFacing(this))
++				StateFrame->LatentState = LatentRunState::Continue;
++		}
+ 		else if (StateFrame->LatentState == LatentRunState::StrafeFacing)
+ 		{
+ 			if (engine->LaunchInfo.ue1Version > 219 && FaceTarget())
+@@ -86,6 +99,11 @@ void UPawn::Tick(float elapsed)
+ 				StateFrame->LatentState = LatentRunState::Continue;
+ 			}
+ 		}
++		else if (StateFrame->LatentState == LatentRunState::WaitForLanding && engine->LaunchInfo.IsHarryPotter1()) // hp1_re: APawn::execPollWaitForLanding (LongFall)
++		{
++			if (HP1::PawnPollWaitForLanding(this, elapsed))
++				StateFrame->LatentState = LatentRunState::Continue;
++		}
+ 		else if (StateFrame->LatentState == LatentRunState::WaitForLanding)
+ 		{
+ 			if (Physics() != PHYS_Falling)
+@@ -179,6 +197,12 @@ void UPawn::Tick(float elapsed)
  
  void UPawn::TickRotating(float elapsed)
  {
@@ -259,7 +317,7 @@ index de07166c..1b17d139 100644
  	if (Physics() == PHYS_Spider)
  		return;
  
-@@ -236,6 +245,9 @@ bool UPawn::TickRotateTo(const vec3& target)
+@@ -236,6 +260,9 @@ bool UPawn::TickRotateTo(const vec3& target)
  
  bool UPawn::TickMoveTo(const vec3& target)
  {
@@ -269,6 +327,21 @@ index de07166c..1b17d139 100644
  	if (MoveTimer() < 0.0f)
  		return true;
  
+@@ -340,6 +367,14 @@ void UPawn::TurnToward(UActor* newTarget)
+ 
+ void UPawn::WaitForLanding()
+ {
++	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: APawn::execWaitForLanding: 2.5 s until LongFall, no wait unless falling
++	{
++		LatentFloat() = 2.5f;
++		if (StateFrame && Physics() == PHYS_Falling)
++			StateFrame->LatentState = LatentRunState::WaitForLanding;
++		return;
++	}
++
+ 	if (StateFrame)
+ 		StateFrame->LatentState = LatentRunState::WaitForLanding;
+ }
 diff --git a/SurrealEngine/Packages/Engine/Actors/Pawn/UPlayerPawn.cpp b/SurrealEngine/Packages/Engine/Actors/Pawn/UPlayerPawn.cpp
 index e3c87b45..99c1ef1e 100644
 --- a/SurrealEngine/Packages/Engine/Actors/Pawn/UPlayerPawn.cpp
@@ -295,7 +368,7 @@ index e3c87b45..99c1ef1e 100644
  		return;
  
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor.cpp b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
-index 29c45a1c..44f43514 100644
+index 29c45a1c..3fabbbf1 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
 @@ -9,6 +9,7 @@
@@ -330,6 +403,16 @@ index 29c45a1c..44f43514 100644
  	if (engine->LaunchInfo.IsDeusEx())
  	{
  		DistanceFromPlayer() = length(engine->viewport->Actor()->Location() - Location());
+@@ -215,6 +226,9 @@ void UActor::Tick(float elapsed)
+ 			CallEvent(this, EventName::Timer);
+ 		}
+ 	}
++
++	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: bAnimMove root motion (end of AActor::Tick)
++		HP1::TickRootMotion(this);
+ }
+ 
+ bool UActor::Move(const vec3& delta)
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
 index aceba9af..7d5ed5e0 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
@@ -400,7 +483,7 @@ index 7fa151c8..a4be2991 100644
  			{
  				// So projectiles don't think they hit a wall.
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp
-index 22b4b664..429c520d 100644
+index 22b4b664..e0463545 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp
 @@ -9,6 +9,7 @@
@@ -421,7 +504,15 @@ index 22b4b664..429c520d 100644
  		float timeLeft = elapsed;
  		while (timeLeft > 0.0f)
  		{
-@@ -71,6 +75,9 @@ void UActor::TickMovingBrush(float elapsed)
+@@ -67,10 +71,16 @@ void UActor::TickMovingBrush(float elapsed)
+ 				if (physAlpha == 1.0f)
+ 				{
+ 					bInterpolating() = false;
+-					CallEvent(this, EventName::InterpolateEnd, { ExpressionValue::ObjectValue(nullptr) });
++					if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: physMovingBrush raises KeyFrameReached (Mover's calls InterpolateEnd(self))
++						CallEvent(this, NameString("KeyFrameReached"));
++					else
++						CallEvent(this, EventName::InterpolateEnd, { ExpressionValue::ObjectValue(nullptr) });
  				}
  			}
  		}
@@ -432,7 +523,7 @@ index 22b4b664..429c520d 100644
  
  	if (elapsed > 0.0f)
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysRolling.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysRolling.cpp
-index 31d7896f..eb5463ec 100644
+index 31d7896f..0957dc13 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysRolling.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysRolling.cpp
 @@ -9,10 +9,11 @@
@@ -448,11 +539,30 @@ index 31d7896f..eb5463ec 100644
  		return;
  
  	// Save our starting point and state
+@@ -48,8 +49,16 @@ void UActor::TickRolling(float elapsed)
+ 	// Can we reach the ground from here?
+ 	if(!TryStepToGround(stepDownDelta))
+ 	{
+-		SetPhysics(PHYS_Falling);
+-		SetBase(nullptr, true);
++		if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: physRolling raises Falling before PHYS_Falling
++		{
++			if (HP1::StartFalling(this))
++				SetBase(nullptr, true);
++		}
++		else
++		{
++			SetPhysics(PHYS_Falling);
++			SetBase(nullptr, true);
++		}
+ 	}
+ 
+ 
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp
-index 71dc2525..6e3109e4 100644
+index 71dc2525..0328f1ca 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp
-@@ -9,6 +9,7 @@
+@@ -9,15 +9,23 @@
  #include "Packages/Engine/Resources/Level/ULevel.h"
  #include "Packages/Engine/Resources/Level/UModel.h"
  #include "Engine.h"
@@ -460,7 +570,23 @@ index 71dc2525..6e3109e4 100644
  
  bool UActor::ShouldAbortJumping(UPawn* pawn, vec3 oldPosition, vec3 stepDownDelta)
  {
-@@ -97,6 +98,10 @@ void UActor::TickWalking(float elapsed)
++	// hp1_re: a Falling event already ended the walk this tick (it must not be raised twice)
++	if (engine->LaunchInfo.IsHarryPotter1() && Physics() != PHYS_Walking)
++		return true;
++
+ 	//check if we can still walk, if so, nothing changes
+ 	if (TryStepToGround(stepDownDelta))
+ 	{
+ 		return false;
+ 	}
+ 
++	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: APawn::physWalking's ledge rule, then Falling before PHYS_Falling
++		return HP1::PawnWalkOffLedge(pawn);
++
+ 	if (pawn->bCanJump())
+ 	{
+ 		CallEvent(this, EventName::MayFall);
+@@ -97,6 +105,10 @@ void UActor::TickWalking(float elapsed)
  			if (ShouldAbortJumping(pawn, oldPosition, stepDownDelta))
  				return;
  
@@ -471,7 +597,7 @@ index 71dc2525..6e3109e4 100644
  			// if hit, step up and try again - maybe there was a ledge to get over
  			if (hit.Fraction < 1.0f)
  			{
-@@ -120,7 +125,10 @@ void UActor::TickWalking(float elapsed)
+@@ -120,7 +132,10 @@ void UActor::TickWalking(float elapsed)
  
  			if (hit.Fraction < 1.0f)
  			{
@@ -483,6 +609,25 @@ index 71dc2525..6e3109e4 100644
  				{
  					if (UObject::IsType<UDecoration>(hit.Actor) && UObject::Cast<UDecoration>(hit.Actor)->bPushable() && dot(hit.Normal, moveDelta) < -0.9f)
  					{
+@@ -170,8 +185,16 @@ void UActor::TickWalking(float elapsed)
+ 		// Can we reach the ground from here?
+ 		if (!TryStepToGround(stepDownDelta))
+ 		{
+-			SetPhysics(PHYS_Falling);
+-			SetBase(nullptr, true);
++			if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: physWalking raises Falling before PHYS_Falling
++			{
++				if (HP1::StartFalling(this))
++					SetBase(nullptr, true);
++			}
++			else
++			{
++				SetPhysics(PHYS_Falling);
++				SetBase(nullptr, true);
++			}
+ 		}
+ 	}
+ 
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp
 index a457b9a0..f06ad1a7 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp
@@ -612,7 +757,7 @@ index 4b2aa5c5..7ece3924 100644
  	frame.FY = (float)Y * Canvas.uiscale;
  	frame.FX2 = frame.FX * 0.5f;
 diff --git a/SurrealEngine/Render/RenderSubsystem.cpp b/SurrealEngine/Render/RenderSubsystem.cpp
-index f3fcef6d..19b22103 100644
+index f3fcef6d..7ce0d3c4 100644
 --- a/SurrealEngine/Render/RenderSubsystem.cpp
 +++ b/SurrealEngine/Render/RenderSubsystem.cpp
 @@ -12,6 +12,7 @@
@@ -623,7 +768,25 @@ index f3fcef6d..19b22103 100644
  
  RenderSubsystem::RenderSubsystem(RenderDevice* renderdevice) : Device(renderdevice)
  {
-@@ -55,6 +56,9 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
+@@ -34,8 +35,15 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
+ 	UPlayerPawn* player = UObject::TryCast<UPlayerPawn>(engine->CameraActor);
+ 	if (player)
+ 	{
+-		flashScale = player->FlashScale();
+-		flashFog = player->FlashFog();
++		if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: HP1 has no FlashScale; FlashFog.W is the brightness
++		{
++			HP1::ViewFlashParams(player, flashScale, flashFog);
++		}
++		else
++		{
++			flashScale = player->FlashScale();
++			flashFog = player->FlashFog();
++		}
+ 	}
+ 
+ 	Device->Brightness = engine->client->Brightness;
+@@ -55,6 +63,9 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
  
  	PostRender();
  
