@@ -9,6 +9,7 @@ class UActor;
 class Rotator;
 class UCanvas;
 class UPawn;
+class UPlayerPawn;
 class CollisionHit;
 class UAnimation;
 class USkeletalMesh;
@@ -29,6 +30,8 @@ namespace HP1
 
 	// UActor::TickAnimation.
 	void TickAnimation(UActor* actor, float elapsed);
+	// UActor::Tick, at the end: bAnimMove root motion moves the actor (hp1/Anim/HP1Skeletal.cpp).
+	void TickRootMotion(UActor* actor);
 
 	// VisibleMesh::DrawSkeletalMesh, after the mesh textures are set up: pose, skin and draw.
 	bool DrawSkeletalMesh(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, USkeletalMesh* mesh, bool translucentPass);
@@ -54,6 +57,8 @@ namespace HP1
 
 	// Engine::Tick, after PlayerCalcView: the camera's horizontal FOV for the window's aspect ratio.
 	float ViewFovAngle(float fovAngle, int width, int height);
+	// RenderSubsystem::DrawGame: the screen flash from HP1's FlashFog (its W replaces FlashScale).
+	void ViewFlashParams(UPlayerPawn* player, vec3& flashScale, vec3& flashFog);
 
 	// Widescreen 2D (hp1/HP1Canvas.cpp). RenderSubsystem::ResetCanvas: UI scale for the viewport height.
 	float CanvasUIScale(int viewportHeight);
@@ -89,8 +94,18 @@ namespace HP1
 
 	// UPawn::TickMoveTo: APawn::moveToward. Returns true when the latent move is done.
 	bool PawnMoveToward(UPawn* pawn, const vec3& dest);
+	// UPawn::Tick latent polls: MoveToward / StrafeFacing (with AlterDestination), WaitForLanding (LongFall).
+	// True when the latent action is done.
+	bool PawnPollMoveToward(UPawn* pawn);
+	bool PawnPollStrafeFacing(UPawn* pawn);
+	bool PawnPollWaitForLanding(UPawn* pawn, float elapsed);
 	// UActor::TickWalking / TickFalling on a wall hit: APawn::Mount (ledge grab). True if Pawn.Mount was raised.
 	bool PawnMount(UPawn* pawn, const vec3& delta, const CollisionHit& hit);
 	// UActor::PreparePawnMovementTick / TickRolling: whether this physics mode fires FellOutOfWorld in zone 0.
 	bool PhysicsChecksLeftWorld(UActor* actor);
+	// UActor::TickWalking / TickRolling losing the floor: the Falling event, then PHYS_Falling unless the script
+	// changed the physics itself. True if the actor is now falling.
+	bool StartFalling(UActor* actor);
+	// UActor::ShouldAbortJumping (no floor ahead): MayFall, stop at the ledge or start falling. True = stopped.
+	bool PawnWalkOffLedge(UPawn* pawn);
 }

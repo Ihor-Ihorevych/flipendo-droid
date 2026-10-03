@@ -8,6 +8,7 @@
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Packages/Core/UClass.h"
+#include "Collision/TopLevel/CollisionSystem.h"
 #include <chrono>
 #include <fstream>
 #include <sstream>
@@ -26,6 +27,8 @@
 //   HP1_GOTO="60:x,y;x,y"      from <sec>, steer the player to each waypoint in turn (turns the view, holds Up);
 //                              several runs separated by '|'. A waypoint "x,y,J" jumps (Ctrl) on arrival, "x,y,w2" stops
 //                              and waits 2 s. Logs arrival and when the player is stuck
+//   HP1_HEIGHTMAP="5:x0,y0,x1,y1,step,ztop"  at <sec>, trace straight down (player-sized cylinder) from ztop over
+//                              the grid and log one row of floor heights per y (blank = nothing within 2000 units)
 
 namespace HP1
 {
@@ -192,6 +195,48 @@ namespace HP1
 		}
 	}
 
+	static void TickDebugHeightmap(float now)
+	{
+		static bool parsed = false;
+		static float when = -1.0f;
+		static float x0, y0, x1, y1, step, ztop;
+		if (!parsed)
+		{
+			parsed = true;
+			if (const char* s = getenv("HP1_HEIGHTMAP"))
+			{
+				if (sscanf(s, "%f:%f,%f,%f,%f,%f,%f", &when, &x0, &y0, &x1, &y1, &step, &ztop) != 7 || step <= 0.0f)
+					when = -1.0f;
+			}
+		}
+		if (when < 0.0f || now < when || !engine->Level)
+			return;
+		when = -1.0f;
+
+		UPlayerPawn* player = engine->viewport ? engine->viewport->Actor() : nullptr;
+		vec3 extent = player ? vec3(player->CollisionRadius(), player->CollisionRadius(), player->CollisionHeight()) : vec3(17.0f, 17.0f, 39.0f);
+		TraceFlags flags;
+		flags.world = true;
+		flags.movers = true;
+		LogMessage("HP1 heightmap x " + std::to_string((int)x0) + ".." + std::to_string((int)x1) + " step " + std::to_string((int)step) + " (player center z)");
+		for (float y = y1; y >= y0; y -= step)
+		{
+			std::string row = "HP1 heightmap y=" + std::to_string((int)y) + ":";
+			for (float x = x0; x <= x1; x += step)
+			{
+				vec3 from(x, y, ztop), to(x, y, ztop - 2000.0f);
+				CollisionHit hit = engine->Level->Collision.TraceFirstHit(from, to, player, extent, flags);
+				char cell[16];
+				if (hit.Fraction < 1.0f)
+					snprintf(cell, sizeof(cell), " %5d", (int)(from.z + (to.z - from.z) * hit.Fraction));
+				else
+					snprintf(cell, sizeof(cell), "      ");
+				row += cell;
+			}
+			LogMessage(row);
+		}
+	}
+
 	static void TickDebugGoto(float now)
 	{
 		struct Waypoint { vec2 Pos; char Action = 0; float Arg = 0.0f; };
@@ -254,7 +299,7 @@ namespace HP1
 		const Waypoint& target = run.Points[point];
 		vec2 delta = target.Pos - pos;
 		float dist = length(delta);
-		if (dist < 40.0f)
+		if (dist < (target.Action == 'J' ? 8.0f : 40.0f)) // jumps go off at the exact spot (a ledge edge)
 		{
 			char buf[200];
 			snprintf(buf, sizeof(buf), "HP1 goto reached %d at t=%.1f (%.0f,%.0f,%.0f)", (int)point, now,
@@ -311,6 +356,7 @@ namespace HP1
 		TickDebugMouse(frameTime);
 		TickDebugTrace(frameTime);
 		TickDebugDump(frameTime);
+		TickDebugHeightmap(frameTime);
 		TickDebugGoto(frameTime);
 
 		static bool parsed = false;

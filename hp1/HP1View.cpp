@@ -1,5 +1,6 @@
 #include "Precomp.h"
 #include "HP1.h"
+#include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
 #include <cmath>
 
 namespace HP1
@@ -17,5 +18,19 @@ namespace HP1
 			return fovAngle;
 		float halfTan = std::tan(fovAngle * (3.14159265f / 360.0f)) * widen;
 		return std::atan(halfTan) * (360.0f / 3.14159265f);
+	}
+
+	// KnowWonder dropped PlayerPawn.FlashScale: FlashFog is a plane whose W is the scene brightness (1 = normal,
+	// 0 = black; PlayerPawn.ViewFlash eases it, ClientFadeIn/Out and the cutscene FadeIn/FadeOut drive it).
+	// UGameEngine::Draw hands the render device FlashScale = clamp(W * 0.5) and FlashFog = clamp(XYZ), and the
+	// device's EndFlash does the stock UE1 out = scene * min(2 * FlashScale, 1) + FlashFog. (The ScreenFlashes
+	// client option that can turn it off isn't ported.)
+	// IDA Engine.dll: ?Draw@UGameEngine@@UAEXPAVUViewport@@HPAEPAH@Z [HP1 0x1039FA40] (FlashScale/FlashFog before RenDev->Lock)
+	void ViewFlashParams(UPlayerPawn* player, vec3& flashScale, vec3& flashFog)
+	{
+		const float* fog = &player->FlashFog().x; // FPlane: X, Y, Z, W
+		float scale = std::clamp(fog[3] * 0.5f, 0.0f, 1.0f);
+		flashScale = vec3(scale);
+		flashFog = vec3(std::clamp(fog[0], 0.0f, 1.0f), std::clamp(fog[1], 0.0f, 1.0f), std::clamp(fog[2], 0.0f, 1.0f));
 	}
 }

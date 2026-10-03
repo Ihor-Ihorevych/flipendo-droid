@@ -6,16 +6,16 @@ live in `docs/re/`. The native-level checklist is `docs/native_audit.md` (`pytho
 Legend: [x] done · [~] partly done / in progress · [ ] not started
 
 ## Next up (in order)
-1. **Root motion** (phase 1). Blocks every ledge climb, starting with the bookcase in Fred & George's room.
-2. **Script events SurrealEngine never raises** (`docs/re/script_events.md`), gameplay ones first: `Falling`
-   (physWalking, findNewFloor, physRolling, physSpider), `DoJump` (physWalking), `AlterDestination` (PollMoveToward /
-   PollStrafeFacing; our `HP1::PawnMoveToward` port doesn't raise it), `LongFall` (PollWaitForLanding). Compare each
-   call site in `../ida/decomp/Engine/` with the matching SurrealEngine code.
-3. **Continue the Lev_Tut1 playthrough** with `HP1_GOTO` along the route below (phase 2) and fix what breaks. Plan
-   the route offline from the map: `tools/uelib_dump/bin/Release/net10.0/uelib_dump props ../game-work/Maps/Lev_Tut1.unr
-   <file>` lists every actor with all its properties (Tag/Event chains, CutScene scripts, mover keys).
-4. Later events: `KeyFrameReached` (physMovingBrush), `FinishedInterpolation` / `UpdateCamera`
-   (InterpolationManager, phase 5), `ViewFlash`, `PreClientTravel` (level change, Lev_Tut1 → Lev_Tut1b).
+1. **Lev_Tut1 jump room** (zone 2, x 1950-3450, y -3000..-3950). The autopilot gets Harry to box B (2640,-3488) and
+   onto the stepped structure north of it (2650,-3150), but no route to the jumpexit doors (3072-3200,-4024) is known
+   yet: box B to boxes C/D (x 3050-3300) is ~330 units, Harry's jump ~190 (JumpZ 245, gravity 512), and the far
+   wall is too high to grab when falling. Physics, jump arc and falling grab match the original, so this is route
+   finding: play it by hand once, or map more of the room with `HP1_HEIGHTMAP`. Then on: jumpexit doors → wizard
+   cards (2990,-4960) → FGsec2/DADA doors → CUTFLIPBEGIN (956,-6699), and the level change to Lev_Tut1b.
+2. **InterpolationManager** (`AInterpolationManager::performPhysics` 0x103F7BA0, 6.4 KB): raises
+   `FinishedInterpolation` and `UpdateCamera`. Only the broom and Quidditch scripts spawn it (BroomHarry, QuidPlayer,
+   QuidditchPawn), so it is needed for those levels, not the tutorial.
+3. Verify animations visually against the original; BonePos / GetBoneCoords / wand attachment (phase 1).
 
 
 ## 0. Groundwork
@@ -23,7 +23,7 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
       `tools/update_engine.sh` to move to newer upstream
 - [x] HP1 retail exe detection (SafeDisc + No-CD hashes), `--autolaunch`, `--logfile`
 - [x] HP1 code lives in `hp1/`, engine changes are small `hp1_re:` hooks in `patches/`
-- [x] Debug env vars: `HP1_SHOTS`/`HP1_SHOT_DIR` screenshots, `HP1_KEYS` scripted key presses,
+- [x] Debug env vars: `HP1_HEIGHTMAP` floor heights over a grid (route planning), `HP1_SHOTS`/`HP1_SHOT_DIR` screenshots, `HP1_KEYS` scripted key presses,
       `HP1_MOUSE` scripted raw mouse moves, `HP1_TRACE` actor state log (now with zone, pitch, view rotation), `HP1_CAMERA` fixed camera,
       `HP1_DUMP` actor list (class, state, location, Tag, Event), `HP1_GOTO` waypoint autopilot with jump/wait steps (`hp1/HP1Debug.cpp`)
 - [x] Decompiled dump of Engine/Core/Render.dll (3714/2318/237 functions) in `../ida/decomp/` with an index per DLL
@@ -49,9 +49,10 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
       GetMeshCoords incl. the Y mirror, Wideness, bAlignBottom)
 - [~] Channel blending in the pose (AuxAnims per bone subtree) — implemented, not yet verified in game
 - [ ] Verify animations visually against the original (walk/run/breathe, tween blends)
-- [ ] Root motion (`bAnimMove`: GetRootMovement / AdjustRootMovement / AnimCycleMovement). **Blocks Lev_Tut1**:
-      harry.uc's MountFinish subtracts the climb anims' own movement (30 forward + 32/64/96 up) from MountDelta, so
-      without root motion a ledge grab plays climb96start/end in place and Harry never gets onto the ledge
+- [x] Root motion (`bAnimMove`: banked in ApplyAnim, GetRootMovement / AdjustRootMovement, applied at the end of
+      AActor::Tick; `hp1/Anim/HP1Skeletal.cpp`, `docs/re/animation.md`). Harry climbs the bookcase in Fred & George's
+      room (climb96start/end) and the 32-unit ledge after it (climb32). ApplyAnim also got the original's "unchanged
+      frame" early-out (the tween blend ran once per draw call before). AnimCycleMovement has no caller (not ported)
 - [ ] BonePos, GetBoneCoords, weapon/wand attachment (WeaponBoneIndex, WeaponAdjust), AttachToOwner
 - [ ] GetRenderExtent, GetWorldCollisionBox (skeletal bounds)
 - [x] Transient channel cleanup (done in ApplyAnim, like the original)
@@ -83,19 +84,30 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
       hits as a TODO; HP1's `APawn::stepUp` slides). Harry can now run up the Lev_Tut1 stairs along the
       BlockAll banister and reach the Ron cutscene
 - [~] Play through Lev_Tut1 + Lev_Tut1b, fix what breaks (`tools/run_hp1.sh 60 --url=Lev_Tut1`). With `HP1_GOTO`:
-      stairs → Ron cutscene → door D1stA → CutScene52 → Fred & George's bookcase room (~126 s) works; stuck at the
-      bookcase climb (root motion, phase 1). Route ahead (from `HP1_DUMP`): climbexit door (1032,-3744) → jumping
-      help (1700,-3930) → Peeves → wizard cards (2990,-4960) → FGsec2/DADA doors → CUTFLIPBEGIN (956,-6699)
+      stairs → Ron cutscene → door D1stA → CutScene52 → Fred & George's room (~126 s) → bookcase climb (`137:Up:2.5`)
+      → shelves along the jelly-bean trail (-32,-4470; 600,-4470; 768,-4432; 864,-3952; 1056,-3744) → climbexit
+      trigger (1541,-3749) → jumping-help cutscene → jump room (2080,-3808; 2304,-3824; 2288,-3456; 2640,-3488;
+      2650,-3392,J; 2650,-3150) works. Peeves patrols (Pawn.FindPath). Stuck in the jump room: see "Next up"
 - [x] Ledge grabbing: `APawn::Mount` (`hp1/HP1Pawn.cpp`), called from walking (stepUp) and falling wall hits. Only
       BSP surfaces with PolyFlags 0x1000 (PF_SpecialPoly = HP1's "mountable") qualify. Upstream's cylinder collision
       can report the node of a neighbouring plane, so the face is re-found with a zero-extent ray
 - [x] `Actor.SetCollisionSize` has HP1's optional third parameter NewWidth (MountFinish passes three values)
-- [ ] Raise the gameplay events SurrealEngine never raises: `Falling` (walking off an edge: physWalking, findNewFloor,
-      physRolling, physSpider), `DoJump` (physWalking), `AlterDestination` (PollMoveToward/PollStrafeFacing), `LongFall`
-      (PollWaitForLanding), `KeyFrameReached` (physMovingBrush). Addresses in `docs/re/script_events.md`
-- [ ] Level change Lev_Tut1 → Lev_Tut1b: `PreClientTravel` (execClientTravel) isn't raised
+- [x] Gameplay events SurrealEngine never raised (`docs/re/script_events.md`, `hp1/HP1Pawn.cpp`):
+  - [x] `Falling` when walking or rolling off a ledge, before PHYS_Falling (Pawn.Falling → PlayInAir: Harry's fall
+        animation; the boulder stops its rolling sound). Not from physSpider/findNewFloor (PHYS_Spider is unused)
+  - [x] physWalking's ledge rule: MayFall once, then a pawn without bCanJump or with bIsWalking stops at the edge
+        (upstream let them walk off)
+  - [x] `DoJump` for PlayerPawn.bAutoJump (options menu "Auto Jump"): edge search + the landing predictor
+        (sub_103E6310); jumps when that lands > 10 units higher. Harry clears the jump room's gaps by himself
+  - [x] `AlterDestination` (PollMoveToward with HP1's Destination/Focus handling, PollStrafeFacing),
+        `LongFall` (WaitForLanding: LatentFloat 2.5 s, latent only while falling)
+  - [x] `KeyFrameReached` from mover physics instead of upstream's InterpolateEnd(None)
+- [x] `PreClientTravel` raised by ClientTravel (only PlayerPawn's empty handler in HP1; the level change itself is
+      untested, the playthrough doesn't get there yet)
+- [x] `Pawn.FindPath` (553, KnowWonder's station pathing; tut1Peeves crashed the game without it,
+      `hp1/HP1Navigation.cpp`)
 - [ ] Missing Actor natives: ModifySound(567), StopSound(568), SaveGameExists(3972), Wind.GetWind,
-      PlayerPawn.ScreenToWorld, Pawn.FindPath, Console.CreateNativeFont
+      PlayerPawn.ScreenToWorld, Console.CreateNativeFont
 - [ ] Unknown console command `Snap` (FEBook.OpenBook `Snap 3`: screenshot for the save thumbnail, see phase 4)
 - [x] `FellOutOfWorld` on the first tick: HP1 only checks zone 0 in physWalking/physFalling, not flying/swimming/rolling
       (`HP1::PhysicsChecksLeftWorld`), so the flying `tut1Peeves0` waiting outside the BSP now survives. `Tut1McGonagall4`
@@ -130,7 +142,8 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 ## 5. Remaining native classes and polish
 - [ ] Wind, ImpactSoundSet, SoundContainer, InterpolationManager (its performPhysics raises `FinishedInterpolation` and
       `UpdateCamera`), ClipMarker, LocationID
-- [ ] `ViewFlash` (UGameEngine::Tick) for screen flashes
+- [x] `ViewFlash` (UGameEngine::Tick) and the screen flash: HP1 has no FlashScale, FlashFog.W is the brightness
+      (`hp1/HP1View.cpp`). Cutscene FadeIn/FadeOut, damage flashes and the level fade-in now show
 - [ ] Quidditch / broom levels
 - [ ] Full game playthrough; per-level bug list
 - [ ] Editor-only natives (BrushBuilders) — low priority
@@ -174,3 +187,9 @@ minimal so upstream updates rarely conflict.
 | `Engine.cpp` | `HP1::DebugCamera` after PlayerCalcView (`HP1_CAMERA`); `HP1::TickMods` after the console tick; `HP1::ModsKeyDown` in OnWindowKeyDown |
 | `Render/RenderCanvas.cpp` (PostRender) | `HP1::PostRenderMods` after the HUD and console/menus |
 | `Native/NObject.cpp` | DynamicLoadObject resolves "Package.Group.Name" |
+| `Packages/Engine/Actors/UActor.cpp` (Tick end) | `HP1::TickRootMotion` (bAnimMove root motion) |
+| `Packages/Engine/Actors/UActor_PhysWalking.cpp`, `UActor_PhysRolling.cpp` | `HP1::PawnWalkOffLedge` / `HP1::StartFalling` (MayFall, ledge rule, auto-jump, Falling) |
+| `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `HP1::PawnPollMoveToward`, `PawnPollStrafeFacing`, `PawnPollWaitForLanding`; WaitForLanding sets LatentFloat |
+| `Packages/Engine/Actors/UActor_PhysMovingBrush.cpp` | KeyFrameReached instead of InterpolateEnd(None) |
+| `Native/NPlayerPawn.cpp` | ClientTravel raises PreClientTravel |
+| `Engine.cpp` (after the level tick), `Render/RenderSubsystem.cpp` | ViewFlash event; `HP1::ViewFlashParams` for the screen flash |

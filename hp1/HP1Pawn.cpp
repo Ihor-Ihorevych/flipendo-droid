@@ -1,6 +1,7 @@
 #include "Precomp.h"
 #include "HP1.h"
 #include "Packages/Engine/Actors/Pawn/UPawn.h"
+#include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
 #include "Packages/Engine/Actors/Inventory/UInventory.h"
 #include "Packages/Engine/Actors/Info/UZoneInfo.h"
 #include "Packages/Core/UClass.h"
@@ -34,6 +35,54 @@ namespace HP1
 	bool PhysicsChecksLeftWorld(UActor* actor)
 	{
 		return actor->Physics() == PHYS_Walking;
+	}
+
+	// Walking or rolling off a ledge: Velocity.Z = 0 (walking), the Falling event (Pawn.Falling plays the in-air
+	// animation, Boulder stops its rolling sound), and PHYS_Falling only if the script left the physics alone.
+	// Upstream switched to PHYS_Falling without raising Falling.
+	// IDA Engine.dll: ?physWalking@APawn@@QAEXMH@Z [HP1 0x103E6B60] (eventFalling, then setPhysics(PHYS_Falling) if still PHYS_Walking)
+	// IDA Engine.dll: ?physRolling@AActor@@QAEXMH@Z [HP1 0x103F3040] (the same for PHYS_Rolling)
+	bool StartFalling(UActor* actor)
+	{
+		uint8_t physics = actor->Physics();
+		if (physics == PHYS_Walking)
+			actor->Velocity().z = 0.0f;
+		CallEvent(actor, EventName::Falling);
+		if (actor->bDeleteMe())
+			return false;
+		if (actor->Physics() == physics)
+			actor->SetPhysics(PHYS_Falling);
+		return actor->Physics() == PHYS_Falling;
+	}
+
+	// No floor ahead while walking: MayFall (once, if bCanJump and probed) lets the script decide; a pawn that
+	// can't jump, or walks (bIsWalking), stops dead at the ledge (back to OldLocation, MoveTimer = -1). Upstream
+	// let pawns without bCanJump walk off and ignored bIsWalking.
+	// IDA Engine.dll: ?physWalking@APawn@@QAEXMH@Z [HP1 0x103E6B60] (the no-floor branch: bCheckedFall, eventMayFall, FarMoveActor(OldLocation))
+	static bool PawnAutoJump(UPawn* pawn);
+
+	bool PawnWalkOffLedge(UPawn* pawn)
+	{
+		if (PawnAutoJump(pawn))
+			return true;
+
+		if (pawn->bCanJump() && pawn->IsEventEnabled(EventName::MayFall))
+			CallEvent(pawn, EventName::MayFall);
+		if (pawn->bDeleteMe() || pawn->Physics() != PHYS_Walking)
+			return true;
+
+		if (!pawn->bCanJump() || pawn->bIsWalking())
+		{
+			pawn->Velocity() = vec3(0.0f);
+			pawn->Acceleration() = vec3(0.0f);
+			pawn->SetLocation(pawn->OldLocation());
+			pawn->MoveTimer() = -1.0f;
+			return true;
+		}
+
+		if (StartFalling(pawn))
+			pawn->SetBase(nullptr, true);
+		return false;
 	}
 
 	// IDA Engine.dll: ?performPhysics@APawn@@UAEXM@Z [HP1 0x103E5520]
@@ -161,6 +210,77 @@ namespace HP1
 	}
 
 	// Pawn.MaxMountHeight is an HP1 addition (Harry: 96.5), not in upstream's PropertyOffsets.
+	// Destination = MoveTarget's location (flying towards a pawn aims at 0.7 of its height), Focus = Destination.
+	// A walking pawn with bAdvancedTactics gets AlterDestination to change Destination for this step, which is
+	// then put back. A pawn target keeps DesiredSpeed (moveToward halves it near the target); one in a water
+	// zone ends the move for a pawn that can't swim.
+	// IDA Engine.dll: ?execPollMoveToward@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D89C0]
+	bool PawnPollMoveToward(UPawn* pawn)
+	{
+		UActor* target = pawn->MoveTarget();
+		if (!target)
+			return true;
+
+		pawn->Destination() = target->Location();
+		if (pawn->Physics() == PHYS_Flying && UObject::TryCast<UPawn>(target))
+			pawn->Destination().z += target->CollisionHeight() * 0.7f;
+		else if (pawn->Physics() == PHYS_Spider)
+			pawn->Destination() -= pawn->Floor() * target->CollisionRadius();
+
+		pawn->Focus() = pawn->Destination();
+		pawn->TickRotateTo(pawn->Focus());
+
+		float desiredSpeed = pawn->DesiredSpeed();
+		bool alter = pawn->bAdvancedTactics() && pawn->Physics() == PHYS_Walking;
+		if (alter)
+			CallEvent(pawn, NameString("AlterDestination"));
+		bool done = PawnMoveToward(pawn, pawn->Destination());
+		if (pawn->bAdvancedTactics() && pawn->Physics() == PHYS_Walking && pawn->MoveTarget())
+			pawn->Destination() = pawn->MoveTarget()->Location();
+
+		target = pawn->MoveTarget();
+		if (target && UObject::TryCast<UPawn>(target))
+		{
+			pawn->DesiredSpeed() = desiredSpeed;
+			UZoneInfo* zone = target->Region().Zone;
+			if (!pawn->bCanSwim() && zone && zone->bWaterZone())
+				pawn->MoveTimer() = -1.0f;
+		}
+		return done;
+	}
+
+	// Focus = FaceTarget's location; moves to Destination, which AlterDestination may change for this step.
+	// IDA Engine.dll: ?execPollStrafeFacing@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D9010]
+	bool PawnPollStrafeFacing(UPawn* pawn)
+	{
+		UActor* faceTarget = pawn->FaceTarget();
+		if (!faceTarget)
+			return true;
+
+		pawn->Focus() = faceTarget->Location();
+		vec3 destination = pawn->Destination();
+		pawn->TickRotateTo(pawn->Focus());
+		if (pawn->bAdvancedTactics() && pawn->Physics() == PHYS_Walking)
+			CallEvent(pawn, NameString("AlterDestination"));
+		bool done = PawnMoveToward(pawn, pawn->Destination());
+		pawn->Destination() = destination;
+		return done;
+	}
+
+	// Done once the pawn stops falling; after LatentFloat (2.5 s from WaitForLanding) runs out, LongFall
+	// every tick until then.
+	// IDA Engine.dll: ?execPollWaitForLanding@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D6EF0]
+	// IDA Engine.dll: ?execWaitForLanding@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D6EB0] (LatentFloat = 2.5, latent only if falling)
+	bool PawnPollWaitForLanding(UPawn* pawn, float elapsed)
+	{
+		if (pawn->Physics() != PHYS_Falling)
+			return true;
+		pawn->LatentFloat() -= elapsed;
+		if (pawn->LatentFloat() < 0.0f)
+			CallEvent(pawn, NameString("LongFall"));
+		return false;
+	}
+
 	static float& MaxMountHeight(UPawn* pawn)
 	{
 		static PropertyDataOffset offset;
@@ -305,5 +425,117 @@ namespace HP1
 		pawn->SetBase(hit.Actor ? hit.Actor : (UActor*)pawn->Level(), true);
 		CallEvent(pawn, NameString("Mount"), { ExpressionValue::VectorValue(dest - pawn->Location()) });
 		return true;
+	}
+
+	static bool AutoJumpEnabled(UPawn* pawn)
+	{
+		static PropertyDataOffset offset;
+		static bool initialized = false;
+		if (!initialized)
+		{
+			offset = engine->packages->FindClass("Engine.PlayerPawn")->GetPropertyDataOffset("bAutoJump");
+			initialized = true;
+		}
+		return UObject::TryCast<UPlayerPawn>(pawn) && pawn->BoolValue(offset);
+	}
+
+	// Where a fall starting at `start` with `velocity` ends: steps of at most 0.2 s for up to maxTime seconds,
+	// sweeping the pawn's cylinder; on a wall it slides (the velocity and gravity lose their component along the
+	// wall normal). Ends on a floor (normal.z > 0.7) or on a mountable wall the pawn faces (it would grab it),
+	// else after maxTime or 10 steps.
+	// IDA Engine.dll: not exported: sub_103E6310 [HP1 0x103E6310] (thunk sub_10301929; called twice from APawn::physWalking_0's auto-jump test)
+	static vec3 PredictLanding(UPawn* pawn, vec3 start, vec3 velocity, float maxTime)
+	{
+		vec3 gravity = pawn->Region().Zone ? pawn->Region().Zone->ZoneGravity() : vec3(0.0f, 0.0f, -512.0f);
+		vec3 extent(pawn->CollisionRadius(), pawn->CollisionRadius(), pawn->CollisionHeight());
+		TraceFlags flags;
+		flags.pawns = true;
+		flags.movers = true;
+		flags.world = true; // TRACE_Pawns | TRACE_Movers | TRACE_Level
+		CollisionSystem& collision = pawn->XLevel()->Collision;
+
+		vec3 normal(0.0f);
+		float time = 0.0f;
+		for (int step = 0; step < 10 && time < maxTime; step++)
+		{
+			float dt = std::min(maxTime - time, 0.2f);
+			vec3 g = gravity - normal * dot(gravity, normal);
+			vec3 end = start + velocity * dt + g * (0.5f * dt * dt);
+			CollisionHit hit = collision.TraceFirstHit(start, end, pawn, extent, flags);
+			float f = std::min(hit.Fraction, 1.0f);
+			time += dt * f;
+			velocity += g * (dt * f);
+			if (f >= 1.0f)
+			{
+				normal = vec3(0.0f);
+				start = end;
+				continue;
+			}
+
+			start = start + (end - start) * f;
+			normal = hit.Normal;
+			if (normal.z > 0.7f)
+				return start;
+			if (MaxMountHeight(pawn) > 0.0f && normal.z > -0.1f)
+			{
+				vec3 x, y, z;
+				Coords::Rotation(pawn->Rotation()).GetAxes(x, y, z);
+				if (dot(x, normal) < 0.0f)
+				{
+					float maxExtent = std::max(extent.x, extent.z);
+					const BspSurface* surf = HitSurface(hit, start, maxExtent);
+					if (surf && (surf->PolyFlags & PF_SpecialPoly))
+						return start;
+				}
+			}
+			velocity -= normal * dot(velocity, normal);
+		}
+		return start;
+	}
+
+	// PlayerPawn.bAutoJump ("Auto Jump" in the options): walking off a ledge, find the edge just behind the feet
+	// (a ray from below the feet backwards along the walk direction hitting the ledge's face, facing forward by
+	// more than 0.25), predict where a fall from there lands with and without JumpZ, and if jumping lands more
+	// than 10 units higher, move to the edge and raise DoJump(1). The original then spends the rest of the step
+	// in physFalling; here the next tick does.
+	// IDA Engine.dll: ?physWalking@APawn@@QAEXMH@Z [HP1 0x103E6B60] (the bAutoJump block before eventDoJump)
+	static bool PawnAutoJump(UPawn* pawn)
+	{
+		if (!AutoJumpEnabled(pawn))
+			return false;
+
+		vec3 accel(pawn->Acceleration().x, pawn->Acceleration().y, 0.0f);
+		float len = length(accel);
+		if (len <= 0.0f)
+			return false;
+		vec3 dir = accel / len;
+
+		CollisionSystem& collision = pawn->XLevel()->Collision;
+		TraceFlags flags;
+		flags.pawns = true;
+		flags.movers = true;
+		flags.world = true;
+		float back = pawn->CollisionRadius() * 1.5f;
+		vec3 below(0.0f, 0.0f, -(pawn->CollisionHeight() + 4.0f));
+		vec3 start = pawn->Location() + below;
+		vec3 end = pawn->Location() - dir * back + below;
+		CollisionHit edge = collision.TraceFirstHit(start, end, pawn, vec3(0.0f), flags);
+		if (edge.Fraction >= 1.0f)
+			return false;
+		float facing = dot(edge.Normal, dir);
+		if (facing <= 0.25f)
+			return false;
+
+		vec3 edgePoint = pawn->Location() * (1.0f - edge.Fraction) + (pawn->Location() - dir * back) * edge.Fraction;
+		vec3 dest = edgePoint + dir * (back / facing);
+
+		vec3 fall = PredictLanding(pawn, dest, pawn->Velocity(), 2.0f);
+		vec3 jump = PredictLanding(pawn, dest, pawn->Velocity() + vec3(0.0f, 0.0f, pawn->JumpZ()), 2.0f);
+		if (jump.z - fall.z <= 10.0f)
+			return false;
+
+		pawn->TryMove(dest - pawn->Location());
+		CallEvent(pawn, NameString("DoJump"), { ExpressionValue::FloatValue(1.0f) });
+		return pawn->Physics() != PHYS_Walking;
 	}
 }

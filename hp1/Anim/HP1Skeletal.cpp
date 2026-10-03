@@ -14,6 +14,7 @@
 #include "RenderDevice/RenderDevice.h"
 #include "Light/LightSystem.h"
 #include "Math/coords.h"
+#include "Collision/TopLevel/CollisionHit.h"
 #include "Engine.h"
 #include <unordered_map>
 
@@ -166,15 +167,23 @@ namespace HP1
 		return p;
 	}
 
-	// The per-actor CFSkelHeader from the original's GCache: last pose (for the TweenAlpha blend) and the
-	// mesh bone -> animation track map.
+	// The per-actor CFSkelHeader from the original's GCache: last pose (for the TweenAlpha blend), the
+	// mesh bone -> animation track map and the bAnimMove root motion bank.
 	struct SkelCache
 	{
 		USkeletalMesh* Mesh = nullptr;
-		UAnimation* LinkedAnim = nullptr;
-		bool HasPose = false;
+		UAnimation* LinkedAnim = nullptr; // +4
+		float LastFrame = -1.0f;          // +8  AnimFrame of the last full evaluation
+		float LastTween = -1.0f;          // +12 TweenAlpha of the last full evaluation
+		NameString LastSequence;          // +16 AnimSequence of the last full evaluation
+		bool HasPose = false;             // +20
 		bool HasBox = false;
 		BBox Box; // last render box, root bone space (CFSkelHeader+80)
+		vec3 LastRootPos = vec3(0.0f);    // +108 root position at the last evaluation, mesh space
+		float RootLastFrame = 0.0f;       // +120 AnimFrame the adjust bank was last paid out at
+		vec3 RootMove = vec3(0.0f);       // +124 banked root movement, mesh space (GetRootMovement)
+		vec3 RootAdjust = vec3(0.0f);     // +136 movement still owed (AdjustRootMovement), mesh space
+		bool RootValid = false;           // +148 LastRootPos is set for this sequence
 		Array<int> BoneMap;
 		Array<Place> Places;
 	};
@@ -193,117 +202,180 @@ namespace HP1
 		return cache;
 	}
 
-	// USkeletalMesh::ApplyAnim(Owner, Header, false). header != nullptr means 'actor' is an aux channel
-	// writing into its owner's pose.
+	static mat4 GetMeshToWorld(UActor* actor, USkeletalMesh* mesh);
+
+	// The mesh root's place: its own track with the ancestors' keys folded in (the mesh root may be below
+	// the animation's root). Inlined in ApplyAnim, twice (pose and bAnimMove's time-0 start position).
+	static Place SampleRoot(AnimationData* data, AnimMove* move, int track, float time)
+	{
+		Place place = SampleTrack(move->AnimTracks[track], time, move->TrackTime);
+		int child = track;
+		int parent = data->RefBones[child].ParentIndex;
+		while (parent != child && parent >= 0 && parent < (int)move->AnimTracks.size())
+		{
+			Place pp = SampleTrack(move->AnimTracks[parent], time, move->TrackTime);
+			BoneCoords pc = ToCoords(pp);
+			const quaternion& c = place.Orientation;
+			const quaternion& q = pp.Orientation;
+			// -(c * q): same rotation, the sign is what the original produces
+			place.Orientation = quaternion(
+				q.y * c.z - c.x * q.w - q.x * c.w - q.z * c.y,
+				c.x * q.z - q.w * c.y - q.y * c.w - q.x * c.z,
+				q.x * c.y - q.w * c.z - q.z * c.w - c.x * q.y,
+				q.z * c.z + q.y * c.y + c.x * q.x - q.w * c.w);
+			place.Position = pc.Apply(place.Position);
+			child = parent;
+			parent = data->RefBones[child].ParentIndex;
+		}
+		return place;
+	}
+
+	// bAnimMove (part of ApplyAnim): the root bone stays at its reference position and its movement since the
+	// last evaluation is banked for GetRootMovement (AActor::Tick moves the actor by it). Movement the actor
+	// couldn't make comes back through AdjustRootMovement and is paid out again, at most at the animation's own
+	// speed: |KeyPos[last] - KeyPos[0]| of the root track per unit of AnimFrame.
+	static void BankRootMotion(SkelCache& cache, UActor* actor, USkeletalMesh* mesh, AnimationData* data, AnimMove* move, int track, Place& place)
+	{
+		const AnimTrack& rootTrack = move->AnimTracks[track];
+		if (!cache.RootValid)
+		{
+			// First evaluation of this sequence: start from key 0.
+			cache.LastRootPos = SampleRoot(data, move, track, 0.0f).Position;
+			cache.RootAdjust = vec3(0.0f);
+			cache.RootValid = true;
+		}
+
+		vec3 delta = place.Position - cache.LastRootPos;
+		cache.LastRootPos = place.Position;
+		place.Position = mesh->RefSkeleton[0].Position;
+		cache.RootMove += delta;
+
+		if (cache.LastSequence == actor->AnimSequence() && actor->AnimFrame() != cache.RootLastFrame)
+		{
+			if (cache.RootAdjust != vec3(0.0f) && !rootTrack.KeyPos.empty())
+			{
+				vec3 cycle = rootTrack.KeyPos.back() - rootTrack.KeyPos.front();
+				float frames = (actor->AnimFrame() == 0.0f ? 1.0f : actor->AnimFrame()) - cache.RootLastFrame;
+				vec3 limit = vec3(std::abs(cycle.x), std::abs(cycle.y), std::abs(cycle.z)) * frames;
+				vec3 step(
+					std::clamp(cache.RootAdjust.x, -limit.x, limit.x),
+					std::clamp(cache.RootAdjust.y, -limit.y, limit.y),
+					std::clamp(cache.RootAdjust.z, -limit.z, limit.z));
+				cache.RootMove += step;
+				cache.RootAdjust -= step;
+			}
+			cache.RootLastFrame = actor->AnimFrame();
+		}
+	}
+
+	// USkeletalMesh::ApplyAnim(Owner, Header, bRootOnly). header != nullptr means 'actor' is an aux channel
+	// writing into its owner's pose. rootOnly (GetRootMovement) evaluates bone 0 only and doesn't record the
+	// evaluation, so the next full one still runs. A full evaluation with nothing changed (sequence, frame,
+	// TweenAlpha) keeps the pose, so the tween blend doesn't run twice for the same frame.
 	// IDA Engine.dll: ?ApplyAnim@USkeletalMesh@@ABEXPAVAActor@@PAUCFSkelHeader@1@_N@Z [HP1 0x1041BA60] (RefPlace/SampleTrack are inlined in it)
-	static void ApplyAnim(USkeletalMesh* mesh, UActor* actor, SkelCache* header)
+	static void ApplyAnim(USkeletalMesh* mesh, UActor* actor, SkelCache* header, bool rootOnly = false)
 	{
 		SkelCache& cache = GetSkelCache(actor, mesh);
 		bool isChannel = header != nullptr;
 		if (!header)
 			header = &cache;
 
-		size_t numBones = mesh->RefSkeleton.size();
-
-		if (!actor->SkelAnim() && mesh->DefaultAnimation)
-			actor->SkelAnim() = mesh->DefaultAnimation;
-
-		UAnimation* anim = actor->SkelAnim();
-		AnimationData* data = anim ? GetAnimationData(anim) : nullptr;
-		MeshAnimSeq* seq = data ? data->GetSequence(actor->AnimSequence()) : nullptr;
-		AnimMove* move = data ? data->GetMove(actor->AnimSequence()) : nullptr;
-
-		if (seq && move)
+		if (cache.LastSequence != actor->AnimSequence() && !rootOnly)
 		{
-			if (anim != cache.LinkedAnim)
-			{
-				int animBone = AnimBone(actor);
-				for (size_t i = 0; i < numBones; i++)
-				{
-					cache.BoneMap[i] = -1;
-					if (isChannel && ((int)i < animBone || (int)i > animBone + (int)mesh->RefSkeleton[animBone].NumChildren))
-						continue;
-					for (size_t j = 0; j < move->AnimTracks.size() && j < data->RefBones.size(); j++)
-					{
-						if (mesh->RefSkeleton[i].Name == data->RefBones[j].Name)
-						{
-							cache.BoneMap[i] = (int)j;
-							break;
-						}
-					}
-				}
-				cache.LinkedAnim = anim;
-			}
+			cache.RootValid = false;
+			cache.RootLastFrame = 0.0f;
+		}
 
-			if (!move->AnimTracks.empty())
-			{
-				float time = std::min(actor->AnimFrame(), 1.0f) * move->TrackTime;
-				float tween = (cache.HasPose && actor->TweenRate() != 0.0f) ? 1.0f - TweenAlpha(actor) : 0.0f;
+		bool unchanged = !isChannel && cache.LastSequence == actor->AnimSequence() && cache.LastFrame == actor->AnimFrame() && cache.LastTween == TweenAlpha(actor);
+		if (!unchanged)
+		{
+			size_t numBones = rootOnly ? std::min<size_t>(1, mesh->RefSkeleton.size()) : mesh->RefSkeleton.size();
 
-				for (size_t i = 0; i < numBones; i++)
+			if (!actor->SkelAnim() && mesh->DefaultAnimation)
+				actor->SkelAnim() = mesh->DefaultAnimation;
+
+			UAnimation* anim = actor->SkelAnim();
+			AnimationData* data = anim ? GetAnimationData(anim) : nullptr;
+			MeshAnimSeq* seq = data ? data->GetSequence(actor->AnimSequence()) : nullptr;
+			AnimMove* move = data ? data->GetMove(actor->AnimSequence()) : nullptr;
+
+			if (seq && move)
+			{
+				if (anim != cache.LinkedAnim)
 				{
-					int track = cache.BoneMap[i];
-					Place place;
-					if (track < 0)
+					int animBone = AnimBone(actor);
+					for (size_t i = 0; i < mesh->RefSkeleton.size(); i++)
 					{
-						if (isChannel)
+						cache.BoneMap[i] = -1;
+						if (isChannel && ((int)i < animBone || (int)i > animBone + (int)mesh->RefSkeleton[animBone].NumChildren))
 							continue;
-						place = RefPlace(mesh->RefSkeleton[i]);
-					}
-					else
-					{
-						place = SampleTrack(move->AnimTracks[track], time, move->TrackTime);
-
-						if (i == 0)
+						for (size_t j = 0; j < move->AnimTracks.size() && j < data->RefBones.size(); j++)
 						{
-							// The mesh root may be below the animation's root: fold in the ancestors' keys.
-							int child = track;
-							int parent = data->RefBones[child].ParentIndex;
-							while (parent != child && parent >= 0 && parent < (int)move->AnimTracks.size())
+							if (mesh->RefSkeleton[i].Name == data->RefBones[j].Name)
 							{
-								Place pp = SampleTrack(move->AnimTracks[parent], time, move->TrackTime);
-								BoneCoords pc = ToCoords(pp);
-								const quaternion& c = place.Orientation;
-								const quaternion& q = pp.Orientation;
-								// -(c * q): same rotation, the sign is what the original produces
-								place.Orientation = quaternion(
-									q.y * c.z - c.x * q.w - q.x * c.w - q.z * c.y,
-									c.x * q.z - q.w * c.y - q.y * c.w - q.x * c.z,
-									q.x * c.y - q.w * c.z - q.z * c.w - c.x * q.y,
-									q.z * c.z + q.y * c.y + c.x * q.x - q.w * c.w);
-								place.Position = pc.Apply(place.Position);
-								child = parent;
-								parent = data->RefBones[child].ParentIndex;
+								cache.BoneMap[i] = (int)j;
+								break;
 							}
-
-							// bAnimMove: the root stays at its reference position; the original banks the
-							// root's movement for GetRootMovement. TODO(hp1): root motion.
-							if (bAnimMove(actor))
-								place.Position = mesh->RefSkeleton[0].Position;
 						}
 					}
+					cache.LinkedAnim = anim;
+				}
 
-					if (tween != 0.0f)
+				if (!move->AnimTracks.empty())
+				{
+					float time = std::min(actor->AnimFrame(), 1.0f) * move->TrackTime;
+					float tween = (cache.HasPose && actor->TweenRate() != 0.0f) ? 1.0f - TweenAlpha(actor) : 0.0f;
+
+					for (size_t i = 0; i < numBones; i++)
 					{
-						const Place& old = cache.Places[i];
-						place.Orientation = SlerpQuat(place.Orientation, old.Orientation, tween);
-						place.Position = place.Position * (1.0f - tween) + old.Position * tween;
-					}
+						int track = cache.BoneMap[i];
+						Place place;
+						if (track < 0)
+						{
+							if (isChannel)
+								continue;
+							place = RefPlace(mesh->RefSkeleton[i]);
+						}
+						else if (i == 0)
+						{
+							place = SampleRoot(data, move, track, time);
+							if (bAnimMove(actor))
+								BankRootMotion(cache, actor, mesh, data, move, track, place);
+						}
+						else
+						{
+							place = SampleTrack(move->AnimTracks[track], time, move->TrackTime);
+						}
 
-					cache.Places[i] = place;
-					if (header != &cache)
-						header->Places[i] = place;
+						if (tween != 0.0f)
+						{
+							const Place& old = cache.Places[i];
+							place.Orientation = SlerpQuat(place.Orientation, old.Orientation, tween);
+							place.Position = place.Position * (1.0f - tween) + old.Position * tween;
+						}
+
+						cache.Places[i] = place;
+						if (header != &cache)
+							header->Places[i] = place;
+					}
 				}
 			}
+			else if (!isChannel)
+			{
+				for (size_t i = 0; i < numBones; i++)
+					cache.Places[i] = RefPlace(mesh->RefSkeleton[i]);
+				if (!rootOnly)
+					cache.LinkedAnim = nullptr;
+			}
 		}
-		else if (!isChannel)
-		{
-			for (size_t i = 0; i < numBones; i++)
-				cache.Places[i] = RefPlace(mesh->RefSkeleton[i]);
-			cache.LinkedAnim = nullptr;
-		}
+
+		if (rootOnly)
+			return;
 
 		cache.HasPose = true;
+		cache.LastSequence = actor->AnimSequence();
+		cache.LastFrame = actor->AnimFrame();
+		cache.LastTween = TweenAlpha(actor);
 
 		// Aux channels override their bone subtrees, in AuxAnims order. Finished transient channels are
 		// destroyed here (this is where the original cleans them up).
@@ -322,6 +394,58 @@ namespace HP1
 				i--;
 			}
 		}
+	}
+
+	// The banked root movement, turned into world space by the mesh coords (rotation, scale, Y mirror), then cleared.
+	// IDA Engine.dll: ?GetRootMovement@USkeletalMesh@@UAE?AVFVector@@PAVAActor@@@Z [HP1 0x1041EE20]
+	static vec3 GetRootMovement(UActor* actor, USkeletalMesh* mesh)
+	{
+		ApplyAnim(mesh, actor, nullptr, true);
+		SkelCache& cache = GetSkelCache(actor, mesh);
+		vec3 move = (GetMeshToWorld(actor, mesh) * vec4(cache.RootMove, 0.0f)).xyz();
+		cache.RootMove = vec3(0.0f);
+		return move;
+	}
+
+	// World space movement the actor didn't make goes back into the mesh space adjust bank (dot products with
+	// the mesh axes: the transposed mesh coords).
+	// IDA Engine.dll: ?AdjustRootMovement@USkeletalMesh@@UAEXPAVAActor@@ABVFVector@@@Z [HP1 0x1041EFF0]
+	static void AdjustRootMovement(UActor* actor, USkeletalMesh* mesh, const vec3& delta)
+	{
+		if (delta == vec3(0.0f))
+			return;
+		SkelCache& cache = GetSkelCache(actor, mesh);
+		mat4 m = GetMeshToWorld(actor, mesh);
+		vec3 x = (m * vec4(1.0f, 0.0f, 0.0f, 0.0f)).xyz();
+		vec3 y = (m * vec4(0.0f, 1.0f, 0.0f, 0.0f)).xyz();
+		vec3 z = (m * vec4(0.0f, 0.0f, 1.0f, 0.0f)).xyz();
+		cache.RootAdjust += vec3(dot(delta, x), dot(delta, y), dot(delta, z));
+	}
+
+	// The end of AActor::Tick: a bAnimMove actor with authority moves by its animation's root movement
+	// (ULevel::MoveActor), slides once along whatever it hits, and hands back what it couldn't make.
+	// IDA Engine.dll: ?Tick@AActor@@UAEHMW4ELevelTick@@@Z [HP1 0x103B3840] (the bAnimMove block at its end)
+	void TickRootMotion(UActor* actor)
+	{
+		if (!bAnimMove(actor) || actor->Role() != ROLE_Authority || actor->bDeleteMe())
+			return;
+		USkeletalMesh* mesh = UObject::TryCast<USkeletalMesh>(actor->Mesh());
+		if (!mesh || mesh->RefSkeleton.empty())
+			return;
+
+		vec3 delta = GetRootMovement(actor, mesh);
+		if (delta == vec3(0.0f))
+			return;
+
+		CollisionHit hit = actor->TryMove(delta);
+		vec3 rest = delta * (1.0f - hit.Fraction);
+		if (hit.Fraction < 1.0f)
+		{
+			vec3 slide = rest - hit.Normal * dot(rest, hit.Normal);
+			CollisionHit hit2 = actor->TryMove(slide);
+			rest -= slide * hit2.Fraction;
+		}
+		AdjustRootMovement(actor, mesh, rest);
 	}
 
 	// USkeletalMesh::GetMeshCoords as a matrix: mesh space -> world.

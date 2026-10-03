@@ -13,24 +13,21 @@ function: `../ida/decomp/<Dll>/<ADDR>_<name>.c`, index in `../ida/decomp/<Dll>_i
 
 | Event | Raised in HP1 by |
 |---|---|
-| AlterDestination | APawn::execPollMoveToward `0x103D89C0`, APawn::execPollStrafeFacing `0x103D9010` |
 | BroadcastMessage | UGameEngine::Exec `0x10399580` |
 | ClientHearSound | AActor::CheckHearSound `0x1040AB90` |
 | ClientMessage | UClient::Exec `0x10386CF0`, ULevel::TickNetServer `0x103B60E0` |
 | DemoPlaySound | AActor::execPlaySound `0x1040B000`, AActor::execPlayOwnedSound `0x1040B890` |
-| DoJump | APawn::physWalking `0x103E6B60` |
-| Falling | APawn::physWalking `0x103E6B60`, AActor::physRolling `0x103F3040`, APawn::findNewFloor `0x103F43E0`, APawn::physSpider `0x103F4A00` |
 | FinishedInterpolation | AInterpolationManager::performPhysics `0x103F7BA0` |
-| KeyFrameReached | AActor::physMovingBrush `0x104061F0` |
 | LogGameSpecial | AStatLog::execInitialCheck `0x10309670`, AStatLog::execLogMutator `0x1030A560` |
 | LogGameSpecial2 | AStatLog::execInitialCheck `0x10309670` |
-| LongFall | APawn::execPollWaitForLanding `0x103D6EF0` |
 | PostNetBeginPlay | UActorChannel::ReceivedBunch `0x10435E70` |
-| PreClientTravel | APlayerPawn::execClientTravel `0x104071F0` |
 | ServerTravel | UGameEngine::Exec `0x10399580` |
 | ShowUpgradeMenu | UGameEngine::SetProgress `0x10399350` |
 | UpdateCamera | AInterpolationManager::performPhysics `0x103F7BA0` |
-| ViewFlash | UGameEngine::Tick `0x103A0900` |
+
+`Falling` is raised from walking and rolling (`hp1/HP1Pawn.cpp` `StartFalling`); the physSpider/findNewFloor call sites
+aren't, since no HP1 script uses PHYS_Spider. FinishedInterpolation/UpdateCamera wait for the InterpolationManager port
+(broom/Quidditch only).
 
 ## Raised by both
 
@@ -39,6 +36,7 @@ function: `../ida/decomp/<Dll>/<ADDR>_<name>.c`, index in `../ida/decomp/<Dll>_i
 | AcceptInventory | ULevel::SpawnPlayActor `0x103A8270` |
 | ActorEntered | ULevel::SetActorZone `0x103ACDD0` |
 | ActorLeaving | ULevel::SetActorZone `0x103ACDD0` |
+| AlterDestination | APawn::execPollMoveToward `0x103D89C0`, APawn::execPollStrafeFacing `0x103D9010` |
 | AnimEnd | AActor::Tick `0x103B3840` |
 | Attach | AActor::SetBase `0x1037A6F0` |
 | BaseChange | AActor::SetBase `0x1037A6F0` |
@@ -48,11 +46,13 @@ function: `../ida/decomp/<Dll>/<ADDR>_<name>.c`, index in `../ida/decomp/<Dll>_i
 | Destroyed | ULevel::DestroyActor `0x103A72C0` |
 | Detach | AActor::SetBase `0x1037A6F0` |
 | DetailChange | ULevel::DetailChange `0x103AE630` |
+| DoJump | APawn::physWalking `0x103E6B60` |
 | EncroachedBy | ULevel::CheckEncroachment `0x103AB5F0` |
 | EncroachingOn | ULevel::CheckEncroachment `0x103AB5F0` |
 | EndedRotation | AActor::physicsRotation `0x103E5FB0` |
 | EnemyNotVisible | APawn::CheckEnemyVisible `0x103DB710` |
 | Expired | AActor::Tick `0x103B3840` |
+| Falling | APawn::physWalking `0x103E6B60`, AActor::physRolling `0x103F3040`, APawn::findNewFloor `0x103F43E0`, APawn::physSpider `0x103F4A00` |
 | FellOutOfWorld | APawn::physWalking `0x103E6B60`, AActor::physFalling `0x103EEA20` |
 | FootZoneChange | ULevel::SetActorZone `0x103ACDD0` |
 | GainedChild | AActor::SetOwner `0x1037A5E0` |
@@ -61,8 +61,10 @@ function: `../ida/decomp/<Dll>/<ADDR>_<name>.c`, index in `../ida/decomp/<Dll>_i
 | HitWall | AActor::moveSmooth `0x103E4C30`, AActor::processHitWall `0x103ECF20`, AActor::physFalling `0x103EEA20`, AActor::physProjectile `0x103F2AB0`, AActor::physRolling `0x103F3040`, APawn::physSpider `0x103F4A00` |
 | InitGame | UGameEngine::LoadMap `0x1039C3D0` |
 | InterpolateEnd | AInterpolationManager::performPhysics `0x103F7BA0` |
+| KeyFrameReached | AActor::physMovingBrush `0x104061F0` |
 | Landed | AActor::processLanded `0x103ED210` |
 | Login | ULevel::SpawnPlayActor `0x103A8270` |
+| LongFall | APawn::execPollWaitForLanding `0x103D6EF0` |
 | LostChild | AActor::SetOwner `0x1037A5E0`, ULevel::DestroyActor `0x103A72C0` |
 | MayFall | APawn::physWalking `0x103E6B60` |
 | Mount | APawn::Mount `0x103EBFB0` |
@@ -76,13 +78,14 @@ function: `../ida/decomp/<Dll>/<ADDR>_<name>.c`, index in `../ida/decomp/<Dll>_i
 | PostRender | UGameEngine::Draw `0x1039FA40` |
 | PostTouch | AActor::performPhysics `0x103E52C0`, APawn::performPhysics `0x103E5520` |
 | PreBeginPlay | UGameEngine::LoadMap `0x1039C3D0`, ULevel::SpawnActor `0x103A65A0` |
+| PreClientTravel | APlayerPawn::execClientTravel `0x104071F0` |
 | PreLogin | ULevel::NotifyReceivedText `0x103B1030` |
 | PreRender | UGameEngine::Draw `0x1039FA40` |
 | RenderTexture | UScriptedTexture::Tick `0x10417C70` |
 | SeePlayer | APawn::ShowSelf `0x103DB880` |
 | SetInitialState | UGameEngine::LoadMap `0x1039C3D0`, ULevel::SpawnActor `0x103A65A0` |
-| SpawnNotification | ULevel::SpawnActor `0x103A65A0` |
 | Spawned | ULevel::SpawnActor `0x103A65A0` |
+| SpawnNotification | ULevel::SpawnActor `0x103A65A0` |
 | SpecialCost | APawn::clearPath `0x104005F0`, APawn::clearPaths `0x104006B0`, sub_10400870 `0x10400870` |
 | SpecialHandling | APawn::HandleSpecial `0x103E1460` |
 | SpeechTimer | AActor::Tick `0x103B3840` |
@@ -94,6 +97,7 @@ function: `../ida/decomp/<Dll>/<ADDR>_<name>.c`, index in `../ida/decomp/<Dll>_i
 | UnTouch | AActor::EndTouch `0x1037A3E0` |
 | UpdateEyeHeight | AActor::Tick `0x103B3840` |
 | UpdateTactics | AActor::Tick `0x103B3840` |
+| ViewFlash | UGameEngine::Tick `0x103A0900` |
 | ZoneChange | ULevel::SetActorZone `0x103ACDD0` |
 
 ## No native caller in HP1

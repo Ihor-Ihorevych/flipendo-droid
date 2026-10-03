@@ -125,7 +125,30 @@ Note the **negated Y** (skeletal meshes are mirrored) and that PrePivot is rotat
 MeshAdjust (bAlignBottom && bCollideWorld && Physics != 0 && CollideType != CT_Box?): z =
 (Mesh.Origin.z - Mesh.BoundingBox.Min.z) * Mesh.Scale.z * DrawScale - (CollisionHeight + 2.5).
 
+## Root motion (`bAnimMove`)
+
+`PlayAnim(..., RootBone='Move')` sets bAnimMove. CFSkelHeader fields (float index): +27..29 LastRootPos, +30
+RootLastFrame, +31..33 banked movement, +34..36 adjust bank, byte +148 "LastRootPos valid"; +8/+12/+16 are the last
+evaluated AnimFrame/TweenAlpha/AnimSequence (the early-out: a full ApplyAnim with all three unchanged skips the pose,
+so the tween blend can't run twice for one frame).
+
+- `ApplyAnim(Owner, Header, bRootOnly)`: the bool is "root only" (bone 0, no aux channels, doesn't record the
+  evaluation). A full evaluation of a new AnimSequence clears the valid flag and RootLastFrame.
+- Bone 0 with bAnimMove: if not valid, LastRootPos = the root track's key 0 folded through its ancestors at time 0 and
+  the adjust bank is cleared. Then bank += pose position - LastRootPos, LastRootPos = pose position, and the pose
+  position is replaced by the reference position (the mesh stays put; the actor moves). If the sequence is the last
+  evaluated one and AnimFrame changed: pay out the adjust bank, clamped per axis to
+  |KeyPos[last] - KeyPos[0]| * (AnimFrame (1 if 0) - RootLastFrame); RootLastFrame = AnimFrame.
+- `GetRootMovement` (0x1041EE20): ApplyAnim(root only), bank turned to world space with the mesh coords
+  (rotation, scale, Y mirror), bank cleared.
+- `AdjustRootMovement` (0x1041EFF0): world vector dotted with the mesh axes, added to the adjust bank.
+- `AnimCycleMovement` (0x1041F170): KeyPos[last] - KeyPos[0] of the root track; no caller found (not ported).
+- `AActor::Tick`, the end (bAnimMove && Role == ROLE_Authority): delta = GetRootMovement; MoveActor(delta); if it
+  hit something, slide once along the hit normal; AdjustRootMovement(what wasn't moved).
+
+Harry's climbs (`Mounting`/`MountFinish`) rely on it: the script moves only MountDelta minus the climb anims' own
+movement (30 forward, 32/64/96 up).
+
 ## Still to reverse
-- `GetRootMovement` / `AdjustRootMovement` / `AnimCycleMovement` (bAnimMove root motion).
 - `GetBoneCoords`, `BonePos`, weapon attachment (`WeaponBoneIndex`, `WeaponAdjust`).
 - Who destroys finished transient channels.
