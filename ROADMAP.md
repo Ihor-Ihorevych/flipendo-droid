@@ -58,7 +58,11 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
       PlayerPawn.ScreenToWorld, Pawn.FindPath, Console.CreateNativeFont
 - [ ] Unknown console command `Snap`
 - [ ] Peeves and a McGonagall get `FellOutOfWorld` on the first tick (zone/physics difference vs the original)
-- [ ] Cutscene letterbox bars only cover part of the screen width at 2560x1440 (canvas scaling)
+- [x] Widescreen / high-res 2D (`hp1/HP1Canvas.cpp`): HUD and cutscene letterbox bars use the full window width,
+      menus (FEBook, story book, message boxes) are drawn in a centred 4:3 area, UI scale is fractional (canvas
+      768 units tall, like 1024x768), and the options page lists the display's real resolutions
+      (`FEOptionsPage.IsSupportedResolution` replaced by a native)
+- [ ] Windowed mode: menu mouse mapping (`WindowsMouseX/Y` into the 4:3 area) not yet tested in game
 
 ## 3. Spells
 - [ ] `ParticleFX` native class (AddParticle, NumParticles, Get/SetParticleParams, RecomputeDeltas) + rendering
@@ -92,7 +96,8 @@ minimal so upstream updates rarely conflict.
 | `Packages/Engine/Actors/UActor_Render.cpp` | `HP1::GetRenderBoundingBox` in `UpdateBspInfo` |
 | `Packages/Engine/Actors/UActor_PhysMovingBrush.cpp` | `HP1::MoverPhysicsBegin/End` (Mover's shadowed PhysAlpha/PhysRate) |
 | `Render/RenderSubsystem.cpp` | `HP1::OnFrameRendered` (`HP1_SHOTS` debug screenshots) |
-| `Engine.cpp` | `HP1::ViewFovAngle` after PlayerCalcView (Hor+ FOV); trim `\|` input subcommands |
+| `Render/RenderCanvas.cpp`, `RenderSubsystem.h` | `HP1::CanvasUIScale` (float `uiscale`), `HP1::SetCanvasArea` (full-width HUD, 4:3 console/menus); `DrawClippedActor` relative to the canvas area |
+| `Engine.cpp` | `HP1::ViewFovAngle` after PlayerCalcView (Hor+ FOV); trim `\|` input subcommands; `getres` → `HP1::AvailableResolutions`; `HP1::MenuMousePosition` in `OnWindowMouseMove` |
 | `Collision/TopLevel/TraceTest.cpp`, `OverlapTest.cpp`, `CollisionSystem.cpp` | CT_Box trace/overlap/hash extents |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `HP1::PawnMoveToward`, `HP1::PawnPhysicsTime`, `HP1::PawnPhysicsRotation` |
 | `Packages/Engine/Actors/Pawn/UPlayerPawn.cpp` | `HP1::PawnPhysicsRotation` |

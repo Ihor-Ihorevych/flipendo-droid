@@ -107,7 +107,7 @@ index aef803f8..5b27c846 100644
  		if (t < tmax)
  		{
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 34ee5181..5856ecf8 100644
+index 34ee5181..d8bf6ea5 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,7 @@
@@ -127,6 +127,17 @@ index 34ee5181..5856ecf8 100644
  		}
  
  		UpdateAudio();
+@@ -1148,8 +1151,8 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+ 	}*/
+ 	else if (command == "getres")
+ 	{
+-		if (LaunchInfo.IsHarryPotter1()) // FEOptionsPage.IsSupportedResolution is so sad :)
+-			return "1024x768";
++		if (LaunchInfo.IsHarryPotter1()) // hp1_re: real modes, FEOptionsPage cap lifted (hp1/HP1Canvas.cpp)
++			return HP1::AvailableResolutions(window.get());
+ 		return window->GetAvailableResolutions();
+ 	}
+ 	else if (command == "getcolordepths")
 @@ -1454,6 +1457,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
  			endpos = command.size();
  
@@ -138,6 +149,15 @@ index 34ee5181..5856ecf8 100644
  		if (!subcommand.empty())
  			subcommands.push_back(subcommand);
  		pos = endpos + 1;
+@@ -1616,6 +1623,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
+ 	{
+ 		viewport->WindowsMouseX() = (float)(pos.x * window->GetDpiScale());
+ 		viewport->WindowsMouseY() = (float)(pos.y * window->GetDpiScale());
++		if (LaunchInfo.IsHarryPotter1()) // hp1_re: into the menu canvas (hp1/HP1Canvas.cpp)
++			HP1::MenuMousePosition(viewport->WindowsMouseX(), viewport->WindowsMouseY());
+ 	}
+ }
+ 
 diff --git a/SurrealEngine/Package/PackageManager.cpp b/SurrealEngine/Package/PackageManager.cpp
 index cdb045bf..4c41b7b2 100644
 --- a/SurrealEngine/Package/PackageManager.cpp
@@ -331,6 +351,74 @@ index 53982dc0..8dc63eb1 100644
  		return; // To do: format changed. Figure out how. Maybe the arrays became skippable?
  
  	int NumRefBones = stream->ReadIndex();
+diff --git a/SurrealEngine/Render/RenderCanvas.cpp b/SurrealEngine/Render/RenderCanvas.cpp
+index 4b2aa5c5..45e3c219 100644
+--- a/SurrealEngine/Render/RenderCanvas.cpp
++++ b/SurrealEngine/Render/RenderCanvas.cpp
+@@ -14,6 +14,7 @@
+ #include "GameWindow.h"
+ #include "VM/ScriptCall.h"
+ #include "Engine.h"
++#include "HP1.h" // hp1_re
+ 
+ void RenderSubsystem::ResetCanvas()
+ {
+@@ -21,6 +22,8 @@ void RenderSubsystem::ResetCanvas()
+ 	// Assume 1280x960 for UT and newer.
+ 	int vertResolution = engine->LaunchInfo.ue1Version < 400 ? 768 : 960;
+ 	Canvas.uiscale = std::max((engine->viewport->ViewportHeight() + vertResolution / 2) / vertResolution, 1);
++	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: fractional UI scale (hp1/HP1Canvas.cpp)
++		Canvas.uiscale = HP1::CanvasUIScale(engine->viewport->ViewportHeight());
+ 
+ 	SceneNode frame;
+ 	Canvas.Frame.XB = 0;
+@@ -54,11 +57,8 @@ void RenderSubsystem::ResetCanvas()
+ 	engine->canvas->SizeX() = sizeX;
+ 	engine->canvas->SizeY() = sizeY;
+ 
+-	if (engine->LaunchInfo.IsHarryPotter1())
+-	{
+-		engine->canvas->ClipX() = (float)sizeY * (4.0f / 3.0f);
+-		engine->canvas->SizeX() = (int)std::round(sizeY * (4.0f / 3.0f));
+-	}
++	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: full-width HUD canvas; menus get a 4:3 area in PostRender (hp1/HP1Canvas.cpp)
++		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, false);
+ 
+ 	//engine->viewport->bShowWindowsMouse() = true; // bShowWindowsMouse is set to true by WindowConsole if mouse cursor should be visible
+ 	//engine->viewport->bWindowsMouseAvailable() = true; // if true then RenderUWindow updates mouse pos from (WindowsMouseX,WindowsMouseY), otherwise it uses KeyEvent(IK_MouseX, delta) + KeyEvent(IK_MouseY, delta). Maybe used for windowed mode?
+@@ -101,7 +101,17 @@ void RenderSubsystem::PostRender()
+ 	Device->SetSceneNode(&Canvas.Frame);
+ 	if (engine->viewport->Actor())
+ 		CallEvent(engine->viewport->Actor(), EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
++	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: console/menus in a centred 4:3 area (hp1/HP1Canvas.cpp)
++	{
++		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, true);
++		Device->SetSceneNode(&Canvas.Frame);
++	}
+ 	CallEvent(engine->console, EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
++	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re
++	{
++		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, false);
++		Device->SetSceneNode(&Canvas.Frame);
++	}
+ 	DrawTimedemoStats();
+ 	
+ 	if (ShowCollisionDebug)
+@@ -133,10 +143,10 @@ void RenderSubsystem::DrawActor(UActor* actor, bool WireFrame, bool ClearZ)
+ void RenderSubsystem::DrawClippedActor(UActor* actor, bool WireFrame, int X, int Y, int XB, int YB, bool ClearZ)
+ {
+ 	SceneNode frame;
+-	frame.XB = XB * Canvas.uiscale;
+-	frame.YB = YB * Canvas.uiscale;
+-	frame.X = X * Canvas.uiscale;
+-	frame.Y = Y * Canvas.uiscale;
++	frame.XB = Canvas.Frame.XB + (int)(XB * Canvas.uiscale); // hp1_re: relative to the canvas area, float uiscale
++	frame.YB = (int)(YB * Canvas.uiscale);
++	frame.X = (int)(X * Canvas.uiscale);
++	frame.Y = (int)(Y * Canvas.uiscale);
+ 	frame.FX = (float)X * Canvas.uiscale;
+ 	frame.FY = (float)Y * Canvas.uiscale;
+ 	frame.FX2 = frame.FX * 0.5f;
 diff --git a/SurrealEngine/Render/RenderSubsystem.cpp b/SurrealEngine/Render/RenderSubsystem.cpp
 index f3fcef6d..19b22103 100644
 --- a/SurrealEngine/Render/RenderSubsystem.cpp
@@ -353,6 +441,19 @@ index f3fcef6d..19b22103 100644
  	Device->Unlock(true);
  }
  
+diff --git a/SurrealEngine/Render/RenderSubsystem.h b/SurrealEngine/Render/RenderSubsystem.h
+index 0f88fc9c..3ab3b405 100644
+--- a/SurrealEngine/Render/RenderSubsystem.h
++++ b/SurrealEngine/Render/RenderSubsystem.h
+@@ -105,7 +105,7 @@ private:
+ 
+ 	struct
+ 	{
+-		int uiscale = 1;
++		float uiscale = 1.0f; // hp1_re: float, HP1 uses a fractional UI scale
+ 		int fps = 0;
+ 		int framesDrawn = 0;
+ 		uint64_t startFPSTime = 0;
 diff --git a/SurrealEngine/Render/VisibleMesh.cpp b/SurrealEngine/Render/VisibleMesh.cpp
 index 7f5e8efb..75100770 100644
 --- a/SurrealEngine/Render/VisibleMesh.cpp

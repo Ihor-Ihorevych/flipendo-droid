@@ -81,7 +81,7 @@ in `docs/re/<topic>.md`.
 - Game detection: `UE1GameDatabase.h` (SHA-1 of `System/HP.exe`), `GameFolder.cpp/.h`
   (`IsHarryPotter1()` = exe stem `"HP"`).
 - Existing HP1 hooks: grep `IsHarryPotter1` (NActor, NObject, UStruct/Bytecode
-  `DynArrayToInt_HP1`, UAnimation, RenderCanvas, Engine.cpp resolution hack).
+  `DynArrayToInt_HP1`, UAnimation, RenderCanvas widescreen canvas, Engine.cpp `getres`).
 - Logging: `LogMessage` / `LogUnimplemented` (`Utils/Logger.h`). Missing natives log
   `Unimplemented: Class.Fn` at runtime.
 - `SurrealDebugger` (console UnrealScript debugger: breakpoints, callstack, disassembly) and
