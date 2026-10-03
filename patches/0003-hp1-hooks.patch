@@ -107,7 +107,7 @@ index aef803f8..91255987 100644
  		if (t < tmax)
  		{
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 34ee5181..0b7ed7d5 100644
+index 34ee5181..2c28ce59 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,7 @@
@@ -148,7 +148,17 @@ index 34ee5181..0b7ed7d5 100644
  		}
  
  		UpdateAudio();
-@@ -1148,8 +1158,8 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -676,6 +686,9 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
+ 
+ 	GetLevelInfoObject();
+ 
++	if (LaunchInfo.IsHarryPotter1()) // flipendo: an empty LevelEnterText becomes the URL's map (hp1/HP1Save.cpp)
++		HP1::LevelInfoLoaded(LevelInfo, url.Map);
++
+ 	LevelInfo->ComputerName() = "MyComputer";
+ 	LevelInfo->HubStackLevel() = 0; // To do: handle level hubs
+ 	LevelInfo->EngineVersion() = LaunchInfo.gameVersionString + " SE";
+@@ -1148,8 +1161,8 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  	}*/
  	else if (command == "getres")
  	{
@@ -159,7 +169,41 @@ index 34ee5181..0b7ed7d5 100644
  		return window->GetAvailableResolutions();
  	}
  	else if (command == "getcolordepths")
-@@ -1304,20 +1314,37 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1199,7 +1212,17 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+ 			{
+ 				ClientTravel(url.ToString(), ETravelType::TRAVEL_Absolute, false);
+ 				return {};
+-			}	
++			}
++		}
++
++		if (LaunchInfo.IsHarryPotter1()) // flipendo: "open saveN.usa" loads a save slot (hp1/HP1Save.cpp)
++		{
++			std::string loadURL = HP1::SaveGameLoadURL(url.Map);
++			if (!loadURL.empty())
++			{
++				ClientTravel(loadURL, ETravelType::TRAVEL_Absolute, false);
++				return {};
++			}
+ 		}
+ 
+ 		LogMessage("Couldn't find map " + maparg);
+@@ -1253,6 +1276,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+ 			return {};
+ 		}
+ 
++		// flipendo: HP1 saves at once, like UGameEngine::SaveGame. HPConsole.doLevelSave clears Level.Pauser only
++		// around this call and writes the slot's GameSaveInfo right after it.
++		if (LaunchInfo.IsHarryPotter1())
++		{
++			SaveGameToSlot(slotNum, args.size() == 3 ? args[2] : std::string());
++			return {};
++		}
++
+ 		SaveGameInfo.SaveGameSlot = slotNum;
+ 
+ 		if (args.size() == 3)
+@@ -1304,20 +1335,37 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  			}
  		}
  	}
@@ -205,7 +249,7 @@ index 34ee5181..0b7ed7d5 100644
  		UClass* cls = packages->FindClass(className);
  		if (!cls)
  		{
-@@ -1454,6 +1481,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
+@@ -1454,6 +1502,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
  			endpos = command.size();
  
  		std::string subcommand = command.substr(pos, endpos - pos);
@@ -216,7 +260,7 @@ index 34ee5181..0b7ed7d5 100644
  		if (!subcommand.empty())
  			subcommands.push_back(subcommand);
  		pos = endpos + 1;
-@@ -1616,6 +1647,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
+@@ -1616,6 +1668,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
  	{
  		viewport->WindowsMouseX() = (float)(pos.x * window->GetDpiScale());
  		viewport->WindowsMouseY() = (float)(pos.y * window->GetDpiScale());
@@ -225,7 +269,7 @@ index 34ee5181..0b7ed7d5 100644
  	}
  }
  
-@@ -1689,6 +1722,9 @@ void Engine::OnWindowKeyChar(std::string chars)
+@@ -1689,6 +1743,9 @@ void Engine::OnWindowKeyChar(std::string chars)
  
  void Engine::OnWindowKeyDown(EInputKey key)
  {

@@ -7,7 +7,7 @@
 | [development.md](development.md) | contributors | code layout, ground rules, reference material, porting a native, debug tools |
 | [engine-hooks.md](engine-hooks.md) | contributors | how Flipendo patches SurrealEngine, every hook by file, updating SurrealEngine |
 | [native_audit.md](native_audit.md) | contributors | generated: natives still missing (`tools/native_audit.py`) |
-| [re/](re/) | reverse engineers | what was learned from HP1's binaries: [animation](re/animation.md), [particles](re/particles.md), [script events](re/script_events.md) |
+| [re/](re/) | reverse engineers | what was learned from HP1's binaries: [animation](re/animation.md), [particles](re/particles.md), [save games](re/savegames.md), [script events](re/script_events.md) |
 
 The other top-level files each have one job:
 

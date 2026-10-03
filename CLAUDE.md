@@ -146,5 +146,7 @@ Each file has one job; keep them apart:
   doors, cutscenes); `HP1_GOTO="79:x,y;x,y,J;x,y,w3|126:..."` steers the player through waypoints (`J` = jump on
   arrival, within 8 units so it goes off at a ledge edge; `w3` = stop and wait 3 s; `|` starts another run at a later
   time) and logs `goto reached` / `goto stuck`. `HP1_HEIGHTMAP="12:x0,y0,x1,y1,step,ztop"` logs floor heights (player cylinder
-  traced down from ztop) over a grid: the way to plan jumps and climbs.
+  traced down from ztop) over a grid: the way to plan jumps and climbs. `HP1_EXEC="66:@console SaveSelectedSlot;70:open save99.usa"`
+  runs console commands, or (`@console[.Prop] Fn [arg]`) script functions on the console / an object it references
+  (`@console.MenuBook OpenBook Slot` opens the save slot page).
   Lev_Tut1 up to Fred & George's room: `HP1_KEYS="62:Up:5" HP1_GOTO="79:-400,-2000;-104,-2016;-20,-2016;140,-2016;232,-2095;225,-2887"`.

@@ -130,7 +130,7 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
       `hp1/HP1Navigation.cpp`)
 - [x] ModifySound(567), StopSound(568) (`hp1/HP1Sound.cpp`; Galaxy.dll's match: first sound with the slot's Id and,
       if given, the same Sound). BroomHarry crashed on the first tick without it
-- [ ] Missing Actor natives: SaveGameExists(3972), Wind.GetWind,
+- [ ] Missing Actor natives: Wind.GetWind,
       PlayerPawn.ScreenToWorld, Console.CreateNativeFont
 - [ ] Unknown console command `Snap` (FEBook.OpenBook `Snap 3`: screenshot for the save thumbnail, see phase 4)
 - [x] `FellOutOfWorld` on the first tick: HP1 only checks zone 0 in physWalking/physFalling, not flying/swimming/rolling
@@ -159,9 +159,17 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 - [ ] Spell targeting / eVulnerableToSpell paths
 
 ## 4. Save games and front end
-- [ ] Save/LoadGameSaveInfo, Save/LoadObjectAsFile, SaveGameExists (`GameSaveInfo` class)
-- [ ] CreateTextureFromScreenShot / CreateTextureFromBMP (save thumbnails)
-- [ ] FEBook pages that depend on the above
+- [x] Saving and loading (`hp1/HP1Save.cpp`, [docs/re/savegames.md](docs/re/savegames.md)): `SaveGame N` writes
+      `Save/SaveN.usa` at once (SurrealEngine deferred it to the end of the frame, after doLevelSave had restored
+      Level.Pauser), `open saveN.usa` (FESlotPage) loads it through SurrealEngine's `?load=N`. Tested in Lev_Tut1:
+      Harry, level time and scripts come back where they were saved, the next cutscene triggers
+- [x] Save/LoadGameSaveInfo (`Save/GameSaveInfoN`, the original's raw layout), SaveGameExists
+- [x] LevelEnterText = the travel URL's map when the level has none (LoadMap), so slots get their level name
+- [x] CreateTextureFromBMP: the slot page shows each slot's thumbnail (`Save/SGS <level>.bmp`)
+- [ ] Play the whole New Game → save point → quit → Load Game loop by hand through the menus (only driven with
+      `HP1_EXEC` so far), and a save made after a level change (autosave on the first tick)
+- [ ] After loading, the camera sits a little further back than when saved (BaseCam native state not in the save?)
+- [ ] Save/LoadObjectAsFile, CreateTextureFromScreenShot, `Snap 3`: no script uses them (low priority)
 
 ## 5. Remaining native classes and polish
 - [x] InterpolationManager (`hp1/HP1Interpolation.cpp`): performPhysics flies the Owner along InterpolationPoint Bezier
