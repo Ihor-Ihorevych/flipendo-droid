@@ -171,6 +171,8 @@ namespace HP1
 		USkeletalMesh* Mesh = nullptr;
 		UAnimation* LinkedAnim = nullptr;
 		bool HasPose = false;
+		bool HasBox = false;
+		BBox Box; // last render box, root bone space (CFSkelHeader+80)
 		Array<int> BoneMap;
 		Array<Place> Places;
 	};
@@ -391,6 +393,92 @@ namespace HP1
 		for (vec3& v : outVerts)
 			v = (meshToWorld * vec4(v, 1.0f)).xyz();
 		return true;
+	}
+
+	// sub_1041B500: animation bounding box in root bone space. Mesh.BoundingBoxes is indexed like the
+	// animation's AnimSeqs; while tweening it is unioned with the previous box, and with the aux channels' boxes.
+	static bool GetAnimBox(UActor* actor, USkeletalMesh* mesh, BBox& outBox)
+	{
+		bool valid = false;
+		BBox box;
+		UAnimation* anim = actor->SkelAnim();
+		AnimationData* data = anim ? GetAnimationData(anim) : nullptr;
+		if (data && !actor->AnimSequence().IsNone())
+		{
+			for (size_t i = 0; i < data->AnimSeqs.size(); i++)
+			{
+				if (data->AnimSeqs[i].Name == actor->AnimSequence())
+				{
+					if (i < mesh->BoundingBoxes.size())
+					{
+						box = mesh->BoundingBoxes[i];
+						valid = true;
+					}
+					break;
+				}
+			}
+		}
+
+		auto unite = [&](const BBox& b) {
+			if (!valid) { box = b; valid = true; return; }
+			box.min = vec3(std::min(box.min.x, b.min.x), std::min(box.min.y, b.min.y), std::min(box.min.z, b.min.z));
+			box.max = vec3(std::max(box.max.x, b.max.x), std::max(box.max.y, b.max.y), std::max(box.max.z, b.max.z));
+		};
+
+		SkelCache& cache = GetSkelCache(actor, mesh);
+		if (TweenAlpha(actor) != 1.0f && cache.HasBox)
+			unite(cache.Box);
+		cache.Box = box;
+		cache.HasBox = valid;
+
+		for (UActor* ch : AuxAnims(actor))
+		{
+			BBox chBox;
+			if (ch && GetAnimBox(ch, mesh, chBox))
+				unite(chBox);
+		}
+
+		outBox = box;
+		return valid;
+	}
+
+	// USkeletalMesh::GetRenderBoundingBox, as a world space AABB for culling/BSP placement.
+	BBox GetRenderBoundingBox(UActor* actor, USkeletalMesh* mesh)
+	{
+		mat4 meshToWorld = GetMeshToWorld(actor, mesh);
+
+		BBox box;
+		BoneCoords root;
+		if (GetAnimBox(actor, mesh, box) && !mesh->RefSkeleton.empty())
+		{
+			auto it = SkelCaches.find(actor);
+			if (it != SkelCaches.end() && it->second.HasPose && it->second.Mesh == mesh)
+				root = ToCoords(it->second.Places[0]);
+			else
+				root = ToCoords(RefPlace(mesh->RefSkeleton[0]));
+		}
+		else
+		{
+			box = mesh->BoundingBox;
+		}
+
+		BBox result;
+		for (int i = 0; i < 8; i++)
+		{
+			vec3 corner((i & 1) ? box.max.x : box.min.x, (i & 2) ? box.max.y : box.min.y, (i & 4) ? box.max.z : box.min.z);
+			vec3 p = (meshToWorld * vec4(root.Apply(corner), 1.0f)).xyz();
+			if (i == 0)
+			{
+				result.min = p;
+				result.max = p;
+			}
+			else
+			{
+				result.min = vec3(std::min(result.min.x, p.x), std::min(result.min.y, p.y), std::min(result.min.z, p.z));
+				result.max = vec3(std::max(result.max.x, p.x), std::max(result.max.y, p.y), std::max(result.max.z, p.z));
+			}
+		}
+		return result;
 	}
 
 	bool DrawSkeletalMesh(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, USkeletalMesh* mesh, bool translucentPass)
