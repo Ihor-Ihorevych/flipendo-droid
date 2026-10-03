@@ -24,6 +24,42 @@ namespace HP1
 		pawn->AvgPhysicsTime() = 0.8f * pawn->AvgPhysicsTime() + 0.2f * elapsed;
 	}
 
+	// APawn::performPhysics turns every pawn towards DesiredRotation after its movement (upstream only does
+	// that for non-player pawns, without HP1's pitch/roll handling, and never for the player). HP1's
+	// cutscene movement (baseHarry/baseChar CutMovingTo: MoveSmooth + DesiredRotation) depends on it.
+	// Yaw and pitch turn at RotationRate; roll is cleared, or with RotationRate.Roll > 0 eased back to
+	// level while walking. The flying/swimming bank from lateral acceleration is not ported yet.
+	// IDA Engine.dll: ?physicsRotation@APawn@@QAEXMVFVector@@@Z [HP1 0x103E5950]
+	// IDA Engine.dll: ?performPhysics@APawn@@UAEXM@Z [HP1 0x103E5520] (calls it unless PHYS_Spider)
+	void PawnPhysicsRotation(UPawn* pawn, float elapsed)
+	{
+		if (pawn->Physics() == PHYS_Spider)
+			return;
+
+		pawn->bRotateToDesired() = true;
+		pawn->bFixedRotationDir() = false;
+
+		Rotator rot = pawn->Rotation();
+		const Rotator& desired = pawn->DesiredRotation();
+		if ((desired.Yaw & 0xffff) != (rot.Yaw & 0xffff))
+			rot.Yaw = Rotator::TurnToShortest(rot.Yaw, desired.Yaw, (int)std::abs(pawn->RotationRate().Yaw * elapsed));
+		if ((desired.Pitch & 0xffff) != (rot.Pitch & 0xffff))
+			rot.Pitch = Rotator::TurnToShortest(rot.Pitch, desired.Pitch, (int)std::abs(pawn->RotationRate().Pitch * elapsed));
+
+		if (pawn->RotationRate().Roll <= 0)
+		{
+			rot.Roll = 0;
+		}
+		else
+		{
+			float t = std::min(elapsed * 8.0f, 1.0f);
+			int roll = rot.Roll & 0xffff;
+			rot.Roll = roll >= 0x8000 ? (int)((0x10000 - roll) * t + roll) : (int)((1.0f - t) * roll);
+		}
+
+		pawn->Rotation() = rot;
+	}
+
 	// IDA Engine.dll: ?moveToward@APawn@@QAEHABVFVector@@@Z [HP1 0x103D96F0]
 	// IDA Engine.dll: ?execPollMoveTo@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D8730], ?execPollMoveToward@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D89C0]
 	bool PawnMoveToward(UPawn* pawn, const vec3& dest)

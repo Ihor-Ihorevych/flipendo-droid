@@ -107,7 +107,7 @@ index aef803f8..5b27c846 100644
  		if (t < tmax)
  		{
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 34ee5181..6dcfcf7d 100644
+index 34ee5181..5856ecf8 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,7 @@
@@ -127,6 +127,17 @@ index 34ee5181..6dcfcf7d 100644
  		}
  
  		UpdateAudio();
+@@ -1454,6 +1457,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
+ 			endpos = command.size();
+ 
+ 		std::string subcommand = command.substr(pos, endpos - pos);
++		// hp1_re: trim, so "MoveForward | Button bX" finds the alias "MoveForward" (HP1's default bindings)
++		size_t first = subcommand.find_first_not_of(" \t");
++		size_t last = subcommand.find_last_not_of(" \t");
++		subcommand = first == std::string::npos ? std::string() : subcommand.substr(first, last - first + 1);
+ 		if (!subcommand.empty())
+ 			subcommands.push_back(subcommand);
+ 		pos = endpos + 1;
 diff --git a/SurrealEngine/Package/PackageManager.cpp b/SurrealEngine/Package/PackageManager.cpp
 index cdb045bf..4c41b7b2 100644
 --- a/SurrealEngine/Package/PackageManager.cpp
@@ -150,7 +161,7 @@ index cdb045bf..4c41b7b2 100644
  
  void PackageManager::RegisterNativeClasses()
 diff --git a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
-index de07166c..3dd2255a 100644
+index de07166c..1b17d139 100644
 --- a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
 @@ -7,10 +7,13 @@
@@ -167,7 +178,20 @@ index de07166c..3dd2255a 100644
  
  	if (StateFrame)
  	{
-@@ -236,6 +239,9 @@ bool UPawn::TickRotateTo(const vec3& target)
+@@ -179,6 +182,12 @@ void UPawn::Tick(float elapsed)
+ 
+ void UPawn::TickRotating(float elapsed)
+ {
++	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: APawn::physicsRotation
++	{
++		HP1::PawnPhysicsRotation(this, elapsed);
++		return;
++	}
++
+ 	if (Physics() == PHYS_Spider)
+ 		return;
+ 
+@@ -236,6 +245,9 @@ bool UPawn::TickRotateTo(const vec3& target)
  
  bool UPawn::TickMoveTo(const vec3& target)
  {
@@ -176,6 +200,31 @@ index de07166c..3dd2255a 100644
 +
  	if (MoveTimer() < 0.0f)
  		return true;
+ 
+diff --git a/SurrealEngine/Packages/Engine/Actors/Pawn/UPlayerPawn.cpp b/SurrealEngine/Packages/Engine/Actors/Pawn/UPlayerPawn.cpp
+index e3c87b45..99c1ef1e 100644
+--- a/SurrealEngine/Packages/Engine/Actors/Pawn/UPlayerPawn.cpp
++++ b/SurrealEngine/Packages/Engine/Actors/Pawn/UPlayerPawn.cpp
+@@ -3,6 +3,7 @@
+ #include "UPlayerPawn.h"
+ #include "UCamera.h"
+ #include "Engine.h"
++#include "HP1.h" // hp1_re
+ #include "Package/PackageManager.h"
+ #include "Package/IniProperty.h"
+ #include "VM/ScriptCall.h"
+@@ -50,6 +51,12 @@ void UPlayerPawn::Tick(float elapsed)
+ 
+ void UPlayerPawn::TickRotating(float elapsed)
+ {
++	if (engine->LaunchInfo.IsHarryPotter1()) // hp1_re: APawn::physicsRotation
++	{
++		HP1::PawnPhysicsRotation(this, elapsed);
++		return;
++	}
++
+ 	if (Physics() == PHYS_Spider)
+ 		return;
  
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
 index aceba9af..7d5ed5e0 100644
