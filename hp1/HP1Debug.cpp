@@ -7,6 +7,7 @@
 #include "HP1Actor.h"
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
+#include "Packages/Core/UClass.h"
 #include <chrono>
 #include <fstream>
 #include <sstream>
@@ -21,6 +22,10 @@
 //                              frame (same path as real raw mouse input; dy>0 is towards the user)
 //   HP1_TRACE="Harry,gen_"     log every actor whose name starts with one of these, every 0.5 s
 //   HP1_CAMERA="x,y,z,p,y"     fixed camera location and rotation (pitch/yaw in Unreal units), from the first frame
+//   HP1_DUMP="5,70"            log every actor (class, name, state, location, Tag, Event) at these times
+//   HP1_GOTO="60:x,y;x,y"      from <sec>, steer the player to each waypoint in turn (turns the view, holds Up);
+//                              several runs separated by '|'. A waypoint "x,y,J" jumps (Ctrl) on arrival, "x,y,w2" stops
+//                              and waits 2 s. Logs arrival and when the player is stuck
 
 namespace HP1
 {
@@ -155,12 +160,158 @@ namespace HP1
 		}
 	}
 
+	static void TickDebugDump(float now)
+	{
+		static bool parsed = false;
+		static Array<float> times;
+		if (!parsed)
+		{
+			parsed = true;
+			if (const char* s = getenv("HP1_DUMP"))
+			{
+				std::stringstream ss(s);
+				std::string item;
+				while (std::getline(ss, item, ','))
+					if (!item.empty()) times.push_back(std::stof(item));
+			}
+		}
+		if (times.empty() || now < times.front() || !engine->Level)
+			return;
+		times.erase(times.begin());
+
+		LogMessage("HP1 dump t=" + std::to_string(now));
+		for (UActor* a : engine->Level->Actors)
+		{
+			if (!a)
+				continue;
+			char buf[512];
+			snprintf(buf, sizeof(buf), "HP1 dump %s %s state=%s loc=(%.0f,%.0f,%.0f) tag=%s event=%s",
+				a->Class->Name.ToString().c_str(), a->Name.ToString().c_str(), a->GetStateName().ToString().c_str(),
+				a->Location().x, a->Location().y, a->Location().z, a->Tag().ToString().c_str(), a->Event().ToString().c_str());
+			LogMessage(buf);
+		}
+	}
+
+	static void TickDebugGoto(float now)
+	{
+		struct Waypoint { vec2 Pos; char Action = 0; float Arg = 0.0f; };
+		struct Run { float Time; Array<Waypoint> Points; };
+		static bool parsed = false;
+		static Array<Run> runs;
+		static size_t point = 0;
+		static bool holding = false;
+		static float lastProgress = 0.0f, bestDist = 0.0f, waitUntil = 0.0f, jumpUp = 0.0f;
+		if (!parsed)
+		{
+			parsed = true;
+			if (const char* s = getenv("HP1_GOTO"))
+			{
+				std::stringstream ss(s);
+				std::string item;
+				while (std::getline(ss, item, '|'))
+				{
+					Run run;
+					size_t colon = item.find(':');
+					if (colon == std::string::npos)
+						continue;
+					run.Time = std::stof(item.substr(0, colon));
+					std::stringstream pts(item.substr(colon + 1));
+					std::string p;
+					while (std::getline(pts, p, ';'))
+					{
+						Waypoint w;
+						char action[16] = {};
+						int n = sscanf(p.c_str(), "%f,%f,%15s", &w.Pos.x, &w.Pos.y, action);
+						if (n < 2)
+							continue;
+						if (n == 3)
+						{
+							w.Action = action[0];
+							w.Arg = action[1] ? std::stof(action + 1) : 0.0f;
+						}
+						run.Points.push_back(w);
+					}
+					if (!run.Points.empty())
+						runs.push_back(run);
+				}
+			}
+		}
+		auto release = [&]() { if (holding) { engine->OnWindowKeyUp((EInputKey)0x26); holding = false; } };
+		if (jumpUp != 0.0f && now >= jumpUp)
+		{
+			engine->OnWindowKeyUp((EInputKey)0x11);
+			jumpUp = 0.0f;
+		}
+		if (runs.empty() || now < runs.front().Time || now < waitUntil)
+			return;
+
+		UPlayerPawn* player = engine->viewport ? engine->viewport->Actor() : nullptr;
+		Run& run = runs.front();
+		if (!player || point >= run.Points.size())
+			return;
+
+		vec2 pos(player->Location().x, player->Location().y);
+		const Waypoint& target = run.Points[point];
+		vec2 delta = target.Pos - pos;
+		float dist = length(delta);
+		if (dist < 40.0f)
+		{
+			char buf[200];
+			snprintf(buf, sizeof(buf), "HP1 goto reached %d at t=%.1f (%.0f,%.0f,%.0f)", (int)point, now,
+				player->Location().x, player->Location().y, player->Location().z);
+			LogMessage(buf);
+			if (target.Action == 'J') // jump towards the next waypoint, still running
+			{
+				engine->OnWindowKeyDown((EInputKey)0x11);
+				jumpUp = now + 0.2f;
+			}
+			else if (target.Action == 'w') // stop and wait
+			{
+				release();
+				waitUntil = now + target.Arg;
+			}
+			point++;
+			bestDist = 0.0f;
+			if (point >= run.Points.size())
+			{
+				release();
+				runs.erase(runs.begin());
+				point = 0;
+			}
+			return;
+		}
+		if (bestDist == 0.0f || dist < bestDist - 8.0f)
+		{
+			bestDist = dist;
+			lastProgress = now;
+		}
+		else if (now - lastProgress > 3.0f)
+		{
+			char buf[200];
+			snprintf(buf, sizeof(buf), "HP1 goto stuck on %d at (%.0f,%.0f,%.0f) state=%s", (int)point,
+				player->Location().x, player->Location().y, player->Location().z, player->GetStateName().ToString().c_str());
+			LogMessage(buf);
+			lastProgress = now;
+		}
+
+		int yaw = (int)(std::atan2(delta.y, delta.x) * 32768.0f / 3.14159265f) & 0xffff;
+		player->ViewRotation().Yaw = yaw;
+		player->Rotation().Yaw = yaw;
+		if (!holding)
+		{
+			engine->OnWindowKeyDown((EInputKey)0x26);
+			holding = true;
+		}
+	}
+
 	void OnFrameRendered(RenderDevice* device)
 	{
 		float frameTime = SecondsSinceFirstFrame();
 		TickDebugKeys(frameTime);
 		TickDebugMouse(frameTime);
 		TickDebugTrace(frameTime);
+		TickDebugDump(frameTime);
+		TickDebugGoto(frameTime);
 
 		static bool parsed = false;
 		static Array<float> times;

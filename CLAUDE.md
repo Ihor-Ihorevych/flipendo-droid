@@ -106,3 +106,7 @@ in `docs/re/<topic>.md`.
   mouse by dx,dy raw counts every frame for a duration (dy<0 = mouse up = camera looks up), `HP1_TRACE="harry0,gen_"` to
   log actors by name prefix every 0.5 s (state, zone, location, velocity, rotation, anim, tween, pawn speed/input),
   `HP1_CAMERA="x,y,z,pitch,yaw"` to look at something from a fixed camera (e.g. a particle effect).
+  `HP1_DUMP="5,80"` logs every actor (class, name, state, location, Tag, Event) at those times (find triggers,
+  doors, cutscenes); `HP1_GOTO="79:x,y;x,y,J;x,y,w3|126:..."` steers the player through waypoints (`J` = jump on
+  arrival, `w3` = stop and wait 3 s; `|` starts another run at a later time) and logs `goto reached` / `goto stuck`.
+  Lev_Tut1 up to Fred & George's room: `HP1_KEYS="62:Up:5" HP1_GOTO="79:-400,-2000;-104,-2016;-20,-2016;140,-2016;232,-2095;225,-2887"`.

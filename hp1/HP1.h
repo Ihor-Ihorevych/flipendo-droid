@@ -9,6 +9,7 @@ class UActor;
 class Rotator;
 class UCanvas;
 class UPawn;
+class CollisionHit;
 class UAnimation;
 class USkeletalMesh;
 class ObjectStream;
@@ -88,6 +89,8 @@ namespace HP1
 
 	// UPawn::TickMoveTo: APawn::moveToward. Returns true when the latent move is done.
 	bool PawnMoveToward(UPawn* pawn, const vec3& dest);
+	// UActor::TickWalking / TickFalling on a wall hit: APawn::Mount (ledge grab). True if Pawn.Mount was raised.
+	bool PawnMount(UPawn* pawn, const vec3& delta, const CollisionHit& hit);
 	// UActor::PreparePawnMovementTick / TickRolling: whether this physics mode fires FellOutOfWorld in zone 0.
 	bool PhysicsChecksLeftWorld(UActor* actor);
 }
