@@ -6,7 +6,13 @@ SurrealEngine fork. Read `README.md` first for layout, build and run commands.
 ## Rules
 
 - **Never open a PR or push to SurrealEngine upstream.** Upstream bans LLM-written PRs
-  (`engine/NO-AI Code Rule.md`). The `upstream` remote is fetch-only for us.
+  (`engine/NO-AI Code Rule.md`).
+- **`engine/` is a git submodule (upstream `github.com/dpjudas/SurrealEngine`). Never edit its
+  files as a change of their own and never commit inside it.** Engine changes exist only as
+  `patches/*.patch`, applied to the submodule working tree by `tools/apply_patches.sh` (run by
+  `tools/build.sh`). To change a hook: edit the patched file in `engine/`, run
+  `tools/refresh_patches.sh`, commit `patches/`. Temporary debug edits in `engine/` must be reverted
+  (`tools/apply_patches.sh --reset`) before refreshing patches.
 - **HP1 code goes in `hp1/`, not in `engine/`.** `engine/` is upstream SurrealEngine (actively
   developed); every line we change there is a future merge conflict. Engine files only get small
   hooks that call into `hp1/` (see the table in `ROADMAP.md`). Prefer overriding natives from
@@ -71,7 +77,8 @@ in `docs/re/<topic>.md`.
 
 ## Build / run
 
-- `tools/update_engine.sh [--check]` — pull newer SurrealEngine into `engine/` (subtree merge).
+- `tools/update_engine.sh [--check|ref]` — move the `engine/` submodule to a newer mirror commit and
+  re-apply `patches/`. `tools/apply_patches.sh [--reset]`, `tools/refresh_patches.sh` for the patch set.
 - `tools/build.sh [Release|Debug|RelWithDebInfo] [target]` — VS 18 (2026) generator, x64, output in
   `build/<Config>/`. A full build takes a few minutes; `--target SurrealEngine` for the game only.
 - Rebuilding fails if `SurrealEngine.exe` is running (file lock). The user is fine with Claude killing it

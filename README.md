@@ -23,7 +23,8 @@ See [`ROADMAP.md`](ROADMAP.md) for the plan, and
 | Path | What |
 |---|---|
 | `hp1/` | The HP1 port: native functions, animation, etc. Built into the engine via `hp1/hp1.cmake`. |
-| `engine/` | SurrealEngine, imported as a git subtree (upstream history kept). Only small hooks into `hp1/`, marked `hp1_re:`. |
+| `engine/` | SurrealEngine, a **git submodule** of [upstream SurrealEngine](https://github.com/dpjudas/SurrealEngine). Never edited or committed to directly. |
+| `patches/` | Our small changes to SurrealEngine (hooks into `hp1/`, HP1 exe detection, launcher flags), applied to `engine/` by the build. |
 | `tools/` | Build, run and audit scripts. |
 | `docs/` | Reverse-engineering notes and generated reports. |
 
@@ -66,20 +67,23 @@ python tools/native_audit.py
 
 ## Upstream & licence
 
-`engine/` is SurrealEngine (zlib licence, see `engine/LICENSE.md`) with modifications; altered
-files are marked with `hp1_re:` comments as the licence requires. Upstream asks that
+`engine/` is unmodified SurrealEngine (zlib licence, see `engine/LICENSE.md`). Our changes to it are
+the `patches/*.patch` files, applied to the submodule's working tree by `tools/build.sh`
+(`tools/apply_patches.sh`); altered lines are marked with `hp1_re:` comments as the licence requires.
+Upstream asks that
 LLM-assisted changes are **not** sent as pull requests (`engine/NO-AI Code Rule.md`), so this fork
-stays separate. Pull a newer SurrealEngine with:
+stays separate.
 
 ```sh
-tools/update_engine.sh --check   # list new upstream commits + which hp1_re-modified files they touch
-tools/update_engine.sh           # merge upstream master into engine/ (git subtree, history kept)
-tools/update_engine.sh <sha>     # or a specific upstream commit/branch
+git clone --recursive https://github.com/kroplabeskidu/hp1_re   # or: git submodule update --init
+tools/update_engine.sh --check   # new upstream commits + which patched files they touch
+tools/update_engine.sh           # move engine/ to the mirror's master and re-apply patches/
+tools/update_engine.sh <sha>     # or a specific commit
 ```
 
-The script adds the `upstream` remote (push disabled) on a fresh clone. If the merge conflicts, keep
-the `hp1_re:` blocks, take upstream for everything else, `git add` + `git commit`, then rebuild
-and rerun `tools/native_audit.py`.
+If a patch no longer applies, `apply_patches.sh` reports `CONFLICT`: redo that hook by hand in
+`engine/`, run `tools/refresh_patches.sh` to regenerate `patches/`, rebuild, commit `patches/` and
+the new `engine` submodule pointer.
 
 Harry Potter is a trademark of Warner Bros. Entertainment. The game data is copyright EA /
 KnowWonder and is not included.

@@ -1,0 +1,19 @@
+hp1_re: recognise the HP1 retail (SafeDisc) and No-CD HP.exe builds
+
+diff --git a/SurrealEngine/UE1GameDatabase.h b/SurrealEngine/UE1GameDatabase.h
+index 18ca9c13..ed8ba662 100644
+--- a/SurrealEngine/UE1GameDatabase.h
++++ b/SurrealEngine/UE1GameDatabase.h
+@@ -197,6 +197,12 @@ static const std::map<std::string, KnownUE1Games> SHA1Database = {
+ 	// Harry Potter 1 (UK), post-patched, archive.org cracked exe
+ 	{"7e675aa863f55049f3cf530dfea0b241b112d03a", KnownUE1Games::HARRYPOTTER1_433},
+ 
++	// hp1_re: Harry Potter 1 (EN), unpatched retail 1.0, SafeDisc-wrapped exe
++	{"f7abfd7d56a6792e119964aa40af2190b8fe4ec4", KnownUE1Games::HARRYPOTTER1_433},
++
++	// hp1_re: Harry Potter 1 (EN), unpatched retail 1.0, community No-CD exe
++	{"9aad58812940d27c7cd96d2920c726cc2d2fdde9", KnownUE1Games::HARRYPOTTER1_433},
++
+ 	// Harry Potter 2 (UK)
+ 	{"3a43d9ec8be7ec441b18a8dc710b4bdd5b29bda3", KnownUE1Games::HARRYPOTTER2_433},
+ 

@@ -1,0 +1,5 @@
+[submodule "engine"]
+	path = engine
+	url = https://github.com/dpjudas/SurrealEngine
+	ignore = dirty
+	branch = master

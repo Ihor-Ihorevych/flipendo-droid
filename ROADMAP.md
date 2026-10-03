@@ -6,7 +6,8 @@ live in `docs/re/`. The native-level checklist is `docs/native_audit.md` (`pytho
 Legend: [x] done · [~] partly done / in progress · [ ] not started
 
 ## 0. Groundwork
-- [x] SurrealEngine imported as a git subtree in `engine/`, `tools/update_engine.sh` for upstream pulls
+- [x] SurrealEngine as a git submodule (`engine/`, our mirror) + our changes as `patches/`;
+      `tools/update_engine.sh` to move to newer upstream
 - [x] HP1 retail exe detection (SafeDisc + No-CD hashes), `--autolaunch`, `--logfile`
 - [x] HP1 code lives in `hp1/`, engine changes are small `hp1_re:` hooks (see "Code layout" in CLAUDE.md)
 
@@ -51,7 +52,8 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 
 ## Engine hooks (upstream files we touch)
 
-Kept minimal so `tools/update_engine.sh` merges stay easy. Grep `hp1_re:` for the full list.
+These live in `patches/` (0001 exe detection, 0002 launcher flags, 0003 hooks into `hp1/`) and are kept
+minimal so upstream updates rarely conflict.
 
 | File | Hook |
 |---|---|
@@ -60,4 +62,7 @@ Kept minimal so `tools/update_engine.sh` merges stay easy. Grep `hp1_re:` for th
 | `Packages/Engine/Resources/Mesh/UAnimation.cpp` | `HP1::LoadAnimation` |
 | `Packages/Engine/Actors/UActor_Animation.cpp` | `HP1::TickAnimation` |
 | `Render/VisibleMesh.cpp` | `HP1::DrawSkeletalMesh` in `DrawSkeletalMesh` |
+| `Packages/Engine/Actors/UActor_Render.cpp` | `HP1::GetRenderBoundingBox` in `UpdateBspInfo` |
+| `Packages/Engine/Actors/UActor_PhysMovingBrush.cpp` | `HP1::MoverPhysicsBegin/End` (Mover's shadowed PhysAlpha/PhysRate) |
+| `Render/RenderSubsystem.cpp` | `HP1::OnFrameRendered` (`HP1_SHOTS` debug screenshots) |
 | `UE1GameDatabase.h`, `GameApp.cpp` | exe hashes, `--autolaunch` / `--logfile` |
