@@ -15,13 +15,14 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 - [x] Anim state natives: PlayAnim, LoopAnim, TweenAnim, IsAnimating, FinishAnim, CreateAnimChannel,
       HasAnim, GetAnimGroup, LinkSkelAnim, BoneNumber, BoneName
 - [x] Anim tick: TweenAlpha blend, notifies, AnimEnd, aux channels
-- [ ] **Skeletal pose + skinning so characters render** (`USkeletalMesh::GetFrame` / `ApplyAnim`). Until this
-      is done character models are invisible.
-- [ ] Channel blending in the pose (AuxAnims per bone subtree, AT_Combine)
+- [x] Skeletal pose + skinning: characters render (`hp1/Anim/HP1Skeletal.cpp`: ApplyAnim, GetFrame,
+      GetMeshCoords incl. the Y mirror, Wideness, bAlignBottom)
+- [~] Channel blending in the pose (AuxAnims per bone subtree) — implemented, not yet verified in game
+- [ ] Verify animations visually against the original (walk/run/breathe, tween blends)
 - [ ] Root motion (`bAnimMove`: GetRootMovement / AdjustRootMovement / AnimCycleMovement)
 - [ ] BonePos, GetBoneCoords, weapon/wand attachment (WeaponBoneIndex, WeaponAdjust), AttachToOwner
 - [ ] GetRenderExtent, GetWorldCollisionBox (skeletal bounds)
-- [ ] Transient channel cleanup
+- [x] Transient channel cleanup (done in ApplyAnim, like the original)
 
 ## 2. Playable tutorial (Lev_Tut1)
 - [x] TraceTexture at HP1's native index 285 (footsteps); decals not traced yet
@@ -29,6 +30,8 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 - [ ] Missing Actor natives: ModifySound(567), StopSound(568), SaveGameExists(3972), Wind.GetWind,
       PlayerPawn.ScreenToWorld, Pawn.FindPath, Console.CreateNativeFont
 - [ ] Unknown console command `Snap`
+- [ ] Peeves and a McGonagall get `FellOutOfWorld` on the first tick (zone/physics difference vs the original)
+- [ ] Cutscene letterbox bars only cover part of the screen width at 2560x1440 (canvas scaling)
 
 ## 3. Spells
 - [ ] `ParticleFX` native class (AddParticle, NumParticles, Get/SetParticleParams, RecomputeDeltas) + rendering
@@ -56,4 +59,5 @@ Kept minimal so `tools/update_engine.sh` merges stay easy. Grep `hp1_re:` for th
 | `Package/PackageManager.cpp` | `HP1::RegisterNatives()` after upstream natives |
 | `Packages/Engine/Resources/Mesh/UAnimation.cpp` | `HP1::LoadAnimation` |
 | `Packages/Engine/Actors/UActor_Animation.cpp` | `HP1::TickAnimation` |
+| `Render/VisibleMesh.cpp` | `HP1::DrawSkeletalMesh` in `DrawSkeletalMesh` |
 | `UE1GameDatabase.h`, `GameApp.cpp` | exe hashes, `--autolaunch` / `--logfile` |

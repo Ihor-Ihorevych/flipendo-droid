@@ -5,7 +5,9 @@
 
 class UActor;
 class UAnimation;
+class USkeletalMesh;
 class ObjectStream;
+class VisibleFrame;
 
 namespace HP1
 {
@@ -17,4 +19,7 @@ namespace HP1
 
 	// UActor::TickAnimation.
 	void TickAnimation(UActor* actor, float elapsed);
+
+	// VisibleMesh::DrawSkeletalMesh, after the mesh textures are set up: pose, skin and draw.
+	bool DrawSkeletalMesh(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, USkeletalMesh* mesh, bool translucentPass);
 }
