@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Move the engine/ submodule (upstream SurrealEngine) to a newer commit and re-apply patches/.
-#   tools/update_engine.sh --check   list new upstream commits and which patched files they touch
+# Move the engine/ submodule (SurrealEngine) to a newer commit and re-apply patches/.
+#   tools/update_engine.sh --check   list new SurrealEngine commits and which patched files they touch
 #   tools/update_engine.sh [ref]     update to ref (default: origin/master), re-apply patches
 # On CONFLICT: fix the hook in engine/ by hand, run tools/refresh_patches.sh, rebuild.
 set -euo pipefail
@@ -25,7 +25,7 @@ git -C "$ENGINE" log --oneline --no-decorate "$CUR..$NEW" | head -40
 PATCHED="$(grep -h '^diff --git a/' patches/*.patch | awk '{print substr($3,3)}' | sort -u)"
 TOUCHED="$(git -C "$ENGINE" diff --name-only "$CUR" "$NEW" | sort -u)"
 BOTH="$(comm -12 <(echo "$PATCHED") <(echo "$TOUCHED"))"
-[ -n "$BOTH" ] && { echo; echo "upstream also changed these patched files:"; echo "$BOTH" | sed 's/^/  /'; }
+[ -n "$BOTH" ] && { echo; echo "SurrealEngine also changed these patched files:"; echo "$BOTH" | sed 's/^/  /'; }
 
 [ "$CHECK" = 1 ] && exit 0
 

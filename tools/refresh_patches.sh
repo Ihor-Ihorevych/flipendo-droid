@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Regenerate patches/*.patch from the engine/ submodule's working-tree changes.
 # Workflow for changing an engine hook: tools/apply_patches.sh, edit the file under engine/, run this,
-# commit patches/. Never commit inside engine/ (it's a mirror of upstream SurrealEngine).
+# commit patches/. Never commit inside engine/ (it's a mirror of SurrealEngine).
 # A changed file goes to the patch that already touches it; other files go to the *-hp1-hooks patch.
 set -euo pipefail
 

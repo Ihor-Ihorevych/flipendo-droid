@@ -1,0 +1,88 @@
+# Engine hooks
+
+Flipendo uses [SurrealEngine](https://github.com/dpjudas/SurrealEngine) as a dependency: `engine/` is a git
+submodule pinned to a SurrealEngine commit, and nothing is ever committed inside it. The HP1 code lives in `hp1/`.
+SurrealEngine's files only get small hooks that call into `hp1/`, kept as patch files so a newer SurrealEngine
+rarely conflicts.
+
+## The patch set
+
+| Patch | What |
+|---|---|
+| `patches/0001-game-detection.patch` | HP1 `System/HP.exe` hashes (UK 1.1, EN retail SafeDisc, community No-CD) |
+| `patches/0002-launcher-flags.patch` | `--autolaunch`, `--logfile`, the flags the HP1 code reads |
+| `patches/0003-hp1-hooks.patch` | the hooks into `hp1/` listed below, and fixes to SurrealEngine code |
+| `patches/0004-cursor-focus.patch` | cursor recentering and raw input only while the game window has focus |
+
+`tools/build.sh` applies them to the submodule's working tree (`tools/apply_patches.sh`). Every changed line is
+marked with a `flipendo:` comment, which SurrealEngine's zlib licence requires for altered source. HP1-only
+behaviour is gated behind `engine->LaunchInfo.IsHarryPotter1()` so other UE1 games keep working.
+
+### Changing a hook
+
+1. Edit the patched file under `engine/` (the patches are already applied after a build).
+2. `tools/refresh_patches.sh` regenerates `patches/` from the working tree. A file goes to the patch that already
+   touches it; new files go to `0003-hp1-hooks.patch`. New source files belong in `hp1/`, not `engine/`.
+3. Rebuild, then commit `patches/` (never `engine/` itself) and add the hook to the table below.
+
+Until you refresh, `tools/build.sh` reports `CONFLICT` for the patches: the working tree has changes they don't
+contain yet. Temporary debug edits must be reverted (`tools/apply_patches.sh --reset`) before refreshing.
+
+### Moving to a newer SurrealEngine
+
+```sh
+tools/update_engine.sh --check   # new SurrealEngine commits + which patched files they touch
+tools/update_engine.sh           # move engine/ to SurrealEngine master and re-apply patches/
+tools/update_engine.sh <sha>     # or a specific commit
+```
+
+If a patch no longer applies, `apply_patches.sh` reports `CONFLICT`: redo that hook by hand in `engine/`, run
+`tools/refresh_patches.sh`, rebuild, and commit `patches/` together with the new `engine` submodule pointer.
+
+## Hooks by file
+
+Paths are relative to `engine/SurrealEngine/` unless they start with `engine/`.
+
+| File | Hook |
+|---|---|
+| `engine/CMakeLists.txt` | includes `hp1/hp1.cmake` |
+| `Package/PackageManager.cpp` | `HP1::RegisterNatives()` after SurrealEngine natives |
+| `Packages/Engine/Resources/Mesh/UAnimation.cpp` | `HP1::LoadAnimation` |
+| `Packages/Engine/Actors/UActor_Animation.cpp` | `HP1::TickAnimation` |
+| `Render/VisibleMesh.cpp` | `HP1::DrawSkeletalMesh` in `DrawSkeletalMesh` |
+| `Packages/Engine/Actors/UActor_Render.cpp` | `HP1::GetRenderBoundingBox` in `UpdateBspInfo` |
+| `Packages/Engine/Actors/UActor_PhysMovingBrush.cpp` | `HP1::MoverPhysicsBegin/End` (Mover's shadowed PhysAlpha/PhysRate) |
+| `Render/RenderSubsystem.cpp` | `HP1::OnFrameRendered` (`HP1_SHOTS` debug screenshots) |
+| `Render/RenderCanvas.cpp`, `RenderSubsystem.h` | `HP1::CanvasUIScale` (float `uiscale`), `HP1::SetCanvasArea` (full-width HUD, 4:3 console/menus); `DrawClippedActor` relative to the canvas area |
+| `Engine.cpp` | `HP1::ViewFovAngle` after PlayerCalcView (Hor+ FOV); trim `\|` input subcommands; `SET Input` takes the rest of the line (multi-word aliases; no alias unbinds); `getres` → `HP1::AvailableResolutions`; `HP1::MenuMousePosition` in `OnWindowMouseMove` |
+| `Collision/TopLevel/TraceTest.cpp`, `OverlapTest.cpp`, `CollisionSystem.cpp` | CT_Box trace/overlap/hash extents |
+| `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `HP1::PawnMoveToward`, `HP1::PawnPhysicsTime`, `HP1::PawnPhysicsRotation` |
+| `Packages/Engine/Actors/Pawn/UPlayerPawn.cpp` | `HP1::PawnPhysicsRotation` |
+| `UE1GameDatabase.h`, `GameApp.cpp` | exe hashes, `--autolaunch` / `--logfile` |
+| `SurrealWidgets/.../win32_display_window.cpp` | cursor recentering and raw mouse/keyboard input need foreground focus (0004; raw input is RIDEV_INPUTSINK, so moving the mouse in another app turned the camera) |
+| `Packages/Engine/Actors/UActor_Phys.cpp`, `UActor_PhysRolling.cpp` | `HP1::PhysicsChecksLeftWorld` (zone-0 FellOutOfWorld only while walking) |
+| `Packages/Engine/Actors/UActor_PhysWalking.cpp` | player slides along actors it hits (no pushable decoration); `HP1::PawnMount` before the step up |
+| `Packages/Engine/Actors/UActor_PhysFalling.cpp` | `HP1::PawnMount` on a wall hit |
+| `Packages/Engine/Actors/UActor.cpp` | `HP1::TickParticleFX` in Tick, `HP1::ParticleFXDestroyed` in Destroy |
+| `Packages/Engine/Actors/UActor_Render.cpp` | `HP1::GetParticleBoundingBox` for DT_Particles (8) |
+| `Render/VisibleActor.cpp` | DT_Particles actors drawn in the translucent pass by `HP1::DrawParticleSystem` |
+| `Engine.cpp` | `HP1::DebugCamera` after PlayerCalcView (`HP1_CAMERA`); `HP1::TickMods` after the console tick; `HP1::ModsKeyDown` in OnWindowKeyDown |
+| `Render/RenderCanvas.cpp` (PostRender) | `HP1::PostRenderMods` after the HUD and console/menus |
+| `Native/NObject.cpp` | DynamicLoadObject resolves "Package.Group.Name" |
+| `Packages/Engine/Actors/UActor.cpp` (Tick end) | `HP1::TickRootMotion` (bAnimMove root motion) |
+| `Packages/Engine/Actors/UActor_PhysWalking.cpp`, `UActor_PhysRolling.cpp` | `HP1::PawnWalkOffLedge` / `HP1::StartFalling` (MayFall, ledge rule, auto-jump, Falling) |
+| `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `HP1::PawnPollMoveToward`, `PawnPollStrafeFacing`, `PawnPollWaitForLanding`; WaitForLanding sets LatentFloat |
+| `Packages/Engine/Actors/UActor_PhysMovingBrush.cpp` | KeyFrameReached instead of InterpolateEnd(None) |
+| `Native/NPlayerPawn.cpp` | ClientTravel raises PreClientTravel |
+| `Engine.cpp` (after the level tick), `Render/RenderSubsystem.cpp` | ViewFlash event; `HP1::ViewFlashParams` for the screen flash |
+| `Packages/Engine/Subsystems/USurrealAudioDevice.cpp` | music plays despite `UseDigitalMusic=False` (HP1's shipped ini; its mp2 songs play in the original) |
+| `Packages/Engine/Actors/UActor_PhysFlying.cpp` | flying keeps Velocity.z (HP1 physFlying 0x103F13A0) |
+| `Packages/Engine/Actors/UActor_Phys.cpp` | an InterpolationManager runs `HP1::InterpolationManagerPhysics` instead of the physics modes |
+| `Packages/Engine/Subsystems/USurrealAudioDevice.cpp/.h` | `ModifySoundHP1` / `StopSoundHP1` (Galaxy.dll's slot + sound match) |
+| `Packages/Core/Properties/UStructProperty.cpp` | struct members that are fixed arrays load/save every element |
+| `Packages/Engine/Actors/UActor_PhysTrailer.cpp` | `HP1::PhysTrailer` (AnimBone attachment, HP1's rotation rules) |
+| `Render/VisibleMesh.cpp` | weapon on a skeletal pawn: `HP1::PawnWeaponFrame` (WeaponLoc/WeaponRot) + `Begin/EndWeaponDraw` around the weapon draw |
+| `Render/RenderCanvas.cpp` | RenderOverlays only without bBehindView, on the ViewTarget |
+| `Package/PackageManager.cpp/.h`, `Package/Package.cpp` | missing data messages: a missing package names who imports it and every Paths folder searched; missing maps list the map folders; Paths folders that don't exist and imports a package lacks are logged ([troubleshooting](troubleshooting.md)) |
+| `Native/NObject.cpp` | DynamicLoadObject failures log why (missing package with the searched folders, or missing object) |
+| `UE1GameDatabase.cpp/.h`, `GameFolder.cpp/.h`, `GameApp.cpp` | a game folder given on the command line that isn't recognised says why (no such folder, the System folder itself, no known exe, unknown exe SHA-1) |

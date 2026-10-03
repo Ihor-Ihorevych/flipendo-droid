@@ -1,13 +1,13 @@
 # CLAUDE.md — Flipendo
 
-Source port of Harry Potter and the Philosopher's Stone (PC 2001, UE1 build 433) on a
-SurrealEngine fork. Read `README.md` first for layout, build and run commands.
+Source port of Harry Potter and the Philosopher's Stone (PC 2001, UE1 build 433) on
+SurrealEngine (a dependency: git submodule + small patches). Read `README.md` first for layout, build and run commands.
 
 ## Rules
 
-- **Never open a PR or push to SurrealEngine upstream.** Upstream bans LLM-written PRs
+- **Never open a PR or push to the SurrealEngine project.** SurrealEngine bans LLM-written PRs
   (`engine/NO-AI Code Rule.md`).
-- **`engine/` is a git submodule (upstream `github.com/dpjudas/SurrealEngine`). Never edit its
+- **`engine/` is a git submodule (SurrealEngine, `github.com/dpjudas/SurrealEngine`). Never edit its
   files as a change of their own and never commit inside it.** Engine changes exist only as
   `patches/*.patch`, applied to the submodule working tree by `tools/apply_patches.sh` (run by
   `tools/build.sh`). To change a hook: edit the patched file in `engine/`, run
@@ -15,10 +15,10 @@ SurrealEngine fork. Read `README.md` first for layout, build and run commands.
   (`tools/apply_patches.sh --reset`) before refreshing patches.
 - **Features the original game doesn't have go in `hp1/mods/`** (see its README): optional, off with
   `--vanilla`, hooked only through `HP1::TickMods`/`ModsKeyDown`/`PostRenderMods`. The rest of `hp1/` is the faithful port.
-- **HP1 code goes in `hp1/`, not in `engine/`.** `engine/` is upstream SurrealEngine (actively
+- **HP1 code goes in `hp1/`, not in `engine/`.** `engine/` is SurrealEngine (actively
   developed); every line we change there is a future merge conflict. Engine files only get small
-  hooks that call into `hp1/` (see the table in `ROADMAP.md`). Prefer overriding natives from
-  `hp1/HP1Natives.cpp` (`OverrideNative`) and side tables over editing upstream classes.
+  hooks that call into `hp1/` (see `docs/engine-hooks.md`). Prefer overriding natives from
+  `hp1/HP1Natives.cpp` (`OverrideNative`) and side tables over editing SurrealEngine classes.
 - **Every function in `hp1/` that reimplements engine code carries an IDA tag** directly above its
   definition, one line per original function, in exactly this format (greppable with `// IDA `):
   ```cpp
@@ -39,6 +39,10 @@ SurrealEngine fork. Read `README.md` first for layout, build and run commands.
   from them (e.g. the "HP1 public headers" on archive.org). Layouts and behaviour come from HP1's own
   binaries and scripts (IDA, `.u` files), SurrealEngine, and observing the original game. Don't copy
   Epic type or field names that don't appear in HP1's exports or scripts; name things yourself.
+- **Write down what you learn in `docs/re/`.** Whenever reversing, debugging or reading scripts teaches
+  something new about how HP1 works (a struct layout, a native's behaviour, an event the engine raises, a level
+  route, why a script state is never entered), add it to the matching `docs/re/<topic>.md`, or start a new topic
+  file, in the same change. Don't leave findings only in commit messages or the conversation.
 - **Flipendo is licensed PolyForm Noncommercial 1.0.0** (`LICENSE.md`); `engine/` stays zlib.
 - Don't push to `origin` without explicit permission.
 - Never modify `../harry-potter-unpacked/` or `../harry-potter/` (pristine retail copies).
@@ -70,8 +74,13 @@ SurrealEngine fork. Read `README.md` first for layout, build and run commands.
 
 ## Where we are
 
-`ROADMAP.md` has the phase checklist; update it when something lands. Reverse-engineering notes go
-in `docs/re/<topic>.md`.
+Each file has one job; keep them apart:
+
+- `README.md`: for players and new contributors (what, why, status, build, play). Keep it short and link to `docs/`.
+- `ROADMAP.md`: the phase checklist, what's done and next. Update it when something lands. No how-it-works detail.
+- `docs/`: how things work (index: `docs/README.md`). Reverse-engineering notes in `docs/re/<topic>.md`, every
+  SurrealEngine hook in `docs/engine-hooks.md`, workflow and debug tools in `docs/development.md`, modding in
+  `docs/modding.md`, player-facing error messages in `docs/troubleshooting.md`.
 
 ## IDA
 
@@ -99,9 +108,9 @@ in `docs/re/<topic>.md`.
 4. Implement in `hp1/`:
    - registration: in a `Register*Natives()` called from `HP1::RegisterNatives()`, using
      `OverrideNative(index, [] { RegisterVMNativeFunc_<argc>("Class", "Name", &Fn, index); })`
-     (upstream may already have a stub at that index);
+     (SurrealEngine may already have a stub at that index);
    - HP-only Actor properties: accessors in `hp1/HP1Actor.h` (offsets looked up by name);
-   - only if there's no other way, a gated `flipendo:` hook in an engine file, added to the ROADMAP table;
+   - only if there's no other way, a gated `flipendo:` hook in an engine file, added to `docs/engine-hooks.md`;
    - the `// IDA <dll>: <decorated name> [HP1 0x...]` tag above every reimplemented function (see Rules).
 5. Rebuild, `tools/run_hp1.sh 60`, check the `Unimplemented:` summary, rerun the audit.
 
@@ -118,7 +127,7 @@ in `docs/re/<topic>.md`.
 
 ## Build / run
 
-- `tools/update_engine.sh [--check|ref]` — move the `engine/` submodule to a newer upstream commit and
+- `tools/update_engine.sh [--check|ref]` — move the `engine/` submodule to a newer SurrealEngine commit and
   re-apply `patches/`. `tools/apply_patches.sh [--reset]`, `tools/refresh_patches.sh` for the patch set.
 - `tools/build.sh [Release|Debug|RelWithDebInfo] [target]` — VS 18 (2026) generator, x64, output in
   `build/<Config>/`. A full build takes a few minutes; `--target SurrealEngine` for the game only.

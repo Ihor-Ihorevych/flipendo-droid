@@ -1,0 +1,16 @@
+# Flipendo documentation
+
+| Document | For | What's in it |
+|---|---|---|
+| [troubleshooting.md](troubleshooting.md) | players | where the game files are expected, what the error messages mean |
+| [modding.md](modding.md) | modders | the built-in mods, writing your own, where modding is going |
+| [development.md](development.md) | contributors | code layout, ground rules, reference material, porting a native, debug tools |
+| [engine-hooks.md](engine-hooks.md) | contributors | how Flipendo patches SurrealEngine, every hook by file, updating SurrealEngine |
+| [native_audit.md](native_audit.md) | contributors | generated: natives still missing (`tools/native_audit.py`) |
+| [re/](re/) | reverse engineers | what was learned from HP1's binaries: [animation](re/animation.md), [particles](re/particles.md), [script events](re/script_events.md) |
+
+The other top-level files each have one job:
+
+- [`README.md`](../README.md): what Flipendo is, its status, how to build and play.
+- [`ROADMAP.md`](../ROADMAP.md): what's done and what's next. How things work goes here in `docs/`, not there.
+- [`CLAUDE.md`](../CLAUDE.md): the project rules, written for AI assistants but binding for everyone.
