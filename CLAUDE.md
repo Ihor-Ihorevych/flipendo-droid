@@ -54,6 +54,7 @@ SurrealEngine fork. Read `README.md` first for layout, build and run commands.
 
 ## Build / run
 
+- `tools/update_engine.sh [--check]` — pull newer SurrealEngine into `engine/` (subtree merge).
 - `tools/build.sh [Release|Debug|RelWithDebInfo] [target]` — VS 18 (2026) generator, x64, output in
   `build/<Config>/`. A full build takes a few minutes; `--target SurrealEngine` for the game only.
 - Rebuilding fails if `SurrealEngine.exe` is running (file lock) — check `tasklist` first, don't
