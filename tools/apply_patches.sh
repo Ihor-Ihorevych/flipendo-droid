@@ -8,7 +8,13 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ENGINE="$ROOT/engine"
 [ -f "$ENGINE/CMakeLists.txt" ] || git -C "$ROOT" submodule update --init engine
-git -C "$ENGINE" config core.autocrlf false   # patches are made from the repo blobs
+# Patches are made from the repo blobs (LF). A checkout made with the global core.autocrlf=true has CRLF
+# files, so the first time we switch it off, re-checkout the submodule (nothing of ours is in it yet).
+if [ "$(git -C "$ENGINE" config core.autocrlf || true)" != "false" ]; then
+	git -C "$ENGINE" config core.autocrlf false
+	git -C "$ENGINE" rm -q -r --cached .
+	git -C "$ENGINE" reset -q --hard
+fi
 
 if [ "${1:-}" = "--reset" ]; then
 	git -C "$ENGINE" checkout -q -- .
