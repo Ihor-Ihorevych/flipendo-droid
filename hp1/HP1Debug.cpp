@@ -4,6 +4,8 @@
 #include "Packages/Engine/UViewport.h"
 #include "Utils/Logger.h"
 #include "Engine.h"
+#include "VM/ScriptCall.h"
+#include "Packages/Engine/UConsole.h"
 #include "HP1Actor.h"
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
@@ -29,6 +31,9 @@
 //                              and waits 2 s. Logs arrival and when the player is stuck
 //   HP1_HEIGHTMAP="5:x0,y0,x1,y1,step,ztop"  at <sec>, trace straight down (player-sized cylinder) from ztop over
 //                              the grid and log one row of floor heights per y (blank = nothing within 2000 units)
+//   HP1_EXEC="40:open save0.usa;90:SaveGame 3"  run a console command at <sec> (';' separates entries);
+//                              "@console Fn" calls the console's script function Fn() instead (e.g. SaveSelectedSlot);
+//                              "@console.MenuBook OpenBook Slot" follows object properties and passes one string
 
 namespace HP1
 {
@@ -195,6 +200,57 @@ namespace HP1
 		}
 	}
 
+	static void TickDebugExec(float now)
+	{
+		struct Command { float Time; std::string Text; };
+		static bool parsed = false;
+		static Array<Command> commands;
+		if (!parsed)
+		{
+			parsed = true;
+			if (const char* s = getenv("HP1_EXEC"))
+			{
+				std::stringstream ss(s);
+				std::string item;
+				while (std::getline(ss, item, ';'))
+				{
+					size_t colon = item.find(':');
+					if (colon != std::string::npos)
+						commands.push_back({ std::stof(item.substr(0, colon)), item.substr(colon + 1) });
+				}
+			}
+		}
+		if (commands.empty() || now < commands.front().Time || !engine->viewport || !engine->viewport->Actor())
+			return;
+		std::string text = commands.front().Text;
+		commands.erase(commands.begin());
+
+		LogMessage("HP1 exec t=" + std::to_string(now) + ": " + text);
+		if (text.rfind("@console", 0) == 0)
+		{
+			// "@console[.Prop[.Prop]] Fn [string arg]": follow object properties from the console, then call Fn.
+			std::stringstream parts(text);
+			std::string path, fn, arg;
+			parts >> path >> fn;
+			std::getline(parts >> std::ws, arg);
+			UObject* obj = engine->console;
+			std::stringstream props(path.substr(8));
+			std::string prop;
+			while (obj && std::getline(props, prop, '.'))
+				if (!prop.empty()) obj = obj->GetUObject(prop);
+			if (!obj || fn.empty())
+				LogMessage("HP1 exec: no object for " + path);
+			else if (arg.empty())
+				CallEvent(obj, NameString(fn));
+			else
+				CallEvent(obj, NameString(fn), { ExpressionValue::StringValue(arg) });
+			return;
+		}
+		uint32_t foundBits = 0;
+		BitfieldBool found{ &foundBits, 1 };
+		engine->ConsoleCommand(engine->viewport->Actor(), text, found);
+	}
+
 	static void TickDebugHeightmap(float now)
 	{
 		static bool parsed = false;
@@ -358,6 +414,7 @@ namespace HP1
 		TickDebugDump(frameTime);
 		TickDebugHeightmap(frameTime);
 		TickDebugGoto(frameTime);
+		TickDebugExec(frameTime);
 
 		static bool parsed = false;
 		static Array<float> times;

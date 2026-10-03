@@ -82,6 +82,7 @@ Environment variables read by `hp1/HP1Debug.cpp`. Times are seconds since the fi
 | `HP1_DUMP` | `"5,80"` | log every actor (class, name, state, location, Tag, Event) at those times |
 | `HP1_CAMERA` | `"x,y,z,pitch,yaw"` | look from a fixed camera |
 | `HP1_HEIGHTMAP` | `"12:x0,y0,x1,y1,step,ztop"` | floor heights over a grid, for planning jumps and climbs |
+| `HP1_EXEC` | `"66:@console SaveSelectedSlot;70:open save99.usa"` | console commands at those times (`;` separates); `@console[.Prop] Fn [arg]` calls a script function on the console (or an object it references) with an optional string, e.g. `@console.MenuBook OpenBook Slot` |
 
 The first level hands control to the player at about 58 s. To walk up to Fred & George's room:
 

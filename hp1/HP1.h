@@ -12,6 +12,7 @@ class Rotator;
 class UCanvas;
 class UPawn;
 class UPlayerPawn;
+class ULevelInfo;
 class CollisionHit;
 class UAnimation;
 class USkeletalMesh;
@@ -70,6 +71,12 @@ namespace HP1
 	void MenuMousePosition(float& x, float& y);
 	// Engine::ConsoleCommand "getres": the display's modes, with FEOptionsPage's 1024x768 cap lifted.
 	std::string AvailableResolutions(GameWindow* window);
+	// Engine::ConsoleCommand "open": FESlotPage loads a slot with "open saveN.usa". Returns "?load=N" when the map names
+	// an existing save file in the Save folder, else empty (hp1/HP1Save.cpp).
+	std::string SaveGameLoadURL(const std::string& map);
+	// Engine::LoadMap, after the LevelInfo is found: UGameEngine::LoadMap sets an empty LevelEnterText to URL.Map
+	// ("Lev_Tut1.unr"); HPConsole.doLevelSave names the save slot (and its thumbnail) after it.
+	void LevelInfoLoaded(ULevelInfo* levelInfo, const std::string& urlMap);
 
 	// Collision (hp1/HP1Collision.cpp): actors with CollideType CT_Box are oriented boxes, not cylinders.
 	bool IsBoxCollider(UActor* actor);
