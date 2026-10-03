@@ -17,11 +17,20 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
    QuidditchPawn), so it is needed for those levels, not the tutorial.
 3. Verify animations visually against the original; BonePos / GetBoneCoords / wand attachment (phase 1).
 
+Before reversing anything, search the decompiled dump (`../ida/decomp/`) and `docs/re/script_events.md`: a state the
+script never enters is usually an event the engine doesn't raise. Read scripts in `reference/hp1/ScriptSource/` (our
+disc, `tools/extract_scripts.sh`), not other script exports.
 
 ## 0. Groundwork
 - [x] SurrealEngine as a git submodule (`engine/`, upstream SurrealEngine) + our changes as `patches/`;
       `tools/update_engine.sh` to move to newer upstream
 - [x] HP1 retail exe detection (SafeDisc + No-CD hashes), `--autolaunch`, `--logfile`
+- [x] Native audit vs our disc's scripts (`tools/native_audit.py` → `docs/native_audit.md`)
+- [x] Our own scripts: `tools/extract_scripts.sh` extracts the source text embedded in our `.u` files (1247 classes,
+      original comments, generated defaultproperties) into `reference/hp1/ScriptSource/` with UELib (`tools/Unreal-Library`
+      submodule, our extractor `tools/uelib_dump/`).
+      `uelib_dump props <package>` dumps every export of a package (maps: all actors with properties)
+- [x] IDA database of `Engine.dll`: `../ida/Engine.dll.i64`
 - [x] HP1 code lives in `hp1/`, engine changes are small `hp1_re:` hooks in `patches/`
 - [x] Debug env vars: `HP1_HEIGHTMAP` floor heights over a grid (route planning), `HP1_SHOTS`/`HP1_SHOT_DIR` screenshots, `HP1_KEYS` scripted key presses,
       `HP1_MOUSE` scripted raw mouse moves, `HP1_TRACE` actor state log (now with zone, pitch, view rotation), `HP1_CAMERA` fixed camera,

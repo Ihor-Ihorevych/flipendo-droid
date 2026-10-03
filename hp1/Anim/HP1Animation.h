@@ -21,7 +21,7 @@ namespace HP1
 		float KeyTimeScale = 1.0f;
 	};
 
-	// MotionChunk
+	// MotionChunk in Engine.dll's exports
 	struct AnimMove
 	{
 		vec3 RootSpeed3D = vec3(0.0f);
