@@ -1,0 +1,93 @@
+# HP1 skeletal animation (reversed from Engine.dll)
+
+Source: `../ida/Engine.dll.i64` (layouts measured from `Serialize` and field accesses).
+Implementation: `hp1/Anim/`.
+
+## Data: `UAnimation` (sizeof 156)
+
+`UAnimation::Serialize` order (all counts are `FCompactIndex`):
+
+| Field | Element | Notes |
+|---|---|---|
+| `RefBones` | bone {FName Name; DWORD Flags; INT ParentIndex} | |
+| `Moves` | `MotionChunk` (48 B) {FVector RootSpeed3D; FLOAT TrackTime; INT StartBone; DWORD Flags; TArray<INT> BoneIndices; TArray<track> AnimTracks} | one per AnimSeq, same order. No separate root track |
+| `AnimSeqs` | `FMeshAnimSeq` (32 B) {Name, Group, StartFrame, NumFrames, Notifys, Rate} | stock serialize order; in-memory Rate is at +16, Notifys at +20 |
+| `KeyQuats` | `FAnimVec` (3x SWORD) | bulk |
+| `KeyPoses` | `FAnimVec` | bulk |
+| `KeyTimes` | BYTE | bulk |
+
+Track (36 B): {DWORD Flags; KeyQuat (FAnimVec); KeyPos (FAnimVec); KeyTime (BYTE); FLOAT KeyPosScale; FLOAT KeyTimeScale}.
+The three key arrays serialize only their counts; after load, `Serialize` walks all
+tracks in order and points each one at the next slice of the shared pools.
+
+`FAnimVec` decoding (`FAnimVec::Quat`, `FAnimVec::Vector`):
+- quaternion: xyz = sin(v * (pi/2)/32767) (constant 0.0000479383634), w = sqrt(max(0, 1 - x²-y²-z²)); encoder flips sign so w >= 0
+- position: v * Scale / 32767, Scale = track.KeyPosScale
+- key time: raw byte, scaled by KeyTimeScale (exact use still to confirm in `ApplyAnim`)
+
+## Data: `USkeletalMesh` (sizeof 684)
+
+Serialize order matches upstream SurrealEngine's loader: ULodMesh, ExtWedges, Points, RefSkeleton (bone, 64 B
+in memory: Name, Flags, BonePos{Orientation, Position, Length, XSize, YSize, ZSize}, ParentIndex @52, NumChildren @56,
+Depth @60; on disk NumChildren comes before ParentIndex), BoneWeightIdx, BoneWeights, LocalPoints, SkeletalDepth,
+DefaultAnimation, WeaponBoneIndex, WeaponAdjust. `MeanBoundingBox` is computed on load (not serialized).
+
+## Sequence lookup: `AActor::GetAnim`
+
+Skeletal mesh: `(SkelAnim ? SkelAnim : Mesh.DefaultAnimation)->GetAnimSeq(name)`. Otherwise the classic
+`UMesh::GetAnimSeq`. No fallback to the first sequence (upstream's `UMesh::GetSequence` has one).
+`LinkSkelAnim(Anim)` just sets `SkelAnim`.
+
+## Actor animation state
+
+`execPlayAnim` → `AActor::PlayAnim(Seq, bLoop=false, Rate=1, TweenTime=-1, MinRate=0, Type, RootBone)`;
+`execLoopAnim` → same with bLoop=true; `execTweenAnim(Seq, Time)` → `PlayAnim(Seq, false, 0, Time, 0, AT_Replace, None)`.
+
+`PlayAnim`:
+- no Mesh → log `PlayAnim: No mesh`, return.
+- `RootBone=='Move'` → RootBone=None, bAnimMove=true; else bAnimMove=false.
+- skeletal + RootBone: Seq None → stop channels in the bone's subtree (transient: destroy + remove from
+  AuxAnims; persistent: AnimSequence=None). Else `CreateAnimChannel(AnimChannel, Type, RootBone, true)` and
+  PlayAnim on the channel with AT_Replace / no RootBone.
+- `Type==AT_Replace` → clear all aux channels the same way.
+- sequence not found (and Seq != None) → log `PlayAnim: Sequence '%s' not found in Mesh '%s'`, return.
+- LoopAnim on the already looping sequence: only update AnimRate/AnimMinRate, bAnimFinished=false.
+- AnimRate = Rate*seq.Rate/NumFrames; AnimLast = 1-1/NumFrames; AnimMinRate = MinRate ? seq.Rate/NumFrames*MinRate : 0;
+  bAnimNotify = Notifys.Num>0; bAnimLoop = bLoop; AnimFrame = 0; TweenAlpha = 0; AnimSequence = Seq.
+- TweenTime > 0: TweenRate = 1/TweenTime; == 0: TweenRate 0, TweenAlpha 1; < 0: TweenRate = 2 (0.5 s).
+- Then SimAnim packing for replication (not ported).
+
+So HP tweening is a blend weight (`TweenAlpha`), not UE1's negative AnimFrame.
+
+`CreateAnimChannel(Class, Type, RootBone, bTransient)`: needs skeletal mesh and a valid bone. Reuses an aux channel
+with the same AnimBone and bAnimTransient. Else spawns `Class` (Owner=self, at self), copies Mesh and SkelAnim,
+sets AnimBone=bone index, bAnimTransient. AT_Combine: insert at AuxAnims[0]; AT_Replace: destroy the channels in
+[bone, bone+RefSkeleton[bone].NumChildren) and append.
+
+`IsAnimating(RootBone)`: AnimSequence != None && (AnimRate != 0 || TweenRate != 0), on self or on the channel
+whose AnimBone == BoneIndex(RootBone).
+
+`FinishAnim(RootBone)`: target = self or that channel. If bAnimLoop: clear bAnimLoop and bAnimFinished. If animating
+and AnimFrame < AnimLast: target.StateFrame.LatentAction = 385 (execPollFinishAnim, which ends when
+bAnimFinished). With a RootBone the latent goes on the channel, so the caller does not wait.
+
+## Tick (`AActor::Tick`, anim part)
+
+Animator = Owner if (AnimBone != 0 && bAnimTransient) else self. Up to 4 iterations while animating and dt > 0:
+1. TweenRate > 0: TweenAlpha += dt*TweenRate; at >= 1: clamp, TweenRate=0, and if AnimRate == 0 → bAnimFinished,
+   animator.AnimEnd. dt isn't consumed here (a tween-only anim tweens up to 4x per tick).
+2. AnimRate != 0: AnimFrame += rate*dt (negative AnimRate: max(AnimMinRate, -AnimRate*|animator.Velocity|)).
+3. bAnimNotify: earliest notify with old < Time <= AnimFrame → AnimFrame = Time, dt = remaining, call it on the
+   animator, next iteration.
+4. AnimFrame < AnimLast → done. Looping: wrap to 0 once >= 1 (keeping the leftover dt); when crossing AnimLast:
+   bAnimFinished if latent FinishAnim is pending, AnimEnd on self. Not looping: AnimFrame = AnimLast, AnimRate = 0,
+   bAnimFinished, animator.AnimEnd.
+AnimEnd is skipped for bSimulatedPawn (network only).
+
+## Still to reverse
+
+- `USkeletalMesh::GetFrame` / `ApplyAnim` (pose evaluation, channel blending, TweenAlpha blend, KeyTime use)
+  → needed to render characters.
+- `GetRootMovement` / `AdjustRootMovement` / `AnimCycleMovement` (bAnimMove root motion).
+- `GetBoneCoords`, `BonePos`, weapon attachment (`WeaponBoneIndex`, `WeaponAdjust`).
+- Who destroys finished transient channels.
