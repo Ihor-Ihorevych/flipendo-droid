@@ -39,6 +39,7 @@
 //                              "@console Fn" calls the console's script function Fn() instead (e.g. SaveSelectedSlot);
 //                              "@console.MenuBook OpenBook Slot" follows object properties and passes one string;
 //                              "@set CutScene bDebugScript True" sets a property on every actor whose name starts so; "@get harry numBeans" logs one
+//                              "@teleport x y z" moves the player; "@trigger <tag>" triggers every actor with that Tag
 
 namespace HP1
 {
@@ -231,6 +232,31 @@ namespace HP1
 		commands.erase(commands.begin());
 
 		LogMessage("HP1 exec t=" + std::to_string(now) + ": " + text);
+		if (text.rfind("@teleport ", 0) == 0)
+		{
+			// "@teleport x y z": move the player there (touches whatever is at the new spot, like a real move would not skip).
+			vec3 pos;
+			if (sscanf(text.c_str() + 10, "%f %f %f", &pos.x, &pos.y, &pos.z) == 3)
+				LogMessage(std::string("HP1 exec: teleport ") + (engine->viewport->Actor()->SetLocation(pos) ? "ok" : "blocked"));
+			return;
+		}
+		if (text.rfind("@trigger ", 0) == 0)
+		{
+			// "@trigger <tag>": Trigger every actor with that Tag, instigated by the player (what Actor.TriggerEvent does).
+			NameString tag(text.substr(9));
+			UPlayerPawn* player = engine->viewport->Actor();
+			int count = 0;
+			for (UActor* a : engine->Level->Actors)
+			{
+				if (a && a->Tag() == tag)
+				{
+					CallEvent(a, EventName::Trigger, { ExpressionValue::ObjectValue(player), ExpressionValue::ObjectValue(player) });
+					count++;
+				}
+			}
+			LogMessage("HP1 exec: triggered " + std::to_string(count) + " actors");
+			return;
+		}
 		if (text.rfind("@get ", 0) == 0)
 		{
 			// "@get <actor name prefix> <property>": log a property of every matching actor.
