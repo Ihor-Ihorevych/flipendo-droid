@@ -107,7 +107,7 @@ index aef803f8..91255987 100644
  		if (t < tmax)
  		{
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 34ee5181..52cb5c21 100644
+index 34ee5181..ab30abc3 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,7 @@
@@ -203,7 +203,7 @@ index 34ee5181..52cb5c21 100644
  		SaveGameInfo.SaveGameSlot = slotNum;
  
  		if (args.size() == 3)
-@@ -1304,20 +1335,38 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1304,20 +1335,40 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  			}
  		}
  	}
@@ -231,6 +231,8 @@ index 34ee5181..52cb5c21 100644
 +
 +		keybindings[propertyName.ToString()] = value;
 +		packages->SetIniValue("user", "Engine.Input", propertyName, value);
++		// flipendo: write it out now (UE1's SET saves config at once); otherwise a crash or kill before a clean exit lost the binding.
++		packages->SaveAllIniFiles();
 +		return {};
 +	}
  	else if (command == "set" && args.size() == 4)
@@ -250,7 +252,7 @@ index 34ee5181..52cb5c21 100644
  		UClass* cls = packages->FindClass(className);
  		if (!cls)
  		{
-@@ -1423,6 +1472,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1423,6 +1474,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  	return {};
  }
  
@@ -265,7 +267,7 @@ index 34ee5181..52cb5c21 100644
  Array<std::string> Engine::GetArgs(const std::string& commandline)
  {
  	Array<std::string> args;
-@@ -1454,6 +1511,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
+@@ -1454,6 +1513,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
  			endpos = command.size();
  
  		std::string subcommand = command.substr(pos, endpos - pos);
@@ -276,7 +278,7 @@ index 34ee5181..52cb5c21 100644
  		if (!subcommand.empty())
  			subcommands.push_back(subcommand);
  		pos = endpos + 1;
-@@ -1510,7 +1571,7 @@ void Engine::LoadKeybindings()
+@@ -1510,7 +1573,7 @@ void Engine::LoadKeybindings()
  					std::string aliasCommand = alias.substr(commandStart.size(), pos - commandStart.size());
  					std::string aliasName = alias.substr(pos + commandSplit.size(), pos2 - pos - commandSplit.size());
  					if (!aliasName.empty() && aliasName != "None")
@@ -285,7 +287,7 @@ index 34ee5181..52cb5c21 100644
  				}
  			}
  		}
-@@ -1616,6 +1677,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
+@@ -1616,6 +1679,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
  	{
  		viewport->WindowsMouseX() = (float)(pos.x * window->GetDpiScale());
  		viewport->WindowsMouseY() = (float)(pos.y * window->GetDpiScale());
@@ -294,7 +296,7 @@ index 34ee5181..52cb5c21 100644
  	}
  }
  
-@@ -1689,6 +1752,9 @@ void Engine::OnWindowKeyChar(std::string chars)
+@@ -1689,6 +1754,9 @@ void Engine::OnWindowKeyChar(std::string chars)
  
  void Engine::OnWindowKeyDown(EInputKey key)
  {
@@ -304,7 +306,7 @@ index 34ee5181..52cb5c21 100644
  	if (playingAvi)
  	{
  		if (key == EInputKey::IK_Escape)
-@@ -1783,7 +1849,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
+@@ -1783,7 +1851,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
  
  			for (const std::string& command : GetSubcommands(keybindings[keynames[key]]))
  			{
@@ -488,6 +490,19 @@ index 287956c1..a4e35445 100644
  	engine->ClientTravel(URL, static_cast<ETravelType>(TravelType), bItems);
  }
  
+diff --git a/SurrealEngine/Package/IniFile.cpp b/SurrealEngine/Package/IniFile.cpp
+index 6aab46e1..0e2476e0 100644
+--- a/SurrealEngine/Package/IniFile.cpp
++++ b/SurrealEngine/Package/IniFile.cpp
+@@ -310,7 +310,7 @@ void IniFile::UpdateFile(const std::string& filename)
+ 
+ 				if (left_bracket_pos != std::string::npos && right_bracket_pos != std::string::npos && left_bracket_pos < right_bracket_pos)
+ 				{
+-					bracket_index = Convert::to_int32(key.substr(left_bracket_pos, right_bracket_pos - left_bracket_pos + 1));
++					bracket_index = Convert::to_int32(key.substr(left_bracket_pos + 1, right_bracket_pos - left_bracket_pos - 1)); // flipendo: without the brackets (stoi threw on "[0]")
+ 					key_without_brackets = key.substr(0, left_bracket_pos);
+ 					key_has_brackets = true;
+ 				}
 diff --git a/SurrealEngine/Package/Package.cpp b/SurrealEngine/Package/Package.cpp
 index 78b0a27d..262b8d22 100644
 --- a/SurrealEngine/Package/Package.cpp
@@ -681,8 +696,32 @@ index 2f91f141..94c234e9 100644
  	}
  }
  
+diff --git a/SurrealEngine/Packages/Core/UObject.cpp b/SurrealEngine/Packages/Core/UObject.cpp
+index 2b855f33..ea2664d9 100644
+--- a/SurrealEngine/Packages/Core/UObject.cpp
++++ b/SurrealEngine/Packages/Core/UObject.cpp
+@@ -758,7 +758,9 @@ ScriptArray::ScriptArray(UProperty* type) : Type(type)
+ {
+ }
+ 
+-ScriptArray::ScriptArray(const ScriptArray& other)
++// flipendo: both copies keep the element type; without it Reserve() dereferenced a null Type (HP1's spell lesson
++// crashed on int(Gesture.Points), which copies the array).
++ScriptArray::ScriptArray(const ScriptArray& other) : Type(other.Type)
+ {
+ 	Reserve(other.Size);
+ 	try
+@@ -778,7 +780,7 @@ ScriptArray::ScriptArray(const ScriptArray& other)
+ 	}
+ }
+ 
+-ScriptArray::ScriptArray(ScriptArray&& other)
++ScriptArray::ScriptArray(ScriptArray&& other) : Type(other.Type) // flipendo
+ {
+ 	Data = other.Data;
+ 	Size = other.Size;
 diff --git a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
-index de07166c..8be94c4f 100644
+index de07166c..aba8dd48 100644
 --- a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
 @@ -7,10 +7,13 @@
@@ -758,7 +797,17 @@ index de07166c..8be94c4f 100644
  	if (MoveTimer() < 0.0f)
  		return true;
  
-@@ -340,6 +367,14 @@ void UPawn::TurnToward(UActor* newTarget)
+@@ -334,12 +361,23 @@ void UPawn::TurnToward(UActor* newTarget)
+ 	if (engine->LaunchInfo.ue1Version > 219)
+ 		FaceTarget() = newTarget;
+ 	Focus() = newTarget->Location();
+-	if (StateFrame)
++	// flipendo: a state frame without code (stopped, or a state with no labels) is never polled in UE1, so the latent
++	// turn does nothing. HP1's spell lesson calls Teacher.TurnToward on Tut1Quirrell in his empty 'idle' state; resuming
++	// that frame ran off the end ("Unexpected end of code statements").
++	if (StateFrame && !(engine->LaunchInfo.IsHarryPotter1() && StateFrame->LatentState == LatentRunState::Stop))
+ 		StateFrame->LatentState = LatentRunState::TurnToward;
+ }
  
  void UPawn::WaitForLanding()
  {
@@ -1515,3 +1564,41 @@ index bf6912eb..3afeb79e 100644
 +		"Use the game's install folder, the one that contains System, Maps, Textures");
  }
 \ No newline at end of file
+diff --git a/SurrealEngine/UI/ErrorWindow/ErrorWindow.cpp b/SurrealEngine/UI/ErrorWindow/ErrorWindow.cpp
+index 218f7552..a9391d52 100644
+--- a/SurrealEngine/UI/ErrorWindow/ErrorWindow.cpp
++++ b/SurrealEngine/UI/ErrorWindow/ErrorWindow.cpp
+@@ -10,6 +10,7 @@
+ #include <surrealwidgets/widgets/scrollbar/scrollbar.h>
+ #include <surrealwidgets/systemdialogs/save_file_dialog.h>
+ #include <miniz.h>
++#include <fstream> // flipendo
+ 
+ bool ErrorWindow::CheckCrashReporter()
+ {
+@@ -20,6 +21,11 @@ bool ErrorWindow::CheckCrashReporter()
+ 		try
+ 		{
+ 			CrashDumpInfo dumpInfo = CrashReporter::GetCrashDumpInfo(dumpFilename);
++			// flipendo: also keep the exception and symbolized call stack as <dump>.txt, so crashes can be read without the window.
++			{
++				std::ofstream txt(dumpFilename + ".txt");
++				txt << dumpInfo.exception << std::endl << dumpInfo.callstack;
++			}
+ 			std::list<LogMessageLine> log = Logger::Get()->LoadLog(logFilename);
+ 
+ 			LogMessageLine line;
+diff --git a/SurrealEngine/VM/Bytecode.h b/SurrealEngine/VM/Bytecode.h
+index 66408992..51ad5846 100644
+--- a/SurrealEngine/VM/Bytecode.h
++++ b/SurrealEngine/VM/Bytecode.h
+@@ -31,6 +31,9 @@ public:
+ 
+ 	int FindLabelIndex(const NameString& label)
+ 	{
++		// flipendo: a state without code (HP1's Tut1Quirrell 'state idle {}') has no statements; back() was undefined.
++		if (Statements.empty())
++			return -1;
+ 		LabelTableExpression* labels = dynamic_cast<LabelTableExpression*>(Statements.back());
+ 		if (labels)
+ 		{
