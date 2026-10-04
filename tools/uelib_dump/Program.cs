@@ -51,7 +51,7 @@ static class Program
                         var buffer = cls.ScriptText;
                         if (buffer != null && buffer.DeserializationState == 0) buffer.Load(); // only a reference until loaded
                         text = buffer?.ScriptText ?? "";
-                        if (text.Length == 0)
+                        if (text.Trim().Length == 0) // HP2 strips most source text but keeps a few blank lines
                         {
                             text = "// decompiled by UELib (no source text in the package)\r\n" + cls.Decompile();
                             decompiled++;
