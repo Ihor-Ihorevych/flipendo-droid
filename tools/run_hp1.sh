@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
 # Boot HP1 in SurrealEngine without the launcher, streaming the log to a file.
 # Usage: tools/run_hp1.sh [seconds] [extra SurrealEngine args...]
-#   HP1_GAME_DIR  game folder (default: ../game-work, a disposable copy of the retail install)
+#   HP1_GAME_DIR  game folder (default: ../eagames/hp1-work, a disposable copy of the retail install in ../eagames/hp1,
+#                 made on first use; SurrealEngine writes ini and save files into it)
 #   HP1_LOG       log file    (default: build/hp1_run.log)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-GAME="${HP1_GAME_DIR:-$ROOT/../game-work}"
+GAME="${HP1_GAME_DIR:-$ROOT/../eagames/hp1-work}"
+if [ -z "${HP1_GAME_DIR:-}" ] && [ ! -d "$GAME" ]; then
+	[ -d "$ROOT/../eagames/hp1/System" ] || { echo "no game: expected the HP1 retail files in ../eagames/hp1" >&2; exit 1; }
+	echo "creating $GAME from ../eagames/hp1"
+	cp -r "$ROOT/../eagames/hp1" "$GAME"
+fi
 LOG="${HP1_LOG:-$ROOT/build/hp1_run.log}"
 SECS="${1:-0}"
 shift || true

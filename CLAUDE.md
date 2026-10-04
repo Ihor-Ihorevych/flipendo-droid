@@ -45,8 +45,9 @@ SurrealEngine (a dependency: git submodule + small patches). Read `README.md` fi
   file, in the same change. Don't leave findings only in commit messages or the conversation.
 - **Flipendo is licensed PolyForm Noncommercial 1.0.0** (`LICENSE.md`); `engine/` stays zlib.
 - Don't push to `origin` without explicit permission.
-- Never modify `../harry-potter-unpacked/` or `../harry-potter/` (pristine retail copies).
-  Runs use `../game-work/` (disposable copy, SurrealEngine writes ini/save files into it).
+- Never modify `../eagames/hp1/` or `../eagames/hp2/` (pristine retail copies of HP1 and HP2).
+  Runs use `../eagames/hp1-work/` (disposable copy, SurrealEngine writes ini/save files into it; `tools/run_hp1.sh`
+  creates it from `../eagames/hp1` when it's missing).
 - Don't download binaries or install tools without asking.
 
 ## Ground truth / facts established
@@ -85,7 +86,7 @@ Each file has one job; keep them apart:
 ## IDA
 
 - Database: `../ida/Engine.dll.i64` (a copy of the retail DLL; never open the one in
-  `../harry-potter-unpacked/`, IDA writes files next to it). Driven headless via the IDA MCP.
+  `../eagames/`, IDA writes files next to it). Driven headless via the IDA MCP.
 - Types: define structs in IDA from what the binary shows: the sizeof each class registers, field accesses in
   the decompiled code, `Serialize` order, and the script property layout from our `.u` files.
 - Engine.dll was built with incremental linking: `?Foo@...` at 0x103xxxxx is a `jmp` thunk, the real body
@@ -103,7 +104,7 @@ Each file has one job; keep them apart:
 1. `python tools/native_audit.py` → `docs/native_audit.md` lists MISSING / STUB / INDEX natives.
 2. Read the UnrealScript declaration and callers in `reference/hp1/ScriptSource/<Pkg>/Classes/` (our disc,
    `tools/extract_scripts.sh`) to get the signature; native-only field layouts come from IDA (step 3).
-3. Reverse the real implementation in IDA from `../harry-potter-unpacked/System/Engine.dll`
+3. Reverse the real implementation in IDA from `../ida/Engine.dll` (a copy of `../eagames/hp1/System/Engine.dll`)
    (find it by its exported/decorated name, e.g. `?execPlayAnim@AActor@@QAEXAAUFFrame@@QAX@Z`).
 4. Implement in `hp1/`:
    - registration: in a `Register*Natives()` called from `HP1::RegisterNatives()`, using
@@ -133,7 +134,7 @@ Each file has one job; keep them apart:
   `build/<Config>/`. A full build takes a few minutes; `--target SurrealEngine` for the game only.
 - Rebuilding fails if `SurrealEngine.exe` is running (file lock). The user is fine with Claude killing it
   (`taskkill //IM SurrealEngine.exe //F`) to rebuild or relaunch.
-- `tools/run_hp1.sh [secs] [args]` — `--autolaunch --logfile=build/hp1_run.log` against `../game-work`.
+- `tools/run_hp1.sh [secs] [args]` — `--autolaunch --logfile=build/hp1_run.log` against `../eagames/hp1-work`.
   `--skip-splash` goes straight to the main menu, `--skip-intro` skips the New Game storybook,
   `--vanilla` disables the default-on mods (`hp1/mods/`).
 - Debug env vars (`hp1/HP1Debug.cpp`, times in seconds since the first frame): `HP1_SHOTS="5,8.5"` +
