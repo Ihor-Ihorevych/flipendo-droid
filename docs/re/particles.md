@@ -3,7 +3,7 @@
 KnowWonder's particle system: `AParticleFX` (Engine.ParticleFX, `DrawType = DT_Particles` = 8) owns a
 `UParticleList` (a `UPrimitive`; `ParticleList` property) of `UParticle`s. Source file per asserts:
 `C:\hp\Engine\Src\UnParticleFX.cpp`. Rendering is in Render.dll (`UnParticleRn.cpp`, see "Rendering" below; ported in
-`hp1/HP1ParticleRender.cpp`). Wind is `hp1/HP1Wind.cpp`.
+`kw/KWParticleRender.cpp`). Wind is `kw/KWWind.cpp`.
 
 Addresses are the `..._0` bodies in `../ida/Engine.dll.i64`. `EmitParticles` does not decompile
 (Hex-Rays: "inconsistent fpu stack"); it was read from the disassembly.
@@ -22,7 +22,7 @@ iterator (`Current`, `bAdvanced`) so the current node can be removed while itera
 
 `Engine.u` imports `Class Engine.ParticleList` (it's a native class with no script body). SurrealEngine registers
 no such class, so the import resolves to null; since the missing-import log was added, every start logs
-`Package Engine imports Class Engine.ParticleList, which Engine does not contain`. `hp1/HP1ParticleFX.cpp`
+`Package Engine imports Class Engine.ParticleList, which Engine does not contain`. `kw/KWParticleFX.cpp`
 keeps its own particle list per actor in a side table (`ParticleList` stays None, and no HP1 script reads it), so the
 missing class has no effect.
 (The other import logged on every start, `HPBase` → `Texture HPEdit.Icons.Icons.station`, is an editor icon.)
@@ -77,7 +77,7 @@ ParentBlend <= 0: this; >= 1: the parent class's defaults; otherwise a copy with
 
 ## Tick (0x103C3C80) / Update (0x103C3DE0) / UpdateParticles (0x103C1D60)
 
-See hp1/HP1ParticleFX.cpp, which follows these line by line.
+See kw/KWParticleFX.cpp, which follows these line by line.
 
 ## EmitParticles (0x103C2170)
 

@@ -7,27 +7,37 @@ basics are in the [README](../README.md#getting-started).
 
 | Path | What |
 |---|---|
-| `hp1/` | The HP1 port: native functions, animation, particles, physics, collision. Built into the engine via `hp1/hp1.cmake`. |
-| `hp1/mods/` | Additions the original game doesn't have ([modding.md](modding.md)). |
+| `kw/` | **KnowWonder's engine**, reimplemented: what the Harry Potter games' modified `Engine.dll` / `Fire.dll` / `Render.dll` do differently from stock Unreal (skeletal animation, ParticleFX, Wind, Gesture, physics and pawn movement, collision, interpolation, save games, IceTexture, natives) plus the debug tools. Namespace `KW`, files `KW*.cpp`. |
+| `hp1/` | **HP1 only**: the optional extras (`hp1/mods/`, [modding.md](modding.md)) and the widescreen canvas for HP1's menu classes (`HP1Canvas.cpp`). |
+| `flipendo.cmake` | Adds `kw/` and `hp1/` to SurrealEngine's build (one `flipendo:` line in `engine/CMakeLists.txt`). |
 | `engine/` | [SurrealEngine](https://github.com/dpjudas/SurrealEngine), our engine dependency, as a git submodule. Never committed to. |
-| `patches/` | Our small changes to SurrealEngine, applied to `engine/` by the build ([engine-hooks.md](engine-hooks.md)). |
-| `tools/` | Build, run, audit and extraction scripts. |
-| `docs/` | This documentation; `docs/re/` holds the reverse-engineering notes. |
-| `reference/` | Scripts extracted from your own install. **Gitignored** (derived from the game). |
+| `patches/` | Our changes to SurrealEngine, applied to `engine/` by the build, split by topic ([engine-hooks.md](engine-hooks.md)). |
+| `tools/` | Build, run, extraction, audit and comparison scripts. |
+| `docs/` | This documentation; [`docs/re/`](re/) holds the reverse-engineering notes and generated reports. |
+| `reference/` | Scripts and map dumps extracted from your own installs (`reference/hp1/`, `reference/hp2/`). **Gitignored**. |
+
+Next to the repository (not in it): `../eagames/hp1` and `../eagames/hp2` are the retail game folders (never modified),
+`../eagames/hp1-work` the disposable copy runs use (made by `tools/run_hp1.sh`), and `../ida/` the IDA databases.
+
+**Engine hooks** call into `kw/` (`kw/KW.h`) gated by `engine->LaunchInfo.IsKnowWonder()`, which is HP1 only for
+now; HP1-only hooks (mods, menu canvas) call `hp1/HP1.h` gated by `IsHarryPotter1()`. HP2 joins `IsKnowWonder()`
+once its differences are handled ([re/hp2_compare.md](re/hp2_compare.md)).
 
 ## Ground rules
 
 - **Never use Epic's UE1 source or headers** as a reference, including header sets built from them. Layouts and
-  behaviour come from HP1's own binaries and scripts, SurrealEngine, and observing the original game.
+  behaviour come from the games' own binaries and scripts, SurrealEngine, and observing the original games.
 - **Never commit game data** or anything extracted from it (`*.u *.unr *.utx *.uax *.umx`, exes, DLLs,
   `reference/`, decompiled code).
-- **HP1 code goes in `hp1/`**; SurrealEngine files only get small hooks ([engine-hooks.md](engine-hooks.md)).
+- **Our code goes in `kw/` (shared) or `hp1/` (HP1 only)**; SurrealEngine files only get small hooks
+  ([engine-hooks.md](engine-hooks.md)).
 - **Every reimplemented function carries an IDA tag** directly above it, one line per original function:
   ```cpp
   // IDA Engine.dll: ?PlayAnim@AActor@@QAEHVFName@@_NMMMW4EAnimType@@0@Z [HP1 0x10408E20]
   ```
-  The decorated name is the key: it survives rebuilds and finds the same function in HP2's DLLs. Code written
-  from script comments or stock UE1 behaviour instead of reversing says so in the tag.
+  The decorated name is the key: it survives rebuilds and finds the same function in HP2's DLLs
+  ([re/hp2_compare.md](re/hp2_compare.md), [re/dlls.md](re/dlls.md) are built from these tags). Code written from
+  script comments or stock UE1 behaviour instead of reversing says so in the tag.
 - **Write down what you learn** in `docs/re/<topic>.md` in the same change.
 
 [`CLAUDE.md`](../CLAUDE.md) has the full rule set (it doubles as the guide for AI assistants).
@@ -35,42 +45,41 @@ basics are in the [README](../README.md#getting-started).
 ## Reference material
 
 ```sh
-tools/extract_scripts.sh   # -> reference/hp1/ScriptSource/ (needs the .NET 10 SDK)
-python tools/native_audit.py
+tools/extract_scripts.sh [hp1|hp2]      # -> reference/<game>/ScriptSource/ (needs the .NET 10 SDK)
+python tools/native_audit.py [hp1|hp2]  # -> docs/re/native_audit_<game>.md
+python tools/dll_report.py              # -> docs/re/dlls.md
 ```
 
-- **The game's own scripts.** All HP1 gameplay packages are pure UnrealScript, and the `.u` files embed their
-  source text with KnowWonder's comments. `tools/extract_scripts.sh` extracts it from your install with
-  [UELib](https://github.com/EliotVU/Unreal-Library) (`tools/Unreal-Library` submodule, our extractor in
-  `tools/uelib_dump/`): 1247 classes. `tools/uelib_dump props <package> <file>` dumps every object of a package with
-  its properties (e.g. all actors of a map). Use the scripts from your own disc, not other exports floating around
-  (they are different builds).
-- **The native audit.** `tools/native_audit.py` compares the natives the scripts declare with what SurrealEngine
-  and `hp1/` implement, and writes [`native_audit.md`](native_audit.md) (MISSING / STUB / INDEX).
-- **The original binaries.** The native code is in KnowWonder's modified `Engine.dll` (plus bits of `Core.dll` and
-  `Render.dll`). They aren't SafeDisc-wrapped and export decorated C++ names, so functions can be found by name in
-  IDA or Ghidra.
-- **Reverse-engineering notes** in [`re/`](re/): [animation](re/animation.md), [particles](re/particles.md),
-  [script events](re/script_events.md) (every event HP1's native code raises, and which ones SurrealEngine
-  doesn't).
+- **The games' own scripts.** All gameplay packages are pure UnrealScript. HP1's `.u` files embed their source text
+  with KnowWonder's comments (1247 classes); HP2 stripped most of it, so those classes are decompiled from bytecode
+  (1749 classes, 1602 decompiled). `tools/extract_scripts.sh` uses [UELib](https://github.com/EliotVU/Unreal-Library)
+  (`tools/Unreal-Library` submodule, our extractor in `tools/uelib_dump/`). `tools/uelib_dump props <package> <file>`
+  dumps every object of a package with its properties (e.g. all actors of a map, cutscene scripts). Use the scripts
+  from your own disc, not other exports floating around (they are different builds).
+- **The DLLs.** [re/dlls.md](re/dlls.md): what each DLL does, its exports, what we reimplemented and HP2 status.
+  The native code is in KnowWonder's `Engine.dll` (plus bits of `Core.dll`, `Fire.dll`, `Render.dll`); they aren't
+  SafeDisc-wrapped and export decorated C++ names, so functions can be found by name in IDA or Ghidra.
+- **The native audits.** [re/native_audit_hp1.md](re/native_audit_hp1.md) compares the natives the scripts declare
+  with what SurrealEngine, `kw/` and `hp1/` implement (MISSING / STUB / INDEX / OK); the HP2 one adds HP1_PORT.
+- **Reverse-engineering notes** in [`re/`](re/) ([index](README.md)).
 - Harry Potter modding community resources:
   [HarryPotterUnrealWiki](https://github.com/metallicafan212/HarryPotterUnrealWiki/wiki/Main-Resources).
 
 ## Porting a native
 
-1. Find it in [`native_audit.md`](native_audit.md), or from an `Unimplemented: Class.Function` line in the log.
+1. Find it in [native_audit_hp1.md](re/native_audit_hp1.md), or from an `Unimplemented: Class.Function` line in the log.
 2. Read its declaration and callers in `reference/hp1/ScriptSource/<Package>/Classes/`.
 3. Reverse the original in `Engine.dll` by its decorated name (e.g. `?execPlayAnim@AActor@@QAEXAAUFFrame@@QAX@Z`).
    A script state that never gets entered is usually an event the engine doesn't raise: check
    [script_events.md](re/script_events.md) first.
-4. Implement it in `hp1/`: register it from `HP1::RegisterNatives()` with `OverrideNative(index, ...)`
-   (`hp1/HP1Natives.cpp`), and add the IDA tag.
+4. Implement it in `kw/`: register it from `KW::RegisterNatives()` (`kw/KWNatives.cpp`) with
+   `OverrideNative(index, ...)`, and add the IDA tag.
 5. Rebuild, run `tools/run_hp1.sh 60`, check the `Unimplemented:` summary, rerun the audit, and note what you
    learned in `docs/re/`.
 
 ## Debug tools
 
-Environment variables read by `hp1/HP1Debug.cpp`. Times are seconds since the first frame.
+Environment variables read by `kw/KWDebug.cpp`. Times are seconds since the first frame.
 
 | Variable | Example | What it does |
 |---|---|---|
@@ -82,26 +91,35 @@ Environment variables read by `hp1/HP1Debug.cpp`. Times are seconds since the fi
 | `HP1_DUMP` | `"5,80"` | log every actor (class, name, state, location, Tag, Event) at those times |
 | `HP1_CAMERA` | `"x,y,z,pitch,yaw"` | look from a fixed camera |
 | `HP1_HEIGHTMAP` | `"12:x0,y0,x1,y1,step,ztop"` | floor heights over a grid, for planning jumps and climbs |
-| `HP1_EXEC` | `"66:@console SaveSelectedSlot;70:open save99.usa"` | console commands at those times (`;` separates); `@console[.Prop] Fn [arg]` calls a script function on the console (or an object it references) with an optional string, e.g. `@console.MenuBook OpenBook Slot`; `@set <actor prefix> <prop> <value>` sets a property on live actors (`@set CutScene3 bDebugScript True`), `@get harry numBeans` logs one. `@teleport x y z` moves the player (touches what is there, so it starts touch cutscenes); `@trigger <tag>` triggers every actor with that Tag. To load a save from the main menu use `3:@console.MenuBook.SlotPage LoadSelectedSlot` (slot 99 without a selected slot): a bare `open saveN.usa` leaves the menu book open on top of the game |
-| `HP1_SKIPCUTS` | `1` | press Space whenever a cutscene holds Harry, so the CutsceneSkip mod fast-forwards it (shifts later timings) |
+| `HP1_SKIPCUTS` | `1` | press Space whenever a cutscene holds Harry (the CutsceneSkip mod fast-forwards it) |
+| `HP1_EXEC` | `"3:@console.MenuBook.SlotPage LoadSelectedSlot"` | commands at those times, `;` separated (below) |
 
-The first level hands control to the player at about 58 s. To walk up to Fred & George's room:
+`HP1_EXEC` entries:
 
-```sh
-HP1_KEYS="62:Up:5" HP1_GOTO="79:-400,-2000;-104,-2016;-20,-2016;140,-2016;232,-2095;225,-2887" \
-  tools/run_hp1.sh 140 --url=Lev_Tut1
-```
+| Command | What it does |
+|---|---|
+| `open save99.usa`, `SaveGame 3`, ... | any console command |
+| `@console[.Prop] Fn [arg]` | call a script function on the console or an object it references, e.g. `@console.MenuBook OpenBook Slot` |
+| `@console.MenuBook.SlotPage LoadSelectedSlot` | load a save from the main menu (slot 99 when none is selected); a bare `open saveN.usa` leaves the menu book open over the game |
+| `@console SaveSelectedSlot` | save (slot 99 without a selected slot) |
+| `@set <actor prefix> <prop> <value>` | set a property on live actors, e.g. `@set CutScene3 bDebugScript True` |
+| `@get <actor prefix> <prop>` | log a property, e.g. `@get harry numBeans` |
+| `@teleport x y z` | move the player there (touches what is there, so it starts touch cutscenes) |
+| `@trigger <tag>` | trigger every actor with that Tag |
 
-`SurrealDebugger` (an UnrealScript debugger: breakpoints, call stack, disassembly) builds alongside the game.
+Crashes leave a minidump and `<dump>.txt` with the symbolized call stack in `%LOCALAPPDATA%\SurrealEngine\CrashReports`
+(build `RelWithDebInfo` for symbols). `SurrealDebugger` (an UnrealScript debugger: breakpoints, call stack,
+disassembly) builds alongside the game.
 
 ## Comparing with HP2
 
-HP2 (retail 1.0, `../eagames/hp2`) runs on the same engine build (433). To see which HP1 ports carry over:
+HP2 (retail 1.0, `../eagames/hp2`) runs on the same engine build (433). To see which ports carry over:
 
 1. Open each DLL in IDA (HP1: `../ida/<Dll>.dll(.i64)`, HP2: copies in `../ida/hp2/`).
 2. In each database run `exec(open(r'<repo>/tools/ida_fingerprint.py').read()); fingerprint(r'../ida/fingerprints/<hp1|hp2>_<Dll>.json')`.
-3. `python tools/hp2_compare.py` writes [hp2_compare.md](hp2_compare.md): per DLL how many exports are identical, differ
-   only in struct offsets/constants, or changed, and the same for every `// IDA`-tagged function in `hp1/`.
+3. `python tools/hp2_compare.py` writes [re/hp2_compare.md](re/hp2_compare.md): per DLL how many exports are identical,
+   differ only in struct offsets/constants, or changed, and the same for every `// IDA`-tagged function;
+   `python tools/dll_report.py` refreshes [re/dlls.md](re/dlls.md).
 
 Native `exec*` wrappers mostly show as changed by about 29 bytes each; that looks systematic (not yet checked), so
 read the HP2 code before treating one of those as a real change.

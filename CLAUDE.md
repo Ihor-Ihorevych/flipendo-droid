@@ -1,7 +1,8 @@
 # CLAUDE.md — Flipendo
 
-Source port of Harry Potter and the Philosopher's Stone (PC 2001, UE1 build 433) on
-SurrealEngine (a dependency: git submodule + small patches). Read `README.md` first for layout, build and run commands.
+Source port of KnowWonder's Harry Potter games on SurrealEngine (a dependency: git submodule + small patches),
+currently focused on Harry Potter and the Philosopher's Stone (PC 2001, UE1 build 433); HP2 (Chamber of Secrets, same
+engine build) comes after HP1. Read `README.md` and `docs/development.md` first for layout, build and run commands.
 
 ## Rules
 
@@ -14,12 +15,14 @@ SurrealEngine (a dependency: git submodule + small patches). Read `README.md` fi
   `tools/refresh_patches.sh`, commit `patches/`. Temporary debug edits in `engine/` must be reverted
   (`tools/apply_patches.sh --reset`) before refreshing patches.
 - **Features the original game doesn't have go in `hp1/mods/`** (see its README): optional, off with
-  `--vanilla`, hooked only through `HP1::TickMods`/`ModsKeyDown`/`PostRenderMods`. The rest of `hp1/` is the faithful port.
-- **HP1 code goes in `hp1/`, not in `engine/`.** `engine/` is SurrealEngine (actively
-  developed); every line we change there is a future merge conflict. Engine files only get small
-  hooks that call into `hp1/` (see `docs/engine-hooks.md`). Prefer overriding natives from
-  `hp1/HP1Natives.cpp` (`OverrideNative`) and side tables over editing SurrealEngine classes.
-- **Every function in `hp1/` that reimplements engine code carries an IDA tag** directly above its
+  `--vanilla`, hooked only through `HP1::TickMods`/`ModsKeyDown`/`PostRenderMods`. Everything else is the faithful port.
+- **Our code goes in `kw/` or `hp1/`, not in `engine/`.** `kw/` (namespace `KW`, `KW*.cpp`) reimplements
+  KnowWonder's engine, the code the HP games share (Engine.dll/Fire.dll/Render.dll changes, natives, debug tools);
+  `hp1/` (namespace `HP1`) is what only HP1 has (mods, the menu canvas for HP1's menu classes). `engine/` is
+  SurrealEngine (actively developed); every line we change there is a future merge conflict. Engine files only get
+  small hooks that call into `kw/`/`hp1/` (see `docs/engine-hooks.md`). Prefer overriding natives from
+  `kw/KWNatives.cpp` (`OverrideNative`) and side tables over editing SurrealEngine classes.
+- **Every function in `kw/`/`hp1/` that reimplements engine code carries an IDA tag** directly above its
   definition, one line per original function, in exactly this format (greppable with `// IDA `):
   ```cpp
   // IDA Engine.dll: ?PlayAnim@AActor@@QAEHVFName@@_NMMMW4EAnimType@@0@Z [HP1 0x10408E20]
@@ -31,8 +34,10 @@ SurrealEngine (a dependency: git submodule + small patches). Read `README.md` fi
   xref). If the code was not reversed (written from script comments or stock UE1 behaviour), say so in
   the tag ("NOT yet verified against ..."). Add the tag in the same change that adds the function.
 - **Mark every change under `engine/` with a `flipendo:` comment** (zlib licence requires altered
-  source to be marked). Gate HP1-only behaviour behind `engine->LaunchInfo.IsHarryPotter1()` so
-  other UE1 games keep working.
+  source to be marked). Gate hooks into `kw/` behind `engine->LaunchInfo.IsKnowWonder()` (HP1 only for now; HP2
+  joins when its differences are handled, `docs/re/hp2_compare.md`) and HP1-only behaviour behind
+  `IsHarryPotter1()`, so other UE1 games keep working. Fixes to SurrealEngine bugs that affect every game go
+  ungated in `patches/0010-engine-fixes.patch` (`patches/routes.txt` assigns files to patches).
 - **Never commit `reference/` or game data** (`*.u *.unr *.utx *.uax *.umx`, exes, DLLs).
   The extracted scripts are derived from the game; `.gitignore` covers them.
 - **Never use Epic's UE1 source or headers as a reference**, including third-party header sets built
@@ -40,12 +45,12 @@ SurrealEngine (a dependency: git submodule + small patches). Read `README.md` fi
   binaries and scripts (IDA, `.u` files), SurrealEngine, and observing the original game. Don't copy
   Epic type or field names that don't appear in HP1's exports or scripts; name things yourself.
 - **Write down what you learn in `docs/re/`.** Whenever reversing, debugging or reading scripts teaches
-  something new about how HP1 works (a struct layout, a native's behaviour, an event the engine raises, a level
+  something new about how the game works (a struct layout, a native's behaviour, an event the engine raises, a level
   route, why a script state is never entered), add it to the matching `docs/re/<topic>.md`, or start a new topic
   file, in the same change. Don't leave findings only in commit messages or the conversation.
 - **Flipendo is licensed PolyForm Noncommercial 1.0.0** (`LICENSE.md`); `engine/` stays zlib.
 - Don't push to `origin` without explicit permission.
-- Never modify `../eagames/hp1/` or `../eagames/hp2/` (pristine retail copies of HP1 and HP2).
+- The repository is `hp_re/flipendo`. Never modify `../eagames/hp1/` or `../eagames/hp2/` (pristine retail copies of HP1 and HP2).
   Runs use `../eagames/hp1-work/` (disposable copy, SurrealEngine writes ini/save files into it; `tools/run_hp1.sh`
   creates it from `../eagames/hp1` when it's missing).
 - Don't download binaries or install tools without asking.
@@ -72,8 +77,13 @@ SurrealEngine (a dependency: git submodule + small patches). Read `README.md` fi
   `GameSaveInfo`, `Gesture` (spell-drawing recognition), `ImpactSoundSet`, `InterpolationManager`,
   `LocationID`, `ParticleFX`, `SoundContainer`, `Wind`.
 - HP1 uses its own native indices in places (e.g. `Actor.PlayAnim` = 259, `TraceTexture` = 285).
+- **HP2** (retail 1.0, `../eagames/hp2`, `System/Game.exe`): same engine build 433, recognised by SurrealEngine. Its
+  DLLs are HP1's with additions: Fire.dll 100% identical code, Core 82%, Engine 62% identical + 14% differing only in
+  struct offsets (`docs/re/hp2_compare.md`). Galaxy audio is replaced by OpenAL (`ALAudio.dll`) + Ogg Vorbis. Its
+  `.u` files ship with most script source stripped (only ~150 of 827 `hgame` classes keep it); the rest is decompiled
+  by `tools/extract_scripts.sh hp2`. Game code package: `hgame`.
 
-## Where we are
+## Where things are documented
 
 Each file has one job; keep them apart:
 
@@ -82,11 +92,16 @@ Each file has one job; keep them apart:
 - `docs/`: how things work (index: `docs/README.md`). Reverse-engineering notes in `docs/re/<topic>.md`, every
   SurrealEngine hook in `docs/engine-hooks.md`, workflow and debug tools in `docs/development.md`, modding in
   `docs/modding.md`, player-facing error messages in `docs/troubleshooting.md`.
+- Generated reports in `docs/re/` (rerun the tool, don't edit by hand): `dlls.md` (`tools/dll_report.py`: every
+  DLL, its exports, our ports, HP2 status), `native_audit_hp1.md`/`native_audit_hp2.md` (`tools/native_audit.py
+  [hp1|hp2]`), `hp2_compare.md` (`tools/hp2_compare.py`).
 
 ## IDA
 
-- Database: `../ida/Engine.dll.i64` (a copy of the retail DLL; never open the one in
-  `../eagames/`, IDA writes files next to it). Driven headless via the IDA MCP.
+- Databases: `../ida/<Dll>.dll(.i64)` for HP1 (Engine, Core, Fire, Render, Galaxy), `../ida/hp2/<Dll>.dll` for HP2
+  (copies of the retail DLLs; never open the ones in `../eagames/`, IDA writes files next to them). Driven headless
+  via the IDA MCP. HP1 vs HP2: `tools/ida_fingerprint.py` inside each database -> `../ida/fingerprints/`, then
+  `tools/hp2_compare.py` and `tools/dll_report.py`.
 - Types: define structs in IDA from what the binary shows: the sizeof each class registers, field accesses in
   the decompiled code, `Serialize` order, and the script property layout from our `.u` files.
 - Engine.dll was built with incremental linking: `?Foo@...` at 0x103xxxxx is a `jmp` thunk, the real body
@@ -101,26 +116,26 @@ Each file has one job; keep them apart:
 
 ## Workflow for porting a native
 
-1. `python tools/native_audit.py` → `docs/native_audit.md` lists MISSING / STUB / INDEX natives. (`hp2` as argument: the same for HP2.)
+1. `python tools/native_audit.py` → `docs/re/native_audit_hp1.md` lists MISSING / STUB / INDEX natives (`hp2` as argument: the same for HP2).
 2. Read the UnrealScript declaration and callers in `reference/hp1/ScriptSource/<Pkg>/Classes/` (our disc,
    `tools/extract_scripts.sh`) to get the signature; native-only field layouts come from IDA (step 3).
 3. Reverse the real implementation in IDA from `../ida/Engine.dll` (a copy of `../eagames/hp1/System/Engine.dll`)
    (find it by its exported/decorated name, e.g. `?execPlayAnim@AActor@@QAEXAAUFFrame@@QAX@Z`).
-4. Implement in `hp1/`:
-   - registration: in a `Register*Natives()` called from `HP1::RegisterNatives()`, using
+4. Implement in `kw/` (or `hp1/` if only HP1 has it):
+   - registration: in a `Register*Natives()` called from `KW::RegisterNatives()` (`kw/KWNatives.cpp`), using
      `OverrideNative(index, [] { RegisterVMNativeFunc_<argc>("Class", "Name", &Fn, index); })`
      (SurrealEngine may already have a stub at that index);
-   - HP-only Actor properties: accessors in `hp1/HP1Actor.h` (offsets looked up by name);
+   - HP-only Actor properties: accessors in `kw/KWActor.h` (offsets looked up by name);
    - only if there's no other way, a gated `flipendo:` hook in an engine file, added to `docs/engine-hooks.md`;
    - the `// IDA <dll>: <decorated name> [HP1 0x...]` tag above every reimplemented function (see Rules).
-5. Rebuild, `tools/run_hp1.sh 60`, check the `Unimplemented:` summary, rerun the audit.
+5. Rebuild, `tools/run_hp1.sh 60`, check the `Unimplemented:` summary, rerun the audit (and `tools/dll_report.py`).
 
 ## Where things are in SurrealEngine
 
-- Game detection: `UE1GameDatabase.h` (SHA-1 of `System/HP.exe`), `GameFolder.cpp/.h`
-  (`IsHarryPotter1()` = exe stem `"HP"`).
-- Existing HP1 hooks: grep `IsHarryPotter1` (NActor, NObject, UStruct/Bytecode
-  `DynArrayToInt_HP1`, UAnimation, RenderCanvas widescreen canvas, Engine.cpp `getres`).
+- Game detection: `UE1GameDatabase.h` (SHA-1 of `System/HP.exe` / HP2's `System/Game.exe`), `GameFolder.cpp/.h`
+  (`IsHarryPotter1()` = exe stem `"HP"`, `IsHarryPotter2()` = `"Game"`, our `IsKnowWonder()` = HP1 for now).
+- Our hooks: grep `IsKnowWonder` and `IsHarryPotter1` (SurrealEngine's own pre-existing HP1 special cases also use
+  `IsHarryPotter1`: NActor, UStruct/Bytecode `DynArrayToInt_HP1`, ...).
 - Logging: `LogMessage` / `LogUnimplemented` (`Utils/Logger.h`). Missing natives log
   `Unimplemented: Class.Fn` at runtime.
 - `SurrealDebugger` (console UnrealScript debugger: breakpoints, callstack, disassembly) and
@@ -137,7 +152,7 @@ Each file has one job; keep them apart:
 - `tools/run_hp1.sh [secs] [args]` — `--autolaunch --logfile=build/hp1_run.log` against `../eagames/hp1-work`.
   `--skip-splash` goes straight to the main menu, `--skip-intro` skips the New Game storybook,
   `--vanilla` disables the default-on mods (`hp1/mods/`).
-- Debug env vars (`hp1/HP1Debug.cpp`, times in seconds since the first frame): `HP1_SHOTS="5,8.5"` +
+- Debug env vars (`kw/KWDebug.cpp`, times in seconds since the first frame): `HP1_SHOTS="5,8.5"` +
   `HP1_SHOT_DIR` for in-engine screenshots (never capture the desktop), `HP1_KEYS="62:Up:3,66:Left:0.6"`
   to press keys (the Lev_Tut1 intro hands control to the player at ~58 s), `HP1_MOUSE="63:0:-30:4"` to move the
   mouse by dx,dy raw counts every frame for a duration (dy<0 = mouse up = camera looks up), `HP1_TRACE="harry0,gen_"` to
