@@ -12,6 +12,7 @@
 #include "Packages/Engine/Resources/Textures/UTexture.h"
 #include "Packages/Engine/Resources/UPalette.h"
 #include "Collision/TopLevel/CollisionHit.h"
+#include "Collision/TopLevel/CollisionSystem.h"
 #include "VM/NativeFunc.h"
 #include "Utils/Random.h"
 #include "Engine.h"
@@ -241,12 +242,6 @@ namespace HP1
 			return palette && palette->Palette() && !palette->Palette()->Colors.empty();
 		}
 
-		// AWind::GetTotalWind: Wind actors aren't ported yet (Wind.GetWind is still missing), so there is no wind.
-		vec3 GetTotalWind(const vec3& location)
-		{
-			return vec3(0.0f);
-		}
-
 		// IDA Engine.dll: ?Update@UParticle@@QAE_NABVFVector@@M0PAVULevel@@MPAVAParticleFX@@@Z [HP1 0x103BFC30]
 		bool UpdateParticle(UActor* a, Particle& p, const vec3& gravity, float damp, const vec3& wind, float dt)
 		{
@@ -281,7 +276,7 @@ namespace HP1
 					float damping = PFX::Damping(a);
 					vec3 terminal = gravity * (1.0f / damping);
 					if (PFX::bWindPerParticle(a))
-						terminal += GetTotalWind(p.Position) * PFX::WindModifier(a);
+						terminal += GetTotalWind(a, p.Position) * PFX::WindModifier(a);
 					else
 						terminal += wind;
 					float k = (damp - 1.0f) / damping;
@@ -370,18 +365,35 @@ namespace HP1
 
 			if (PFX::Elasticity(a) > 0.0f && p.OldPosition != p.Position)
 			{
-				// The original first does a BSP-only FastLineCheck, then a SingleLineCheck (TRACE_Level|TRACE_Movers).
-				// Movers aren't traced here.
-				CollisionHitList hits = a->XLevel()->Collision.Trace(p.OldPosition, p.Position, 0.0f, 0.0f, false, true, false);
-				if (!hits.empty())
+				// Only a step the level's BSP blocks collides (FastLineCheck). The step is then traced against the level
+				// and movers (SingleLineCheck, TRACE_Movers|TRACE_Level): a level hit bounces the particle, anything else
+				// (a mover in front of the wall) stops it where it was.
+				bool blocked = false;
+				for (const CollisionHit& h : a->XLevel()->Collision.Trace(p.OldPosition, p.Position, 0.0f, 0.0f, false, true, false))
 				{
-					CollisionHit hit = *hits.begin();
-					for (const CollisionHit& h : hits)
-						if (h.Fraction < hit.Fraction)
-							hit = h;
-					vec3 hitLocation = p.OldPosition + (p.Position - p.OldPosition) * hit.Fraction;
-					p.Velocity = (p.Velocity - hit.Normal * (2.0f * dot(hit.Normal, p.Velocity))) * PFX::Elasticity(a);
-					p.Position = hitLocation;
+					if (!h.Actor)
+					{
+						blocked = true;
+						break;
+					}
+				}
+				if (blocked)
+				{
+					TraceFlags flags;
+					flags.movers = true;
+					flags.world = true;
+					CollisionHit hit = a->XLevel()->Collision.TraceFirstHit(p.OldPosition, p.Position, nullptr, vec3(0.0f), flags);
+					if (hit.Fraction < 1.0f && !hit.Actor)
+					{
+						vec3 hitLocation = p.OldPosition + (p.Position - p.OldPosition) * hit.Fraction;
+						p.Velocity = (p.Velocity - hit.Normal * (2.0f * dot(hit.Normal, p.Velocity))) * PFX::Elasticity(a);
+						p.Position = hitLocation;
+					}
+					else
+					{
+						p.Velocity = vec3(0.0f);
+						p.Position = p.OldPosition;
+					}
 				}
 			}
 
@@ -413,7 +425,7 @@ namespace HP1
 			vec3 gravity = zone->ZoneGravity() * PFX::GravityModifier(a) + PFX::Gravity(a);
 			vec3 wind(0.0f);
 			if (PFX::Damping(a) * PFX::WindModifier(a) > 0.0f)
-				wind = GetTotalWind(a->Location()) * PFX::WindModifier(a);
+				wind = GetTotalWind(a, a->Location()) * PFX::WindModifier(a);
 
 			const vec3& attraction = PFX::Attraction(a);
 			bool subdivide = attraction.x != 0.0f || attraction.y != 0.0f || attraction.z != 0.0f || PFX::Elasticity(a) > 0.0001f;
@@ -620,7 +632,7 @@ namespace HP1
 			vec3 gravity = zone->ZoneGravity() * PFX::GravityModifier(a) + PFX::Gravity(a);
 			vec3 wind(0.0f);
 			if (PFX::Damping(a) * PFX::WindModifier(a) > 0.0f)
-				wind = GetTotalWind(a->Location()) * PFX::WindModifier(a);
+				wind = GetTotalWind(a, a->Location()) * PFX::WindModifier(a);
 
 			Array<vec3> meshVerts;
 			Array<int> meshTris;
@@ -828,11 +840,17 @@ namespace HP1
 		return true;
 	}
 
+	void TickNativeActor(UActor* actor, float elapsed)
+	{
+		if (IsParticleFX(actor))
+			TickParticleFX(actor, elapsed);
+		else
+			TickWind(actor, elapsed);
+	}
+
 	// IDA Engine.dll: ?Tick@AParticleFX@@UAEHMW4ELevelTick@@@Z [HP1 0x103C3C80]
 	void TickParticleFX(UActor* a, float elapsed)
 	{
-		if (!IsParticleFX(a))
-			return;
 		ParticleSystemState* state = GetState(a);
 		if (!state)
 			return;
@@ -1058,6 +1076,7 @@ namespace HP1
 			props.Age = get("Age");
 			props.ElapsedTime = get("ElapsedTime");
 			props.ParticlesEmitted = get("ParticlesEmitted");
+			props.LightColor = get("LightColor");
 			props.CurrentPriorityTag = get("CurrentPriorityTag");
 			props.bShellOnly = get("bShellOnly");
 			props.bEmit = get("bEmit");

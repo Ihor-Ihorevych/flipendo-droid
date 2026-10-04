@@ -2,7 +2,8 @@
 
 KnowWonder's particle system: `AParticleFX` (Engine.ParticleFX, `DrawType = DT_Particles` = 8) owns a
 `UParticleList` (a `UPrimitive`; `ParticleList` property) of `UParticle`s. Source file per asserts:
-`C:\hp\Engine\Src\UnParticleFX.cpp`. Rendering is in Render.dll (not yet reversed).
+`C:\hp\Engine\Src\UnParticleFX.cpp`. Rendering is in Render.dll (`UnParticleRn.cpp`, see "Rendering" below; ported in
+`hp1/HP1ParticleRender.cpp`). Wind is `hp1/HP1Wind.cpp`.
 
 Addresses are the `..._0` bodies in `../ida/Engine.dll.i64`. `EmitParticles` does not decompile
 (Hex-Rays: "inconsistent fpu stack"); it was read from the disassembly.
@@ -98,3 +99,79 @@ See hp1/HP1ParticleFX.cpp, which follows these line by line.
    Velocity = dir*Speed (+ Owner.Velocity if bVelocityRelative). Sizes, colour/alpha deltas, spin,
    then the particle is advanced by its age (steps of 1/15 s when Attraction/Elasticity are used).
 8. `EmitDelay = 0`, `LastEmitLocation = Location`, `ParticlesEmitted += n`.
+
+## UParticle::Update: Elasticity collisions
+
+A step only collides when the level's BSP blocks it (`UModel::FastLineCheck(Old, New)` fails). The step is then traced
+with `SingleLineCheck(TRACE_Movers|TRACE_Level, zero extent)`: a hit on LevelInfo reflects Velocity about the hit normal,
+scales it by Elasticity and puts the particle at the hit location; any other result (a mover in front of the wall, or
+no hit) zeroes Velocity and puts the particle back at OldPosition. Movers alone (no BSP behind them) are passed through.
+Only `WaterDrip` (Lev2_fire1, Lev2_Fire2) and `avifors_react` have an Elasticity.
+
+## LOD
+
+`AParticleFX::Lod`, `LodParticles` and `LodParticleDensity` (0x103C63A0, 0x103C6430, 0x103C64F0) are exported but
+never called, neither in Engine.dll nor by Render.dll (whose only ParticleFX imports are `Update` and the class).
+`LOD` stays at the 1.0 InitExecution sets, so emission isn't thinned. The only use of PriorityTag at draw time is the
+billboard overdraw budget below.
+
+## Rendering (Render.dll, UnParticleRn.cpp)
+
+`URender::DrawParticleSystem` (0x10B15830) calls `AParticleFX::Update(0)` and then runs passes. Each pass is a functor
+with a vtable of four slots: light (fill the vertex colours), fill (build the screen-space vertices, return a clip
+outcode; 124 = skip the particle), primitives per particle, vertices per primitive. The driver `sub_10B15090` sets the
+texture (`Textures[0]`, animated), the poly flags (Style: Masked 0x400002, Translucent 0x400004, Modulated 0x400040,
+plus the texture's flags), lights the system, walks the particle list (First/Next, passing each particle and the next
+one), clips against the frustum and batches triangle fans to the render device (vtbl +128).
+
+| RenderPrimitive | passes, in order |
+|---|---|
+| PPRIM_Line | line, shard, liquid, billboard |
+| PPRIM_Billboard | billboard |
+| PPRIM_Liquid | liquid, billboard |
+| PPRIM_Shard | shard, liquid, billboard |
+| PPRIM_TriTube | tube (vtable 0x10B388D0, fill 0x10B194C0), then `appFailAssert` (UnParticleRn.cpp line 1152) |
+
+With bShellOnly the shell pass replaces the billboard pass. The shipped content only uses Billboard and Liquid (water:
+`WaterDrip`, `WaterShowerFX*`, `Serpent_*`, `WaterBknSpray*`, and placed systems such as the Lev2_HogFront fountain);
+no class or map uses Line, Shard, TriTube or bShellOnly (only HPConsole's commented-out mouse particle test).
+
+| pass | vtable | fill | what it draws |
+|---|---|---|---|
+| line | 0x10B38934 | 0x10B1B7D0 (light 0x10B1B330) | a ribbon through the particles in list order: each joint is ±Width along normalize(toCamera × dirToNext), flipped to agree with the previous joint; UVs (0,0) (0,V) (U,V) (U,0). The first particle only starts the ribbon |
+| shard | 0x10B38920 | 0x10B17350 | a world triangle (-L/2,-W/2), (L/2,W/2), (-L/2,W/2) turned by Rotator(Spin*65535, Spin*65535, 0); 3 vertices |
+| liquid | 0x10B3890C | 0x10B17CE0 | DripTimer > 0: a diamond hanging under the particle: (0,0), (W/2, 0.75L), (0, L), (-W/2, 0.75L) in screen pixels at the particle's depth. Otherwise a streak (`sub_10B15B50`) |
+| billboard | 0x10B388F8 | 0x10B184D0 | a camera-facing W×L quad, turned by Spin if SpinRate != 0; rejected closer than 1 unit |
+| shell | 0x10B388E4 | 0x10B16C70 | Position is screen space (X, Y pixels, Z depth); a pixel-snapped W×L quad not scaled by distance, vertices BL, TR, TL, BR (as a fan this misses the right wedge) |
+
+Streak (`sub_10B15B50`): tail = normalize(Velocity) * sqrt(|Velocity|) * Length; the radius keeps the volume of a
+sphere of diameter Width: r = sqrt(W³·π/3·3 / ((|tail| + W)·π)). In screen space at the head's depth, with u the unit
+direction from the projected head to the projected tail, the kite is head + (-u.y, u.x)·r, head - u·r, head +
+(u.y, -u.x)·r and head + u·L', where L' = r if the tail's view-plane length l <= r, else l/|tail_view|·(l - r) + r.
+
+Light slot (`sub_10B16AB0`): colour = LightColor * particle Color; with a = ScaleGlow * Alpha < 1 the colour is scaled
+by a and, for STY_Modulated, (1-a)/2 is added. `LightColor` (script property) is (1,1,1,1) for bUnlit systems;
+otherwise the light manager lights the actor (`GLightManager` vtbl +8 SetupForActor with `URender::LeafLights`, +28,
++20). No shipped system has bUnlit=False.
+
+Overdraw budget (billboard fill): budget = FX·FY·URender[+0x5C]·0.5 (+0x5C is set to 1.0 in the URender constructor and
+is not a config property). Per particle, area = W·L·RZ² (pixels²) and weighted = (PriorityTag+1)·area/4; when weighted >
+budget the particle's Alpha is lowered for good to min(Alpha, (2·budget - weighted)/budget) and the particle is skipped
+once it reaches 0. So a particle fades when it covers more than 2/(PriorityTag+1) screens (tag 9: 20% of the screen).
+
+## Wind (Engine.dll UnWind.cpp)
+
+`AWind` keeps every Wind in a global array (constructor 0x10430B60 adds, Destroy 0x10430C40 removes).
+`GetTotalWind(Level, Loc)` (0x10432180) sums `GetWind` over all of them. Only the Quidditch maps place a Wind, and no
+script calls `Wind.GetWind` (native 425). ParticleFX uses the wind only in the damped integration (Damping > 0): the
+whole system's wind at Location * WindModifier, or per particle with bWindPerParticle.
+
+- `GetWind(Loc)` (0x10431060): zero if WindSpeed == 0 or the distance > WindRadius² (the world radius), or when not
+  bPermeating and the BSP blocks the line from the wind. Direction: WindSource LD_Point (0) = away from the wind
+  (directional if exactly at it), LD_Directional (1) = the rotation's X axis, other = none. v = dir + Fluc; with
+  WindFluctuation, v += noise(Loc) * WindFluctuation * |v| / 255. Result = v * WindSpeed * min((1 - dist/WindRadius²) /
+  (1 - WindRadiusInner/256), 1).
+- noise (`sub_104315D0`): value noise on a 32-unit lattice; each lattice point gets a vector from a shuffled 0..255 table
+  (`perm[perm[perm[z]+y]+x]`, components /255 - 0.5), blended trilinearly.
+- `Tick` (0x10430DB0), only with WindFluctuation: t = dt / (max(WindFlucPeriod,1)/64), k = exp(-t);
+  FlucVel = FlucVel·k + randomUnit·(1-k)·WindFluctuation/255; Fluc = Fluc·k + FlucVel·dt.

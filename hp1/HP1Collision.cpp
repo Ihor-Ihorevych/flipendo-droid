@@ -3,6 +3,9 @@
 #include "HP1Actor.h"
 #include "Math/coords.h"
 #include "VM/NativeFunc.h"
+#include "Packages/Engine/Resources/Mesh/UMesh.h"
+#include "Packages/Engine/Resources/Mesh/USkeletalMesh.h"
+#include "Packages/Engine/Resources/Level/UModel.h"
 #include <cmath>
 
 // HP1 actors pick their collision primitive with Actor.CollideType. CT_Box is an oriented box centered on
@@ -184,8 +187,159 @@ namespace HP1
 		ReturnValue = true;
 	}
 
+	namespace
+	{
+		// Object.BoundingBox as script memory (Min, Max, IsValid).
+		struct ScriptBoundingBox
+		{
+			vec3 Min;
+			vec3 Max;
+			uint8_t IsValid;
+		};
+
+		// The axis aligned box around a local box's corners moved by a transform.
+		BBox TransformBox(const BBox& box, const mat4& m)
+		{
+			BBox result;
+			for (int i = 0; i < 8; i++)
+			{
+				vec3 corner((i & 1) ? box.max.x : box.min.x, (i & 2) ? box.max.y : box.min.y, (i & 4) ? box.max.z : box.min.z);
+				vec3 p = (m * vec4(corner, 1.0f)).xyz();
+				result.min = i == 0 ? p : vec3(std::min(result.min.x, p.x), std::min(result.min.y, p.y), std::min(result.min.z, p.z));
+				result.max = i == 0 ? p : vec3(std::max(result.max.x, p.x), std::max(result.max.y, p.y), std::max(result.max.z, p.z));
+			}
+			return result;
+		}
+
+		// AActor::ToWorld: rotation, then Location (no PrePivot, no scale).
+		mat4 ToWorld(UActor* a)
+		{
+			return mat4::translate(a->Location()) * Coords::Rotation(a->Rotation()).ToMatrix();
+		}
+
+		// The primitives of HP1's UPrimitive::GetCollisionBoundingBox overrides, chosen like AActor::GetPrimitive.
+		enum class PrimKind { Cylinder, OrientedCylinder, Box, Mesh, Brush };
+
+		// IDA Engine.dll: ?GetPrimitive@AActor@@UBEPAVUPrimitive@@XZ [HP1 0x1037A880]
+		PrimKind GetPrimitive(UActor* a)
+		{
+			uint8_t type = CollideType(a);
+			if (type == CT_Shape && a->Mesh())
+				return PrimKind::Mesh;
+			if (type == CT_Shape && a->Brush())
+				return PrimKind::Brush;
+			if (type == CT_OrientedCylinder)
+				return PrimKind::OrientedCylinder;
+			if (type == CT_Box)
+				return PrimKind::Box;
+			return PrimKind::Cylinder;
+		}
+
+		// The collision box of a primitive for an actor, in the actor's local space or (bWorld) the world.
+		// IDA Engine.dll: ?GetCollisionBoundingBox@UPrimitive@@UBE?AVFBox@@PBVAActor@@_N@Z [HP1 0x103FA2F0]
+		// IDA Engine.dll: ?GetCollisionBoundingBox@UOrientedCylinder@@UBE?AVFBox@@PBVAActor@@_N@Z [HP1 0x103FB190]
+		// IDA Engine.dll: ?GetCollisionBoundingBox@UBox@@UBE?AVFBox@@PBVAActor@@_N@Z [HP1 0x103FE130]
+		// IDA Engine.dll: ?GetCollisionBoundingBox@UBoxPrim@@UBE?AVFBox@@PBVAActor@@_N@Z [HP1 0x103FE7A0] (also UModel's slot)
+		// IDA Engine.dll: ?GetCollisionBoundingBox@UMesh@@UBE?AVFBox@@PBVAActor@@_N@Z [HP1 0x103B84D0]
+		// IDA Engine.dll: ?GetCollisionBoundingBox@USkeletalMesh@@UBE?AVFBox@@PBVAActor@@_N@Z [HP1 0x1041B8B0]
+		BBox GetCollisionBoundingBox(UActor* a, PrimKind kind, bool world)
+		{
+			float r = a->CollisionRadius();
+			float h = a->CollisionHeight();
+			switch (kind)
+			{
+			default:
+			case PrimKind::Cylinder:
+			{
+				// The vertical centre is offset by CollisionWidth (as in the original).
+				vec3 c = world ? a->Location() : vec3(0.0f);
+				c.z += CollisionWidth(a);
+				return BBox(c - vec3(r, r, h), c + vec3(r, r, h));
+			}
+			case PrimKind::OrientedCylinder:
+			case PrimKind::Box:
+			{
+				float w = kind == PrimKind::Box && CollisionWidth(a) != 0.0f ? CollisionWidth(a) : r;
+				BBox box(vec3(-r, -w, -h), vec3(r, w, h));
+				return world ? TransformBox(box, ToWorld(a)) : box;
+			}
+			case PrimKind::Brush:
+			{
+				UModel* brush = a->Brush();
+				return world ? TransformBox(brush->BoundingBox, ToWorld(a)) : brush->BoundingBox;
+			}
+			case PrimKind::Mesh:
+			{
+				UMesh* mesh = a->Mesh();
+				USkeletalMesh* skel = UObject::TryCast<USkeletalMesh>(mesh);
+				if (world && skel)
+					return GetSkeletalCollisionBox(a, skel);
+				if (world)
+				{
+					mat4 objectToWorld = mat4::translate(a->Location() + a->PrePivot()) * Coords::Rotation(a->Rotation()).ToMatrix() * mat4::scale(a->DrawScale());
+					return TransformBox(mesh->BoundingBox, objectToWorld * mesh->meshToObject);
+				}
+				vec3 scale = mesh->Scale * a->DrawScale();
+				return BBox((mesh->BoundingBox.min - mesh->Origin) * scale, (mesh->BoundingBox.max - mesh->Origin) * scale);
+			}
+			}
+		}
+	}
+
+	// With bVisual the actor's Mesh (or Brush) gives the box, otherwise its collision primitive. Always in the world.
+	// Target and baseSpell aim at the centre of this box (spell lock-on and homing).
+	// IDA Engine.dll: ?execGetWorldCollisionBox@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x1040A950]
+	static void NGetWorldCollisionBox(UObject* Self, std::optional<bool> bVisual, ScriptBoundingBox& ReturnValue)
+	{
+		UActor* a = UObject::Cast<UActor>(Self);
+		PrimKind kind;
+		if (bVisual.value_or(false) && a->Mesh())
+			kind = PrimKind::Mesh;
+		else if (bVisual.value_or(false) && a->Brush())
+			kind = PrimKind::Brush;
+		else
+			kind = GetPrimitive(a);
+		BBox box = GetCollisionBoundingBox(a, kind, true);
+		ReturnValue.Min = box.min;
+		ReturnValue.Max = box.max;
+		ReturnValue.IsValid = 1;
+	}
+
+	// The size (Max - Min) of the actor's local box: for a skeletal mesh the average of its per-frame bounding boxes
+	// (USkeletalMesh+504, averaged in Serialize; raw mesh units), otherwise the local collision box of the Mesh, the
+	// Brush or the collision primitive. ActorShadow sizes its decal with it.
+	// IDA Engine.dll: ?execGetRenderExtent@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x1040AA10]
+	// IDA Engine.dll: ?Serialize@USkeletalMesh@@UAEXAAVFArchive@@@Z [HP1 0x1041A7D0] (the averaged box)
+	static void NGetRenderExtent(UObject* Self, vec3& ReturnValue)
+	{
+		UActor* a = UObject::Cast<UActor>(Self);
+		BBox box;
+		if (USkeletalMesh* skel = UObject::TryCast<USkeletalMesh>(a->Mesh()))
+		{
+			box = BBox(vec3(0.0f), vec3(0.0f));
+			if (!skel->BoundingBoxes.empty())
+			{
+				for (const BBox& b : skel->BoundingBoxes)
+				{
+					box.min += b.min;
+					box.max += b.max;
+				}
+				float inv = 1.0f / (float)skel->BoundingBoxes.size();
+				box.min *= inv;
+				box.max *= inv;
+			}
+		}
+		else
+		{
+			box = GetCollisionBoundingBox(a, a->Mesh() ? PrimKind::Mesh : a->Brush() ? PrimKind::Brush : GetPrimitive(a), false);
+		}
+		ReturnValue = box.max - box.min;
+	}
+
 	void RegisterCollisionNatives()
 	{
 		OverrideNative(283, [] { RegisterVMNativeFunc_4("Actor", "SetCollisionSize", &NSetCollisionSize, 283); });
+		OverrideNative(286, [] { RegisterVMNativeFunc_2("Actor", "GetWorldCollisionBox", &NGetWorldCollisionBox, 286); });
+		OverrideNative(274, [] { RegisterVMNativeFunc_1("Actor", "GetRenderExtent", &NGetRenderExtent, 274); });
 	}
 }

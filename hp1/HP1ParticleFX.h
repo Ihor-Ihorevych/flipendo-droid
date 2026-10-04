@@ -57,7 +57,7 @@ namespace HP1
 		PropertyDataOffset Chaos, ChaosDelay, Elasticity, Attraction, Damping, Distribution, Pattern;
 		PropertyDataOffset WindModifier, bWindPerParticle, GravityModifier, Gravity, ParticlesAlive, ParticlesMax;
 		PropertyDataOffset Textures, ColorPalette, RenderPrimitive, EmitDelay, LastUpdateLocation, LastEmitLocation;
-		PropertyDataOffset LastUpdateRotation, EmissionResidue, Age, ElapsedTime, ParticlesEmitted, CurrentPriorityTag;
+		PropertyDataOffset LastUpdateRotation, EmissionResidue, Age, ElapsedTime, ParticlesEmitted, LightColor, CurrentPriorityTag;
 		PropertyDataOffset bShellOnly, bEmit;
 	};
 	const ParticleFXProps& GetParticleFXProps();
@@ -121,6 +121,7 @@ namespace HP1
 		HP1_PFX_VALUE(float, Age)
 		HP1_PFX_VALUE(float, ElapsedTime)
 		HP1_PFX_VALUE(int, ParticlesEmitted)
+		HP1_PFX_VALUE(vec4, LightColor)
 		HP1_PFX_VALUE(int, CurrentPriorityTag)
 		HP1_PFX_BOOL(bShellOnly)
 		HP1_PFX_BOOL(bEmit)
@@ -133,6 +134,12 @@ namespace HP1
 	ParticleSystemState* GetParticleSystem(UActor* actor);
 	// AParticleFX::Update: simulate up to the system's Age (dt 0) and emit. False if the system is done.
 	bool UpdateParticleSystem(UActor* actor, float dt);
+
+	// AParticleFX::Tick (hp1/HP1ParticleFX.cpp) and AWind::Tick (hp1/HP1Wind.cpp).
+	void TickParticleFX(UActor* actor, float elapsed);
+	void TickWind(UActor* actor, float elapsed);
+	// AWind::GetTotalWind: the sum of every Wind in the context actor's level at a location (hp1/HP1Wind.cpp).
+	vec3 GetTotalWind(UActor* context, const vec3& location);
 
 	// Gesture.Points (hp1/HP1Gesture.cpp); ParticleFX.Pattern emits along it.
 	TypedScriptArray<vec3> GesturePoints(UObject* gesture);

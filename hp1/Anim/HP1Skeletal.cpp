@@ -654,6 +654,23 @@ namespace HP1
 		return result;
 	}
 
+	// The mesh's bounding box in the world: its corners through GetMeshCoords.
+	// IDA Engine.dll: ?GetCollisionBoundingBox@USkeletalMesh@@UBE?AVFBox@@PBVAActor@@_N@Z [HP1 0x1041B8B0] (bWorld = true)
+	BBox GetSkeletalCollisionBox(UActor* actor, USkeletalMesh* mesh)
+	{
+		mat4 meshToWorld = GetMeshToWorld(actor, mesh);
+		const BBox& box = mesh->BoundingBox;
+		BBox result;
+		for (int i = 0; i < 8; i++)
+		{
+			vec3 corner((i & 1) ? box.max.x : box.min.x, (i & 2) ? box.max.y : box.min.y, (i & 4) ? box.max.z : box.min.z);
+			vec3 p = (meshToWorld * vec4(corner, 1.0f)).xyz();
+			result.min = i == 0 ? p : vec3(std::min(result.min.x, p.x), std::min(result.min.y, p.y), std::min(result.min.z, p.z));
+			result.max = i == 0 ? p : vec3(std::max(result.max.x, p.x), std::max(result.max.y, p.y), std::max(result.max.z, p.z));
+		}
+		return result;
+	}
+
 	// World coords of a bone: origin = the bone's world position, axes = its orientation including the mesh scale
 	// and GetMeshCoords' Y mirror. An invalid bone gives the mesh coords. Only the root is posed for bone 0.
 	// IDA Engine.dll: ?GetBoneCoords@USkeletalMesh@@UBE?AVFCoords@@PAVAActor@@H@Z [HP1 0x1041F3C0]
