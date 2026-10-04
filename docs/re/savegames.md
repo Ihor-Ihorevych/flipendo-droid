@@ -62,7 +62,12 @@ BMPs. `FEFilePage` (unused) would read `SaveGameSnap<i>.bmp`.
 ## Not ported
 
 - `CreateTextureFromScreenShot`, `SaveObjectAsFile`, `LoadObjectAsFile`: no script calls them.
-- `Snap 3` (FEBook.OpenBook): unknown console command; it only fed the commented-out screenshot saving.
+- `Snap 3` (FEBook.OpenBook, HPConsole): UViewport::Exec copies the frame, shrunk by 2^N, into the viewport's snapshot
+  buffer for SaveSnap / CreateTextureFromScreenShot. Nothing in HP1 reads the buffer, so Flipendo accepts the command and
+  does nothing (`KW::ViewportCommand`, `kw/KWSave.cpp`).
 - SaveGame's LevelAction/mover-position bookkeeping (nothing renders during our synchronous save).
-- Native-only state isn't in the save package, so it restarts on load: particles, the camera's internal state
-  (the camera sits slightly further back right after loading), our side tables.
+- Native-only state isn't in the save package, so it restarts on load: particles, our side tables. The camera
+  (`PotCam`, a BaseCam) is all script state and is saved with everything else. Checked 2026-10-04 in Lev_Tut1
+  (`SaveGame 98` then `open save98.usa` while Harry stands in the entrance hall): PotCam0 comes back at the same
+  location and in the same state, and screenshots before and after match. The earlier report of the camera
+  sitting further back after a load wasn't reproduced; it may need a save taken while the camera is still moving.

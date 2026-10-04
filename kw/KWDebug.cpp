@@ -12,9 +12,15 @@
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Packages/Core/UClass.h"
 #include "Collision/TopLevel/CollisionSystem.h"
+#include "GameWindow.h"
 #include <chrono>
 #include <fstream>
 #include <sstream>
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <Windows.h>
+#endif
 
 // Development aids, all timed in seconds since the first rendered frame:
 //   HP1_SHOTS="4.5,5.7,8"      in-engine screenshots (no desktop capture)
@@ -34,6 +40,8 @@
 //                              does nothing with --vanilla). Shifts later timings, so routes need their own times
 //   HP1_HEIGHTMAP="5:x0,y0,x1,y1,step,ztop"  at <sec>, trace straight down (player-sized cylinder) from ztop over
 //                              the grid and log one row of floor heights per y (blank = nothing within 2000 units)
+//   HP1_BACKGROUND=1           open the game window windowed, at the bottom of the window stack and without activating
+//                              it, so automated runs don't take over the screen (keys/mouse come from HP1_KEYS etc.)
 //   HP1_EXEC="40:open save0.usa;90:SaveGame 3"  run a console command at <sec> (';' separates entries);
 //                              "@console Fn" calls the console's script function Fn() instead (e.g. SaveSelectedSlot);
 //                              "@console.MenuBook OpenBook Slot" follows object properties and passes one string;
@@ -42,6 +50,21 @@
 
 namespace KW
 {
+	bool ShowWindowInBackground(GameWindow* window, int width, int height)
+	{
+		const char* s = getenv("HP1_BACKGROUND");
+		if (!s || !*s || *s == '0')
+			return false;
+#ifdef _WIN32
+		HWND hwnd = (HWND)window->GetNativeHandle();
+		SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, width, height, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+		LogMessage("HP1_BACKGROUND: window shown without activation");
+		return true;
+#else
+		return false;
+#endif
+	}
+
 	static float SecondsSinceFirstFrame()
 	{
 		static auto start = std::chrono::steady_clock::now();

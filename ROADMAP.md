@@ -13,12 +13,12 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 1. **Lev_Tut1, the Flipendo lesson**: played by hand (2026-10-04) through the wizard card room, Malfoy, Hermione and
    Quirrell into the Flipendo lesson, which now runs (template, wand, pass mark, timer, IceTexture blackboard).
    Next: draw and score the spell, the DADA doors after it, and the level change to Lev_Tut1b.
-2. **Mesh lighting check**: HP1's mesh lighting is ported (see phase 5); compare characters and props side by side
-   with the original (brightness, specular highlights, light fades) and fix what differs.
-3. Verify animations visually against the original (walk/run/breathe, tween blends, aux channels): needs the original
-   game running next to ours, side by side.
-4. Broom / Quidditch levels now load and their paths fly (see phase 5). Next there: Lev4_Sneak stops on
-   `goto lcloop` (gargoyle.lookaround: "Could not find label").
+2. Broom / Quidditch levels now load and their paths fly (see phase 5). Lev4_Sneak runs: a `goto` to a missing label
+   (gargoyle.lookaround's `lcloop`) now stops the state code like UE1 instead of a fatal error.
+
+Visual parity checks against the original, side by side, wait until the end (after gameplay works): mesh lighting
+(brightness, specular highlights, light fades; ported in phase 5), animations (walk/run/breathe, tween blends, aux
+channels) and particle effects.
 
 ## 0. Groundwork
 - [x] SurrealEngine as a git submodule (`engine/`, SurrealEngine) + our changes as `patches/`;
@@ -96,8 +96,9 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 - [ ] Some cutscene kids reportedly look like they walk while running (all play `run` at rate 1.5 with
       finished tweens; needs a closer look at which ones)
 - [ ] Kids spawned on the same patrol point can overlap (UE1 Spawn fails when the spot is occupied?)
-- [ ] Verify CT_Box against `UBox::LineCheck/PointCheck` (Engine.dll 0x103FE620/0x103FE590); CT_Shape
-      (decorations/movers: box from mesh/brush) still uses SurrealEngine's cylinder/brush collision
+- [x] CT_Box ported from `UBox::LineCheck/PointCheck` ([docs/re/collision.md](docs/re/collision.md)): box against box in
+      the box's frame, CollisionWidth 0 = CollisionRadius, the start-inside rule. CT_Shape (decorations/movers: box from
+      mesh/brush) still uses SurrealEngine's cylinder/brush collision
 - [x] The player slides along actor walls instead of sticking to them (SurrealEngine TickWalking left player-vs-actor
       hits as a TODO; HP1's `APawn::stepUp` slides). Harry can now run up the Lev_Tut1 stairs along the
       BlockAll banister and reach the Ron cutscene
@@ -132,8 +133,11 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
       `kw/KWNavigation.cpp`)
 - [x] ModifySound(567), StopSound(568) (`kw/KWSound.cpp`; Galaxy.dll's match: first sound with the slot's Id and,
       if given, the same Sound). BroomHarry crashed on the first tick without it
-- [ ] Missing Actor natives: PlayerPawn.ScreenToWorld, Console.CreateNativeFont
-- [ ] Unknown console command `Snap` (FEBook.OpenBook `Snap 3`: screenshot for the save thumbnail, see phase 4)
+- [x] Missing natives ([docs/re/native_classes.md](docs/re/native_classes.md), `kw/KWPlayerNatives.cpp`): ScreenToWorld
+      and FindStairRotation ported (no HP1 script reaches either). Console.CreateNativeFont returns None: the Asian
+      languages need WinDrv.dll's system-font rasterizer, not reversed yet
+- [x] Console command `Snap` (FEBook.OpenBook `Snap 3`) accepted: its snapshot buffer is never read in HP1
+      ([docs/re/savegames.md](docs/re/savegames.md))
 - [x] `FellOutOfWorld` on the first tick: HP1 only checks zone 0 in physWalking/physFalling, not flying/swimming/rolling
       (`HP1::PhysicsChecksLeftWorld`), so the flying `tut1Peeves0` waiting outside the BSP now survives. `Tut1McGonagall4`
       still dies: she is placed in zone 0 and falling, which kills her in the original too (leftover actor)
@@ -178,7 +182,9 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 - [x] CreateTextureFromBMP: the slot page shows each slot's thumbnail (`Save/SGS <level>.bmp`)
 - [ ] Play the whole New Game → save point → quit → Load Game loop by hand through the menus (only driven with
       `HP1_EXEC` so far), and a save made after a level change (autosave on the first tick)
-- [ ] After loading, the camera sits a little further back than when saved (BaseCam native state not in the save?)
+- [~] After loading, the camera sits a little further back than when saved: not reproduced with a standstill save in
+      Lev_Tut1 (camera and screenshots identical, [docs/re/savegames.md](docs/re/savegames.md)); try a save taken
+      while the camera moves
 - [ ] Save/LoadObjectAsFile, CreateTextureFromScreenShot, `Snap 3`: no script uses them (low priority)
 
 ## 5. Remaining native classes and polish
@@ -193,7 +199,9 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
       specular per vertex, and back-face culling of skeletal meshes. Fixes the classroom blackboards' diagonal split
       (front and back quads z-fought). Not yet compared side by side with the original
 - [ ] Bugs of the original to fix, not reproduce: [docs/re/original_bugs.md](docs/re/original_bugs.md)
-- [ ] ImpactSoundSet, SoundContainer, ClipMarker, LocationID
+- [x] ImpactSoundSet, SoundContainer, ClipMarker, LocationID: Engine.dll has no native code for them, only boilerplate;
+      their script classes are enough ([docs/re/native_classes.md](docs/re/native_classes.md))
+- [ ] Console.CreateNativeFont for the Asian languages (WinDrv.dll's GDI font rasterizer)
 - [x] `ViewFlash` (UGameEngine::Tick) and the screen flash: HP1 has no FlashScale, FlashFog.W is the brightness
       (`kw/KWView.cpp`). Cutscene FadeIn/FadeOut, damage flashes and the level fade-in now show
 - [~] Quidditch / broom levels: Lev_Tut2, Lev2_Quid1, Lev2_RemChase, Lev5_FlyKeys load and run their intros
