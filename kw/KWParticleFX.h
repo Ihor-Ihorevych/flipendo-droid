@@ -8,7 +8,7 @@ class UTexture;
 // HP1's native ParticleFX class (kw/KWParticleFX.cpp simulates, kw/KWParticleRender.cpp draws).
 namespace KW
 {
-	// UParticle (140 bytes in HP1 Engine.dll; see docs/re/particles.md).
+	// UParticle (140 bytes in HP1 Engine.dll; see docs/re/engine/particles.md).
 	struct Particle
 	{
 		vec3 OldPosition = vec3(0.0f);

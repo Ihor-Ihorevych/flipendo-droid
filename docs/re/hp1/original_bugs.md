@@ -2,7 +2,8 @@
 
 Bugs the retail game has that Flipendo should fix rather than reproduce. Each entry: where, what happens, the
 known workaround in the original, and the state of our fix. A fix that changes original behaviour goes in `hp1/mods/`
-(on by default, off with `--vanilla`), so a vanilla run still plays like the original.
+(on by default, off with `--vanilla`, [modding.md](../../modding.md)), so a vanilla run still plays like the original.
+HP2's bugs will get their own list in `../hp2/` once HP2 runs.
 
 | Where | Bug | Workaround in the original | Fix |
 |---|---|---|---|

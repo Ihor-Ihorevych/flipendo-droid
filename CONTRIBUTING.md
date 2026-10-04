@@ -10,10 +10,11 @@ There's work for every skill level, and much of it needs no programming. Come sa
 - **Owners of other game versions**: see [below](#other-game-versions).
 - **Modders**: build an extra in `hp1/mods/`, test community levels, or help design content-mod loading and the
   in-game modding tools ([docs/modding.md](docs/modding.md)).
-- **Reverse engineers**: the remaining work is KnowWonder's native code. [docs/re/dlls.md](docs/re/dlls.md) shows
-  what every DLL does and what's been reimplemented; [docs/re/](docs/re/) has what's been learned so far.
+- **Reverse engineers**: the remaining work is KnowWonder's native code, in HP1's and HP2's DLLs.
+  [docs/re/reports/dlls.md](docs/re/reports/dlls.md) shows what every DLL does and what's been reimplemented;
+  [docs/re/](docs/re/README.md) has what's been learned so far, the shared engine and each game's own parts.
 - **C++ developers**: start with [docs/development.md](docs/development.md) (layout, ground rules, reference
-  material, debug tools) and the [roadmap](ROADMAP.md).
+  material), [docs/one-engine.md](docs/one-engine.md) (one code path for both games) and the [roadmap](ROADMAP.md).
 - **Writers and artists**: documentation, guides, screenshots and clips for the README and the Discord.
 
 ## Other game versions
@@ -54,7 +55,7 @@ are welcome.
 | `--skip-splash`, `--skip-intro`, `--vanilla` | as in the [README](README.md#launch-options) |
 
 The debug environment variables (screenshots, actor dumps, fixed cameras, scripted input) are in
-[docs/development.md](docs/development.md#debug-tools).
+[docs/debug-tools.md](docs/debug-tools.md).
 
 ## Ground rules
 
@@ -63,7 +64,9 @@ The debug environment variables (screenshots, actor dumps, fixed cameras, script
 2. **Never commit game data** or anything extracted from it.
 3. **Faithful port and additions stay apart.** Anything the original didn't have goes in `hp1/mods/` and is off
    with `--vanilla`.
-4. **Write down what you learn** in `docs/re/` in the same change.
+4. **One implementation for both games**: KnowWonder's engine goes in `kw/`, only what one game lacks goes in `hp1/`
+   or `hp2/` ([docs/one-engine.md](docs/one-engine.md)).
+5. **Write down what you learn** in `docs/re/` in the same change.
 
 [docs/development.md](docs/development.md) explains these, and [`CLAUDE.md`](CLAUDE.md) is the full rule set.
 
@@ -78,4 +81,4 @@ Much of this port is written with LLM assistance (Claude). SurrealEngine asks th
 
 By contributing you agree that your contribution is licensed under the
 [PolyForm Noncommercial License 1.0.0](LICENSE.md), like the rest of Flipendo's own code (`kw/`, `hp1/`,
-`patches/`, `tools/`, `docs/`).
+`hp2/`, `patches/`, `tools/`, `docs/`).

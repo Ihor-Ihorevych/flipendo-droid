@@ -1,9 +1,10 @@
 # Save games
 
-How HP1 saves and loads, from `HPMenu` scripts and Engine.dll. Implemented in `kw/KWSave.cpp` plus three
-`Engine.cpp` hooks ([engine-hooks.md](../engine-hooks.md)).
+How the games save and load. Both keep a level save (the level package written as `Save<N>.usa`, stock UE1) plus
+KnowWonder's `GameSaveInfo` file for the slot page; the script side around them differs per game. Implemented in
+`kw/KWSave.cpp` plus three `Engine.cpp` hooks ([engine-hooks.md](../../engine-hooks.md)). Addresses are HP1's.
 
-## Flow (scripts)
+## HP1's flow (HPMenu scripts)
 
 - **Slots.** `FESlotPage` shows 6 slots (indices 0-5, shown as 1-6). Picking an empty one starts a new game in it;
   `nSelectedSlot` stays the current slot for the whole session. With no slot (`-1`, e.g. a game started with
@@ -18,6 +19,23 @@ How HP1 saves and loads, from `HPMenu` scripts and Engine.dll. Implemented in `k
   The screenshot code ("Snap 3", "SaveSnap") is commented out: thumbnails are pre-made BMPs (below).
 - **Loading**: `FESlotPage.LoadSelectedSlot` → `ConsoleCommand("open save" $slot $".usa")`. HP1's ini has
   `Paths=../save/*.usa`, so the save is opened like a map.
+
+## HP2's flow (hgame scripts)
+
+Read from HP2's decompiled scripts only; HP2's native side isn't reversed yet.
+
+- **Saving is queued.** HP2's `PlayerPawn.SaveGame()` is a script function that only sets `bQueuedToSaveGame`; its
+  comment says the engine saves at the end of the level tick, and that "slots are just directories, the save game
+  number that the front end will always look for is zero". HP1 saves synchronously from a console command instead.
+- New events on every actor, `PreSaveGame` / `PostSaveGame` ("called right before/after it saves the game in
+  UnGame::SaveGame()"); `harry` uses them.
+- `HPConsole.doLevelSave(i)` still fills a `GameSaveInfo` and writes it with native 325 (`SaveGameSaveInfo`), as in HP1.
+- `SavePoint.OnSaveGame` raises Harry's health to `iMinHealthAfterDeath` for the save and restores it afterwards.
+- Loading after death is `ConsoleCommand("LoadGame 0")` (`harry`, `SleepingGoyle`), a console command HP1 doesn't have.
+
+In [hp2_compare.md](../reports/hp2_compare.md) `UViewport::Exec` grew from 4000 to 5271 bytes (probably the new
+commands) and `LoadMap` changed by 8 bytes; the four save natives below grew by the DebugInfo check only in size, HP2
+code not read yet. The `FString` serializer in Core.dll is identical.
 
 ## Engine side
 
@@ -35,7 +53,7 @@ How HP1 saves and loads, from `HPMenu` scripts and Engine.dll. Implemented in `k
   So it is the map name the level was travelled to, with `.unr` when the URL had it (`SetStory(3, "Lev_Tut1.unr")`),
   which is why doLevelSave cuts at "." and why one thumbnail is named `SGS lev3_troll.unr.bmp`. A save keeps its text.
 
-## Natives
+## Natives (both games)
 
 | Native | HP1 | Behaviour |
 |---|---|---|

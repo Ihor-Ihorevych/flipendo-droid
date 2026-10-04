@@ -6,7 +6,7 @@
 class UObject;
 class UCanvas;
 
-// Additions on top of the original game (see README.md in this folder).
+// Additions on top of the original game (see docs/modding.md).
 namespace HP1::Mods
 {
 	// False when the game runs with --vanilla: default-on mods stay off.

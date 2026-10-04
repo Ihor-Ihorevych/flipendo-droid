@@ -1,7 +1,8 @@
 # Troubleshooting
 
 Flipendo runs the game files from your own installation. Most startup problems are a wrong folder or missing
-files, and the error message says which. Run with `--logfile=flipendo.log` to keep the full log; it survives
+files, and the error message says which. Harry Potter and the Philosopher's Stone (HP1) is the game that plays today;
+Chamber of Secrets (HP2) is recognised but not playable yet. Run with `--logfile=flipendo.log` to keep the full log; it survives
 crashes.
 
 ## Where the game files are expected
@@ -57,9 +58,9 @@ These don't stop the game, but explain missing pictures, sounds or text:
   example `HPFonts`, loaded only by the Polish release).
 - `Package X imports Class Y.Z, which Y does not contain`: an object a package refers to is missing. Two show up
   on every start and are known: `Engine.ParticleList` and an editor icon in `HPEdit`
-  ([docs/re/particles.md](re/particles.md)).
+  ([docs/re/engine/particles.md](re/engine/particles.md)).
 - `Unimplemented: Class.Function`: a native function Flipendo hasn't ported yet
-  ([native audit](re/native_audit_hp1.md)).
+  ([native audit](re/reports/native_audit_hp1.md)).
 
 ## Other problems
 

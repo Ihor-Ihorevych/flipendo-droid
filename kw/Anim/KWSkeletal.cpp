@@ -25,7 +25,7 @@
 //   USkeletalMesh::GetFrame    - bone hierarchy -> coords, linear blend skinning of LocalPoints
 //   USkeletalMesh::GetMeshCoords - mesh to world placement
 //   Core.dll: FCoords(FPlace), FCoords::operator/=(FCoords), SlerpQuat
-// See docs/re/animation.md.
+// See docs/re/engine/animation.md.
 
 namespace KW
 {

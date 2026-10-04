@@ -1,7 +1,25 @@
-# HP1 skeletal animation (reversed from Engine.dll)
+# Skeletal animation
 
-Source: `../ida/hp1/Engine.dll.i64` (layouts measured from `Serialize` and field accesses).
-Implementation: `kw/Anim/`.
+KnowWonder's skeletal meshes and animation system, which both games use for every character: `UAnimation`,
+`USkeletalMesh`, animation channels, tweening as a blend weight, and root motion. Implementation: `kw/Anim/`.
+
+Reversed from HP1's `Engine.dll` (`../ida/hp1/Engine.dll.i64`; layouts measured from `Serialize` and field accesses).
+Addresses below are HP1's.
+
+## HP1 and HP2
+
+Both games run the same system ([hp2_compare.md](../reports/hp2_compare.md)):
+
+- **Identical in HP2:** the data and its loading (`UAnimation::Serialize`, `USkeletalMesh::Serialize`, `GetAnimSeq`,
+  `GetMovement`, `BoneName`), skinning (`GetFrame`), `SlerpQuat` and `FCoords(FPlace)` in Core.dll, and the latent
+  `execPollFinishAnim`.
+- **Offsets only:** `IsAnimating`, `AdjustRootMovement`.
+- **Changed, HP2 code not read yet:** `PlayAnim` (+205 bytes), `AActor::Tick` (+220), `ApplyAnim`, `GetMeshCoords`,
+  `GetBoneCoords`, `GetRootMovement`. The `exec*` wrappers grew by the ~29 bytes of HP2's DebugInfo check
+  ([scripting.md](scripting.md)), which isn't a behaviour change.
+- **Signature change:** HP2's `CreateAnimChannel` takes one more bool (`bNotReplaceable` in HP2's `Actor.uc`; export
+  `...VFName@@_N3@Z` instead of HP1's `...VFName@@_N@Z`). Not reversed yet.
+- **HP2 only:** `Actor.BoneRot` (native 328, `hp2/HP2Natives.cpp`).
 
 ## Data: `UAnimation` (sizeof 156)
 

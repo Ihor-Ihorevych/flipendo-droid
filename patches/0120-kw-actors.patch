@@ -1,7 +1,7 @@
 flipendo: KnowWonder actor tick, native actors (ParticleFX, Wind), animation
 
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor.cpp b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
-index 29c45a1c..bb969af6 100644
+index 29c45a1c..8f0a58ea 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
 @@ -9,6 +9,7 @@
@@ -52,7 +52,7 @@ index 29c45a1c..bb969af6 100644
  }
 +
 +// flipendo: KnowWonder's AActor::WorldLightRadius is max(DrawScale, 1) * (LightRadius + 1) * 25 (the Quidditch suns,
-+// DrawScale 5, reach 32000 units). docs/re/lighting.md.
++// DrawScale 5, reach 32000 units). docs/re/engine/lighting.md.
 +float UActor::WorldLightRadius()
 +{
 +	float radius = ((int)LightRadius() + 1) * 25.0f;

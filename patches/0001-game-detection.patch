@@ -45,7 +45,7 @@ index 473146a7..639fff8a 100644
  	if (ue1_game.first != KnownUE1Games::UE1_GAME_NOT_FOUND)
  	{
 diff --git a/SurrealEngine/GameFolder.h b/SurrealEngine/GameFolder.h
-index 1a03615b..67c8b25c 100644
+index 1a03615b..32008c0b 100644
 --- a/SurrealEngine/GameFolder.h
 +++ b/SurrealEngine/GameFolder.h
 @@ -24,6 +24,9 @@ struct GameLaunchInfo
@@ -53,7 +53,7 @@ index 1a03615b..67c8b25c 100644
  	bool IsHarryPotter1() const { return gameExecutableName == "HP"; }
  	bool IsHarryPotter2() const { return gameExecutableName == "Game"; }
 +	// flipendo: games running KnowWonder's modified engine, reimplemented in ../kw. HP2 joins once its
-+	// differences from HP1 are handled (docs/hp2_compare.md).
++	// differences from HP1 are handled (docs/re/reports/hp2_compare.md).
 +	bool IsKnowWonder() const { return IsHarryPotter1(); }
  	bool IsNerfArenaBlast() const { return gameExecutableName == "nerf" || gameExecutableName == "Nerf"; }
  };

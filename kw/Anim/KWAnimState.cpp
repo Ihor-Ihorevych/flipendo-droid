@@ -13,7 +13,7 @@
 #include "Utils/Logger.h"
 #include "Engine.h"
 
-// HP1 animation state, reimplemented from KnowWonder's Engine.dll (see docs/re/animation.md):
+// HP1 animation state, reimplemented from KnowWonder's Engine.dll (see docs/re/engine/animation.md):
 //   AActor::PlayAnim(Sequence, bLoop, Rate, TweenTime, MinRate, Type, RootBone)
 //   AActor::CreateAnimChannel, execIsAnimating, execFinishAnim, execTweenAnim, AActor::Tick (anim part)
 //

@@ -1,47 +1,45 @@
 # Flipendo documentation
 
-| Document | For | What's in it |
-|---|---|---|
-| [troubleshooting.md](troubleshooting.md) | players | where the game files are expected, what the error messages mean |
-| [modding.md](modding.md) | modders | the built-in mods, writing your own, where modding is going |
-| [development.md](development.md) | contributors | code layout (`kw/`, `hp1/`), ground rules, reference material, porting a native, debug tools, comparing with HP2 |
-| [engine-hooks.md](engine-hooks.md) | contributors | how Flipendo patches SurrealEngine, the patch set, every hook by file, updating SurrealEngine |
+Flipendo covers both of KnowWonder's Harry Potter games: HP1 (Philosopher's Stone) runs today, HP2 (Chamber of
+Secrets) is being ported onto the same engine. The documents below say when something applies to only one of them.
 
-## Reverse engineering (`re/`)
+## Playing
 
-What was learned from the games' binaries and scripts.
-
-**Generated reports** (rerun the tool after changes):
-
-| Report | What's in it | Tool |
-|---|---|---|
-| [re/dlls.md](re/dlls.md) | every DLL of HP1 and HP2: what it does, its exports and classes, who provides it in Flipendo, every function we reimplemented and whether HP2 has the same code, script native counts | `tools/dll_report.py` |
-| [re/native_audit_hp1.md](re/native_audit_hp1.md) | every native HP1's scripts declare: OK / STUB / MISSING / INDEX | `tools/native_audit.py` |
-| [re/native_audit_hp2.md](re/native_audit_hp2.md) | the same for HP2; HP1_PORT = covered by a `kw/` port gated to HP1 | `tools/native_audit.py hp2` |
-| [re/hp2_compare.md](re/hp2_compare.md) | HP1 vs HP2 code, export by export, and which ported functions carry over | `tools/hp2_compare.py` |
-
-**Topic notes** (written by hand):
-
-| Note | Topic |
+| Document | What's in it |
 |---|---|
-| [re/animation.md](re/animation.md) | skeletal meshes, the animation format, channels, tweening, root motion |
-| [re/particles.md](re/particles.md) | ParticleFX: parameters, emission, update, rendering, wind |
-| [re/spells.md](re/spells.md) | spell casting, gestures, the spell lesson and its rendering (IceTexture) |
-| [re/cutscenes.md](re/cutscenes.md) | CutScene command lists, how cutscenes move Harry, Lev_Tut1's scenes and merchants |
-| [re/savegames.md](re/savegames.md) | save slots, GameSaveInfo, thumbnails, loading |
-| [re/script_events.md](re/script_events.md) | every script event the native code raises, and which ones SurrealEngine didn't |
-| [re/lighting.md](re/lighting.md) | mesh lighting: light picking, colours and effects, per-vertex light, back-face culling |
-| [re/collision.md](re/collision.md) | CT_Box collision: UBox's box, line and point checks |
-| [re/native_classes.md](re/native_classes.md) | native classes with no native code (ImpactSoundSet, LocationID, ...) and leftover natives (FindStairRotation, ScreenToWorld, CreateNativeFont) |
-| [re/original_bugs.md](re/original_bugs.md) | bugs in the original game that Flipendo fixes instead of reproducing |
+| [troubleshooting.md](troubleshooting.md) | where the game files are expected, what the error messages mean |
 
-## The top-level files
+## Modding
+
+| Document | What's in it |
+|---|---|
+| [modding.md](modding.md) | the built-in mods, writing your own, where modding is going |
+| [debug-tools.md](debug-tools.md) | environment variables to script input, dump and trace actors, call script functions; crash reports, the script debugger |
+
+## Developing
+
+| Document | What's in it |
+|---|---|
+| [development.md](development.md) | code layout, ground rules, reference material, porting a native, comparing with HP2 |
+| [one-engine.md](one-engine.md) | how code is split between `kw/` (both games), `hp1/` and `hp2/` so that no behaviour exists twice |
+| [engine-hooks.md](engine-hooks.md) | how Flipendo patches SurrealEngine, the patch set, every hook by file, updating SurrealEngine |
+
+## How the games work
+
+[re/](re/README.md): what was learned from the games' binaries and scripts.
+
+- [re/engine/](re/README.md#knowwonders-engine-engine): KnowWonder's engine, shared by both games (animation,
+  particles, lighting, collision, physics, the script VM, save games, ...), each note with what differs in HP2.
+- [re/hp1/](re/README.md#harry-potter-1-hp1) and [re/hp2/](re/README.md#harry-potter-2-hp2): what only one game has.
+- [re/reports/](re/README.md#generated-reports-reports): generated reports (every DLL, the native audits, HP1 vs HP2
+  code).
+
+## Elsewhere in the repository
 
 - [`README.md`](../README.md): for players. What Flipendo is, screenshots, status, how to play, extras, community.
 - [`CONTRIBUTING.md`](../CONTRIBUTING.md): for contributors. Ways to help, building, developer flags, ground rules.
 - [`ROADMAP.md`](../ROADMAP.md): what's done and what's next. How things work goes here in `docs/`, not there.
 - [`CLAUDE.md`](../CLAUDE.md): the project rules, written for AI assistants but binding for everyone.
-
-Images: [`branding/`](branding/) (logo, icon), [`screenshots/`](screenshots/) (the README gallery and
-`social-preview.jpg`, 1280x640, for the repository's social preview). Screenshots are taken in Flipendo with
-`HP1_SHOTS` ([development.md](development.md#debug-tools)) and never show the official game logos.
+- [`images/`](../images/): [`branding/`](../images/branding/) (logo, icon) and [`screenshots/`](../images/screenshots/)
+  (the README gallery and `social-preview.jpg`, 1280x640, for the repository's social preview). Screenshots are taken
+  in Flipendo with `HP1_SHOTS` ([debug-tools.md](debug-tools.md)) and never show the official game logos.

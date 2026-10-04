@@ -8,7 +8,7 @@ class UActor;
 class UAnimation;
 class USkeletalMesh;
 
-// HP1 skeletal animation data (KnowWonder's UAnimation). See docs/re/animation.md.
+// HP1 skeletal animation data (KnowWonder's UAnimation). See docs/re/engine/animation.md.
 namespace KW
 {
 	struct AnimTrack
