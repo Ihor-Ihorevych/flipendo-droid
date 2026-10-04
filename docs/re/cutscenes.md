@@ -14,7 +14,7 @@ command list (`Cast0Script` .. `Cast6Script`, strings like `Moveto HpLoc`, `Talk
 - **setPhysics stops actors** (`AActor::setPhysics` 0x103E5140): switching to PHYS_None or PHYS_Rotating zeroes
   Velocity and Acceleration. `CutMovingTo` depends on that: without it the player's last run velocity kept moving
   Harry under PHYS_Walking, past the mark, and he ran in place facing away from the NPC until the timeout
-  (`hp1/HP1Collision.cpp` NSetPhysics).
+  (`kw/KWCollision.cpp` NSetPhysics).
 - **CutSkip()** zeroes each cast member's next-action time; nothing in HP1 calls it (the CutsceneSkip mod does).
 
 ## Lev_Tut1 after the jump room

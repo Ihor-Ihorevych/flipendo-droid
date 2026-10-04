@@ -59,7 +59,7 @@ These don't stop the game, but explain missing pictures, sounds or text:
   on every start and are known: `Engine.ParticleList` and an editor icon in `HPEdit`
   ([docs/re/particles.md](re/particles.md)).
 - `Unimplemented: Class.Function`: a native function Flipendo hasn't ported yet
-  ([native audit](native_audit.md)).
+  ([native audit](re/native_audit_hp1.md)).
 
 ## Other problems
 

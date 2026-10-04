@@ -4,14 +4,34 @@
 |---|---|---|
 | [troubleshooting.md](troubleshooting.md) | players | where the game files are expected, what the error messages mean |
 | [modding.md](modding.md) | modders | the built-in mods, writing your own, where modding is going |
-| [development.md](development.md) | contributors | code layout, ground rules, reference material, porting a native, debug tools |
-| [engine-hooks.md](engine-hooks.md) | contributors | how Flipendo patches SurrealEngine, every hook by file, updating SurrealEngine |
-| [native_audit.md](native_audit.md) | contributors | generated: natives still missing (`tools/native_audit.py`) |
-| [native_audit_hp2.md](native_audit_hp2.md) | contributors | generated: the same for HP2 (`tools/native_audit.py hp2`); HP1_PORT = covered by an HP1 port |
-| [hp2_compare.md](hp2_compare.md) | contributors | generated: HP1 vs HP2 engine code per DLL, and which ported functions carry over (`tools/hp2_compare.py`) |
-| [re/](re/) | reverse engineers | what was learned from HP1's binaries: [animation](re/animation.md), [particles](re/particles.md), [save games](re/savegames.md), [spells](re/spells.md), [script events](re/script_events.md), [cutscenes](re/cutscenes.md) |
+| [development.md](development.md) | contributors | code layout (`kw/`, `hp1/`), ground rules, reference material, porting a native, debug tools, comparing with HP2 |
+| [engine-hooks.md](engine-hooks.md) | contributors | how Flipendo patches SurrealEngine, the patch set, every hook by file, updating SurrealEngine |
 
-The other top-level files each have one job:
+## Reverse engineering (`re/`)
+
+What was learned from the games' binaries and scripts.
+
+**Generated reports** (rerun the tool after changes):
+
+| Report | What's in it | Tool |
+|---|---|---|
+| [re/dlls.md](re/dlls.md) | every DLL of HP1 and HP2: what it does, its exports and classes, who provides it in Flipendo, every function we reimplemented and whether HP2 has the same code, script native counts | `tools/dll_report.py` |
+| [re/native_audit_hp1.md](re/native_audit_hp1.md) | every native HP1's scripts declare: OK / STUB / MISSING / INDEX | `tools/native_audit.py` |
+| [re/native_audit_hp2.md](re/native_audit_hp2.md) | the same for HP2; HP1_PORT = covered by a `kw/` port gated to HP1 | `tools/native_audit.py hp2` |
+| [re/hp2_compare.md](re/hp2_compare.md) | HP1 vs HP2 code, export by export, and which ported functions carry over | `tools/hp2_compare.py` |
+
+**Topic notes** (written by hand):
+
+| Note | Topic |
+|---|---|
+| [re/animation.md](re/animation.md) | skeletal meshes, the animation format, channels, tweening, root motion |
+| [re/particles.md](re/particles.md) | ParticleFX: parameters, emission, update, rendering, wind |
+| [re/spells.md](re/spells.md) | spell casting, gestures, the spell lesson and its rendering (IceTexture) |
+| [re/cutscenes.md](re/cutscenes.md) | CutScene command lists, how cutscenes move Harry, Lev_Tut1's scenes and merchants |
+| [re/savegames.md](re/savegames.md) | save slots, GameSaveInfo, thumbnails, loading |
+| [re/script_events.md](re/script_events.md) | every script event the native code raises, and which ones SurrealEngine didn't |
+
+## The top-level files
 
 - [`README.md`](../README.md): what Flipendo is, its status, how to build and play.
 - [`ROADMAP.md`](../ROADMAP.md): what's done and what's next. How things work goes here in `docs/`, not there.

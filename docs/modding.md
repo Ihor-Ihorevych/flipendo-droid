@@ -2,8 +2,8 @@
 
 Flipendo keeps a strict line between the **faithful port** and **additions**:
 
-- `hp1/` (except `hp1/mods/`) reproduces what the 2001 engine did. Every function carries an `// IDA` tag saying
-  which original function it reimplements.
+- `kw/` (KnowWonder's engine, shared by the HP games) and the rest of `hp1/` reproduce what the original engine did.
+  Every function carries an `// IDA` tag saying which original function it reimplements.
 - `hp1/mods/` holds features the original never had. They never change vanilla behaviour unless switched on,
   and `--vanilla` switches off all the ones that are on by default.
 
@@ -17,7 +17,8 @@ Flipendo keeps a strict line between the **faithful port** and **additions**:
 
 ## Writing a mod
 
-A mod is a C++ file in `hp1/mods/`. The build picks up new files automatically (`hp1/hp1.cmake` globs `hp1/`).
+A mod is a C++ file in `hp1/mods/`. The build picks up new files automatically (`hp1/hp1.cmake` globs `hp1/`). Mods are HP1's: they
+read HP1's script classes (`HPBase`, `HPMenu`).
 Mods hook in only through three calls in `hp1/mods/HP1Mods.cpp`:
 
 | Hook | Called | Use it for |

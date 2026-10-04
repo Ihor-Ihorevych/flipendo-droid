@@ -1,8 +1,8 @@
 # Spells: targeting and casting
 
 How HP1 picks a spell target and aims a cast. All of it is UnrealScript (`HarryPotter.Harry`, `HPBase.Target`,
-`HPBase.baseWand`, `HPBase.baseSpell`); the natives it depends on are `Actor.TraceActors` (309, `hp1/HP1TraceTexture.cpp`),
-`Actor.Trace`, and `Actor.GetWorldCollisionBox` (286, `hp1/HP1Collision.cpp`).
+`HPBase.baseWand`, `HPBase.baseSpell`); the natives it depends on are `Actor.TraceActors` (309, `kw/KWTraceTexture.cpp`),
+`Actor.Trace`, and `Actor.GetWorldCollisionBox` (286, `kw/KWCollision.cpp`).
 
 ## Flow
 
@@ -59,7 +59,7 @@ on the Target's box.
   translucent particles. 30 units behind it the lesson spawns `SpellBlackboard`: a modulated sprite (Style 4) with the
   IceTexture `HP_FX.General.les_spellbackgrnd` (Glass `Les_SpellPan`, Source `Les_SpellBase`, MipZero 128 grey).
 - Translucents must be drawn back to front, or the modulated blackboard tints the nearer spiral red.
-- IceTexture (Fire.dll, `hp1/HP1IceTexture.cpp`): each output pixel is a source pixel from the same row shifted by
+- IceTexture (Fire.dll, `kw/KWIceTexture.cpp`): each output pixel is a source pixel from the same row shifted by
   the glass value under it, `dest[y][x] = source[y][(glass[y+V][x+U] + x) & UMask]` with MoveIce (the glass pans),
   `source[y+V][(glass[y][x] + x + U) & UMask]` without. It takes the source's palette, so the blackboard really is a
   warm, darker zone (source average 81,54,54, modulated) with a slow shimmer, not a neutral grey.

@@ -1,6 +1,6 @@
 # Save games
 
-How HP1 saves and loads, from `HPMenu` scripts and Engine.dll. Implemented in `hp1/HP1Save.cpp` plus three
+How HP1 saves and loads, from `HPMenu` scripts and Engine.dll. Implemented in `kw/KWSave.cpp` plus three
 `Engine.cpp` hooks ([engine-hooks.md](../engine-hooks.md)).
 
 ## Flow (scripts)
