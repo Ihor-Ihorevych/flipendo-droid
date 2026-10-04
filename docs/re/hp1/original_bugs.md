@@ -15,7 +15,8 @@ HP2's bugs will get their own list in `../hp2/` once HP2 runs.
 - **Dialogue cut off on fast PCs.** At high frame rates the original may cut dialogue short, possibly from timing by
   frames instead of seconds. The scripts time dialogue in seconds (`baseDialog`, `baseNarrator`, `SpellLearnTrigger`
   wait `GetSoundDuration(dlgSound)`), so if the bug is real it is elsewhere: Galaxy's sound duration, cutscene command
-  timing, or one line ending the next. Try a long cutscene uncapped in the original and in Flipendo.
+  timing, or one line ending the next. Flipendo can't have it: `GetSoundDuration` is the decoded sample count over the
+  sample rate (`USound::GetDuration`), independent of frame rate (read 2026-10-05).
 
 ### Lumos lesson platform
 

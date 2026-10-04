@@ -202,6 +202,9 @@ channels) and particle effects.
       Lev_Tut1 (camera and screenshots identical, [docs/re/engine/savegames.md](docs/re/engine/savegames.md)); try a save taken
       while the camera moves
 - [ ] Save/LoadObjectAsFile, CreateTextureFromScreenShot, `Snap 3`: no script uses them (low priority)
+- [ ] A `Sleep` doesn't survive save/load (SurrealEngine keeps the time outside `LatentFloat`), and saves from the
+      original game resume Sleep/FinishAnim without waiting (latent IDs 384/385 vs 257/262)
+      ([docs/re/engine/savegames.md](docs/re/engine/savegames.md))
 
 ## 5. Remaining native classes and polish
 - [x] InterpolationManager (`kw/KWInterpolation.cpp`): performPhysics flies the Owner along InterpolationPoint Bezier
@@ -231,6 +234,13 @@ channels) and particle effects.
       (`kw/KWView.cpp`). Cutscene FadeIn/FadeOut, damage flashes and the level fade-in now show
 - [~] Quidditch / broom levels: Lev_Tut2, Lev2_Quid1, Lev2_RemChase, Lev5_FlyKeys load and run their intros
 - [ ] Full game playthrough; per-level bug list
+- [ ] `Actor.Fatness`: not ported; only matters if a map or script changes it from 128
+      ([docs/re/engine/animation.md](docs/re/engine/animation.md))
+- [ ] US vs UK HP1: compare `HPBase.u` from both releases for a shifted token table
+      ([docs/re/engine/scripting.md](docs/re/engine/scripting.md))
+- [ ] Menu song fade-in at its start: MusicFade/transitions or the mp2 itself ([docs/re/engine/music.md](docs/re/engine/music.md))
+- [ ] Next SurrealEngine update: upstream's HP1 boot work (July 2026: exe detection, HP natives and tokens, mp2,
+      4:3 `GetRes`) is already in our submodule; drop any of our patches that it now duplicates
 - [ ] Editor-only natives (BrushBuilders) — low priority
 
 ## 6. Modding (`hp1/mods/` and beyond)
@@ -349,6 +359,8 @@ community once the levels they run play like the original.
   - [ ] Check the remaining "changed" ports for real behaviour differences (beyond the DebugInfo check)
   - [ ] HP2 music natives: `PlayMusic` / `StopMusic` / `StopAllMusic` (ALAudio.dll), `StopSound` fade-out
   - [ ] Enable `IsKnowWonder()` for HP2, OpenAL/Ogg audio (ALAudio.dll), first level
+  - [ ] Check the unverified HP2 engine differences in HP2's code ([docs/re/hp2/gameplay.md](docs/re/hp2/gameplay.md)):
+        music always loops, XA ADPCM sounds, save loading, lip sync, movers colliding by bounding box
 - [ ] HP3 (Prisoner of Azkaban, UE2 build 2226, packages 129): no UE2 counterpart of SurrealEngine exists. First check,
       with UELib: how many native classes/functions its gameplay packages have (HP1's have none). Mostly script =
       extending SurrealEngine towards UE2 is worth a look; otherwise fixes for the original exe are the better route

@@ -95,10 +95,16 @@ BMPs. `FEFilePage` (unused) would read `SaveGameSnap<i>.bmp`.
   buffer for SaveSnap / CreateTextureFromScreenShot. Nothing in HP1 reads the buffer, so Flipendo accepts the command and
   does nothing (`KW::ViewportCommand`, `kw/KWSave.cpp`).
 - SaveGame's mover-position bookkeeping.
-- Latent actions in a save: UE1 stores where a state is waiting (a `Sleep`, `FinishAnim`, `MoveTo`) as a byte offset
-  into the state's original bytecode (not checked in HP1). SurrealEngine turns bytecode into its own statement lists, so
-  it may not map that offset back. Saves written by the original game are the test: load one taken while an actor waits
-  in a state's latent code, and see where that actor resumes.
+- **Latent actions in a save** (read 2026-10-05). A suspended state saves the state, a byte offset into its bytecode
+  and a latent action ID; SurrealEngine maps the offset both ways (`FindOffset` / `FindStatementIndex`,
+  `Packages/Core/UObject.cpp`), so the resume point survives. Two things don't:
+  - **`Sleep`'s remaining time.** HP1's `AActor::execSleep` [HP1 0x104081E0] stores it in `Actor.LatentFloat`, a script
+    property saved with the actor, and `execPollSleep` [HP1 0x104083E0] counts it down (done once it is below half a
+    tick). SurrealEngine keeps it in the C++ field `UActor::SleepTimeLeft`, which no save holds: after a load every
+    sleeping actor wakes on the first tick. To fix (every game): keep the time in `LatentFloat`.
+  - **The IDs.** HP1 writes 384 for Sleep, 385 for FinishAnim, 302 FinishInterpolation, 501 MoveTo (the exec
+    functions above); SurrealEngine registers Sleep as 257 and FinishAnim as 262, so a save from the original game
+    resumes a Sleep / FinishAnim as Continue (no wait). Our own saves round-trip.
 - Native-only state isn't in the save package, so it restarts on load: particles, our side tables. The camera
   (`PotCam`, a BaseCam) is all script state and is saved with everything else. Checked 2026-10-04 in Lev_Tut1
   (`SaveGame 98` then `open save98.usa` while Harry stands in the entrance hall): PotCam0 comes back at the same
