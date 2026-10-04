@@ -1,10 +1,10 @@
 flipendo: build (kw/, hp1/), natives, engine loop (input, console, saves, view), missing data messages
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 74ab008f..912852dc 100644
+index 799eca23..bff7f440 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -1136,6 +1136,9 @@ target_include_directories(SurrealVideo PRIVATE SurrealVideo)
+@@ -1142,6 +1142,9 @@ target_include_directories(SurrealVideo PRIVATE SurrealVideo)
  set_target_properties(SurrealVideo PROPERTIES CXX_STANDARD 20)
  set_target_properties(SurrealVideo PROPERTIES C_STANDARD 17)
  
