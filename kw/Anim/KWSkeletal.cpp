@@ -749,8 +749,9 @@ namespace KW
 		auto wedgeVertex = [&](int w) -> int { return useExtWedges ? mesh->ExtWedges[w].Vertex : mesh->Wedges[w].Vertex; };
 		size_t numWedges = useExtWedges ? mesh->ExtWedges.size() : mesh->Wedges.size();
 
-		// Smooth normals from the skinned triangles (URender::DrawLodMesh). The Y mirror in GetMeshCoords flips the
-		// winding, hence the cross product order. bMeshCurvy points them away from the actor's location instead.
+		// Smooth normals from the skinned triangles (URender::DrawLodMesh). The original sums (P0-P1) x (P2-P0) in view
+		// space, whose axes are a reflection of world space (det -1), so in world space that is (P1-P0) x (P2-P0).
+		// bMeshCurvy points them away from the actor's location instead.
 		normals.clear();
 		normals.resize(verts.size(), vec3(0.0f));
 		for (const MeshFace& face : mesh->Faces)
@@ -760,7 +761,7 @@ namespace KW
 			int i0 = wedgeVertex(face.Indices[0]), i1 = wedgeVertex(face.Indices[1]), i2 = wedgeVertex(face.Indices[2]);
 			if (i0 >= (int)verts.size() || i1 >= (int)verts.size() || i2 >= (int)verts.size())
 				continue;
-			vec3 n = cross(verts[i2] - verts[i0], verts[i1] - verts[i0]);
+			vec3 n = cross(verts[i1] - verts[i0], verts[i2] - verts[i0]);
 			normals[i0] += n;
 			normals[i1] += n;
 			normals[i2] += n;
@@ -852,9 +853,11 @@ namespace KW
 
 			// DrawLodMesh only draws faces turned towards the viewer unless they're two-sided. Without this the
 			// front and back of thin props (the classroom blackboards: two coplanar quads) z-fight triangle by triangle.
+			// Same face normal as above: the original's view-space test (normal . P0) * Mirror < 0 keeps the faces whose
+			// world-space (P1-P0) x (P2-P0) points at the viewer.
 			if (!(renderflags & PF_TwoSided))
 			{
-				vec3 faceNormal = cross(vertices[2].Point - vertices[0].Point, vertices[1].Point - vertices[0].Point);
+				vec3 faceNormal = cross(vertices[1].Point - vertices[0].Point, vertices[2].Point - vertices[0].Point);
 				if (dot(faceNormal, frame->ViewLocation.xyz() - vertices[0].Point) <= 0.0f)
 					continue;
 			}

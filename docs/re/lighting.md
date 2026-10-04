@@ -1,14 +1,23 @@
 # Mesh lighting
 
 How HP1 lights meshes (characters and props), from Render.dll. Ported in `kw/KWMeshLight.cpp`, used by
-`KW::DrawSkeletalMesh` (`kw/Anim/KWSkeletal.cpp`). Lightmapped BSP surfaces are SurrealEngine's and not covered here.
+`KW::DrawSkeletalMesh` (`kw/Anim/KWSkeletal.cpp`). Lightmapped BSP surfaces are SurrealEngine's and not covered here; note that SurrealEngine's surface lighting ignores HP1's
+`Actor.LightSource` (`LD_Point`, `LD_Plane` = parallel light, `LD_Ambient` = all directions) and `LightRadiusInner`.
+Outdoor maps light with them (Lev2_Quid1: two `LD_Plane` lights at brightness 80, radius 255), which is why the
+Quidditch pitch renders too dark.
 
 ## Drawing (URender::DrawLodMesh, Render.dll 0x10B0FF00)
 
 - Vertex normals: the sum of the face normals of every face using the vertex, normalized as `n / sqrt(|n|² + 0.001)`
   (normals that cancel stay near zero; there is no fallback direction). `bMeshCurvy`: the normal points from the
   actor's location to the vertex instead.
-- Faces are back-face culled unless their material is `PF_TwoSided`. Thin props are built as two coplanar quads, one
+- Faces are back-face culled unless their material is `PF_TwoSided`. The test runs in view space: with face vertices
+  P0, P1, P2 it computes `n = (P0-P1) x (P2-P0)` and draws the face when `(n . P0) * Mirror < 0` (the scene node's
+  Mirror, -1 in mirror reflections, which also swaps the drawing order). View axes (X right, Y down, Z forward) are a
+  reflection of world axes (X forward, Y right, Z up), which turns the cross product around: in world space the
+  drawn faces are those whose `(P1-P0) x (P2-P0)` points at the viewer, and the vertex normals are sums of that same
+  vector. Getting this backwards draws the inside of every closed mesh (faces seen through the backs of heads) and
+  lights characters from the wrong side. Thin props are built as two coplanar quads, one
   per side (the classroom `TransBlackboard`: vertices 0-3 front, 4-7 back). Without the cull they z-fight triangle by
   triangle, which looks like a diagonal split between two differently lit halves.
 - `PF_Unlit` faces get a flat grey: `clamp(AmbientGlow/256 + ScaleGlow/2, 0, 1)`. Zone 0 is not unlit; an actor
