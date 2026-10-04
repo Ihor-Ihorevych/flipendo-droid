@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Audit a game's native functions against what SurrealEngine (and Flipendo's hp1/) implements.
 
-Usage: python tools/native_audit.py [hp1|hp2]   (default hp1; hp2 writes docs/native_audit_hp2.md)
-For HP2 an hp1/ override is reported as HP1_PORT: the native exists for HP1 (gated to it) and may carry over
+Usage: python tools/native_audit.py [hp1|hp2]   (default hp1; writes docs/re/native_audit_<game>.md)
+For HP2 a kw/ override is reported as HP1_PORT: the native exists for HP1 (gated to it) and may carry over
 (see docs/hp2_compare.md).
 
 
-Reads every `native` function/event declared in our disc's scripts (reference/hp1/ScriptSource, from
+Reads every `native` function/event declared in our disc's scripts (reference/<game>/ScriptSource, from
 tools/extract_scripts.sh) and every RegisterVMNativeFunc_N(...) call in
-engine/SurrealEngine/Native, plus our overrides in hp1/ (which win for HP1), then classifies each HP1 native:
+engine/SurrealEngine/Native, plus our overrides in kw/ and hp1/ (which win for HP1), then classifies each native:
 
   MISSING     declared in HP1 script, never registered by the engine
   OTHER_GAME  registered, but only inside a branch for some other game
@@ -17,7 +17,7 @@ engine/SurrealEngine/Native, plus our overrides in hp1/ (which win for HP1), the
   INDEX       registered, but with a different native index than HP1 uses
   OK          registered and has a real body
 
-Output: docs/native_audit.md (and a summary on stdout).
+Output: docs/re/native_audit_<game>.md (and a summary on stdout).
 """
 import os
 import re
@@ -30,8 +30,8 @@ if GAME not in ("hp1", "hp2"):
     sys.exit("usage: native_audit.py [hp1|hp2]")
 SCRIPTS = os.path.join(ROOT, "reference", GAME, "ScriptSource")
 ENGINE = os.path.join(ROOT, "engine", "SurrealEngine")
-HP1 = os.path.join(ROOT, "hp1")
-OUT = os.path.join(ROOT, "docs", "native_audit.md" if GAME == "hp1" else "native_audit_%s.md" % GAME)
+PORT_DIRS = [os.path.join(ROOT, "kw"), os.path.join(ROOT, "hp1")]  # our overrides: shared engine code, HP1-only
+OUT = os.path.join(ROOT, "docs", "re", "native_audit_%s.md" % GAME)
 
 # Conditions in SurrealEngine's RegisterFunctions() that are true for HP1.
 HP1_TRUE = [r"IsHarryPotter1\(\)" if GAME == "hp1" else r"IsHarryPotter2\(\)", r"ue1Version\s*>=?\s*(2\d\d|3\d\d|4[0-9]\d)\b"]
@@ -118,7 +118,7 @@ def parse_registrations(files):
 
 def read_hp1_sources():
     files = {}
-    for dirpath, _, names in os.walk(HP1):
+    for dirpath, _, names in (w for d in PORT_DIRS for w in os.walk(d)):
         for n in names:
             if n.endswith(".cpp"):
                 p = os.path.join(dirpath, n)
@@ -193,9 +193,10 @@ def is_stub(files, handler, seen=None):
     return False
 
 
-def main():
+def compute():
+    """-> (natives, rows): rows[status] = [(native dict, note)]. Also used by tools/dll_report.py."""
     if not os.path.isdir(SCRIPTS):
-        sys.exit(f"missing {SCRIPTS} - run tools/extract_scripts.sh first")
+        sys.exit(f"missing {SCRIPTS} - run tools/extract_scripts.sh {GAME} first")
     natives = parse_scripts()
     files = read_engine_sources()
     regs = parse_registrations(files)
@@ -226,7 +227,11 @@ def main():
             else:
                 status, note = "OK", r["handler"]
         rows[status].append((n, note))
+    return natives, rows
 
+
+def main():
+    natives, rows = compute()
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     order = ["MISSING", "HP1_PORT", "OTHER_GAME", "STUB", "INDEX", "OK"]
     with open(OUT, "w", encoding="utf-8", newline="\n") as f:
