@@ -52,3 +52,12 @@ The lock-on path with a real victim (`eVulnerableToSpell` choosing the spell) an
 spell lesson (Lev_Tut1's Flipendo challenge, `CUTFLIPBEGIN`), which the autopilot doesn't reach yet. Tested: a cast in
 Fred & George's room (`HP1_EXEC="135:AltFire"` on the Lev_Tut1 route) spawns the Target, fires `spellnone` and homes
 on the Target's box.
+
+## Spell lesson rendering
+
+- The template is `SpellLearnFX` → a `SilverSparkle01` ParticleFX with `Pattern` = the spell's Gesture, grey (96,96,96)
+  translucent particles. 30 units behind it the lesson spawns `SpellBlackboard`: a modulated sprite (Style 4) with the
+  IceTexture `HP_FX.General.les_spellbackgrnd` (Glass `Les_SpellPan`, Source `Les_SpellBase`, MipZero 128 grey).
+- Translucents must be drawn back to front, or the modulated blackboard tints the nearer spiral red.
+- SurrealEngine's IceTexture is a stub that copies the dark red-brown source (MipZero 81,54,54), so the blackboard shows
+  as a dark rectangle; the real effect (Fire.dll) is not reversed yet.

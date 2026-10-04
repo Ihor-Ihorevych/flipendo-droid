@@ -83,6 +83,7 @@ Paths are relative to `engine/SurrealEngine/` unless they start with `engine/`.
 | `Packages/Core/UObject.cpp` | `ScriptArray` copy/move constructors keep `Type` (copying an array, e.g. `int(Gesture.Points)`, crashed) |
 | `VM/Bytecode.h` | `FindLabelIndex` on a state with no statements returns -1 |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `TurnToward` on a pawn whose state frame has no code does nothing (UE1 never polls it) |
+| `Render/VisibleFrame.cpp` | HP1 translucents are sorted back to front (a modulated sprite behind a particle system darkened it) |
 | `UI/ErrorWindow/ErrorWindow.cpp` | the crash reporter also writes the exception and symbolized call stack to `<dump>.txt` |
 | `Packages/Engine/Actors/UActor_Phys.cpp` | an InterpolationManager runs `HP1::InterpolationManagerPhysics` instead of the physics modes |
 | `Packages/Engine/Subsystems/USurrealAudioDevice.cpp/.h` | `ModifySoundHP1` / `StopSoundHP1` (Galaxy.dll's slot + sound match) |
