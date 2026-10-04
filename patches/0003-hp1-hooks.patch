@@ -1481,6 +1481,24 @@ index 984fdbfc..22161da6 100644
 +		HP1::DrawParticleSystem(frame, Actor);
 +	}
  }
+diff --git a/SurrealEngine/Render/VisibleFrame.cpp b/SurrealEngine/Render/VisibleFrame.cpp
+index 818aa65d..73e37ee5 100644
+--- a/SurrealEngine/Render/VisibleFrame.cpp
++++ b/SurrealEngine/Render/VisibleFrame.cpp
+@@ -308,6 +308,13 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+ 
+ void VisibleFrame::SortTranslucent()
+ {
++	// flipendo: HP1 draws translucents back to front, so a modulated sprite behind a translucent particle system doesn't
++	// darken it (the spell lesson's SpellBlackboard turned the template spiral red).
++	if (engine->LaunchInfo.IsHarryPotter1())
++	{
++		std::sort(Translucents.begin(), Translucents.end(), [](const VisibleTranslucent& a, const VisibleTranslucent& b) { return a.DistSqr > b.DistSqr; });
++		return;
++	}
+ 	std::sort(Translucents.begin(), Translucents.end(), [](const VisibleTranslucent& a, const VisibleTranslucent& b) { return a.DistSqr < b.DistSqr; });
+ }
+ 
 diff --git a/SurrealEngine/Render/VisibleMesh.cpp b/SurrealEngine/Render/VisibleMesh.cpp
 index 7f5e8efb..1f75d1d0 100644
 --- a/SurrealEngine/Render/VisibleMesh.cpp
