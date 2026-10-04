@@ -14,6 +14,7 @@ Flipendo keeps a strict line between the **faithful port** and **additions**:
 |---|---|---|
 | `CutsceneSkip.cpp` | on (`--vanilla` disables) | "Press Space to skip" during cutscenes; Space fast-forwards to the end |
 | `StorybookSkip.cpp` | on (`--vanilla` disables) | "Press Space to skip" in storybooks (New Game intro, chapter interludes) |
+| `DiscordPresence.cpp` | on (`--vanilla` or `--no-discord` disables) | Discord Rich Presence: the level (the game's own level titles), cutscene / paused, Gryffindor's points, play time. Uses Flipendo's Discord application (its name and App Icon); `--discord-app=<id>` uses another |
 | `LaunchSkips.cpp` | off (`--skip-splash`, `--skip-intro`) | skip the logo/title splash screens; skip the New Game storybook |
 
 ## Writing a mod

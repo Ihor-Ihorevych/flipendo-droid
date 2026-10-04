@@ -33,4 +33,7 @@ namespace HP1::Mods
 	// StorybookSkip.cpp
 	void TickStorybookSkip();
 	void DrawStorybookSkip(UCanvas* canvas);
+
+	// DiscordPresence.cpp
+	void TickDiscordPresence(float realElapsed);
 }
