@@ -336,10 +336,30 @@ namespace HP1
 		ReturnValue = box.max - box.min;
 	}
 
+	// Switching to PHYS_None or PHYS_Rotating stops the actor dead: HP1 clears Velocity and Acceleration. Cutscenes rely on it:
+	// Capture puts Harry in CutIdleing (PHYS_Rotating), then CutMovingTo walks him with MoveSmooth under PHYS_Walking. Without
+	// the reset the player's last run velocity/acceleration carried him past the cutscene mark and he ran in place, turned away.
+	// The Base handling of the original (FindBase/SetBase by physics mode) is left to SurrealEngine as before; NOT ported.
+	// IDA Engine.dll: ?execSetPhysics@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x103E4AD0]
+	// IDA Engine.dll: ?setPhysics@AActor@@QAEXEPAV1@@Z [HP1 0x103E5140]
+	static void NSetPhysics(UObject* Self, uint8_t newPhysics)
+	{
+		UActor* actor = UObject::Cast<UActor>(Self);
+		if (actor->Physics() == newPhysics)
+			return;
+		actor->SetPhysics(newPhysics);
+		if (newPhysics == PHYS_None || newPhysics == PHYS_Rotating)
+		{
+			actor->Velocity() = vec3(0.0f);
+			actor->Acceleration() = vec3(0.0f);
+		}
+	}
+
 	void RegisterCollisionNatives()
 	{
 		OverrideNative(283, [] { RegisterVMNativeFunc_4("Actor", "SetCollisionSize", &NSetCollisionSize, 283); });
 		OverrideNative(286, [] { RegisterVMNativeFunc_2("Actor", "GetWorldCollisionBox", &NGetWorldCollisionBox, 286); });
 		OverrideNative(274, [] { RegisterVMNativeFunc_1("Actor", "GetRenderExtent", &NGetRenderExtent, 274); });
+		OverrideNative(3970, [] { RegisterVMNativeFunc_1("Actor", "SetPhysics", &NSetPhysics, 3970); });
 	}
 }
