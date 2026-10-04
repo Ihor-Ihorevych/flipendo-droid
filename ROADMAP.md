@@ -203,6 +203,10 @@ channels) and particle effects.
       lights, line of sight, fades), light colours and LightType effects, linear falloff with LightRadiusInner, diffuse +
       specular per vertex, and back-face culling of skeletal meshes. Fixes the classroom blackboards' diagonal split
       (front and back quads z-fought). Not yet compared side by side with the original
+- [x] Skeletal mesh back-face cull and vertex normals had the winding backwards (the original tests in view space, a
+      reflection of world space): every character was drawn inside out and lit from behind ([docs/re/lighting.md](docs/re/lighting.md))
+- [ ] BSP surface lighting for HP1's `LightSource` (`LD_Plane` parallel, `LD_Ambient`) and `LightRadiusInner`:
+      SurrealEngine ignores them, outdoor maps lit by them (the Quidditch pitch) are too dark. Needs Render.dll's light map code
 - [ ] Bugs of the original to fix, not reproduce: [docs/re/original_bugs.md](docs/re/original_bugs.md)
 - [x] ImpactSoundSet, SoundContainer, ClipMarker, LocationID: Engine.dll has no native code for them, only boilerplate;
       their script classes are enough ([docs/re/native_classes.md](docs/re/native_classes.md))
