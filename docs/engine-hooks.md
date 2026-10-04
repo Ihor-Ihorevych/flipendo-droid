@@ -79,7 +79,7 @@ Paths are relative to `engine/SurrealEngine/` unless they start with `engine/`.
 | `Packages/Engine/Subsystems/USurrealAudioDevice.cpp` | music plays despite `UseDigitalMusic=False` (HP1's shipped ini; its mp2 songs play in the original) |
 | `Packages/Engine/Actors/UActor_PhysFlying.cpp` | flying keeps Velocity.z (HP1 physFlying 0x103F13A0) |
 | `Engine.cpp` | `SET Input` matches the class name ignoring case and saves the ini files at once; input alias names are looked up ignoring case (HP1's options menu writes them upper-cased) |
-| `Package/IniFile.cpp` | indexed keys (`Aliases[0]=`) parse the index without the brackets (the second save of a session threw) |
+| `Package/IniFile.cpp` | indexed keys (`Aliases[0]=`) are compared literally when updating a file, like the loader stores them (splitting the index threw, then blanked them) |
 | `Packages/Core/UObject.cpp` | `ScriptArray` copy/move constructors keep `Type` (copying an array, e.g. `int(Gesture.Points)`, crashed) |
 | `VM/Bytecode.h` | `FindLabelIndex` on a state with no statements returns -1 |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `TurnToward` on a pawn whose state frame has no code does nothing (UE1 never polls it) |
