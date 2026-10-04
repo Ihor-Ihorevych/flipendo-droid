@@ -257,3 +257,23 @@ index 66408992..51ad5846 100644
  		LabelTableExpression* labels = dynamic_cast<LabelTableExpression*>(Statements.back());
  		if (labels)
  		{
+diff --git a/SurrealEngine/VM/Frame.cpp b/SurrealEngine/VM/Frame.cpp
+index 2b0b45c8..034004af 100644
+--- a/SurrealEngine/VM/Frame.cpp
++++ b/SurrealEngine/VM/Frame.cpp
+@@ -553,7 +553,14 @@ ExpressionEvalResult Frame::Run()
+ 						}
+ 					}
+ 					if (!found)
+-						ThrowException("Could not find label: " + result.Label.ToString());
++					{
++						// flipendo: UE1's UObject::GotoLabel isn't fatal: it logs "Label not found" and the state code
++						// stops (StateFrame->Code = null). HP1's gargoyle.lookaround jumps to a label that doesn't exist.
++						LogMessage(Object->Class->Name.ToString() + "." + Func->Name.ToString() + ": GotoLabel (" + result.Label.ToString() + "): Label not found");
++						LatentState = LatentRunState::Stop;
++						result.Result = StatementResult::Stop;
++						return result;
++					}
+ 				}
+ 			}
+ 			break;
