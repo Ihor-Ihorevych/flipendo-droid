@@ -16,6 +16,7 @@ class ULevelInfo;
 class CollisionHit;
 class UAnimation;
 class USkeletalMesh;
+class UIceTexture;
 class ObjectStream;
 class VisibleFrame;
 class BBox;
@@ -143,4 +144,7 @@ namespace HP1
 	void EndWeaponDraw();
 	// UActor::TickTrailer: AActor::physTrailer (follows the owner, or the owner's bone AnimBone-1).
 	void PhysTrailer(UActor* actor);
+
+	// UIceTexture::UpdateFrame: Fire.dll's IceTexture (refraction of SourceTexture through GlassTexture, panning).
+	void UpdateIceTexture(UIceTexture* ice, float frameTime);
 }

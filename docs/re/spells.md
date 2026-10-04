@@ -59,5 +59,7 @@ on the Target's box.
   translucent particles. 30 units behind it the lesson spawns `SpellBlackboard`: a modulated sprite (Style 4) with the
   IceTexture `HP_FX.General.les_spellbackgrnd` (Glass `Les_SpellPan`, Source `Les_SpellBase`, MipZero 128 grey).
 - Translucents must be drawn back to front, or the modulated blackboard tints the nearer spiral red.
-- SurrealEngine's IceTexture is a stub that copies the dark red-brown source (MipZero 81,54,54), so the blackboard shows
-  as a dark rectangle; the real effect (Fire.dll) is not reversed yet.
+- IceTexture (Fire.dll, `hp1/HP1IceTexture.cpp`): each output pixel is a source pixel from the same row shifted by
+  the glass value under it, `dest[y][x] = source[y][(glass[y+V][x+U] + x) & UMask]` with MoveIce (the glass pans),
+  `source[y+V][(glass[y][x] + x + U) & UMask]` without. It takes the source's palette, so the blackboard really is a
+  warm, darker zone (source average 81,54,54, modulated) with a slow shimmer, not a neutral grey.

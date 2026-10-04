@@ -1226,6 +1226,27 @@ index 53982dc0..6bf3a6bb 100644
  		return; // To do: format changed. Figure out how. Maybe the arrays became skippable?
  
  	int NumRefBones = stream->ReadIndex();
+diff --git a/SurrealEngine/Packages/Engine/Resources/Textures/UIceTexture.cpp b/SurrealEngine/Packages/Engine/Resources/Textures/UIceTexture.cpp
+index 07a06c4e..f964e3a4 100644
+--- a/SurrealEngine/Packages/Engine/Resources/Textures/UIceTexture.cpp
++++ b/SurrealEngine/Packages/Engine/Resources/Textures/UIceTexture.cpp
+@@ -1,9 +1,16 @@
+ 
+ #include "Precomp.h"
+ #include "UIceTexture.h"
++#include "Engine.h" // flipendo
++#include "HP1.h" // flipendo
+ 
+ void UIceTexture::UpdateFrame()
+ {
++	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: Fire.dll's refraction and panning (hp1/HP1IceTexture.cpp)
++	{
++		HP1::UpdateIceTexture(this, 1.0f / (MaxFrameRate() > 0.0f ? MaxFrameRate() : 25.0f));
++		return;
++	}
+ 	if (!TextureModified)
+ 	{
+ 		UnrealMipmap& mipmap = UsedMipmaps.front();
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 index d5615c73..dc6e1eed 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
