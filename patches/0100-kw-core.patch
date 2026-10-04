@@ -242,6 +242,34 @@ index 34ee5181..6d86e8c6 100644
  				if (it != inputAliases.end())
  				{
  					InputCommand(it->second, key, delta);
+diff --git a/SurrealEngine/Native/NActor.cpp b/SurrealEngine/Native/NActor.cpp
+index ba3ee34a..58fed11f 100644
+--- a/SurrealEngine/Native/NActor.cpp
++++ b/SurrealEngine/Native/NActor.cpp
+@@ -665,7 +665,7 @@ void NActor::SetTimer(UObject* Self, float NewTimerRate, bool bLoop)
+ void NActor::Sleep(UObject* Self, float Seconds)
+ {
+ 	UActor* SelfActor = UObject::Cast<UActor>(Self);
+-	SelfActor->SleepTimeLeft = Seconds;
++	SelfActor->LatentFloat() = Seconds; // flipendo: the remaining time is a script property, so it is saved with the actor
+ 	if (Self->StateFrame)
+ 		Self->StateFrame->LatentState = LatentRunState::Sleep;
+ }
+diff --git a/SurrealEngine/Native/NPawn.cpp b/SurrealEngine/Native/NPawn.cpp
+index 62f26ede..6377f223 100644
+--- a/SurrealEngine/Native/NPawn.cpp
++++ b/SurrealEngine/Native/NPawn.cpp
+@@ -242,7 +242,9 @@ void NPawn::RemovePawn(UObject* Self)
+ void NPawn::StopWaiting(UObject* Self)
+ {
+ 	UPawn* SelfPawn = UObject::Cast<UPawn>(Self);
+-	SelfPawn->SleepTimeLeft = 0.0f;
++	// flipendo: only ends a Sleep (LatentFloat is also WaitForLanding's timer); the next poll wakes it
++	if (SelfPawn->StateFrame && SelfPawn->StateFrame->LatentState == LatentRunState::Sleep)
++		SelfPawn->LatentFloat() = -1.0f;
+ }
+ 
+ void NPawn::StrafeFacing(UObject* Self, const vec3& NewDestination, UObject* NewTarget)
 diff --git a/SurrealEngine/Native/NPlayerPawn.cpp b/SurrealEngine/Native/NPlayerPawn.cpp
 index 287956c1..567e9766 100644
 --- a/SurrealEngine/Native/NPlayerPawn.cpp

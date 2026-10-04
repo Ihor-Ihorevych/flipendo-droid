@@ -421,5 +421,12 @@ namespace KW
 		OverrideNative(325, [] { RegisterVMNativeFunc_3("Actor", "SaveGameSaveInfo", &NSaveGameSaveInfo, 325); });
 		OverrideNative(326, [] { RegisterVMNativeFunc_3("Actor", "LoadGameSaveInfo", &NLoadGameSaveInfo, 326); });
 		OverrideNative(3972, [] { RegisterVMNativeFunc_1("Actor", "SaveGameExists", &NSaveGameExists, 3972); });
+
+		// The latent action ID a suspended state is saved with. KnowWonder's Sleep and FinishAnim write 384 and 385
+		// (both games) where upstream registers 257 and 262; registering ours last makes saves write these, so the
+		// original game's saves resume a Sleep / FinishAnim instead of continuing at once. 257/262 still load.
+		// Read from AActor::execSleep [HP1 0x104081E0] [HP2 0x10415A30] and execFinishAnim [HP1 0x10408250] [HP2 0x10415AC0].
+		RegisterLatentAction(384, LatentRunState::Sleep);
+		RegisterLatentAction(385, LatentRunState::FinishAnim);
 	}
 }

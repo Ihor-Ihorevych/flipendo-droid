@@ -88,6 +88,25 @@ couldn't get the object-level stuff to work".
 then `..\Save\DefaultGameSnap.bmp` (paths relative to System). They ship in the retail `Save` folder as 128x128 8-bit
 BMPs. `FEFilePage` (unused) would read `SaveGameSnap<i>.bmp`.
 
+## Latent actions in a save
+
+A suspended state saves the state, a byte offset into its bytecode and a latent action ID; SurrealEngine maps the
+offset both ways (`FindOffset` / `FindStatementIndex`, `Packages/Core/UObject.cpp`), so the resume point survives.
+
+- **`Sleep`'s remaining time** is `Actor.LatentFloat`, a script property saved with the actor: `AActor::execSleep`
+  [HP1 0x104081E0] [HP2 0x10415A30] stores the seconds there, `execPollSleep` [HP1 0x104083E0] [HP2 0x10415CB0]
+  subtracts each tick's DeltaTime and is done once it is below half of it. `APawn::execStopWaiting` [HP1 0x103D5DB0]
+  [HP2 0x103E32D0] sets it to -1 only when the latent action is Sleep (LatentFloat is also WaitForLanding's timer).
+  SurrealEngine kept the time in a C++ field no save holds, so after a load every sleeping actor woke on the first
+  tick; fixed for every game (engine fix, [engine-hooks.md](../../engine-hooks.md)). Checked 2026-10-05 in Lev_Tut1:
+  `@trigger HelpWithJumping` (Dispatcher6, Sleep 3 s between events), `SaveGame 97` 1 s in, `open save97.usa`:
+  LatentFloat comes back at the saved value and the next event fires when it runs out.
+- **The IDs** (`FFrame.LatentAction`, written to the save): HP1 writes 384 for Sleep, 385 FinishAnim, 302
+  FinishInterpolation, 501 MoveTo, 503 MoveToward, 505 StrafeTo, 507 StrafeFacing, 509 TurnTo, 511 TurnToward, 528
+  WaitForLanding (the exec functions; HP2 checked for 384 and 385 only, same). SurrealEngine registers Sleep as 257 and FinishAnim as 262, so `kw/KWSave.cpp`
+  registers 384/385 for them: a save from the original game resumes a Sleep / FinishAnim instead of continuing at once,
+  and our saves use the original's IDs. Saves made before that (257/262) still load.
+
 ## Not ported
 
 - `CreateTextureFromScreenShot`, `SaveObjectAsFile`, `LoadObjectAsFile`: no script calls them.
@@ -95,16 +114,6 @@ BMPs. `FEFilePage` (unused) would read `SaveGameSnap<i>.bmp`.
   buffer for SaveSnap / CreateTextureFromScreenShot. Nothing in HP1 reads the buffer, so Flipendo accepts the command and
   does nothing (`KW::ViewportCommand`, `kw/KWSave.cpp`).
 - SaveGame's mover-position bookkeeping.
-- **Latent actions in a save** (read 2026-10-05). A suspended state saves the state, a byte offset into its bytecode
-  and a latent action ID; SurrealEngine maps the offset both ways (`FindOffset` / `FindStatementIndex`,
-  `Packages/Core/UObject.cpp`), so the resume point survives. Two things don't:
-  - **`Sleep`'s remaining time.** HP1's `AActor::execSleep` [HP1 0x104081E0] stores it in `Actor.LatentFloat`, a script
-    property saved with the actor, and `execPollSleep` [HP1 0x104083E0] counts it down (done once it is below half a
-    tick). SurrealEngine keeps it in the C++ field `UActor::SleepTimeLeft`, which no save holds: after a load every
-    sleeping actor wakes on the first tick. To fix (every game): keep the time in `LatentFloat`.
-  - **The IDs.** HP1 writes 384 for Sleep, 385 for FinishAnim, 302 FinishInterpolation, 501 MoveTo (the exec
-    functions above); SurrealEngine registers Sleep as 257 and FinishAnim as 262, so a save from the original game
-    resumes a Sleep / FinishAnim as Continue (no wait). Our own saves round-trip.
 - Native-only state isn't in the save package, so it restarts on load: particles, our side tables. The camera
   (`PotCam`, a BaseCam) is all script state and is saved with everything else. Checked 2026-10-04 in Lev_Tut1
   (`SaveGame 98` then `open save98.usa` while Harry stands in the entrance hall): PotCam0 comes back at the same
