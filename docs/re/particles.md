@@ -5,7 +5,7 @@ KnowWonder's particle system: `AParticleFX` (Engine.ParticleFX, `DrawType = DT_P
 `C:\hp\Engine\Src\UnParticleFX.cpp`. Rendering is in Render.dll (`UnParticleRn.cpp`, see "Rendering" below; ported in
 `kw/KWParticleRender.cpp`). Wind is `kw/KWWind.cpp`.
 
-Addresses are the `..._0` bodies in `../ida/Engine.dll.i64`. `EmitParticles` does not decompile
+Addresses are the `..._0` bodies in `../ida/hp1/Engine.dll.i64`. `EmitParticles` does not decompile
 (Hex-Rays: "inconsistent fpu stack"); it was read from the disassembly.
 
 ## Bits

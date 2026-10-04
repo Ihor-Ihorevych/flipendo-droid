@@ -1,6 +1,6 @@
 # HP1 skeletal animation (reversed from Engine.dll)
 
-Source: `../ida/Engine.dll.i64` (layouts measured from `Serialize` and field accesses).
+Source: `../ida/hp1/Engine.dll.i64` (layouts measured from `Serialize` and field accesses).
 Implementation: `kw/Anim/`.
 
 ## Data: `UAnimation` (sizeof 156)

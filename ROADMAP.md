@@ -35,12 +35,12 @@ channels) and particle effects.
       original comments, generated defaultproperties) into `reference/hp1/ScriptSource/` with UELib (`tools/Unreal-Library`
       submodule, our extractor `tools/uelib_dump/`).
       `uelib_dump props <package>` dumps every export of a package (maps: all actors with properties)
-- [x] IDA database of `Engine.dll`: `../ida/Engine.dll.i64`
+- [x] IDA database of `Engine.dll`: `../ida/hp1/Engine.dll.i64`
 - [x] HP1 code lives in `hp1/`, engine changes are small `flipendo:` hooks in `patches/`
 - [x] Debug env vars: `HP1_HEIGHTMAP` floor heights over a grid (route planning), `HP1_SHOTS`/`HP1_SHOT_DIR` screenshots, `HP1_KEYS` scripted key presses,
       `HP1_MOUSE` scripted raw mouse moves, `HP1_TRACE` actor state log (now with zone, pitch, view rotation), `HP1_CAMERA` fixed camera,
       `HP1_DUMP` actor list (class, state, location, Tag, Event), `HP1_GOTO` waypoint autopilot with jump/wait steps (`kw/KWDebug.cpp`)
-- [x] Decompiled dump of Engine/Core/Render.dll (3714/2318/237 functions) in `../ida/decomp/` with an index per DLL
+- [x] Decompiled dump of Engine/Core/Render.dll (3714/2318/237 functions) in `../ida/hp1/decomp/` with an index per DLL
       (`tools/ida_dump.py`; not in the repo)
 - [x] Script events raised by HP1's natives vs SurrealEngine (`docs/re/script_events.md`): 77 raised, 18 never raised
       by SurrealEngine (8 of them net/stat-log only)
@@ -302,11 +302,18 @@ Ground rules:
 ## Later: the other KnowWonder games
 - [~] HP2 (Chamber of Secrets, UE1 build 433): groundwork done, port after HP1.
   - [x] Shared engine layer: `kw/` (KnowWonder engine) vs `hp1/` (HP1 only), hooks gated by `IsKnowWonder()`
+  - [x] `hp2/` (HP2 only) and the no-duplication rules ([hp2/README.md](hp2/README.md)): HP2-only natives `BoneRot`,
+        `IsSoftwareRendering`, `GetCurrentKeyState`, the `StopSound` adapter (HP2 added `FadeOutTime`), `KW::IsHP2()`
   - [x] Comparison with HP1 ([docs/re/hp2_compare.md](docs/re/hp2_compare.md)): Fire.dll identical, Core 82%, Engine 62%
         identical (+14% offsets only); of our 120 tagged ports 23 identical, 17 offsets only, 74 changed
   - [x] Scripts extracted (`tools/extract_scripts.sh hp2`, most source stripped, decompiled), native audit
         ([docs/re/native_audit_hp2.md](docs/re/native_audit_hp2.md)): 151 OK, 22 covered by HP1 ports, 21 missing, 28 stubs
-  - [ ] Check the "changed" ports (many exec* wrappers grew by ~29 bytes each, probably one systematic change)
+  - [x] The ~29 extra bytes in most "changed" exec* wrappers: HP2 checks for a new DebugInfo bytecode token after
+        every native call; HP2's token table shifts GlobalFunction..FloatToBool by one
+        ([docs/re/hp2_bytecode.md](docs/re/hp2_bytecode.md), `hp2/HP2Bytecode.cpp`)
+  - [ ] Hook HP2's token table into SurrealEngine's `BytecodeStream` (skip DebugInfo, `HP2::ToStockToken`)
+  - [ ] Check the remaining "changed" ports for real behaviour differences (beyond the DebugInfo check)
+  - [ ] HP2 music natives: `PlayMusic` / `StopMusic` / `StopAllMusic` (ALAudio.dll), `StopSound` fade-out
   - [ ] Enable `IsKnowWonder()` for HP2, OpenAL/Ogg audio (ALAudio.dll), first level
 - [ ] HP3 (Prisoner of Azkaban, UE2 build 2226, packages 129): no UE2 counterpart of SurrealEngine exists. First check,
       with UELib: how many native classes/functions its gameplay packages have (HP1's have none). Mostly script =

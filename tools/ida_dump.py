@@ -1,10 +1,10 @@
-# Decompile every non-thunk function of the IDA database that is open into ../ida/decomp/<Dll>/ (one
+# Decompile every non-thunk function of the IDA database that is open into decomp/<Dll>/ next to the database (../ida/hp1/decomp/ for HP1, ../ida/hp2/decomp/ for HP2) (one
 # <ADDR>_<name>.c per function, headed with the decorated name and [HP1 0x...] address used by the `// IDA`
-# tags) and write ../ida/decomp/<Dll>_index.tsv. For Engine.dll also write Engine_script_events.json:
+# tags) and write decomp/<Dll>_index.tsv. For Engine.dll also write Engine_script_events.json:
 # every ENGINE_<Event> FName -> the native functions that raise it (inline eventX wrappers expanded).
 # Run inside IDA (e.g. through the IDA MCP): exec(open('tools/ida_dump.py').read()); dump_all('Engine')
 # Existing files are kept, so a run that hits `limit` seconds can be repeated to finish.
-# The output is derived from EA's binaries: it stays in ../ida/, never in this repo.
+# The output is derived from EA's binaries: it stays in ../ida/<game>/, never in this repo.
 import os, re, time, json, idautils, ida_funcs, idc, ida_hexrays, ida_name
 
 DECOMP = os.path.join(os.path.dirname(os.path.abspath(idc.get_idb_path())), 'decomp')

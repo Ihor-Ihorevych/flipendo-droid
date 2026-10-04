@@ -1,8 +1,48 @@
 # CLAUDE.md — Flipendo
 
-Source port of KnowWonder's Harry Potter games on SurrealEngine (a dependency: git submodule + small patches),
-currently focused on Harry Potter and the Philosopher's Stone (PC 2001, UE1 build 433); HP2 (Chamber of Secrets, same
-engine build) comes after HP1. Read `README.md` and `docs/development.md` first for layout, build and run commands.
+Source port of KnowWonder's Harry Potter games on SurrealEngine (a dependency: git submodule + small patches): one
+engine for Harry Potter and the Philosopher's Stone (PC 2001, UE1 build 433) and Chamber of Secrets (HP2, same engine
+build). HP1 is the current focus, HP2 follows on the same code. Read `README.md` and `docs/development.md` first for
+layout, build and run commands, and the next section before writing any engine code.
+
+## HP1, HP2 and kw/: one engine, no duplication
+
+Every change must keep the three apart and must not create a second copy of any behaviour. This applies to every
+change, also HP1-only work: code written for HP1 today is the code HP2 runs tomorrow.
+
+- **Where code goes:**
+  - `kw/` (namespace `KW`): KnowWonder's engine, **everything both games do**. The default home for any port.
+  - `hp1/` (namespace `HP1`): only what HP1 has and HP2 doesn't (HP1's menu canvas, HP1's extras in `hp1/mods/`).
+  - `hp2/` (namespace `HP2`): only what HP2 has and HP1 doesn't (HP2-only natives, HP2's bytecode token table,
+    OpenAL/Ogg music, HP2's menus). Details and examples: `hp2/README.md`.
+  - Before putting anything in `hp1/` or `hp2/`, check the other game: `docs/re/hp2_compare.md` (per exported
+    function: identical / offsets only / changed / missing / HP2 only) and the other game's scripts in
+    `reference/<game>/ScriptSource/`. If the other game has the same thing, it goes in `kw/`.
+- **Same behaviour, one implementation.** A function identical in both DLLs, or differing only in struct offsets,
+  is written once in `kw/`. Never read fields at fixed offsets: script properties are looked up by name
+  (`kw/KWActor.h`), which handles both games' layouts.
+- **A real difference is a branch at the exact line that differs**, with `KW::IsHP1()` / `KW::IsHP2()`
+  (`kw/KWGame.h`), inside the one shared function. Never copy a function into `hp1/` or `hp2/` to change part of
+  it. If the difference is large (a whole different algorithm), split out only that part as a helper and keep the
+  shared remainder in `kw/`.
+- **A changed script signature gets a thin adapter, not a second body.** The shared body lives in `kw/` as a plain
+  function taking the union of both games' parameters; each game's native only unpacks its own arguments and calls
+  it (example: `KW::StopSound`, HP1's `NStopSound` in `kw/KWSound.cpp`, HP2's in `hp2/HP2Natives.cpp`).
+- **Native registration order:** `KW::RegisterNatives()` registers with HP1's signatures (shared by both games for
+  almost every native), then calls `HP2::RegisterNatives()` when HP2 runs, which adds HP2-only natives and
+  overrides only the changed ones. HP1-only natives that HP2 lacks are registered from `hp1/` (or gated `IsHP1()`).
+- **Read the other game's code before calling something a difference.** Most "changed" functions in
+  `hp2_compare.md` differ only by HP2's DebugInfo check after native parameters (`docs/re/hp2_bytecode.md`), which
+  is handled once in the bytecode reader, not per native.
+- **Game checks:** inside `kw/` use `KW::IsHP1()` / `KW::IsHP2()`; engine hooks into `kw/` are gated by
+  `IsKnowWonder()` (both KnowWonder games once HP2 is enabled), hooks into `hp1/` by `IsHarryPotter1()`, into `hp2/`
+  by `IsHarryPotter2()`. Don't spread new game checks through `engine/`.
+- **Keep the tools in sync:** after adding or moving a port, rerun `python tools/hp2_compare.py`,
+  `python tools/native_audit.py hp1` and `python tools/native_audit.py hp2` (and `tools/dll_report.py`); they scan
+  `kw/`, `hp1/` and `hp2/`. A duplicate shows up there as the same decorated name tagged in two folders: fix it.
+- **Never mix the two games' binaries or databases.** HP1's DLLs come from `../eagames/hp1/System`, HP2's from
+  `../eagames/hp2/System` (`Game.exe`); their IDA databases live in separate folders (`../ida/README.md`), and
+  fingerprints are prefixed `hp1_` / `hp2_`. Always check which database is open before reading an address.
 
 ## Rules
 
@@ -16,27 +56,28 @@ engine build) comes after HP1. Read `README.md` and `docs/development.md` first 
   (`tools/apply_patches.sh --reset`) before refreshing patches.
 - **Features the original game doesn't have go in `hp1/mods/`** (see its README): optional, off with
   `--vanilla`, hooked only through `HP1::TickMods`/`ModsKeyDown`/`PostRenderMods`. Everything else is the faithful port.
-- **Our code goes in `kw/` or `hp1/`, not in `engine/`.** `kw/` (namespace `KW`, `KW*.cpp`) reimplements
-  KnowWonder's engine, the code the HP games share (Engine.dll/Fire.dll/Render.dll changes, natives, debug tools);
-  `hp1/` (namespace `HP1`) is what only HP1 has (mods, the menu canvas for HP1's menu classes). `engine/` is
-  SurrealEngine (actively developed); every line we change there is a future merge conflict. Engine files only get
-  small hooks that call into `kw/`/`hp1/` (see `docs/engine-hooks.md`). Prefer overriding natives from
-  `kw/KWNatives.cpp` (`OverrideNative`) and side tables over editing SurrealEngine classes.
-- **Every function in `kw/`/`hp1/` that reimplements engine code carries an IDA tag** directly above its
+- **Our code goes in `kw/`, `hp1/` or `hp2/` (previous section), not in `engine/`.** `kw/` files are `KW*.cpp`,
+  `hp1/` `HP1*.cpp`, `hp2/` `HP2*.cpp`. `engine/` is SurrealEngine (actively developed); every line we change there
+  is a future merge conflict. Engine files only get small hooks that call into `kw/`/`hp1/`/`hp2/` (see
+  `docs/engine-hooks.md`). Prefer overriding natives from `kw/KWNatives.cpp` (`OverrideNative`) and side tables over
+  editing SurrealEngine classes.
+- **Every function in `kw/`/`hp1/`/`hp2/` that reimplements engine code carries an IDA tag** directly above its
   definition, one line per original function, in exactly this format (greppable with `// IDA `):
   ```cpp
   // IDA Engine.dll: ?PlayAnim@AActor@@QAEHVFName@@_NMMMW4EAnimType@@0@Z [HP1 0x10408E20]
   // IDA Core.dll: ?SlerpQuat@@YA?AVFQuat@@ABV1@0M@Z [HP1 Core 0x1014F5A0]
   ```
   The decorated export name is the key (it survives rebuilds and lets the same code be found in HP2's
-  DLLs); the address is the real body (`..._0`) in our HP1 database. For non-exported functions write
+  DLLs); the address is the real body (`..._0`) in that game's database. Say which game: `[HP1 0x...]`,
+  `[HP2 0x...]` (`[HP2 Core 0x...]` for Core.dll); a shared `kw/` function whose HP2 code differs gets both
+  (`[HP1 0x...] [HP2 0x...]`), and never one tag per game on two copies of the function. For non-exported functions write
   `not exported: sub_XXXXXXXX [HP1 0xXXXXXXXX]` plus how to find it again (exported caller/callee, string,
   xref). If the code was not reversed (written from script comments or stock UE1 behaviour), say so in
   the tag ("NOT yet verified against ..."). Add the tag in the same change that adds the function.
 - **Mark every change under `engine/` with a `flipendo:` comment** (zlib licence requires altered
   source to be marked). Gate hooks into `kw/` behind `engine->LaunchInfo.IsKnowWonder()` (HP1 only for now; HP2
-  joins when its differences are handled, `docs/re/hp2_compare.md`) and HP1-only behaviour behind
-  `IsHarryPotter1()`, so other UE1 games keep working. Fixes to SurrealEngine bugs that affect every game go
+  joins when its differences are handled, `docs/re/hp2_compare.md`), HP1-only behaviour behind
+  `IsHarryPotter1()` and HP2-only behaviour behind `IsHarryPotter2()`, so other UE1 games keep working. Fixes to SurrealEngine bugs that affect every game go
   ungated in `patches/0010-engine-fixes.patch` (`patches/routes.txt` assigns files to patches).
 - **Never commit `reference/` or game data** (`*.u *.unr *.utx *.uax *.umx`, exes, DLLs).
   The extracted scripts are derived from the game; `.gitignore` covers them.
@@ -101,7 +142,7 @@ Each file has one job; keep them apart:
 
 ## IDA
 
-- Databases: `../ida/<Dll>.dll(.i64)` for HP1 (Engine, Core, Fire, Render, Galaxy), `../ida/hp2/<Dll>.dll` for HP2
+- Databases: `../ida/hp1/<Dll>.dll(.i64)` for HP1 (Engine, Core, Fire, Render, Galaxy), `../ida/hp2/<Dll>.dll` for HP2
   (copies of the retail DLLs; never open the ones in `../eagames/`, IDA writes files next to them). Driven headless
   via the IDA MCP. HP1 vs HP2: `tools/ida_fingerprint.py` inside each database -> `../ida/fingerprints/`, then
   `tools/hp2_compare.py` and `tools/dll_report.py`.
@@ -110,9 +151,9 @@ Each file has one job; keep them apart:
 - Engine.dll was built with incremental linking: `?Foo@...` at 0x103xxxxx is a `jmp` thunk, the real body
   is the `..._0` name. Set `this`/arg types on the `_0` function before decompiling.
 - FArchive vtable: +4 Serialize, +20 CountBytes, +24 `<<UObject*`, +28 `<<FName`.
-- **Decompiled dump** (search here first, before decompiling in IDA): `../ida/decomp/<Engine|Core|Render>/<ADDR>_<name>.c`,
+- **Decompiled dump** (search here first, before decompiling in IDA): `../ida/hp1/decomp/<Engine|Core|Render>/<ADDR>_<name>.c`,
   one file per function, headed with the decorated name and `[HP1 0x...]` (the `// IDA` tag key); index
-  `../ida/decomp/<Dll>_index.tsv`. Regenerate with `tools/ida_dump.py` inside IDA (`dump_all('Engine')`). Not in the repo
+  `../ida/hp1/decomp/<Dll>_index.tsv`. Regenerate with `tools/ida_dump.py` inside IDA (`dump_all('Engine')`). Not in the repo
   (derived from EA's binaries).
 - `docs/re/script_events.md`: every script event HP1's native code raises, and which ones SurrealEngine never
   raises (the `Mount` kind of gap). Check it when a script state never gets entered.
@@ -122,9 +163,10 @@ Each file has one job; keep them apart:
 1. `python tools/native_audit.py` → `docs/re/native_audit_hp1.md` lists MISSING / STUB / INDEX natives (`hp2` as argument: the same for HP2).
 2. Read the UnrealScript declaration and callers in `reference/hp1/ScriptSource/<Pkg>/Classes/` (our disc,
    `tools/extract_scripts.sh`) to get the signature; native-only field layouts come from IDA (step 3).
-3. Reverse the real implementation in IDA from `../ida/Engine.dll` (a copy of `../eagames/hp1/System/Engine.dll`)
+3. Reverse the real implementation in IDA from `../ida/hp1/Engine.dll` (a copy of `../eagames/hp1/System/Engine.dll`)
    (find it by its exported/decorated name, e.g. `?execPlayAnim@AActor@@QAEXAAUFFrame@@QAX@Z`).
-4. Implement in `kw/` (or `hp1/` if only HP1 has it):
+4. Check HP2 first (`docs/re/hp2_compare.md`, `reference/hp2/ScriptSource/`), then implement in `kw/` when both games
+   have it (the usual case), `hp1/` or `hp2/` only when the other game doesn't (see "HP1, HP2 and kw/"):
    - registration: in a `Register*Natives()` called from `KW::RegisterNatives()` (`kw/KWNatives.cpp`), using
      `OverrideNative(index, [] { RegisterVMNativeFunc_<argc>("Class", "Name", &Fn, index); })`
      (SurrealEngine may already have a stub at that index);

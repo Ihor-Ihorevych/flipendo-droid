@@ -3,7 +3,7 @@
 
 Usage: python tools/native_audit.py [hp1|hp2]   (default hp1; writes docs/re/native_audit_<game>.md)
 For HP2 a kw/ override is reported as HP1_PORT: the native exists for HP1 (gated to it) and may carry over
-(see docs/hp2_compare.md).
+(see docs/re/hp2_compare.md). HP2's own registrations in hp2/ (HP2::RegisterNatives) count as HP2's implementation.
 
 
 Reads every `native` function/event declared in our disc's scripts (reference/<game>/ScriptSource, from
@@ -31,6 +31,7 @@ if GAME not in ("hp1", "hp2"):
 SCRIPTS = os.path.join(ROOT, "reference", GAME, "ScriptSource")
 ENGINE = os.path.join(ROOT, "engine", "SurrealEngine")
 PORT_DIRS = [os.path.join(ROOT, "kw"), os.path.join(ROOT, "hp1")]  # our overrides: shared engine code, HP1-only
+HP2_DIR = os.path.join(ROOT, "hp2")  # HP2-only natives and HP2-signature adapters
 OUT = os.path.join(ROOT, "docs", "re", "native_audit_%s.md" % GAME)
 
 # Conditions in SurrealEngine's RegisterFunctions() that are true for HP1.
@@ -116,9 +117,9 @@ def parse_registrations(files):
     return regs
 
 
-def read_hp1_sources():
+def read_hp1_sources(dirs=PORT_DIRS):
     files = {}
-    for dirpath, _, names in (w for d in PORT_DIRS for w in os.walk(d)):
+    for dirpath, _, names in (w for d in dirs for w in os.walk(d)):
         for n in names:
             if n.endswith(".cpp"):
                 p = os.path.join(dirpath, n)
@@ -203,6 +204,9 @@ def compute():
     hp1_files = read_hp1_sources()
     hp1_regs = parse_hp1_registrations(hp1_files)
     files.update(hp1_files)
+    hp2_files = read_hp1_sources([HP2_DIR]) if GAME == "hp2" else {}
+    hp2_regs = parse_hp1_registrations(hp2_files)
+    files.update(hp2_files)
 
     rows = defaultdict(list)
     for n in natives:
@@ -211,7 +215,10 @@ def compute():
         if (n["cls"], n["name"]) in hp1_regs and GAME == "hp1":
             cands = cands + [hp1_regs[(n["cls"], n["name"])]]
             hp1 = [hp1_regs[(n["cls"], n["name"])]]
-        if GAME != "hp1" and (n["cls"], n["name"]) in hp1_regs and (not hp1 or is_stub(files, hp1[-1]["handler"])):
+        if (n["cls"], n["name"]) in hp2_regs:
+            cands = cands + [hp2_regs[(n["cls"], n["name"])]]
+            hp1 = [hp2_regs[(n["cls"], n["name"])]]
+        if GAME != "hp1" and (n["cls"], n["name"]) in hp1_regs and (n["cls"], n["name"]) not in hp2_regs and (not hp1 or is_stub(files, hp1[-1]["handler"])):
             r = hp1_regs[(n["cls"], n["name"])]
             status, note = "HP1_PORT", f'{r["handler"]} ({r["where"]})'
         elif not cands:

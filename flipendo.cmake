@@ -2,3 +2,4 @@
 # engine/CMakeLists.txt (one flipendo: line).
 include(${CMAKE_CURRENT_LIST_DIR}/kw/kw.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/hp1/hp1.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/hp2/hp2.cmake)

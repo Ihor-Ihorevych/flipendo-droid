@@ -3,7 +3,7 @@
 
 Writes docs/re/dlls.md from
   - the DLLs themselves (../eagames/hp1/System, ../eagames/hp2/System): size, exports, the C++ classes they export;
-  - the "// IDA <Dll>.dll: <decorated name>" tags in kw/ and hp1/: the functions Flipendo reimplements;
+  - the "// IDA <Dll>.dll: <decorated name>" tags in kw/, hp1/ and hp2/: the functions Flipendo reimplements;
   - ../ida/fingerprints/ (tools/ida_fingerprint.py): whether each of those is the same code in HP2;
   - tools/native_audit.py: the state of the script natives each DLL implements (Core.u -> Core.dll, ...).
 The "what it is" text below is written by hand; keep it to what the exports and our own work show.
@@ -132,7 +132,7 @@ def classes_of(names):
 
 def ported_tags():
     tags = collections.defaultdict(list)
-    for d in ("kw", "hp1"):
+    for d in ("kw", "hp1", "hp2"):
         for path in glob.glob(os.path.join(ROOT, d, "**", "*.*"), recursive=True):
             if not path.endswith((".cpp", ".h")):
                 continue

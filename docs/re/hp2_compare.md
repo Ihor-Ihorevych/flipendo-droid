@@ -9,9 +9,9 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 | Engine | 2043 | 2086 | 1234 (62%) | 289 (14%) | 467 (23%) | 53 | 96 |
 | Fire | 113 | 113 | 113 (100%) | 0 (0%) | 0 (0%) | 0 | 0 |
 
-## Ported functions (`// IDA` tags in kw/ and hp1/)
+## Ported functions (`// IDA` tags in kw/, hp1/ and hp2/)
 
-128 tagged exports: 25 identical, 18 offsets only, 78 changed, 1 missing in HP2, 6 no fingerprint.
+133 tagged exports: 26 identical, 18 offsets only, 78 changed, 1 missing in HP2, 4 HP2 only, 6 no fingerprint.
 
 ### Changed (78)
 
@@ -80,7 +80,7 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 | Engine | `?execSetCollisionSize@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWCollision.cpp:194` | 173 -> 202 bytes, HP2 0x10418620 |
 | Engine | `?execSetParticleParams@AParticleFX@@QAEXAAUFFrame@@QAX@Z` | `kw/KWParticleFX.cpp:973` | 506 -> 529 bytes, HP2 0x103D4190 |
 | Engine | `?execSetPhysics@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWCollision.cpp:357` | 69 -> 98 bytes, HP2 0x103F1F40 |
-| Engine | `?execStopSound@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWSound.cpp:31` | 140 -> 211 bytes, HP2 0x1041A550 |
+| Engine | `?execStopSound@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWSound.cpp:40` | 140 -> 211 bytes, HP2 0x1041A550 |
 | Engine | `?execTraceActors@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWTraceTexture.cpp:77` | 805 -> 789 bytes, HP2 0x1041C6D0 |
 | Engine | `?execTraceTexture@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWTraceTexture.cpp:25` | 1019 -> 993 bytes, HP2 0x10381850 |
 | Engine | `?execTweenAnim@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/Anim/KWAnimState.cpp:378` | 128 -> 157 bytes, HP2 0x10417C20 |
@@ -102,12 +102,21 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 |---|---|---|---|
 | Engine | `?CreateAnimChannel@AActor@@QAEPAV1@PAVUClass@@W4EAnimType@@VFName@@_N@Z` | `kw/Anim/KWAnimState.cpp:72` |  |
 
+### HP2 only (4)
+
+| DLL | function | port | note |
+|---|---|---|---|
+| Core | `?execDebugInfo@UObject@@QAEXAAUFFrame@@QAX@Z` | `hp2/HP2Bytecode.cpp:29` | HP2 0x10132FE0 |
+| Engine | `?execBoneRot@AActor@@QAEXAAUFFrame@@QAX@Z` | `hp2/HP2Natives.cpp:24` | HP2 0x10418350 |
+| Engine | `?execGetCurrentKeyState@AActor@@QAEXAAUFFrame@@QAX@Z` | `hp2/HP2Natives.cpp:46` | HP2 0x10422C60 |
+| Engine | `?execIsSoftwareRendering@AActor@@QAEXAAUFFrame@@QAX@Z` | `hp2/HP2Natives.cpp:38` | HP2 0x10422A50 |
+
 ### No fingerprint (6)
 
 | DLL | function | port | note |
 |---|---|---|---|
 | Galaxy | `?ModifySound@UGalaxyAudioSubsystem@@UAEHPAVAActor@@HPAVUSound@@EM@Z` | `kw/KWSound.cpp:23` |  |
-| Galaxy | `?StopSound@UGalaxyAudioSubsystem@@UAEHPAVAActor@@HPAVUSound@@@Z` | `kw/KWSound.cpp:32` |  |
+| Galaxy | `?StopSound@UGalaxyAudioSubsystem@@UAEHPAVAActor@@HPAVUSound@@@Z` | `kw/KWSound.cpp:31` |  |
 | Render | `?DrawActorSprite@URender@@QAEXPAUFSceneNode@@PAUFDynamicSprite@@@Z` | `kw/KWAttach.cpp:93` |  |
 | Render | `?DrawLodMesh@URender@@QAEXPAUFSceneNode@@PAUFDynamicSprite@@PAVAActor@@ABVFCoords@@K@Z` | `kw/KWAttach.cpp:94` |  |
 | Render | `?DrawParticleSystem@URender@@QAEXPAUFSceneNode@@PAUFDynamicSprite@@@Z` | `kw/KWParticleRender.cpp:338` |  |
@@ -136,12 +145,13 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 | Engine | `?findPath@APawn@@QAE_NAAPAVANavigationPoint@@PAVAActor@@VFName@@@Z` | `kw/KWNavigation.cpp:23` | HP2 0x1040FB10 |
 | Engine | `?setPhysics@AActor@@QAEXEPAV1@@Z` | `kw/KWCollision.cpp:358` | HP2 0x103F25C0 |
 
-### Identical (25)
+### Identical (26)
 
 | DLL | function | port | note |
 |---|---|---|---|
 | Core | `??0FCoords@@QAE@ABVFPlace@@@Z` | `kw/Anim/KWSkeletal.cpp:52` |  |
 | Core | `??6@YAAAVFArchive@@AAV0@AAVFString@@@Z` | `kw/KWSave.cpp:53` |  |
+| Core | `?GRegisterNative@@YAEHABQ8UObject@@AEXAAUFFrame@@QAX@Z@Z` | `hp2/HP2Bytecode.cpp:19` |  |
 | Core | `?OrthoRotation@FCoords@@QBE?AVFRotator@@XZ` | `kw/KWInterpolation.cpp:151` |  |
 | Core | `?SlerpQuat@@YA?AVFQuat@@ABV1@0M@Z` | `kw/Anim/KWSkeletal.cpp:81` |  |
 | Engine | `?BoneName@USkeletalMesh@@QBE?AVFName@@H@Z` | `kw/Anim/KWAnimState.cpp:429` |  |

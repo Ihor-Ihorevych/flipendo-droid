@@ -3,7 +3,7 @@
 
 Input: fingerprints made with tools/ida_fingerprint.py inside IDA, one per game and DLL:
     ../ida/fingerprints/hp1_<Dll>.json, ../ida/fingerprints/hp2_<Dll>.json   (Dll = Engine, Core, Fire, ...)
-and the "// IDA <Dll>.dll: <decorated name> [...]" tags in kw/ and hp1/.
+and the "// IDA <Dll>.dll: <decorated name> [...]" tags in kw/, hp1/ and hp2/.
 
 Output: docs/re/hp2_compare.md (or the path given) with
   - per DLL: exports identical in both games, changed, only in HP1, only in HP2 (new in HP2);
@@ -32,7 +32,7 @@ def load(game, dll):
 
 def ported_tags():
     tags = {}
-    for path in [p for d in ("kw", "hp1") for p in glob.glob(os.path.join(ROOT, d, "**", "*.*"), recursive=True)]:
+    for path in [p for d in ("kw", "hp1", "hp2") for p in glob.glob(os.path.join(ROOT, d, "**", "*.*"), recursive=True)]:
         if not path.endswith((".cpp", ".h")):
             continue
         for n, line in enumerate(open(path, encoding="utf-8", errors="replace"), 1):
@@ -66,13 +66,15 @@ def main():
         summary.append(lines[-1])
 
     tags = ported_tags()
-    rows = {"identical": [], "offsets only": [], "changed": [], "missing in HP2": [], "no fingerprint": []}
+    rows = {"identical": [], "offsets only": [], "changed": [], "missing in HP2": [], "HP2 only": [], "no fingerprint": []}
     for (dll, name), where in sorted(tags.items()):
         if dll not in fps:
             rows["no fingerprint"].append((dll, name, where, ""))
             continue
         a, b = fps[dll]
-        if name not in a:
+        if name not in a and name in b:
+            rows["HP2 only"].append((dll, name, where, "HP2 %s" % b[name]["body"]))
+        elif name not in a:
             rows["no fingerprint"].append((dll, name, where, "not in HP1 exports"))
         elif name not in b:
             rows["missing in HP2"].append((dll, name, where, ""))
@@ -83,9 +85,9 @@ def main():
         else:
             rows["changed"].append((dll, name, where, "%d -> %d bytes, HP2 %s" % (a[name]["size"], b[name]["size"], b[name]["body"])))
 
-    lines += ["", "## Ported functions (`// IDA` tags in kw/ and hp1/)", "",
+    lines += ["", "## Ported functions (`// IDA` tags in kw/, hp1/ and hp2/)", "",
               "%d tagged exports: %s." % (len(tags), ", ".join("%d %s" % (len(v), k) for k, v in rows.items() if v))]
-    for kind in ("changed", "missing in HP2", "no fingerprint", "offsets only", "identical"):
+    for kind in ("changed", "missing in HP2", "HP2 only", "no fingerprint", "offsets only", "identical"):
         if not rows[kind]:
             continue
         lines += ["", "### %s (%d)" % (kind[0].upper() + kind[1:], len(rows[kind])), "", "| DLL | function | port | note |", "|---|---|---|---|"]
