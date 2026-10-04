@@ -53,6 +53,20 @@ spell lesson (Lev_Tut1's Flipendo challenge, `CUTFLIPBEGIN`), which the autopilo
 Fred & George's room (`HP1_EXEC="135:AltFire"` on the Lev_Tut1 route) spawns the Target, fires `spellnone` and homes
 on the Target's box.
 
+## Spell lesson flow
+
+`SpellLearnTrigger` (HPBase) runs the lesson as states: `Template` (Quirrell talks, the template is drawn) → `Draw`
+(Tick moves the wand from the mouse, AltFire held stores up to 500 points over DrawTime) → `Judge` (CompareGesture
+scores, then Tick replays the drawing at double speed and sets `bCountedUp`; the state code waits for it in
+`CountLoop`). A pass goes back to `Template` for the next level (4 levels), a fail at level 0 repeats it, otherwise it
+`Destroy()`s itself; `Destroyed` restores Harry and the camera and triggers its Event (`CUTFLIPBEGIN` in Lev_Tut1).
+
+Judge's Tick ends with `disable('Tick')`. In Core.dll `execDisable` (0x10141F30) only clears the bit in the state
+frame's ProbeMask, and `UObject::GotoState` (0x10131BB0) rebuilds that mask on every call, also into the same state:
+`(State.ProbeMask | Class.ProbeMask) & State.IgnoreMask`. SurrealEngine kept disabled events per state name for good,
+so the second time the lesson reached Judge its Tick never ran and `CountLoop` waited forever (fixed in
+`0010-engine-fixes.patch`).
+
 ## Spell lesson rendering
 
 - The template is `SpellLearnFX` → a `SilverSparkle01` ParticleFX with `Pattern` = the spell's Gesture, grey (96,96,96)

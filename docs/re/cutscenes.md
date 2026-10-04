@@ -24,7 +24,13 @@ command list (`Cast0Script` .. `Cast6Script`, strings like `Moveto HpLoc`, `Talk
   `WizardCardCut` (CutScene3), which spawns the Dumbledore card and triggers `FGsec2` (the secret passage).
 - CutScene56 (2247,-5285): Filch. CutScene1 (2602,-5795): Malfoy, Crabbe and Goyle; triggers `FGsec3` and `DADA1`.
 - CutScene58 (1978,-6232): Hermione. CutScene59 (1700,-6204): Quirrell, ends with `Trigger SpellLearnTrigger`
-  (the Flipendo lesson).
+  (the Flipendo lesson). It also triggers `DADA1` (Mover58, TriggerToggle) again, closing the door Malfoy's scene opened.
+- After the lesson `SpellLearnTrigger` triggers `CUTFLIPBEGIN`: CutScene60 (955,-6699). Harry's cast opens `enterFlip`
+  (Mover36, the classroom's west door, TriggerToggle at 1152,-6656), Quirrell talks (`QUIRRELL_014`) and walks out,
+  Harry follows to `AllPath1` and `CHANGELEVEL Lev_tut1b.unr` → `HPConsole.ChangeLevel` → `Level.ServerTravel(url, true)`
+  (inventory travels). `HPConsole.Tick` saves to the selected slot on the first tick of the new level (NextURL empty
+  again). Tested: `HP1_EXEC="60:@teleport 1621 -6578 827;61:@trigger CUTFLIPBEGIN"` reaches Lev_Tut1b, its intro and
+  the Flipendo aiming help in ~15 s.
 
 ## Latent calls on other actors
 

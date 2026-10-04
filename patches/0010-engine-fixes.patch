@@ -196,10 +196,22 @@ index 2f91f141..94c234e9 100644
  }
  
 diff --git a/SurrealEngine/Packages/Core/UObject.cpp b/SurrealEngine/Packages/Core/UObject.cpp
-index 2b855f33..ea2664d9 100644
+index 2b855f33..f26b8410 100644
 --- a/SurrealEngine/Packages/Core/UObject.cpp
 +++ b/SurrealEngine/Packages/Core/UObject.cpp
-@@ -758,7 +758,9 @@ ScriptArray::ScriptArray(UProperty* type) : Type(type)
+@@ -532,6 +532,11 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
+ 	if (oldState != newState)
+ 		StateFrame->SetState(newState);
+ 
++	// flipendo: UE1 rebuilds the state frame's probe mask on every GotoState (also into the same state), so a
++	// Disable('Tick') only lasts until the next state change. Keeping it per state name hung HP1's spell lesson:
++	// SpellLearnTrigger's Judge state disables Tick and waits for it to set bCountedUp, forever on the second round.
++	DisabledEvents.clear();
++
+ 	if (newState)
+ 	{
+ 		// HasStack is otherwise only ever inherited from the original package's export table at
+@@ -758,7 +763,9 @@ ScriptArray::ScriptArray(UProperty* type) : Type(type)
  {
  }
  
@@ -210,7 +222,7 @@ index 2b855f33..ea2664d9 100644
  {
  	Reserve(other.Size);
  	try
-@@ -778,7 +780,7 @@ ScriptArray::ScriptArray(const ScriptArray& other)
+@@ -778,7 +785,7 @@ ScriptArray::ScriptArray(const ScriptArray& other)
  	}
  }
  

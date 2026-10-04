@@ -11,8 +11,11 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 
 ## Next up (in order)
 1. **Lev_Tut1, the Flipendo lesson**: played by hand (2026-10-04) through the wizard card room, Malfoy, Hermione and
-   Quirrell into the Flipendo lesson, which now runs (template, wand, pass mark, timer, IceTexture blackboard).
-   Next: draw and score the spell, the DADA doors after it, and the level change to Lev_Tut1b.
+   Quirrell into the Flipendo lesson, which now runs (template, wand, pass mark, timer, IceTexture blackboard). The
+   lesson hung on the second judging round (`disable('Tick')` outlived the state, fixed). After it, CutScene60 opens the
+   classroom door, Quirrell leads Harry out and the level changes to Lev_Tut1b (tested with `@trigger CUTFLIPBEGIN`:
+   inventory travels, first-tick autosave, Lev_Tut1b's intro plays). Next: play the whole lesson by hand to confirm
+   scoring over all 4 rounds, then Lev_Tut1b.
 2. Broom / Quidditch levels now load and their paths fly (see phase 5). Lev4_Sneak runs: a `goto` to a missing label
    (gargoyle.lookaround's `lcloop`) now stops the state code like UE1 instead of a fatal error.
 
@@ -127,8 +130,10 @@ channels) and particle effects.
   - [x] `AlterDestination` (PollMoveToward with HP1's Destination/Focus handling, PollStrafeFacing),
         `LongFall` (WaitForLanding: LatentFloat 2.5 s, latent only while falling)
   - [x] `KeyFrameReached` from mover physics instead of SurrealEngine's InterpolateEnd(None)
-- [x] `PreClientTravel` raised by ClientTravel (only PlayerPawn's empty handler in HP1; the level change itself is
-      untested, the playthrough doesn't get there yet)
+- [x] `PreClientTravel` raised by ClientTravel (only PlayerPawn's empty handler in HP1)
+- [x] Level change Lev_Tut1 → Lev_Tut1b (CutScene60 `CHANGELEVEL` → ServerTravel with items, first-tick autosave)
+- [x] Spell lesson no longer hangs on its second round: `GotoState` re-enables events turned off with `Disable`, like
+      Core.dll ([docs/re/spells.md](docs/re/spells.md))
 - [x] `Pawn.FindPath` (553, KnowWonder's station pathing; tut1Peeves crashed the game without it,
       `kw/KWNavigation.cpp`)
 - [x] ModifySound(567), StopSound(568) (`kw/KWSound.cpp`; Galaxy.dll's match: first sound with the slot's Id and,
