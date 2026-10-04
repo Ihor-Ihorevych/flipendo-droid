@@ -1,17 +1,19 @@
-# Script events raised by HP1 native code
+# Script events raised by native code
 
-Every `ENGINE_<Event>` FName in HP1 Engine.dll and the native functions that raise it (inline `eventX`
-wrappers expanded to their callers; `UEngine::Init` only registers the names). "SE" = whether SurrealEngine
-(`engine/` + `hp1/`) raises the event anywhere (`CallEvent` with `EventName::X` or the name as a string).
+Every `ENGINE_<Event>` FName in KnowWonder's Engine.dll and the native functions that raise it (inline `eventX`
+wrappers expanded to their callers; `UEngine::Init` only registers the names), compared with what SurrealEngine
+(`engine/` + `kw/`) raises (`CallEvent` with `EventName::X` or the name as a string).
 A missing raise is the same kind of gap as `Mount` was: the script side exists, the engine never calls it.
 It only says the event is raised somewhere; each call site still has to be compared by hand.
 
-Generated with `tools/ida_dump.py` (`../ida/hp1/decomp/Engine_script_events.json`). Decompiled bodies of every
-function: `../ida/hp1/decomp/<Dll>/<ADDR>_<name>.c`, index in `../ida/hp1/decomp/<Dll>_index.tsv`.
+Generated with `tools/ida_dump.py` (`../ida/hp1/decomp/Engine_script_events.json`) from **HP1's** Engine.dll; the
+addresses are HP1's. HP2's Engine.dll hasn't been dumped yet (`../ida/hp2/` has no `decomp/`): run `dump_all('Engine')`
+there and compare before relying on this list for HP2. Decompiled bodies of every HP1 function:
+`../ida/hp1/decomp/<Dll>/<ADDR>_<name>.c`, index in `../ida/hp1/decomp/<Dll>_index.tsv`.
 
 ## Not raised by SurrealEngine
 
-| Event | Raised in HP1 by |
+| Event | Raised (HP1 Engine.dll) by |
 |---|---|
 | BroadcastMessage | UGameEngine::Exec `0x10399580` |
 | ClientHearSound | AActor::CheckHearSound `0x1040AB90` |
@@ -31,7 +33,7 @@ and bForward) are now raised by the InterpolationManager port (`kw/KWInterpolati
 
 ## Raised by both
 
-| Event | Raised in HP1 by |
+| Event | Raised (HP1 Engine.dll) by |
 |---|---|
 | AcceptInventory | ULevel::SpawnPlayActor `0x103A8270` |
 | ActorEntered | ULevel::SetActorZone `0x103ACDD0` |

@@ -7,7 +7,7 @@
 
 // KnowWonder's engine (kw/): what Flipendo reimplements of the modified Engine.dll / Fire.dll that the Harry Potter
 // games share. These are the entry points called from the flipendo: hooks inside engine/, each gated by
-// engine->LaunchInfo.IsKnowWonder() (HP1 for now; HP2 joins once its differences are handled, docs/hp2_compare.md).
+// engine->LaunchInfo.IsKnowWonder() (HP1 for now; HP2 joins once its differences are handled, docs/re/reports/hp2_compare.md).
 // Game-specific code (HP1's mods and menu canvas) is in hp1/HP1.h.
 
 class UObject;

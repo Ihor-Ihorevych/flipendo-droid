@@ -11,7 +11,7 @@
 
 // HP2's natives: the ones HP1 doesn't have (BoneRot, IsSoftwareRendering, GetCurrentKeyState; music still to do), and
 // adapters for natives whose script signature grew in HP2. Adapters only unpack the HP2 arguments and call the shared
-// body in kw/, so the behaviour exists once (hp2/README.md).
+// body in kw/, so the behaviour exists once (docs/one-engine.md).
 
 namespace KW
 {
@@ -67,6 +67,6 @@ namespace HP2
 		KW::OverrideNative(329, [] { RegisterVMNativeFunc_1("Actor", "IsSoftwareRendering", &NIsSoftwareRendering, 329); });
 		KW::OverrideNative(330, [] { RegisterVMNativeFunc_2("Actor", "GetCurrentKeyState", &NGetCurrentKeyState, 330); });
 		KW::OverrideNative(568, [] { RegisterVMNativeFunc_3("Actor", "StopSound", &NStopSound, 568); });
-		// Still missing (docs/re/native_audit_hp2.md): Actor.PlayMusic / StopMusic / StopAllMusic (ALAudio.dll).
+		// Still missing (docs/re/reports/native_audit_hp2.md): Actor.PlayMusic / StopMusic / StopAllMusic (ALAudio.dll).
 	}
 }

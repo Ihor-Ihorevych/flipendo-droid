@@ -1,4 +1,8 @@
-# Cutscenes
+# HP1 cutscenes
+
+How HP1's cutscene scripts drive the actors, and what happens in Lev_Tut1's scenes. HP2's cutscenes work differently
+(scripts from text files, a built-in skip: [hp2/gameplay.md](../hp2/gameplay.md#cutscenes)); the engine behaviour they
+rely on is in [physics.md](../engine/physics.md) and [scripting.md](../engine/scripting.md#latent-calls-on-other-actors).
 
 HP1 cutscenes are `CutScene` / `CutScriptII` actors (HPBase) placed in the map. Each has up to 7 cast members with a
 command list (`Cast0Script` .. `Cast6Script`, strings like `Moveto HpLoc`, `Talk FRED_GEORGE_014`, `Cue CutEnd`,
@@ -11,11 +15,11 @@ command list (`Cast0Script` .. `Cast6Script`, strings like `Moveto HpLoc`, `Talk
   which does `SetPhysics(PHYS_Rotating)`. `Moveto X` → `CutMoveTo` → state `CutMovingTo`: PHYS_Walking, and every
   PlayerTick moves him one step towards X with `MoveSmooth` (no velocity of its own), timing out after
   distance/GroundSpeed + 1 s with a `SetLocation`.
-- **setPhysics stops actors** (`AActor::setPhysics` 0x103E5140): switching to PHYS_None or PHYS_Rotating zeroes
-  Velocity and Acceleration. `CutMovingTo` depends on that: without it the player's last run velocity kept moving
-  Harry under PHYS_Walking, past the mark, and he ran in place facing away from the NPC until the timeout
-  (`kw/KWCollision.cpp` NSetPhysics).
-- **CutSkip()** zeroes each cast member's next-action time; nothing in HP1 calls it (the CutsceneSkip mod does).
+- **setPhysics stops actors** ([physics.md](../engine/physics.md#setphysics)). `CutMovingTo` depends on that:
+  without it the player's last run velocity kept moving Harry under PHYS_Walking, past the mark, and he ran in place
+  facing away from the NPC until the timeout.
+- **CutSkip()** zeroes each cast member's next-action time; nothing in HP1 calls it (the CutsceneSkip mod does,
+  [modding.md](../../modding.md)).
 
 ## Lev_Tut1 after the jump room
 
@@ -31,10 +35,3 @@ command list (`Cast0Script` .. `Cast6Script`, strings like `Moveto HpLoc`, `Talk
   (inventory travels). `HPConsole.Tick` saves to the selected slot on the first tick of the new level (NextURL empty
   again). Tested: `HP1_EXEC="60:@teleport 1621 -6578 827;61:@trigger CUTFLIPBEGIN"` reaches Lev_Tut1b, its intro and
   the Flipendo aiming help in ~15 s.
-
-## Latent calls on other actors
-
-`SpellLearnTrigger` calls `Teacher.TurnToward(Cam)` on Quirrell, whose `Tut1Quirrell` `state idle {}` has no code.
-`execTurnToward` (0x103D9130) sets the *target's* `StateFrame->LatentAction` (511), but UE1 only processes state
-frames that have code, so a pawn in a code-less state never polls it and never turns. SurrealEngine resumed that
-frame and ran off the end of the empty state.

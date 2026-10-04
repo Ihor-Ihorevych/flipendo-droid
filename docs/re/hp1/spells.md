@@ -1,8 +1,13 @@
-# Spells: targeting and casting
+# HP1 spells: targeting, casting and lessons
 
-How HP1 picks a spell target and aims a cast. All of it is UnrealScript (`HarryPotter.Harry`, `HPBase.Target`,
-`HPBase.baseWand`, `HPBase.baseSpell`); the natives it depends on are `Actor.TraceActors` (309, `kw/KWTraceTexture.cpp`),
-`Actor.Trace`, and `Actor.GetWorldCollisionBox` (286, `kw/KWCollision.cpp`).
+How HP1 picks a spell target, aims a cast and teaches a spell. All of it is HP1's UnrealScript (`HarryPotter.Harry`,
+`HPBase.Target`, `HPBase.baseWand`, `HPBase.baseSpell`, `HPBase.SpellLearnTrigger`) on top of shared engine natives:
+`Actor.TraceActors` (309, `kw/KWTraceTexture.cpp`), `Actor.Trace`, `Actor.GetWorldCollisionBox` (286,
+[collision.md](../engine/collision.md#world-bounding-boxes-actorgetworldcollisionboxoptional-bool-bvisual-0x1040a950)),
+the Gesture natives ([gestures.md](../engine/gestures.md)) and ParticleFX ([particles.md](../engine/particles.md)).
+
+HP2 rewrote this layer: its spells are cast through a `SpellCursor` (a ParticleFX) and taught by `SpellLessonTrigger`
+(HP1's `Target` and `SpellLearnTrigger` don't exist there). Not studied yet ([hp2/gameplay.md](../hp2/gameplay.md#spells)).
 
 ## Flow
 
@@ -23,29 +28,6 @@ How HP1 picks a spell target and aims a cast. All of it is UnrealScript (`HarryP
 `Harry.AdjustAim` (the plain-fire path) picks among `VisibleActors` with `bProjTarget` the one closest in yaw, or
 `rectarget.victim` when locked.
 
-## Actor.GetWorldCollisionBox(optional bool bVisual) (0x1040A950)
-
-With bVisual, the actor's Mesh (else Brush) gives the box; otherwise its collision primitive (`AActor::GetPrimitive`,
-0x1037A880: CT_Shape uses Mesh/Brush, CT_OrientedCylinder/CT_Box their primitives, anything else the cylinder). The
-result is always in the world (`GetCollisionBoundingBox(Actor, bWorld=1)`, vtable +96 of UPrimitive):
-
-| primitive | box |
-|---|---|
-| cylinder (UPrimitive 0x103FA2F0) | ±CollisionRadius in X/Y, ±CollisionHeight in Z around Location, **centred at Location.Z + CollisionWidth** |
-| UOrientedCylinder (0x103FB190) | (±R, ±R, ±H) through `AActor::ToWorld` (rotation + Location) |
-| UBox (0x103FE130) | (±R, ±W, ±H), W = CollisionWidth or R when 0, through ToWorld |
-| UModel / UBoxPrim (0x103FE7A0) | the primitive's BoundingBox through ToWorld (no PrePivot) |
-| UMesh (0x103B84D0) | (BoundingBox - Origin) * Scale * DrawScale, rotated by RotOrigin and Rotation, at Location + PrePivot |
-| USkeletalMesh (0x1041B8B0) | BoundingBox through GetMeshCoords |
-
-The IDA struct for AActor has the names right: CollisionRadius 0x1CC, CollisionWidth 0x1D0, CollisionHeight 0x1D4 (the
-script order). SurrealEngine had this native as a stub returning an empty box, so lock-on FX and spell homing aimed at
-the world origin.
-
-`Actor.GetRenderExtent()` (0x1040AA10) is Max - Min of the local box: for a skeletal mesh the average of the mesh's
-per-frame bounding boxes (USkeletalMesh+504, computed in Serialize, raw mesh units), otherwise the local box of the
-Mesh, Brush or primitive. Only `ActorShadow` uses it.
-
 ## Not checked yet
 
 The lock-on path with a real victim (`eVulnerableToSpell` choosing the spell) and the spell hit reactions need the first
@@ -61,11 +43,9 @@ scores, then Tick replays the drawing at double speed and sets `bCountedUp`; the
 `CountLoop`). A pass goes back to `Template` for the next level (4 levels), a fail at level 0 repeats it, otherwise it
 `Destroy()`s itself; `Destroyed` restores Harry and the camera and triggers its Event (`CUTFLIPBEGIN` in Lev_Tut1).
 
-Judge's Tick ends with `disable('Tick')`. In Core.dll `execDisable` (0x10141F30) only clears the bit in the state
-frame's ProbeMask, and `UObject::GotoState` (0x10131BB0) rebuilds that mask on every call, also into the same state:
-`(State.ProbeMask | Class.ProbeMask) & State.IgnoreMask`. SurrealEngine kept disabled events per state name for good,
-so the second time the lesson reached Judge its Tick never ran and `CountLoop` waited forever (fixed in
-`0010-engine-fixes.patch`).
+Judge's Tick ends with `disable('Tick')`, which only lasts until the next `GotoState`
+([scripting.md](../engine/scripting.md#disable-and-gotostate)); SurrealEngine kept it for good, so the second time
+the lesson reached Judge its Tick never ran and `CountLoop` waited forever (fixed in `0010-engine-fixes.patch`).
 
 ## Spell lesson rendering
 
@@ -73,7 +53,5 @@ so the second time the lesson reached Judge its Tick never ran and `CountLoop` w
   translucent particles. 30 units behind it the lesson spawns `SpellBlackboard`: a modulated sprite (Style 4) with the
   IceTexture `HP_FX.General.les_spellbackgrnd` (Glass `Les_SpellPan`, Source `Les_SpellBase`, MipZero 128 grey).
 - Translucents must be drawn back to front, or the modulated blackboard tints the nearer spiral red.
-- IceTexture (Fire.dll, `kw/KWIceTexture.cpp`): each output pixel is a source pixel from the same row shifted by
-  the glass value under it, `dest[y][x] = source[y][(glass[y+V][x+U] + x) & UMask]` with MoveIce (the glass pans),
-  `source[y+V][(glass[y][x] + x + U) & UMask]` without. It takes the source's palette, so the blackboard really is a
+- The IceTexture ([textures.md](../engine/textures.md)) takes the source's palette, so the blackboard really is a
   warm, darker zone (source average 81,54,54, modulated) with a slow shimmer, not a neutral grey.

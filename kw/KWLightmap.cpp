@@ -10,7 +10,7 @@
 #include <algorithm>
 
 // HP1's BSP light maps (Render.dll's light manager), on top of SurrealEngine's LightmapBuilder: which lumels a light
-// reaches (LightSource, LightRadiusInner) and how the lights add up. docs/re/lighting.md, "Light maps".
+// reaches (LightSource, LightRadiusInner) and how the lights add up. docs/re/engine/lighting.md, "Light maps".
 namespace KW
 {
 	namespace

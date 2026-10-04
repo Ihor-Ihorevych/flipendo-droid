@@ -5,7 +5,7 @@ Where the HP1 port stands and what's next. Update this when a step lands.
 This file is the checklist only: what works, what doesn't, what's next. How things work goes in `docs/`
 ([docs/README.md](docs/README.md)): what was reversed in `docs/re/`, the SurrealEngine hooks in
 [docs/engine-hooks.md](docs/engine-hooks.md), workflow and tools in [docs/development.md](docs/development.md).
-The native-level checklist is [docs/re/native_audit_hp1.md](docs/re/native_audit_hp1.md) (`python tools/native_audit.py`).
+The native-level checklist is [docs/re/reports/native_audit_hp1.md](docs/re/reports/native_audit_hp1.md) (`python tools/native_audit.py`).
 
 Legend: [x] done · [~] partly done / in progress · [ ] not started
 
@@ -30,7 +30,7 @@ channels) and particle effects.
 - [x] SurrealEngine as a git submodule (`engine/`, SurrealEngine) + our changes as `patches/`;
       `tools/update_engine.sh` to move to newer SurrealEngine
 - [x] HP1 retail exe detection (SafeDisc + No-CD hashes), `--autolaunch`, `--logfile`
-- [x] Native audit vs our disc's scripts (`tools/native_audit.py` → `docs/re/native_audit_hp1.md`)
+- [x] Native audit vs our disc's scripts (`tools/native_audit.py` → `docs/re/reports/native_audit_hp1.md`)
 - [x] Our own scripts: `tools/extract_scripts.sh` extracts the source text embedded in our `.u` files (1247 classes,
       original comments, generated defaultproperties) into `reference/hp1/ScriptSource/` with UELib (`tools/Unreal-Library`
       submodule, our extractor `tools/uelib_dump/`).
@@ -42,7 +42,7 @@ channels) and particle effects.
       `HP1_DUMP` actor list (class, state, location, Tag, Event), `HP1_GOTO` waypoint autopilot with jump/wait steps (`kw/KWDebug.cpp`)
 - [x] Decompiled dump of Engine/Core/Render.dll (3714/2318/237 functions) in `../ida/hp1/decomp/` with an index per DLL
       (`tools/ida_dump.py`; not in the repo)
-- [x] Script events raised by HP1's natives vs SurrealEngine (`docs/re/script_events.md`): 77 raised, 18 never raised
+- [x] Script events raised by HP1's natives vs SurrealEngine (`docs/re/engine/script_events.md`): 77 raised, 18 never raised
       by SurrealEngine (8 of them net/stat-log only)
 - [x] `tools/native_audit.py` also reads our `hp1/` overrides (they win for HP1)
 - [x] `hp1/mods/`: additions the original doesn't have, kept apart from the port (`--vanilla` turns the
@@ -59,7 +59,10 @@ channels) and particle effects.
       DynamicLoadObject calls and imports a package lacks are logged
 - [x] Documentation split: README (players: screenshots, status, how to play, extras, Discord), CONTRIBUTING.md
       (ways to help, building, developer flags, ground rules), ROADMAP (status), `docs/` (how things work)
-- [x] README screenshot gallery and social preview (`docs/screenshots/`, taken with `HP1_SHOTS`, no official logos)
+- [x] Docs sorted for both games: every document in `docs/` (modding, debug tools, the kw/hp1/hp2 split), images in
+      `images/`; reverse-engineering notes split into `docs/re/engine/` (KnowWonder's engine, each note with its
+      HP1/HP2 differences), `docs/re/hp1/`, `docs/re/hp2/` and generated `docs/re/reports/`
+- [x] README screenshot gallery and social preview (`images/screenshots/`, taken with `HP1_SHOTS`, no official logos)
 
 ## 1. Characters move (skeletal animation) ← current
 - [x] `UAnimation` HP1 format loader (`kw/Anim/KWAnimation.cpp`)
@@ -71,16 +74,16 @@ channels) and particle effects.
 - [~] Channel blending in the pose (AuxAnims per bone subtree) — implemented, not yet verified in game
 - [ ] Verify animations visually against the original (walk/run/breathe, tween blends)
 - [x] Root motion (`bAnimMove`: banked in ApplyAnim, GetRootMovement / AdjustRootMovement, applied at the end of
-      AActor::Tick; `kw/Anim/KWSkeletal.cpp`, `docs/re/animation.md`). Harry climbs the bookcase in Fred & George's
+      AActor::Tick; `kw/Anim/KWSkeletal.cpp`, `docs/re/engine/animation.md`). Harry climbs the bookcase in Fred & George's
       room (climb96start/end) and the 32-unit ledge after it (climb32). ApplyAnim also got the original's "unchanged
       frame" early-out (the tween blend ran once per draw call before). AnimCycleMovement has no caller (not ported)
 - [x] BonePos, GetBoneCoords, weapon/wand attachment (WeaponBoneIndex, WeaponAdjust), AttachToOwner
-      (`kw/Anim/KWSkeletal.cpp`, `kw/KWAttach.cpp`, `docs/re/animation.md`): Harry holds his wand. The weapon frame is
+      (`kw/Anim/KWSkeletal.cpp`, `kw/KWAttach.cpp`, `docs/re/engine/animation.md`): Harry holds his wand. The weapon frame is
       GetFrame's (WeaponAdjust in the weapon bone, orthonormalized, Y negated), it sets Pawn.WeaponLoc/WeaponRot and the
       weapon's ThirdPersonMesh is drawn in it. `physTrailer` follows the owner's bone AnimBone-1 (broom trail at
       'BroomTail'). The wand was also invisible because SurrealEngine raised RenderOverlays in third person:
       Weapon.RenderOverlays → Canvas.DrawActor leaves the weapon bHidden (HP1 only raises it without bBehindView)
-- [x] GetRenderExtent, GetWorldCollisionBox (`kw/KWCollision.cpp`, `docs/re/spells.md`)
+- [x] GetRenderExtent, GetWorldCollisionBox (`kw/KWCollision.cpp`, `docs/re/hp1/spells.md`)
 - [x] Transient channel cleanup (done in ApplyAnim, like the original)
 
 ## 2. Playable tutorial (Lev_Tut1)
@@ -104,7 +107,7 @@ channels) and particle effects.
 - [ ] Some cutscene kids reportedly look like they walk while running (all play `run` at rate 1.5 with
       finished tweens; needs a closer look at which ones)
 - [ ] Kids spawned on the same patrol point can overlap (UE1 Spawn fails when the spot is occupied?)
-- [x] CT_Box ported from `UBox::LineCheck/PointCheck` ([docs/re/collision.md](docs/re/collision.md)): box against box in
+- [x] CT_Box ported from `UBox::LineCheck/PointCheck` ([docs/re/engine/collision.md](docs/re/engine/collision.md)): box against box in
       the box's frame, CollisionWidth 0 = CollisionRadius, the start-inside rule. CT_Shape (decorations/movers: box from
       mesh/brush) still uses SurrealEngine's cylinder/brush collision
 - [x] The player slides along actor walls instead of sticking to them (SurrealEngine TickWalking left player-vs-actor
@@ -125,7 +128,7 @@ channels) and particle effects.
       BSP surfaces with PolyFlags 0x1000 (PF_SpecialPoly = HP1's "mountable") qualify. SurrealEngine's cylinder collision
       can report the node of a neighbouring plane, so the face is re-found with a zero-extent ray
 - [x] `Actor.SetCollisionSize` has HP1's optional third parameter NewWidth (MountFinish passes three values)
-- [x] Gameplay events SurrealEngine never raised (`docs/re/script_events.md`, `kw/KWPawn.cpp`):
+- [x] Gameplay events SurrealEngine never raised (`docs/re/engine/script_events.md`, `kw/KWPawn.cpp`):
   - [x] `Falling` when walking or rolling off a ledge, before PHYS_Falling (Pawn.Falling → PlayInAir: Harry's fall
         animation; the boulder stops its rolling sound). Not from physSpider/findNewFloor (PHYS_Spider is unused)
   - [x] physWalking's ledge rule: MayFall once, then a pawn without bCanJump or with bIsWalking stops at the edge
@@ -138,16 +141,16 @@ channels) and particle effects.
 - [x] `PreClientTravel` raised by ClientTravel (only PlayerPawn's empty handler in HP1)
 - [x] Level change Lev_Tut1 → Lev_Tut1b (CutScene60 `CHANGELEVEL` → ServerTravel with items, first-tick autosave)
 - [x] Spell lesson no longer hangs on its second round: `GotoState` re-enables events turned off with `Disable`, like
-      Core.dll ([docs/re/spells.md](docs/re/spells.md))
+      Core.dll ([docs/re/hp1/spells.md](docs/re/hp1/spells.md))
 - [x] `Pawn.FindPath` (553, KnowWonder's station pathing; tut1Peeves crashed the game without it,
       `kw/KWNavigation.cpp`)
 - [x] ModifySound(567), StopSound(568) (`kw/KWSound.cpp`; Galaxy.dll's match: first sound with the slot's Id and,
       if given, the same Sound). BroomHarry crashed on the first tick without it
-- [x] Missing natives ([docs/re/native_classes.md](docs/re/native_classes.md), `kw/KWPlayerNatives.cpp`): ScreenToWorld
+- [x] Missing natives ([docs/re/engine/native_classes.md](docs/re/engine/native_classes.md), `kw/KWPlayerNatives.cpp`): ScreenToWorld
       and FindStairRotation ported (no HP1 script reaches either). Console.CreateNativeFont returns None: the Asian
       languages need WinDrv.dll's system-font rasterizer, not reversed yet
 - [x] Console command `Snap` (FEBook.OpenBook `Snap 3`) accepted: its snapshot buffer is never read in HP1
-      ([docs/re/savegames.md](docs/re/savegames.md))
+      ([docs/re/engine/savegames.md](docs/re/engine/savegames.md))
 - [x] `FellOutOfWorld` on the first tick: HP1 only checks zone 0 in physWalking/physFalling, not flying/swimming/rolling
       (`HP1::PhysicsChecksLeftWorld`), so the flying `tut1Peeves0` waiting outside the BSP now survives. `Tut1McGonagall4`
       still dies: she is placed in zone 0 and falling, which kills her in the original too (leftover actor)
@@ -162,11 +165,11 @@ channels) and particle effects.
 
 ## 3. Spells
 - [x] `Gesture` spell-drawing recognition (CompareGesture, CompareGesturePoint) (`kw/KWGesture.cpp`)
-- [x] `ParticleFX` simulation, emission and natives (`kw/KWParticleFX.cpp`, `docs/re/particles.md`): Tick/Update,
+- [x] `ParticleFX` simulation, emission and natives (`kw/KWParticleFX.cpp`, `docs/re/engine/particles.md`): Tick/Update,
       UParticle::Update (gravity, damping, attraction, chaos, drip, colour palettes, elasticity bounce), all
       distributions incl. owner mesh and gesture patterns, ParentBlend. Lev_Tut1's torch fires burn
 - [x] ParticleFX billboard rendering (`kw/KWParticleRender.cpp`, from Render.dll `URender::DrawParticleSystem`)
-- [x] ParticleFX render passes (`kw/KWParticleRender.cpp`, `docs/re/particles.md` "Rendering"): Line ribbon, Shard
+- [x] ParticleFX render passes (`kw/KWParticleRender.cpp`, `docs/re/engine/particles.md` "Rendering"): Line ribbon, Shard
       triangle, Liquid (hanging drop / falling streak: water drips, fountains), Billboard, bShellOnly screen-space pass,
       stacked per RenderPrimitive like the original. TriTube isn't drawn (the original fails an assert after it).
       The shipped content only uses Billboard and Liquid
@@ -177,13 +180,13 @@ channels) and particle effects.
       ParticleFX, Wind.GetWind (425)
 - [ ] Verify particle effects against the original side by side (spell trails, fires). Checked in ours only: Lev_Tut1 torch
       fires, the Lev2_HogFront fountain (liquid streaks), Lev2_fire1 water drips (hanging drops), a spell cast's puff
-- [~] Spell targeting (`docs/re/spells.md`): `Actor.GetWorldCollisionBox` (286) ported, the stub's empty box made lock-on
+- [~] Spell targeting (`docs/re/hp1/spells.md`): `Actor.GetWorldCollisionBox` (286) ported, the stub's empty box made lock-on
       FX and spell homing aim at the world origin; `GetRenderExtent` (274) too. A cast (AltFire → playeraiming → Target →
       CastSpell) works in Lev_Tut1. Still to test: locking onto a real victim (eVulnerableToSpell picks the spell) and
       hit reactions, which need the Flipendo lesson
 
 ## 4. Save games and front end
-- [x] Saving and loading (`kw/KWSave.cpp`, [docs/re/savegames.md](docs/re/savegames.md)): `SaveGame N` writes
+- [x] Saving and loading (`kw/KWSave.cpp`, [docs/re/engine/savegames.md](docs/re/engine/savegames.md)): `SaveGame N` writes
       `Save/SaveN.usa` at once (SurrealEngine deferred it to the end of the frame, after doLevelSave had restored
       Level.Pauser), `open saveN.usa` (FESlotPage) loads it through SurrealEngine's `?load=N`. Tested in Lev_Tut1:
       Harry, level time and scripts come back where they were saved, the next cutscene triggers
@@ -193,7 +196,7 @@ channels) and particle effects.
 - [ ] Play the whole New Game → save point → quit → Load Game loop by hand through the menus (only driven with
       `HP1_EXEC` so far), and a save made after a level change (autosave on the first tick)
 - [~] After loading, the camera sits a little further back than when saved: not reproduced with a standstill save in
-      Lev_Tut1 (camera and screenshots identical, [docs/re/savegames.md](docs/re/savegames.md)); try a save taken
+      Lev_Tut1 (camera and screenshots identical, [docs/re/engine/savegames.md](docs/re/engine/savegames.md)); try a save taken
       while the camera moves
 - [ ] Save/LoadObjectAsFile, CreateTextureFromScreenShot, `Snap 3`: no script uses them (low priority)
 
@@ -204,19 +207,19 @@ channels) and particle effects.
       FinishedInterpolation. Quidditch Bludgers/Snitch/Quaffle fly their paths at ~300 u/s
 - [x] Struct defaults with fixed array members (QuidCommentator's `CommentInfo Variant[8]`) loaded only element 0, which
       desynced every Quidditch/broom map on load ("Property value does not match property type!")
-- [x] Mesh lighting (`kw/KWMeshLight.cpp`, [docs/re/lighting.md](docs/re/lighting.md)): HP1's light picking (3 static
+- [x] Mesh lighting (`kw/KWMeshLight.cpp`, [docs/re/engine/lighting.md](docs/re/engine/lighting.md)): HP1's light picking (3 static
       lights, line of sight, fades), light colours and LightType effects, linear falloff with LightRadiusInner, diffuse +
       specular per vertex, and back-face culling of skeletal meshes. Fixes the classroom blackboards' diagonal split
       (front and back quads z-fought). Not yet compared side by side with the original
 - [x] Skeletal mesh back-face cull and vertex normals had the winding backwards (the original tests in view space, a
-      reflection of world space): every character was drawn inside out and lit from behind ([docs/re/lighting.md](docs/re/lighting.md))
-- [x] BSP light maps (`kw/KWLightmap.cpp`, [docs/re/lighting.md](docs/re/lighting.md) "Light maps"): HP1's `LightSource`
+      reflection of world space): every character was drawn inside out and lit from behind ([docs/re/engine/lighting.md](docs/re/engine/lighting.md))
+- [x] BSP light maps (`kw/KWLightmap.cpp`, [docs/re/engine/lighting.md](docs/re/engine/lighting.md) "Light maps"): HP1's `LightSource`
       (`LD_Plane` parallel, `LD_Ambient`), `LightRadiusInner`, its smoothstep falloff, the 2x colour scale with 7-bit
       clamps, bDarkLight, the zone ambient, and `WorldLightRadius` scaled by DrawScale. The Quidditch pitch is lit like the original.
       Waver flicker and the rarer light effects (~60 lights) still use SurrealEngine's
-- [ ] Bugs of the original to fix, not reproduce: [docs/re/original_bugs.md](docs/re/original_bugs.md)
+- [ ] Bugs of the original to fix, not reproduce: [docs/re/hp1/original_bugs.md](docs/re/hp1/original_bugs.md)
 - [x] ImpactSoundSet, SoundContainer, ClipMarker, LocationID: Engine.dll has no native code for them, only boilerplate;
-      their script classes are enough ([docs/re/native_classes.md](docs/re/native_classes.md))
+      their script classes are enough ([docs/re/engine/native_classes.md](docs/re/engine/native_classes.md))
 - [ ] Console.CreateNativeFont for the Asian languages (WinDrv.dll's GDI font rasterizer)
 - [x] `ViewFlash` (UGameEngine::Tick) and the screen flash: HP1 has no FlashScale, FlashFog.W is the brightness
       (`kw/KWView.cpp`). Cutscene FadeIn/FadeOut, damage flashes and the level fade-in now show
@@ -302,15 +305,15 @@ Ground rules:
 ## Later: the other KnowWonder games
 - [~] HP2 (Chamber of Secrets, UE1 build 433): groundwork done, port after HP1.
   - [x] Shared engine layer: `kw/` (KnowWonder engine) vs `hp1/` (HP1 only), hooks gated by `IsKnowWonder()`
-  - [x] `hp2/` (HP2 only) and the no-duplication rules ([hp2/README.md](hp2/README.md)): HP2-only natives `BoneRot`,
+  - [x] `hp2/` (HP2 only) and the no-duplication rules ([docs/one-engine.md](docs/one-engine.md)): HP2-only natives `BoneRot`,
         `IsSoftwareRendering`, `GetCurrentKeyState`, the `StopSound` adapter (HP2 added `FadeOutTime`), `KW::IsHP2()`
-  - [x] Comparison with HP1 ([docs/re/hp2_compare.md](docs/re/hp2_compare.md)): Fire.dll identical, Core 82%, Engine 62%
+  - [x] Comparison with HP1 ([docs/re/reports/hp2_compare.md](docs/re/reports/hp2_compare.md)): Fire.dll identical, Core 82%, Engine 62%
         identical (+14% offsets only); of our 120 tagged ports 23 identical, 17 offsets only, 74 changed
   - [x] Scripts extracted (`tools/extract_scripts.sh hp2`, most source stripped, decompiled), native audit
-        ([docs/re/native_audit_hp2.md](docs/re/native_audit_hp2.md)): 151 OK, 22 covered by HP1 ports, 21 missing, 28 stubs
+        ([docs/re/reports/native_audit_hp2.md](docs/re/reports/native_audit_hp2.md)): 151 OK, 22 covered by HP1 ports, 21 missing, 28 stubs
   - [x] The ~29 extra bytes in most "changed" exec* wrappers: HP2 checks for a new DebugInfo bytecode token after
         every native call; HP2's token table shifts GlobalFunction..FloatToBool by one
-        ([docs/re/hp2_bytecode.md](docs/re/hp2_bytecode.md), `hp2/HP2Bytecode.cpp`)
+        ([docs/re/engine/scripting.md](docs/re/engine/scripting.md), `hp2/HP2Bytecode.cpp`)
   - [ ] Hook HP2's token table into SurrealEngine's `BytecodeStream` (skip DebugInfo, `HP2::ToStockToken`)
   - [ ] Check the remaining "changed" ports for real behaviour differences (beyond the DebugInfo check)
   - [ ] HP2 music natives: `PlayMusic` / `StopMusic` / `StopAllMusic` (ALAudio.dll), `StopSound` fade-out

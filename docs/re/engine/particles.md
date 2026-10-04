@@ -1,14 +1,23 @@
-# ParticleFX (HP1 Engine.dll)
+# ParticleFX and Wind
 
-KnowWonder's particle system: `AParticleFX` (Engine.ParticleFX, `DrawType = DT_Particles` = 8) owns a
+KnowWonder's particle system, used by both games for every spell, sparkle, fire and water effect: `AParticleFX` (Engine.ParticleFX, `DrawType = DT_Particles` = 8) owns a
 `UParticleList` (a `UPrimitive`; `ParticleList` property) of `UParticle`s. Source file per asserts:
 `C:\hp\Engine\Src\UnParticleFX.cpp`. Rendering is in Render.dll (`UnParticleRn.cpp`, see "Rendering" below; ported in
 `kw/KWParticleRender.cpp`). Wind is `kw/KWWind.cpp`.
 
-Addresses are the `..._0` bodies in `../ida/hp1/Engine.dll.i64`. `EmitParticles` does not decompile
+Addresses are HP1's `..._0` bodies in `../ida/hp1/Engine.dll.i64`. `EmitParticles` does not decompile
 (Hex-Rays: "inconsistent fpu stack"); it was read from the disassembly.
 
-## Bits
+## HP1 and HP2
+
+HP2 keeps the system and leans on it harder (HP2's `HPParticle` package has 164 ParticleFX classes, and its spell
+cursor `SpellCursor` is a ParticleFX). In [hp2_compare.md](../reports/hp2_compare.md): `Tick`, `Update`, `AddParticle`,
+`RecomputeDeltas`, `InitExecution`, `Destroy` and Wind's `Radius`/`FlucPeriod` differ only in offsets;
+`GetTotalWind` is identical; the constructor (125 -> 203 bytes), `GetParams`, `GetSysParams`, `EmitParticles`,
+`UpdateParticles`, `UParticle::Update`, `GetRenderBoundingBox` and Wind's `GetWind`/`Tick` changed, HP2 code not read
+yet. Render.dll (the drawing passes) has no HP2 fingerprint yet.
+
+## Bits (HP1 offsets)
 
 - `0x29C`: bit0 bSteadyState, bit1 bPrime
 - `0x2F8`: bit0 bUpdate, bit1 bVelocityRelative, bit2 bSystemRelative
@@ -23,7 +32,7 @@ iterator (`Current`, `bAdvanced`) so the current node can be removed while itera
 `Engine.u` imports `Class Engine.ParticleList` (it's a native class with no script body). SurrealEngine registers
 no such class, so the import resolves to null; since the missing-import log was added, every start logs
 `Package Engine imports Class Engine.ParticleList, which Engine does not contain`. `kw/KWParticleFX.cpp`
-keeps its own particle list per actor in a side table (`ParticleList` stays None, and no HP1 script reads it), so the
+keeps its own particle list per actor in a side table (`ParticleList` stays None, and no script of either game reads it), so the
 missing class has no effect.
 (The other import logged on every start, `HPBase` → `Texture HPEdit.Icons.Icons.station`, is an editor icon.)
 
@@ -106,7 +115,7 @@ A step only collides when the level's BSP blocks it (`UModel::FastLineCheck(Old,
 with `SingleLineCheck(TRACE_Movers|TRACE_Level, zero extent)`: a hit on LevelInfo reflects Velocity about the hit normal,
 scales it by Elasticity and puts the particle at the hit location; any other result (a mover in front of the wall, or
 no hit) zeroes Velocity and puts the particle back at OldPosition. Movers alone (no BSP behind them) are passed through.
-Only `WaterDrip` (Lev2_fire1, Lev2_Fire2) and `avifors_react` have an Elasticity.
+In HP1 only `WaterDrip` (Lev2_fire1, Lev2_Fire2) and `avifors_react` have an Elasticity.
 
 ## LOD
 
@@ -132,7 +141,7 @@ one), clips against the frustum and batches triangle fans to the render device (
 | PPRIM_Shard | shard, liquid, billboard |
 | PPRIM_TriTube | tube (vtable 0x10B388D0, fill 0x10B194C0), then `appFailAssert` (UnParticleRn.cpp line 1152) |
 
-With bShellOnly the shell pass replaces the billboard pass. The shipped content only uses Billboard and Liquid (water:
+With bShellOnly the shell pass replaces the billboard pass. HP1's content only uses Billboard and Liquid (water:
 `WaterDrip`, `WaterShowerFX*`, `Serpent_*`, `WaterBknSpray*`, and placed systems such as the Lev2_HogFront fountain);
 no class or map uses Line, Shard, TriTube or bShellOnly (only HPConsole's commented-out mouse particle test).
 
@@ -152,7 +161,7 @@ direction from the projected head to the projected tail, the kite is head + (-u.
 Light slot (`sub_10B16AB0`): colour = LightColor * particle Color; with a = ScaleGlow * Alpha < 1 the colour is scaled
 by a and, for STY_Modulated, (1-a)/2 is added. `LightColor` (script property) is (1,1,1,1) for bUnlit systems;
 otherwise the light manager lights the actor (`GLightManager` vtbl +8 SetupForActor with `URender::LeafLights`, +28,
-+20). No shipped system has bUnlit=False.
++20). No HP1 system has bUnlit=False.
 
 Overdraw budget (billboard fill): budget = FX·FY·URender[+0x5C]·0.5 (+0x5C is set to 1.0 in the URender constructor and
 is not a config property). Per particle, area = W·L·RZ² (pixels²) and weighted = (PriorityTag+1)·area/4; when weighted >
@@ -162,7 +171,7 @@ once it reaches 0. So a particle fades when it covers more than 2/(PriorityTag+1
 ## Wind (Engine.dll UnWind.cpp)
 
 `AWind` keeps every Wind in a global array (constructor 0x10430B60 adds, Destroy 0x10430C40 removes).
-`GetTotalWind(Level, Loc)` (0x10432180) sums `GetWind` over all of them. Only the Quidditch maps place a Wind, and no
+`GetTotalWind(Level, Loc)` (0x10432180) sums `GetWind` over all of them. In HP1 only the Quidditch maps place a Wind, and no
 script calls `Wind.GetWind` (native 425). ParticleFX uses the wind only in the damped integration (Damping > 0): the
 whole system's wind at Location * WindModifier, or per particle with bWindPerParticle.
 

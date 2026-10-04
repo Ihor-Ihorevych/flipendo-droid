@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Audit a game's native functions against what SurrealEngine (and Flipendo's hp1/) implements.
 
-Usage: python tools/native_audit.py [hp1|hp2]   (default hp1; writes docs/re/native_audit_<game>.md)
+Usage: python tools/native_audit.py [hp1|hp2]   (default hp1; writes docs/re/reports/native_audit_<game>.md)
 For HP2 a kw/ override is reported as HP1_PORT: the native exists for HP1 (gated to it) and may carry over
-(see docs/re/hp2_compare.md). HP2's own registrations in hp2/ (HP2::RegisterNatives) count as HP2's implementation.
+(see docs/re/reports/hp2_compare.md). HP2's own registrations in hp2/ (HP2::RegisterNatives) count as HP2's implementation.
 
 
 Reads every `native` function/event declared in our disc's scripts (reference/<game>/ScriptSource, from
@@ -17,7 +17,7 @@ engine/SurrealEngine/Native, plus our overrides in kw/ and hp1/ (which win for H
   INDEX       registered, but with a different native index than HP1 uses
   OK          registered and has a real body
 
-Output: docs/re/native_audit_<game>.md (and a summary on stdout).
+Output: docs/re/reports/native_audit_<game>.md (and a summary on stdout).
 """
 import os
 import re
@@ -32,7 +32,7 @@ SCRIPTS = os.path.join(ROOT, "reference", GAME, "ScriptSource")
 ENGINE = os.path.join(ROOT, "engine", "SurrealEngine")
 PORT_DIRS = [os.path.join(ROOT, "kw"), os.path.join(ROOT, "hp1")]  # our overrides: shared engine code, HP1-only
 HP2_DIR = os.path.join(ROOT, "hp2")  # HP2-only natives and HP2-signature adapters
-OUT = os.path.join(ROOT, "docs", "re", "native_audit_%s.md" % GAME)
+OUT = os.path.join(ROOT, "docs", "re", "reports", "native_audit_%s.md" % GAME)
 
 # Conditions in SurrealEngine's RegisterFunctions() that are true for HP1.
 HP1_TRUE = [r"IsHarryPotter1\(\)" if GAME == "hp1" else r"IsHarryPotter2\(\)", r"ue1Version\s*>=?\s*(2\d\d|3\d\d|4[0-9]\d)\b"]

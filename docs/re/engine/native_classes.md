@@ -1,7 +1,13 @@
 # Small native classes and leftover natives
 
 Native classes and natives that are not big enough for a topic note of their own: what Engine.dll has for them,
-whether HP1's scripts reach them, and what Flipendo does.
+whether the games' scripts reach them, and what Flipendo does. Reversed in HP1's Engine.dll; the script callers below
+are HP1's.
+
+**HP1 and HP2.** HP2's Engine.u declares the same four classes and the same natives (`FindStairRotation` 524,
+`ScreenToWorld` 542, `CreateNativeFont`). `UViewport::CreateNativeFont` is identical in HP2; `execFindStairRotation`
+(1772 -> 1573 bytes), `execScreenToWorld` and `execCreateNativeFont` changed, HP2 code not read yet
+([hp2_compare.md](../reports/hp2_compare.md)). HP2's script callers haven't been checked.
 
 ## Native classes without native code
 

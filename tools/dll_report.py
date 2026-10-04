@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The game's DLLs: what each one is, what it exports, and where Flipendo stands with it.
 
-Writes docs/re/dlls.md from
+Writes docs/re/reports/dlls.md from
   - the DLLs themselves (../eagames/hp1/System, ../eagames/hp2/System): size, exports, the C++ classes they export;
   - the "// IDA <Dll>.dll: <decorated name>" tags in kw/, hp1/ and hp2/: the functions Flipendo reimplements;
   - ../ida/fingerprints/ (tools/ida_fingerprint.py): whether each of those is the same code in HP2;
@@ -22,7 +22,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GAMES = {"hp1": os.path.join(ROOT, "..", "eagames", "hp1", "System"), "hp2": os.path.join(ROOT, "..", "eagames", "hp2", "System")}
 FP_DIR = os.path.join(ROOT, "..", "ida", "fingerprints")
-OUT = os.path.join(ROOT, "docs", "re", "dlls.md")
+OUT = os.path.join(ROOT, "docs", "re", "reports", "dlls.md")
 TAG = re.compile(r"//\s*IDA\s+(\w+)\.dll:\s*(\?\S+)")
 
 # What each DLL is, and what stands in for it in Flipendo. Order = order in the document.

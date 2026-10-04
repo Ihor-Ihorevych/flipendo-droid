@@ -4,7 +4,7 @@
 
 // Which KnowWonder game is running, for the few places where shared kw/ code has to differ between HP1 and HP2.
 // Use it at the exact line that differs (with both IDA addresses in the tag), never to fork a whole function:
-// see hp2/README.md for the rules.
+// see docs/one-engine.md for the rules.
 
 namespace KW
 {

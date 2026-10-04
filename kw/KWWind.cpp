@@ -14,7 +14,7 @@
 
 // Wind (native class in HP1 Engine.dll, UnWind.cpp): a light-like source of air movement. ParticleFX systems with a
 // WindModifier drift in the sum of all winds (AWind::GetTotalWind). Only the Quidditch maps place Wind actors.
-// See docs/re/particles.md ("Wind").
+// See docs/re/engine/particles.md ("Wind").
 
 namespace KW
 {

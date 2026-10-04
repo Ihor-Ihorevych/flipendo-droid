@@ -11,7 +11,7 @@
 #include "VM/NativeFunc.h"
 #include "Engine.h"
 
-// Save games (docs/re/savegames.md). The level itself is saved by the SaveGame console command (upstream's
+// Save games (docs/re/engine/savegames.md). The level itself is saved by the SaveGame console command (upstream's
 // Engine::SaveGameToSlot writes <SavePath>/SaveN.usa) and loaded by "open saveN.usa" (KW::SaveGameLoadURL).
 // Next to it the menus keep a GameSaveInfo per slot (beans, stars, house points, save point, level name) in
 // <SavePath>/GameSaveInfoN, and show each slot's thumbnail from a BMP in the Save folder.

@@ -2,18 +2,19 @@
 
 Flipendo keeps a strict line between the **faithful port** and **additions**:
 
-- `kw/` (KnowWonder's engine, shared by the HP games) and the rest of `hp1/` reproduce what the original engine did.
+- `kw/` (KnowWonder's engine, shared by the HP games), `hp1/` and `hp2/` reproduce what the original engines did.
   Every function carries an `// IDA` tag saying which original function it reimplements.
-- `hp1/mods/` holds features the original never had. They never change vanilla behaviour unless switched on,
-  and `--vanilla` switches off all the ones that are on by default.
+- `hp1/mods/` holds features the original never had: quality-of-life changes, developer shortcuts, anything a player
+  of the 2001 release never saw. They never change vanilla behaviour unless switched on, and `--vanilla` switches off
+  all the ones that are on by default. Mods are HP1's for now; HP2 gets the same once it runs.
 
 ## Built-in mods
 
 | Mod | Default | What it does |
 |---|---|---|
-| `CutsceneSkip.cpp` | on | "Press Space to skip" during cutscenes; Space fast-forwards to the end |
-| `StorybookSkip.cpp` | on | "Press Space to skip" in storybooks (New Game intro, chapter interludes) |
-| `LaunchSkips.cpp` | off (`--skip-splash`, `--skip-intro`) | skip the splash screens; skip the New Game storybook |
+| `CutsceneSkip.cpp` | on (`--vanilla` disables) | "Press Space to skip" during cutscenes; Space fast-forwards to the end |
+| `StorybookSkip.cpp` | on (`--vanilla` disables) | "Press Space to skip" in storybooks (New Game intro, chapter interludes) |
+| `LaunchSkips.cpp` | off (`--skip-splash`, `--skip-intro`) | skip the logo/title splash screens; skip the New Game storybook |
 
 ## Writing a mod
 
@@ -33,14 +34,19 @@ Steps:
 2. Declare them in `HP1Mods.h` and call them from `TickMods` / `PostRenderMods` in `HP1Mods.cpp`.
 3. Gate it: `Mods::Enabled()` for a mod that is on by default (off with `--vanilla`), or
    `Mods::HasFlag("--my-flag")` for an opt-in one.
-4. Add it to the table above and to `hp1/mods/README.md`.
+4. Add it to the table above.
+
+Rules:
+
+- Mods hook in only through the three calls above, never through engine hooks of their own.
+- No `// IDA` tags in a mod (nothing is reversed); say in a comment which script code it relies on.
 
 Helpers in `HP1Mods.h`: `ObjectProperty` / `BoolProperty` read script properties by name, `SpacePressed` reports a
 key press since the last tick, `DrawPrompt` draws a small hint line in the corner.
 
 Work through the game's own script state (properties, script functions) where you can, so a mod stays a thin
 layer over vanilla behaviour. To find what to touch, read the game's scripts: `tools/extract_scripts.sh` writes
-them, with KnowWonder's comments, to `reference/hp1/ScriptSource/` (see [development.md](development.md)).
+them, with KnowWonder's comments, to `reference/hp1/ScriptSource/` (see [development.md](development.md#reference-material)).
 `CutsceneSkip.cpp` is a short example that follows a script's state and calls into it.
 
 If a mod needs a hook the three above don't give, add it to `HP1Mods.h` and to
@@ -48,12 +54,10 @@ If a mod needs a hook the three above don't give, add it to `HP1Mods.h` and to
 
 ## Tools for modders
 
-- The debug environment variables ([development.md](development.md#debug-tools)): dump every actor with its
-  state, trace actors over time, put the camera somewhere fixed, script key presses and player movement.
-- `SurrealDebugger`, built next to the game: an UnrealScript debugger with breakpoints, call stacks and
-  disassembly.
-- `tools/uelib_dump props <package> <file>`: every object in a package with its properties (for example all actors
-  of a map).
+[debug-tools.md](debug-tools.md): environment variables that dump every actor with its state, trace actors over
+time, put the camera somewhere fixed, script key presses and player movement and call script functions; the
+`SurrealDebugger` UnrealScript debugger; `tools/uelib_dump` for the objects in a package. How the game works under the
+scripts is in the [reverse-engineering notes](re/README.md).
 
 ## Where modding is going
 

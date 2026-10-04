@@ -2,7 +2,7 @@
 #include "HP2.h"
 #include <cstring>
 
-// HP2's script bytecode differs from HP1's (and stock UE1's) in the token table only (docs/re/hp2_bytecode.md).
+// HP2's script bytecode differs from HP1's (and stock UE1's) in the token table only (docs/re/engine/scripting.md).
 // HP2's Core.dll registers its opcodes with GRegisterNative; compared with HP1:
 //   0x38       DebugInfo (new)            stock 0x38 GlobalFunction
 //   0x39       GlobalFunction             stock 0x39 RotatorToVector
@@ -31,7 +31,7 @@ namespace HP2
 	// does nothing), int32 line, int32 position, then a NUL-terminated ANSI string (the opcode name). The original
 	// hands it to GDebugger (vtable slot 0) if a debugger is attached; the game ignores it. Native wrappers check for
 	// a DebugInfo record right after EndFunctionParms, so it can follow any native call, not only statements. (That
-	// check is the "+29 bytes" in most HP2 exec* functions in docs/re/hp2_compare.md, not a behaviour change.)
+	// check is the "+29 bytes" in most HP2 exec* functions in docs/re/reports/hp2_compare.md, not a behaviour change.)
 	size_t DebugInfoSize(const uint8_t* data, size_t available)
 	{
 		if (available < 13 || data[0] != DebugInfoToken)

@@ -1,10 +1,15 @@
 # Lighting
 
-How HP1 lights meshes (characters and props) and BSP light maps, from Render.dll. Mesh lighting is ported in
-`kw/KWMeshLight.cpp`, used by `KW::DrawSkeletalMesh` (`kw/Anim/KWSkeletal.cpp`); light maps in `kw/KWLightmap.cpp`,
-hooked into SurrealEngine's `LightmapBuilder` (see "Light maps" at the end). HP1 adds `Actor.LightSource` (`LD_Point`,
-`LD_Plane` = parallel light, `LD_Ambient` = all directions) and `LightRadiusInner` to UE1's light properties; outdoor
-maps light with them (Lev2_Quid1: two `LD_Plane` suns, brightness 80, radius 255, LightRadiusInner 255).
+How KnowWonder's renderer lights meshes (characters and props) and BSP light maps, reversed from HP1's Render.dll
+(addresses are HP1's). Mesh lighting is ported in `kw/KWMeshLight.cpp`, used by `KW::DrawSkeletalMesh`
+(`kw/Anim/KWSkeletal.cpp`); light maps in `kw/KWLightmap.cpp`, hooked into SurrealEngine's `LightmapBuilder` (see
+"Light maps" at the end). KnowWonder added `Actor.LightSource` (`LD_Point`, `LD_Plane` = parallel light, `LD_Ambient` =
+all directions) and `LightRadiusInner` to UE1's light properties; outdoor maps light with them (HP1's Lev2_Quid1: two
+`LD_Plane` suns, brightness 80, radius 255, LightRadiusInner 255).
+
+**HP1 and HP2.** HP2's `Actor.uc` declares the same `LightSource` and `LightRadiusInner`, and `FGetHSV` (Engine.dll) is
+identical ([hp2_compare.md](../reports/hp2_compare.md)). The rest lives in Render.dll, which has no HP2 fingerprint yet,
+so whether HP2's renderer lights the same way is not checked. The map statistics at the end are HP1's.
 
 # Mesh lighting
 
@@ -50,8 +55,8 @@ GLightManager's vtable is `off_10B386D4` (+8 SetupForActor, +24 Light per vertex
   `0.9 + 0.09 sin`, phase `Level.TimeSeconds * 2293760 / LightPeriod + LightPhase * 256` with 65536 per turn; Blink,
   Flicker from a per-frame random table, Strobe toggling every frame, TexturePalette* from the Skin's palette),
   clamped to 0..1, times `LevelInfo.Brightness` and the fade. `bDarkLight` negates it.
-- Falloff is linear: `min((radius - dist) / (radius - radius * LightRadiusInner / 256), 1)`. `LightRadiusInner` is an
-  HP1-only property. It isn't clamped at 0, so vertices past the radius lose light.
+- Falloff is linear: `min((radius - dist) / (radius - radius * LightRadiusInner / 256), 1)`. `LightRadiusInner` is a
+  KnowWonder property. It isn't clamped at 0, so vertices past the radius lose light.
 
 ## A vertex's light (the light manager's Light, sub_10B02B10)
 
@@ -71,7 +76,7 @@ GLightManager's vtable is `off_10B386D4` (+8 SetupForActor, +24 Light per vertex
 The light manager's light map builder is `sub_10B077F0` (Render.dll). It fills the map with the zone ambient, sets up
 each light with `sub_10B06920` (the same light info as for meshes, 49 dwords), runs the light's LightEffect function
 from the table at `off_10B38110` (3 dwords per effect: function + two flags) on the light's shadow bytes, and merges
-the result into the map with `sub_10B03430`. SurrealEngine keeps the light picking, shadow maps and caching; HP1's
+the result into the map with `sub_10B03430`. SurrealEngine keeps the light picking, shadow maps and caching; KnowWonder's
 terms replace its falloff, colour scale and ambient.
 
 - **Light map values** are 7 bits per channel, 127 = full. The ambient fill is `floor(FGetHSV(zone ambient) * 64)`
@@ -80,8 +85,8 @@ terms replace its falloff, colour scale and ambient.
   7-bit saturating add (bDarkLight lights subtract, stopping at 0). So one light can reach full on its own at L ≥ 127.
 - **On screen**: D3DDrv's RGBA7 upload doubles every byte (`sub_100022C0`, `*dst = 2 * src`) and the light map stage
   is `D3DTOP_MODULATE2X` (`SetBlending`; the multipass fallback is DESTCOLOR × SRCCOLOR, also 2x). 127 is therefore
-  about 2x the texture, the same range as SurrealEngine's shader (light map × 2): HP1 byte b = SurrealEngine `2b/255`.
-  SurrealEngine's own builder adds `illum * colour` (half of HP1's) and fills ambient with the full HSV colour.
+  about 2x the texture, the same range as SurrealEngine's shader (light map × 2): a KnowWonder byte b = SurrealEngine
+  `2b/255`. SurrealEngine's own builder adds `illum * colour` (half of KnowWonder's) and fills ambient with the full HSV colour.
 - **The lumel byte**, LE_None (`loc_10B037C0`; with a LightRadiusInner it runs `sub_10B0CA70`, the same plus a clamp):
   `L = shadow * min(k * table[m], 1)`, 0 outside the radius, where
   - `m = floor((d / R * 4095)² / 4096)` (d = lumel to light, R = `WorldLightRadius`), `table[m]` at
@@ -93,7 +98,7 @@ terms replace its falloff, colour scale and ambient.
   - incidence: `LD_Point` `|light - surface plane| / R` (times table/t this is the cosine: `cos * f(t)`; SurrealEngine
     computed `cos * f(t) / t`), `LD_Plane` `max(-X · N, 0)` with X the light's (a pawn's: view) rotation axis,
     `LD_Ambient` 1. Plane and ambient lights still fall off with distance from the light actor.
-- **The radius**: HP1's `AActor::WorldLightRadius` (Engine.dll 0x1031BA10) is `max(DrawScale, 1) * (LightRadius + 1) * 25`
+- **The radius**: KnowWonder's `AActor::WorldLightRadius` (Engine.dll 0x1031BA10) is `max(DrawScale, 1) * (LightRadius + 1) * 25`
   (SurrealEngine leaves out DrawScale). It's R everywhere: light maps, the mesh light picking and falloff. Lev2_Quid1's
   suns have DrawScale 5 (R = 32000); without it they barely reached the pitch. `WorldVolumetricRadius` has no DrawScale.
 - **LE_NonIncidence** (`sub_10B05DC0`): `shadow * min(R / (R - inner) * smoothstep[floor(d² * 4093 / R²)], 1)`, no
@@ -101,5 +106,5 @@ terms replace its falloff, colour scale and ambient.
 - **LE_TorchWaver/FireWaver/WateryShimmer** run LE_None; `sub_10B03430` then scales the lumels by `0.95 + 0.05 r`,
   `0.8 + 0.2 r`, `0.6 + 0.4 r` (r from a random table, every frame) as it merges them. The flicker isn't ported.
 - Not ported: the other effects (Searchlight, SlowWave, FastWave, StaticSpot, Spotlight, Interference, Cylinder: ~60
-  lights in all of HP1's maps) still use SurrealEngine's functions, only the colour and clamps are HP1's. Of the
+  lights in all of HP1's maps) still use SurrealEngine's functions, only the colour and clamps are KnowWonder's. Of the
   ~11,900 lights in HP1's maps, LE_None has ~10,700 and NonIncidence ~1,060; LD_Ambient ~310, LD_Plane ~20.

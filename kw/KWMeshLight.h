@@ -6,7 +6,7 @@ class UActor;
 class UZoneInfo;
 
 // HP1's mesh lighting (Render.dll's light manager, used by URender::DrawLodMesh): which lights reach an actor, and
-// the light of each vertex. docs/re/lighting.md.
+// the light of each vertex. docs/re/engine/lighting.md.
 namespace KW
 {
 	struct MeshLightInfo

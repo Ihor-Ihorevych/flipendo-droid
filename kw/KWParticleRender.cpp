@@ -19,7 +19,7 @@
 // URender::DrawParticleSystem updates the system, then runs one or more passes over the particle list. A pass is a
 // functor (vtable: light, fill, primitives per particle, vertices per primitive) that the pass driver sub_10B15090
 // calls per particle; it fills screen-space vertices and returns a clip outcode (124 = skip the particle).
-// Which passes run depends on RenderPrimitive, and they stack (see docs/re/particles.md, "Rendering"):
+// Which passes run depends on RenderPrimitive, and they stack (see docs/re/engine/particles.md, "Rendering"):
 //   Line:      line, shard, liquid, billboard     Shard: shard, liquid, billboard
 //   Liquid:    liquid, billboard                  Billboard: billboard
 //   TriTube:   tube pass, then appFailAssert (a fatal error in the original; no HP1 content uses it)

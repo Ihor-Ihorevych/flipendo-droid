@@ -1,8 +1,8 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/branding/flipendo-logo-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="docs/branding/flipendo-logo.png">
-    <img src="docs/branding/flipendo-logo.png" alt="Flipendo" width="560">
+    <source media="(prefers-color-scheme: dark)" srcset="images/branding/flipendo-logo-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="images/branding/flipendo-logo.png">
+    <img src="images/branding/flipendo-logo.png" alt="Flipendo" width="560">
   </picture>
 </p>
 
@@ -24,7 +24,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/grand-staircase.jpg" alt="The grand staircase in the first level, 1920x1080" width="100%">
+  <img src="images/screenshots/grand-staircase.jpg" alt="The grand staircase in the first level, 1920x1080" width="100%">
 </p>
 
 Flipendo runs your copy of **Harry Potter and the Philosopher's Stone** (called *Sorcerer's Stone* in the US;
@@ -45,7 +45,7 @@ The 2001 release is getting hard to run. SafeDisc copy protection doesn't work o
 - **No disc, no SafeDisc, no compatibility patches.** Point it at the installed game folder.
 - **The same game.** Nothing is remade or altered. Optional extras (skippable cutscenes and storybooks) can all
   be switched off with `--vanilla`.
-- **Fixable.** Bugs in the original engine get fixed in source ([list](docs/re/original_bugs.md)). Linux, macOS
+- **Fixable.** Bugs in the original engine get fixed in source ([list](docs/re/hp1/original_bugs.md)). Linux, macOS
   and Steam Deck can follow because SurrealEngine already runs on them.
 
 ## Screenshots
@@ -54,19 +54,19 @@ All taken in Flipendo at 1920x1080 from the original game files.
 
 <table>
   <tr>
-    <td><img src="docs/screenshots/dumbledore.jpg" alt="Dumbledore welcomes Harry to Hogwarts"></td>
-    <td><img src="docs/screenshots/hagrid.jpg" alt="Hagrid in the castle grounds"></td>
+    <td><img src="images/screenshots/dumbledore.jpg" alt="Dumbledore welcomes Harry to Hogwarts"></td>
+    <td><img src="images/screenshots/hagrid.jpg" alt="Hagrid in the castle grounds"></td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/castle-grounds.jpg" alt="Harry in the castle grounds, widescreen HUD"></td>
-    <td><img src="docs/screenshots/corridor.jpg" alt="A Hogwarts corridor with stained glass windows"></td>
+    <td><img src="images/screenshots/castle-grounds.jpg" alt="Harry in the castle grounds, widescreen HUD"></td>
+    <td><img src="images/screenshots/corridor.jpg" alt="A Hogwarts corridor with stained glass windows"></td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/quidditch-pitch.jpg" alt="The Quidditch pitch"></td>
-    <td><img src="docs/screenshots/quidditch-fireworks.jpg" alt="Particle effects over the Quidditch stands"></td>
+    <td><img src="images/screenshots/quidditch-pitch.jpg" alt="The Quidditch pitch"></td>
+    <td><img src="images/screenshots/quidditch-fireworks.jpg" alt="Particle effects over the Quidditch stands"></td>
   </tr>
   <tr>
-    <td colspan="2"><img src="docs/screenshots/dungeon.jpg" alt="Harry in a torch-lit dungeon corridor"></td>
+    <td colspan="2"><img src="images/screenshots/dungeon.jpg" alt="Harry in a torch-lit dungeon corridor"></td>
   </tr>
 </table>
 

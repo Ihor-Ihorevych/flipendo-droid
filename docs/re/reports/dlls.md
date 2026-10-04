@@ -10,8 +10,8 @@ Details: [native_audit_hp1.md](native_audit_hp1.md), [native_audit_hp2.md](nativ
 
 | DLL | HP1 | HP2 | exports HP1 / HP2 | ported functions | provided by |
 |---|---|---|---|---|---|
-| [Core](#core) | 840 KB | 904 KB | 2046 / 2070 | 4 | SurrealEngine |
-| [Engine](#engine) | 2072 KB | 2092 KB | 2722 / 2784 | 121 | SurrealEngine + **kw/** |
+| [Core](#core) | 840 KB | 904 KB | 2046 / 2070 | 6 | SurrealEngine |
+| [Engine](#engine) | 2072 KB | 2092 KB | 2722 / 2784 | 125 | SurrealEngine + **kw/** |
 | [Fire](#fire) | 104 KB | 104 KB | 133 / 133 | 7 | SurrealEngine + kw/ (IceTexture) |
 | [Render](#render) | 288 KB | 296 KB | 93 / 94 | 5 | SurrealEngine + kw/ (particles) |
 | [D3DDrv](#d3ddrv) | 216 KB | 216 KB | 392 / 392 | 0 | replaced (SurrealEngine render devices) |
@@ -42,13 +42,15 @@ The object system everything else is built on: UObject, names, packages (.u/.unr
 
 **HP2 script natives** (Core.u): 53 OK, 2 STUB, 1 OTHER_GAME.
 
-**Reimplemented in Flipendo** (4):
+**Reimplemented in Flipendo** (6):
 
 | function | where | HP2 |
 |---|---|---|
 | `??0FCoords@@QAE@ABVFPlace@@@Z` | `kw/Anim/KWSkeletal.cpp:52` | identical |
+| `?GRegisterNative@@YAEHABQ8UObject@@AEXAAUFFrame@@QAX@Z@Z` | `hp2/HP2Bytecode.cpp:19` | identical |
 | `?SlerpQuat@@YA?AVFQuat@@ABV1@0M@Z` | `kw/Anim/KWSkeletal.cpp:81` | identical |
 | `FCoords::OrthoRotation` | `kw/KWInterpolation.cpp:151` | identical |
+| `UObject::execDebugInfo` | `hp2/HP2Bytecode.cpp:29` | ? |
 | `YAAAVFArchive::?6` | `kw/KWSave.cpp:53` | identical |
 
 ## Engine
@@ -61,9 +63,9 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 
 **HP1 script natives** (Engine.u): 125 OK, 28 STUB.
 
-**HP2 script natives** (Engine.u): 98 OK, 25 HP1_PORT, 25 STUB, 6 MISSING, 1 INDEX, 4 OTHER_GAME.
+**HP2 script natives** (Engine.u): 102 OK, 24 HP1_PORT, 25 STUB, 3 MISSING, 1 INDEX, 4 OTHER_GAME.
 
-**Reimplemented in Flipendo** (121):
+**Reimplemented in Flipendo** (125):
 
 | function | where | HP2 |
 |---|---|---|
@@ -80,15 +82,18 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 | `AActor::execBoneName` | `kw/Anim/KWAnimState.cpp:428` | changed |
 | `AActor::execBoneNumber` | `kw/Anim/KWAnimState.cpp:421` | changed |
 | `AActor::execBonePos` | `kw/KWAttach.cpp:22` | changed |
+| `AActor::execBoneRot` | `hp2/HP2Natives.cpp:24` | ? |
 | `AActor::execCreateAnimChannel` | `kw/Anim/KWAnimState.cpp:396` | changed |
 | `AActor::execCreateTextureFromBMP` | `kw/KWSave.cpp:285` | changed |
 | `AActor::execFinishAnim` | `kw/Anim/KWAnimState.cpp:226` | changed |
 | `AActor::execFinishAnim` | `kw/Anim/KWAnimState.cpp:390` | changed |
 | `AActor::execGetAnimGroup` | `kw/Anim/KWAnimState.cpp:408` | changed |
+| `AActor::execGetCurrentKeyState` | `hp2/HP2Natives.cpp:46` | ? |
 | `AActor::execGetRenderExtent` | `kw/KWCollision.cpp:325` | changed |
 | `AActor::execGetWorldCollisionBox` | `kw/KWCollision.cpp:305` | changed |
 | `AActor::execHasAnim` | `kw/Anim/KWAnimState.cpp:402` | changed |
 | `AActor::execIsAnimating` | `kw/Anim/KWAnimState.cpp:384` | changed |
+| `AActor::execIsSoftwareRendering` | `hp2/HP2Natives.cpp:38` | ? |
 | `AActor::execLinkSkelAnim` | `kw/Anim/KWAnimState.cpp:415` | changed |
 | `AActor::execLoadGameSaveInfo` | `kw/KWSave.cpp:173` | changed |
 | `AActor::execLoopAnim` | `kw/Anim/KWAnimState.cpp:372` | changed |
@@ -99,7 +104,8 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 | `AActor::execSaveGameSaveInfo` | `kw/KWSave.cpp:146` | changed |
 | `AActor::execSetCollisionSize` | `kw/KWCollision.cpp:194` | changed |
 | `AActor::execSetPhysics` | `kw/KWCollision.cpp:357` | changed |
-| `AActor::execStopSound` | `kw/KWSound.cpp:31` | changed |
+| `AActor::execStopSound` | `kw/KWSound.cpp:40` | changed |
+| `AActor::execStopSound` | `hp2/HP2Natives.cpp:55` | changed |
 | `AActor::execTraceActors` | `kw/KWTraceTexture.cpp:77` | changed |
 | `AActor::execTraceTexture` | `kw/KWTraceTexture.cpp:25` | changed |
 | `AActor::execTweenAnim` | `kw/Anim/KWAnimState.cpp:378` | changed |
@@ -272,7 +278,7 @@ HP1's audio subsystem (Galaxy): sound effects, 3D positioning and music playback
 | function | where | HP2 |
 |---|---|---|
 | `UGalaxyAudioSubsystem::ModifySound` | `kw/KWSound.cpp:23` | ? |
-| `UGalaxyAudioSubsystem::StopSound` | `kw/KWSound.cpp:32` | ? |
+| `UGalaxyAudioSubsystem::StopSound` | `kw/KWSound.cpp:31` | ? |
 
 ## IpDrv
 
