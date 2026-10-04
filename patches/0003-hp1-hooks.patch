@@ -107,7 +107,7 @@ index aef803f8..91255987 100644
  		if (t < tmax)
  		{
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 34ee5181..2c28ce59 100644
+index 34ee5181..dd069c59 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,7 @@
@@ -203,14 +203,15 @@ index 34ee5181..2c28ce59 100644
  		SaveGameInfo.SaveGameSlot = slotNum;
  
  		if (args.size() == 3)
-@@ -1304,20 +1335,37 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1304,20 +1335,38 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  			}
  		}
  	}
 +	// flipendo: "SET Input <key> <alias>" takes the REST of the line as the alias, and no alias unbinds the key.
 +	// Menus rebind with multi-word aliases ("SET Input W MoveForward | button bBroomPitchUp") and clear with
 +	// "SET Input W"; the 4-argument check below dropped both, so a rebind showed in the menu and did nothing.
-+	else if (command == "set" && args.size() >= 3 && ParseClassName(args[1]) == "input")
++	// HP1 writes "Input" capitalised, so the class name is compared ignoring case.
++	else if (command == "set" && args.size() >= 3 && StrTools::equals_ignore_case(ParseClassName(args[1]), "input"))
 +	{
 +		NameString propertyName = args[2];
 +		std::string value;
@@ -249,7 +250,7 @@ index 34ee5181..2c28ce59 100644
  		UClass* cls = packages->FindClass(className);
  		if (!cls)
  		{
-@@ -1454,6 +1502,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
+@@ -1454,6 +1503,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
  			endpos = command.size();
  
  		std::string subcommand = command.substr(pos, endpos - pos);
@@ -260,7 +261,7 @@ index 34ee5181..2c28ce59 100644
  		if (!subcommand.empty())
  			subcommands.push_back(subcommand);
  		pos = endpos + 1;
-@@ -1616,6 +1668,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
+@@ -1616,6 +1669,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
  	{
  		viewport->WindowsMouseX() = (float)(pos.x * window->GetDpiScale());
  		viewport->WindowsMouseY() = (float)(pos.y * window->GetDpiScale());
@@ -269,7 +270,7 @@ index 34ee5181..2c28ce59 100644
  	}
  }
  
-@@ -1689,6 +1743,9 @@ void Engine::OnWindowKeyChar(std::string chars)
+@@ -1689,6 +1744,9 @@ void Engine::OnWindowKeyChar(std::string chars)
  
  void Engine::OnWindowKeyDown(EInputKey key)
  {
