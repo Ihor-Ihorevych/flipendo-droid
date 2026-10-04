@@ -7,6 +7,8 @@
 #include "VM/ScriptCall.h"
 #include "Packages/Engine/UConsole.h"
 #include "HP1Actor.h"
+#include "mods/HP1Mods.h"
+#include "Packages/Engine/Actors/UHUD.h"
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Packages/Core/UClass.h"
@@ -29,11 +31,14 @@
 //   HP1_GOTO="60:x,y;x,y"      from <sec>, steer the player to each waypoint in turn (turns the view, holds Up);
 //                              several runs separated by '|'. A waypoint "x,y,J" jumps (Ctrl) on arrival, "x,y,w2" stops
 //                              and waits 2 s. Logs arrival and when the player is stuck
+//   HP1_SKIPCUTS=1             press Space whenever a cutscene holds Harry (the CutsceneSkip mod fast-forwards it;
+//                              does nothing with --vanilla). Shifts later timings, so routes need their own times
 //   HP1_HEIGHTMAP="5:x0,y0,x1,y1,step,ztop"  at <sec>, trace straight down (player-sized cylinder) from ztop over
 //                              the grid and log one row of floor heights per y (blank = nothing within 2000 units)
 //   HP1_EXEC="40:open save0.usa;90:SaveGame 3"  run a console command at <sec> (';' separates entries);
 //                              "@console Fn" calls the console's script function Fn() instead (e.g. SaveSelectedSlot);
-//                              "@console.MenuBook OpenBook Slot" follows object properties and passes one string
+//                              "@console.MenuBook OpenBook Slot" follows object properties and passes one string;
+//                              "@set CutScene bDebugScript True" sets a property on every actor whose name starts so; "@get harry numBeans" logs one
 
 namespace HP1
 {
@@ -226,6 +231,36 @@ namespace HP1
 		commands.erase(commands.begin());
 
 		LogMessage("HP1 exec t=" + std::to_string(now) + ": " + text);
+		if (text.rfind("@get ", 0) == 0)
+		{
+			// "@get <actor name prefix> <property>": log a property of every matching actor.
+			std::stringstream parts(text.substr(5));
+			std::string prefix, prop;
+			parts >> prefix >> prop;
+			for (UActor* a : engine->Level->Actors)
+				if (a && a->Name.ToString().compare(0, prefix.size(), prefix) == 0)
+					LogMessage("HP1 get " + a->Name.ToString() + "." + prop + " = " + a->GetPropertyAsString(NameString(prop)));
+			return;
+		}
+		if (text.rfind("@set ", 0) == 0)
+		{
+			// "@set <actor name prefix> <property> <value>": set a property on every matching actor.
+			std::stringstream parts(text.substr(5));
+			std::string prefix, prop, value;
+			parts >> prefix >> prop;
+			std::getline(parts >> std::ws, value);
+			int count = 0;
+			for (UActor* a : engine->Level->Actors)
+			{
+				if (a && a->Name.ToString().compare(0, prefix.size(), prefix) == 0)
+				{
+					a->SetPropertyFromString(NameString(prop), value);
+					count++;
+				}
+			}
+			LogMessage("HP1 exec: set " + prop + " on " + std::to_string(count) + " actors");
+			return;
+		}
 		if (text.rfind("@console", 0) == 0)
 		{
 			// "@console[.Prop[.Prop]] Fn [string arg]": follow object properties from the console, then call Fn.
@@ -291,6 +326,33 @@ namespace HP1
 			}
 			LogMessage(row);
 		}
+	}
+
+	// Taps Space (as a player would) whenever a cutscene holds Harry, so the CutsceneSkip mod fast-forwards it.
+	static void TickDebugSkipCutscenes(float now)
+	{
+		static int enabled = -1;
+		static float nextTap = 0.0f, keyUp = 0.0f;
+		if (enabled < 0)
+		{
+			const char* s = getenv("HP1_SKIPCUTS");
+			enabled = s && *s && *s != '0';
+		}
+		if (!enabled)
+			return;
+		if (keyUp != 0.0f && now >= keyUp)
+		{
+			engine->OnWindowKeyUp((EInputKey)0x20);
+			keyUp = 0.0f;
+		}
+		UPlayerPawn* player = engine->viewport ? engine->viewport->Actor() : nullptr;
+		UObject* hud = player ? player->myHUD() : nullptr;
+		if (!hud || !Mods::BoolProperty(hud, "bCutSceneMode") || !Mods::ObjectProperty(hud, "curCutScene") || now < nextTap)
+			return;
+		LogMessage("HP1 skipcuts: Space during " + Mods::ObjectProperty(hud, "curCutScene")->Name.ToString());
+		engine->OnWindowKeyDown((EInputKey)0x20);
+		keyUp = now + 0.1f;
+		nextTap = now + 1.0f;
 	}
 
 	static void TickDebugGoto(float now)
@@ -395,9 +457,14 @@ namespace HP1
 			lastProgress = now;
 		}
 
-		int yaw = (int)(std::atan2(delta.y, delta.x) * 32768.0f / 3.14159265f) & 0xffff;
-		player->ViewRotation().Yaw = yaw;
-		player->Rotation().Yaw = yaw;
+		// Only steer in the player-controlled states: Mounting etc. TurnTo their own target and never finish if the
+		// rotation is overwritten every frame.
+		if (player->GetStateName().ToString().rfind("Player", 0) == 0)
+		{
+			int yaw = (int)(std::atan2(delta.y, delta.x) * 32768.0f / 3.14159265f) & 0xffff;
+			player->ViewRotation().Yaw = yaw;
+			player->Rotation().Yaw = yaw;
+		}
 		if (!holding)
 		{
 			engine->OnWindowKeyDown((EInputKey)0x26);
@@ -413,6 +480,7 @@ namespace HP1
 		TickDebugTrace(frameTime);
 		TickDebugDump(frameTime);
 		TickDebugHeightmap(frameTime);
+		TickDebugSkipCutscenes(frameTime);
 		TickDebugGoto(frameTime);
 		TickDebugExec(frameTime);
 
