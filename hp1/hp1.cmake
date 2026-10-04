@@ -1,5 +1,4 @@
-# Harry Potter 1 port sources. Included from engine/CMakeLists.txt (one flipendo: line) so that all
-# HP1 code lives outside the SurrealEngine subtree and upstream merges never touch it.
+# Harry Potter 1 specific sources (mods, menu canvas). Included from ../flipendo.cmake.
 file(GLOB_RECURSE HP1_SOURCES CONFIGURE_DEPENDS
 	${CMAKE_CURRENT_LIST_DIR}/*.cpp
 	${CMAKE_CURRENT_LIST_DIR}/*.h)

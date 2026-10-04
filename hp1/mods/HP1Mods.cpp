@@ -24,18 +24,6 @@ namespace HP1::Mods
 		return commandline && commandline->HasArg("", flag);
 	}
 
-	UObject* ObjectProperty(UObject* obj, const char* name)
-	{
-		if (!obj || !obj->HasProperty(name))
-			return nullptr;
-		UObject** value = static_cast<UObject**>(obj->GetProperty(name));
-		return value ? *value : nullptr;
-	}
-
-	bool BoolProperty(UObject* obj, const char* name)
-	{
-		return obj && obj->HasProperty(name) && obj->BoolValue(obj->GetPropertyDataOffset(name));
-	}
 
 	// Set by a Space key-down (HP1::ModsKeyDown), consumed by the next TickMods.
 	static bool SpaceQueued = false;

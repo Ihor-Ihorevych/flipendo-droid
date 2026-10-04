@@ -1,4 +1,5 @@
 #pragma once
+#include "KW.h"
 
 #include <string>
 
@@ -14,8 +15,8 @@ namespace HP1::Mods
 	bool HasFlag(const char* flag);
 
 	// Script state helpers: a property of a script object by name, or nullptr if the object or property is missing.
-	UObject* ObjectProperty(UObject* obj, const char* name);
-	bool BoolProperty(UObject* obj, const char* name);
+	using KW::ObjectProperty; // kw/KWActor.cpp
+	using KW::BoolProperty;
 
 	// Space went down since the last tick (from the window's key events, so it works in menus and in game).
 	bool SpacePressed();
