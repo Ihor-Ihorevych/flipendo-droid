@@ -37,6 +37,11 @@ What was learned from the games' binaries and scripts.
 
 ## The top-level files
 
-- [`README.md`](../README.md): what Flipendo is, its status, how to build and play.
+- [`README.md`](../README.md): for players. What Flipendo is, screenshots, status, how to play, extras, community.
+- [`CONTRIBUTING.md`](../CONTRIBUTING.md): for contributors. Ways to help, building, developer flags, ground rules.
 - [`ROADMAP.md`](../ROADMAP.md): what's done and what's next. How things work goes here in `docs/`, not there.
 - [`CLAUDE.md`](../CLAUDE.md): the project rules, written for AI assistants but binding for everyone.
+
+Images: [`branding/`](branding/) (logo, icon), [`screenshots/`](screenshots/) (the README gallery and
+`social-preview.jpg`, 1280x640, for the repository's social preview). Screenshots are taken in Flipendo with
+`HP1_SHOTS` ([development.md](development.md#debug-tools)) and never show the official game logos.

@@ -70,3 +70,17 @@ Phase 6 of the [roadmap](../ROADMAP.md):
 - **Community content**: run the custom levels the HP1 modding community has made.
 - **More built-in extras**: field-of-view slider, frame limiter / uncapped framerate, controller support,
   speedrun timer, free camera.
+- **In-game modding tools**: a [Dear ImGui](https://github.com/ocornut/imgui) overlay (MIT licence) toggled with a
+  key, off with `--vanilla` and in release builds unless asked for. It turns the debug environment variables into
+  live panels:
+  - *Actors*: every actor in the level with class, state, Tag/Event and location (today's `HP1_DUMP`), filterable,
+    with "teleport to" and "look at" (`@teleport`, `HP1_CAMERA`);
+  - *Inspector*: a selected actor's script properties, editable live (`@set` / `@get`), and its state over time
+    (`HP1_TRACE`);
+  - *Console*: console commands and script function calls (`HP1_EXEC`), with history;
+  - *Mods*: the installed mods, on/off, their settings, load order;
+  - later: a ParticleFX editor (all parameters live, export to a script mod), a cutscene step-through, and a
+    navigation/collision view for level makers.
+
+  Needs a renderer backend for SurrealEngine's render devices and an input hook in front of the game's own key
+  handling; both go through `hp1/` the way mods do, not new engine hooks of their own.

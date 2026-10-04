@@ -87,7 +87,9 @@ engine build) comes after HP1. Read `README.md` and `docs/development.md` first 
 
 Each file has one job; keep them apart:
 
-- `README.md`: for players and new contributors (what, why, status, build, play). Keep it short and link to `docs/`.
+- `README.md`: for players (what, why, screenshots, status, how to play, extras, community). Keep it short, plain
+  and free of developer detail; link to `CONTRIBUTING.md` and `docs/`.
+- `CONTRIBUTING.md`: for contributors (ways to help, building, developer flags, ground rules, the AI/SurrealEngine note).
 - `ROADMAP.md`: the phase checklist, what's done and next. Update it when something lands. No how-it-works detail.
 - `docs/`: how things work (index: `docs/README.md`). Reverse-engineering notes in `docs/re/<topic>.md`, every
   SurrealEngine hook in `docs/engine-hooks.md`, workflow and debug tools in `docs/development.md`, modding in
