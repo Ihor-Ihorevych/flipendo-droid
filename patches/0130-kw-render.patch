@@ -1,7 +1,7 @@
 flipendo: KnowWonder rendering (FOV, skeletal meshes, particles, translucency, textures; HP1 menu canvas)
 
 diff --git a/SurrealEngine/Light/LightmapBuilder.cpp b/SurrealEngine/Light/LightmapBuilder.cpp
-index e4c8f7d2..d58c224a 100644
+index e4c8f7d2..3040f64d 100644
 --- a/SurrealEngine/Light/LightmapBuilder.cpp
 +++ b/SurrealEngine/Light/LightmapBuilder.cpp
 @@ -8,6 +8,8 @@
@@ -57,6 +57,32 @@ index e4c8f7d2..d58c224a 100644
  #if 1
  	vec3 lightcolor = GetLightColor(light);
  	float lightcolorR = lightcolor.r;
+@@ -255,11 +269,23 @@ void LightmapBuilder::CalcWorldLocations(Coords MapCoords, const LightMapIndex&
+ 	float LMUMult = 1.0f / lmindex.UScale;
+ 	float LMVMult = 1.0f / lmindex.VScale;
+ 
++	// flipendo: lumels lie on the surface plane. One step in U or V is a column of the inverse of the (U, V, Normal)
++	// frame (HP1 Render.dll sub_10B06920: FCoords::Inverse of the map coords); stepping along U and V themselves left
++	// the plane when the texture is projected (U/V not in the plane): HP1 Lev_Tut1b's slanted vault panels got lumels
++	// 400 units above them and stayed unlit.
++	vec3 uStep = MapCoords.XAxis, vStep = MapCoords.YAxis;
++	float det = dot(MapCoords.XAxis, cross(MapCoords.YAxis, MapCoords.ZAxis));
++	if (std::abs(det) > 1e-8f)
++	{
++		uStep = cross(MapCoords.YAxis, MapCoords.ZAxis) / det;
++		vStep = cross(MapCoords.ZAxis, MapCoords.XAxis) / det;
++	}
++
+ 	vec3 p[3] =
+ 	{
+ 		MapCoords.Origin,
+-		MapCoords.Origin + MapCoords.XAxis,
+-		MapCoords.Origin + MapCoords.YAxis
++		MapCoords.Origin + uStep,
++		MapCoords.Origin + vStep
+ 	};
+ 
+ 	vec2 uv[3];
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp
 index a457b9a0..6eec9733 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp
