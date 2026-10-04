@@ -101,7 +101,7 @@ Each file has one job; keep them apart:
 
 ## Workflow for porting a native
 
-1. `python tools/native_audit.py` → `docs/native_audit.md` lists MISSING / STUB / INDEX natives.
+1. `python tools/native_audit.py` → `docs/native_audit.md` lists MISSING / STUB / INDEX natives. (`hp2` as argument: the same for HP2.)
 2. Read the UnrealScript declaration and callers in `reference/hp1/ScriptSource/<Pkg>/Classes/` (our disc,
    `tools/extract_scripts.sh`) to get the signature; native-only field layouts come from IDA (step 3).
 3. Reverse the real implementation in IDA from `../ida/Engine.dll` (a copy of `../eagames/hp1/System/Engine.dll`)
