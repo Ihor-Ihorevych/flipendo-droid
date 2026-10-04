@@ -82,7 +82,8 @@ Environment variables read by `hp1/HP1Debug.cpp`. Times are seconds since the fi
 | `HP1_DUMP` | `"5,80"` | log every actor (class, name, state, location, Tag, Event) at those times |
 | `HP1_CAMERA` | `"x,y,z,pitch,yaw"` | look from a fixed camera |
 | `HP1_HEIGHTMAP` | `"12:x0,y0,x1,y1,step,ztop"` | floor heights over a grid, for planning jumps and climbs |
-| `HP1_EXEC` | `"66:@console SaveSelectedSlot;70:open save99.usa"` | console commands at those times (`;` separates); `@console[.Prop] Fn [arg]` calls a script function on the console (or an object it references) with an optional string, e.g. `@console.MenuBook OpenBook Slot` |
+| `HP1_EXEC` | `"66:@console SaveSelectedSlot;70:open save99.usa"` | console commands at those times (`;` separates); `@console[.Prop] Fn [arg]` calls a script function on the console (or an object it references) with an optional string, e.g. `@console.MenuBook OpenBook Slot`; `@set <actor prefix> <prop> <value>` sets a property on live actors (`@set CutScene3 bDebugScript True`), `@get harry numBeans` logs one. To load a save from the main menu use `3:@console.MenuBook.SlotPage LoadSelectedSlot` (slot 99 without a selected slot): a bare `open saveN.usa` leaves the menu book open on top of the game |
+| `HP1_SKIPCUTS` | `1` | press Space whenever a cutscene holds Harry, so the CutsceneSkip mod fast-forwards it (shifts later timings) |
 
 The first level hands control to the player at about 58 s. To walk up to Fred & George's room:
 

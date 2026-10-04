@@ -11,7 +11,8 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 
 ## Next up (in order)
 1. **Lev_Tut1 after the jump room**: the autopilot now crosses the jump room and leaves through the jumpexit doors
-   (3140,-4061, ~205 s). Next: wizard cards (2990,-4960) → FGsec2/DADA doors → CUTFLIPBEGIN (956,-6699), and the
+   (3140,-4061, ~205 s). Next: wizard cards (Fred, `merchant`, sells the card for 25 beans; the sale's
+   cutscene WizardCardCut opens FGsec2) → FGsec2/DADA doors → CUTFLIPBEGIN (956,-6699), and the
    level change to Lev_Tut1b.
 2. Verify animations visually against the original (walk/run/breathe, tween blends, aux channels): needs the original
    game running next to ours, side by side.
