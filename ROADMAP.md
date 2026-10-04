@@ -18,6 +18,10 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
    scoring over all 4 rounds, then Lev_Tut1b.
 2. Broom / Quidditch levels now load and their paths fly (see phase 5). Lev4_Sneak runs: a `goto` to a missing label
    (gargoyle.lookaround's `lcloop`) now stops the state code like UE1 instead of a fatal error.
+3. **Dark levels**: BSP surfaces lit by HP1's `LD_Plane` / `LD_Ambient` lights and `LightRadiusInner` come out far too
+   dark (the Quidditch pitch; Lev_Tut2 and Lev5_FlyKeys are nearly black), see phase 5. Not a parity detail: those
+   levels are hard to play like this.
+4. **First prebuilt release** (see "Releases"): players can't try Flipendo without building it.
 
 Visual parity checks against the original, side by side, wait until the end (after gameplay works): mesh lighting
 (brightness, specular highlights, light fades; ported in phase 5), animations (walk/run/breathe, tween blends, aux
@@ -54,7 +58,9 @@ channels) and particle effects.
       says why (no such folder, the System folder itself, no `System/HP.exe`, unknown exe SHA-1); a missing package
       names who needs it and every `Paths=` folder searched; missing maps, missing `Paths=` folders, failed
       DynamicLoadObject calls and imports a package lacks are logged
-- [x] Documentation split: README (users), ROADMAP (status), `docs/` (how things work)
+- [x] Documentation split: README (players: screenshots, status, how to play, extras, Discord), CONTRIBUTING.md
+      (ways to help, building, developer flags, ground rules), ROADMAP (status), `docs/` (how things work)
+- [x] README screenshot gallery and social preview (`docs/screenshots/`, taken with `HP1_SHOTS`, no official logos)
 
 ## 1. Characters move (skeletal animation) ← current
 - [x] `UAnimation` HP1 format loader (`kw/Anim/KWAnimation.cpp`)
@@ -234,6 +240,13 @@ channels) and particle effects.
       built from the `HP1_DUMP`/`HP1_TRACE`/`HP1_EXEC` debug tools ([docs/modding.md](docs/modding.md))
 - [~] Modder docs: [docs/modding.md](docs/modding.md) (writing a mod, hooks, tools); still missing a worked
       "first mod" walkthrough
+
+## Releases
+- [ ] Prebuilt Windows download on the release page (zip with `SurrealEngine.exe` and its DLLs; no game data), with a
+      changelog and a "point it at your game folder" first-run
+- [ ] Game folder picker in the launcher remembered between runs, so players never touch the command line
+- [ ] Version number in the window title and the log, for bug reports
+- [ ] Linux / Steam Deck build tested with Flipendo
 
 ## Later: the other KnowWonder games
 - [~] HP2 (Chamber of Secrets, UE1 build 433): groundwork done, port after HP1.
