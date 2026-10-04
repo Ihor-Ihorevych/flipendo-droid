@@ -15,6 +15,7 @@ class UActor;
 class Rotator;
 class UCanvas;
 class UPawn;
+class UZoneInfo;
 class UPlayerPawn;
 class ULevelInfo;
 class CollisionHit;
@@ -74,6 +75,14 @@ namespace KW
 	BBox GetRenderBoundingBox(UActor* actor, USkeletalMesh* mesh);
 	// Actor.GetWorldCollisionBox for a skeletal mesh: the mesh's bounding box through GetMeshCoords (kw/Anim).
 	BBox GetSkeletalCollisionBox(UActor* actor, USkeletalMesh* mesh);
+
+	// LightmapBuilder (BSP light maps, kw/KWLightmap.cpp). SetAmbientLight: the zone ambient a light map starts with.
+	vec3 LightmapAmbient(UZoneInfo* zone);
+	// AddStaticLights/AddDynamicLights, instead of LightEffect::Run: a light's reach per lumel (0..1, shadow included)
+	// with LightSource and LightRadiusInner. Returns false for the light effects left to SurrealEngine.
+	bool LightmapIllumination(UActor* light, int size, const vec3* locations, const vec3& base, const vec3& normal, const float* shadowmap, float* result);
+	// AddLightContribution: adds (bDarkLight: subtracts) the light's colour, clamped like HP1's 7-bit light maps.
+	void AddLightmapLight(UActor* light, const float* illumination, vec3* lightcolors, int size);
 
 	// Engine::Tick, after PlayerCalcView: the camera's horizontal FOV for the window's aspect ratio.
 	float ViewFovAngle(float fovAngle, int width, int height);

@@ -1,5 +1,62 @@
 flipendo: KnowWonder rendering (FOV, skeletal meshes, particles, translucency, textures; HP1 menu canvas)
 
+diff --git a/SurrealEngine/Light/LightmapBuilder.cpp b/SurrealEngine/Light/LightmapBuilder.cpp
+index e4c8f7d2..d58c224a 100644
+--- a/SurrealEngine/Light/LightmapBuilder.cpp
++++ b/SurrealEngine/Light/LightmapBuilder.cpp
+@@ -8,6 +8,8 @@
+ #include "Packages/Core/UClass.h"
+ #include "RenderDevice/RenderDevice.h"
+ #include "Math/hsb.h"
++#include "Engine.h"
++#include "KW.h" // flipendo
+ #include <cstring>
+ 
+ #ifdef USE_SSE2
+@@ -41,6 +43,8 @@ void LightmapBuilder::SetAmbientLight(UZoneInfo* zoneActor)
+ 	// Initialize lightmap with the ambient color
+ 
+ 	vec3 ambientColor = hsbtorgb(zoneActor->AmbientHue(), zoneActor->AmbientSaturation(), zoneActor->AmbientBrightness()); // To do: is this the correct scale?
++	if (engine->LaunchInfo.IsKnowWonder()) // flipendo: HP1's ambient fill (kw/KWLightmap.cpp)
++		ambientColor = KW::LightmapAmbient(zoneActor);
+ 	// To do: is there more ambient light than just from the zone?
+ 
+ 	for (vec3& c : lightcolors)
+@@ -79,7 +83,9 @@ void LightmapBuilder::AddStaticLights(UModel* model, int lightMap)
+ 			if (light->LightType() != LT_None && light->LightBrightness() > 0)
+ 			{
+ 				Shadow.Load(model, lightMap, lightindex);
+-				Effect.Run(light, width, height, WorldLocations(), base, WorldNormal(), Shadow.Pixels(), illuminationmap.data());
++				// flipendo: HP1's falloff, LightSource and LightRadiusInner (kw/KWLightmap.cpp)
++				if (!engine->LaunchInfo.IsKnowWonder() || !KW::LightmapIllumination(light, width * height, WorldLocations(), base, WorldNormal(), Shadow.Pixels(), illuminationmap.data()))
++					Effect.Run(light, width, height, WorldLocations(), base, WorldNormal(), Shadow.Pixels(), illuminationmap.data());
+ 				AddLightContribution(light);
+ 			}
+ 		}
+@@ -94,7 +100,9 @@ void LightmapBuilder::AddDynamicLights(UModel* model, int lightMap, const Array<
+ 	{
+ 		if (light->LightType() != LT_None && light->LightBrightness() > 0)
+ 		{
+-			Effect.Run(light, width, height, WorldLocations(), base, WorldNormal(), Shadow.Pixels(), illuminationmap.data());
++			// flipendo: HP1's falloff, LightSource and LightRadiusInner (kw/KWLightmap.cpp)
++			if (!engine->LaunchInfo.IsKnowWonder() || !KW::LightmapIllumination(light, width * height, WorldLocations(), base, WorldNormal(), Shadow.Pixels(), illuminationmap.data()))
++				Effect.Run(light, width, height, WorldLocations(), base, WorldNormal(), Shadow.Pixels(), illuminationmap.data());
+ 			AddLightContribution(light);
+ 		}
+ 	}
+@@ -102,6 +110,12 @@ void LightmapBuilder::AddDynamicLights(UModel* model, int lightMap, const Array<
+ 
+ void LightmapBuilder::AddLightContribution(UActor* light)
+ {
++	if (engine->LaunchInfo.IsKnowWonder()) // flipendo: HP1's light colour and 7-bit clamps (kw/KWLightmap.cpp)
++	{
++		KW::AddLightmapLight(light, illuminationmap.data(), lightcolors.data(), width * height);
++		return;
++	}
++
+ #if 1
+ 	vec3 lightcolor = GetLightColor(light);
+ 	float lightcolorR = lightcolor.r;
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp
 index a457b9a0..6eec9733 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp

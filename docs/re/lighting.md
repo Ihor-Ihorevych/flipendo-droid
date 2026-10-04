@@ -1,10 +1,12 @@
-# Mesh lighting
+# Lighting
 
-How HP1 lights meshes (characters and props), from Render.dll. Ported in `kw/KWMeshLight.cpp`, used by
-`KW::DrawSkeletalMesh` (`kw/Anim/KWSkeletal.cpp`). Lightmapped BSP surfaces are SurrealEngine's and not covered here; note that SurrealEngine's surface lighting ignores HP1's
-`Actor.LightSource` (`LD_Point`, `LD_Plane` = parallel light, `LD_Ambient` = all directions) and `LightRadiusInner`.
-Outdoor maps light with them (Lev2_Quid1: two `LD_Plane` lights at brightness 80, radius 255), which is why the
-Quidditch pitch renders too dark.
+How HP1 lights meshes (characters and props) and BSP light maps, from Render.dll. Mesh lighting is ported in
+`kw/KWMeshLight.cpp`, used by `KW::DrawSkeletalMesh` (`kw/Anim/KWSkeletal.cpp`); light maps in `kw/KWLightmap.cpp`,
+hooked into SurrealEngine's `LightmapBuilder` (see "Light maps" at the end). HP1 adds `Actor.LightSource` (`LD_Point`,
+`LD_Plane` = parallel light, `LD_Ambient` = all directions) and `LightRadiusInner` to UE1's light properties; outdoor
+maps light with them (Lev2_Quid1: two `LD_Plane` suns, brightness 80, radius 255, LightRadiusInner 255).
+
+# Mesh lighting
 
 ## Drawing (URender::DrawLodMesh, Render.dll 0x10B0FF00)
 
@@ -63,3 +65,41 @@ GLightManager's vtable is `off_10B386D4` (+8 SetupForActor, +24 Light per vertex
 - Added as `colour * falloff * (diffuse + specular)` when that sum is positive. Each channel is then clamped to 1 with
   an unsigned compare, so a negative channel also becomes 1.
 - The original lights in camera space but takes LD_Plane's direction in world space; we light in world space.
+
+# Light maps
+
+The light manager's light map builder is `sub_10B077F0` (Render.dll). It fills the map with the zone ambient, sets up
+each light with `sub_10B06920` (the same light info as for meshes, 49 dwords), runs the light's LightEffect function
+from the table at `off_10B38110` (3 dwords per effect: function + two flags) on the light's shadow bytes, and merges
+the result into the map with `sub_10B03430`. SurrealEngine keeps the light picking, shadow maps and caching; HP1's
+terms replace its falloff, colour scale and ambient.
+
+- **Light map values** are 7 bits per channel, 127 = full. The ambient fill is `floor(FGetHSV(zone ambient) * 64)`
+  (`0.25 * 256`), alpha 127. Each light adds `min(colour * L, 127)` per channel through a 256-entry palette (L = the
+  lumel byte, 0..255; colour = `GlobalLighting` colour × brightness after LightType × `LevelInfo.Brightness`), with a
+  7-bit saturating add (bDarkLight lights subtract, stopping at 0). So one light can reach full on its own at L ≥ 127.
+- **On screen**: D3DDrv's RGBA7 upload doubles every byte (`sub_100022C0`, `*dst = 2 * src`) and the light map stage
+  is `D3DTOP_MODULATE2X` (`SetBlending`; the multipass fallback is DESTCOLOR × SRCCOLOR, also 2x). 127 is therefore
+  about 2x the texture, the same range as SurrealEngine's shader (light map × 2): HP1 byte b = SurrealEngine `2b/255`.
+  SurrealEngine's own builder adds `illum * colour` (half of HP1's) and fills ambient with the full HSV colour.
+- **The lumel byte**, LE_None (`loc_10B037C0`; with a LightRadiusInner it runs `sub_10B0CA70`, the same plus a clamp):
+  `L = shadow * min(k * table[m], 1)`, 0 outside the radius, where
+  - `m = floor((d / R * 4095)² / 4096)` (d = lumel to light, R = `WorldLightRadius`), `table[m]` at
+    `t = sqrt((m + 1) / 4096)` is `2t³ - 3t² + 1` (smoothstep falloff), divided by t for `LD_Point`
+    (tables `flt_10B5B684` / `flt_10B43320`, built in `sub_10B023A0`);
+  - `k = incidence * R / (R - inner)`, inner = `LightRadiusInner * R / 256`. LightRadiusInner doesn't change the
+    falloff's shape, it scales it up and the clamp keeps it full near the light (255 makes the light saturate almost to
+    its radius);
+  - incidence: `LD_Point` `|light - surface plane| / R` (times table/t this is the cosine: `cos * f(t)`; SurrealEngine
+    computed `cos * f(t) / t`), `LD_Plane` `max(-X · N, 0)` with X the light's (a pawn's: view) rotation axis,
+    `LD_Ambient` 1. Plane and ambient lights still fall off with distance from the light actor.
+- **The radius**: HP1's `AActor::WorldLightRadius` (Engine.dll 0x1031BA10) is `max(DrawScale, 1) * (LightRadius + 1) * 25`
+  (SurrealEngine leaves out DrawScale). It's R everywhere: light maps, the mesh light picking and falloff. Lev2_Quid1's
+  suns have DrawScale 5 (R = 32000); without it they barely reached the pitch. `WorldVolumetricRadius` has no DrawScale.
+- **LE_NonIncidence** (`sub_10B05DC0`): `shadow * min(R / (R - inner) * smoothstep[floor(d² * 4093 / R²)], 1)`, no
+  incidence and no LightSource.
+- **LE_TorchWaver/FireWaver/WateryShimmer** run LE_None; `sub_10B03430` then scales the lumels by `0.95 + 0.05 r`,
+  `0.8 + 0.2 r`, `0.6 + 0.4 r` (r from a random table, every frame) as it merges them. The flicker isn't ported.
+- Not ported: the other effects (Searchlight, SlowWave, FastWave, StaticSpot, Spotlight, Interference, Cylinder: ~60
+  lights in all of HP1's maps) still use SurrealEngine's functions, only the colour and clamps are HP1's. Of the
+  ~11,900 lights in HP1's maps, LE_None has ~10,700 and NonIncidence ~1,060; LD_Ambient ~310, LD_Plane ~20.

@@ -42,11 +42,13 @@ SurrealEngine/Packages/Engine/Actors/Pawn/**
 
 [0120-kw-actors.patch] flipendo: KnowWonder actor tick, native actors (ParticleFX, Wind), animation
 SurrealEngine/Packages/Engine/Actors/UActor.cpp
+SurrealEngine/Packages/Engine/Actors/UActor.h
 SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
 SurrealEngine/Packages/Engine/Resources/Mesh/**
 
 [0130-kw-render.patch] flipendo: KnowWonder rendering (FOV, skeletal meshes, particles, translucency, textures; HP1 menu canvas)
 SurrealEngine/Render/**
+SurrealEngine/Light/**
 SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp
 SurrealEngine/Packages/Engine/Resources/Textures/**
 
