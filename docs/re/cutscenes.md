@@ -24,4 +24,11 @@ command list (`Cast0Script` .. `Cast6Script`, strings like `Moveto HpLoc`, `Talk
   `WizardCardCut` (CutScene3), which spawns the Dumbledore card and triggers `FGsec2` (the secret passage).
 - CutScene56 (2247,-5285): Filch. CutScene1 (2602,-5795): Malfoy, Crabbe and Goyle; triggers `FGsec3` and `DADA1`.
 - CutScene58 (1978,-6232): Hermione. CutScene59 (1700,-6204): Quirrell, ends with `Trigger SpellLearnTrigger`
-  (the Flipendo lesson; currently crashes, see ROADMAP).
+  (the Flipendo lesson).
+
+## Latent calls on other actors
+
+`SpellLearnTrigger` calls `Teacher.TurnToward(Cam)` on Quirrell, whose `Tut1Quirrell` `state idle {}` has no code.
+`execTurnToward` (0x103D9130) sets the *target's* `StateFrame->LatentAction` (511), but UE1 only processes state
+frames that have code, so a pawn in a code-less state never polls it and never turns. SurrealEngine resumed that
+frame and ran off the end of the empty state.
