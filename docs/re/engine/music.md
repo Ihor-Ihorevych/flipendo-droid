@@ -4,9 +4,10 @@ How HP1 plays its songs, from Galaxy.dll (`UGalaxyAudioSubsystem::Update` [HP1 G
 HP1's Galaxy.dll). Ported in `kw/KWSound.cpp` (`KW::MusicSource`, `KW::TickMusic`), hooked into SurrealEngine's
 `USurrealAudioDevice::UpdateMusic` ([engine-hooks.md](../../engine-hooks.md)).
 
-**HP1 and HP2.** HP2 replaces Galaxy with OpenAL (`ALAudio.dll`) and Ogg Vorbis, not read yet. Its `PlayerPawn.uc`
-still declares `bSongFinished` but not `bDontLoopSong`, so how HP2 decides whether a song loops is not checked. The
-port is gated to HP1 (`IsKnowWonder()`, HP1 only for now).
+**HP1 and HP2.** HP2 replaces Galaxy with OpenAL (`ALAudio.dll`) and Ogg Vorbis, not read yet. Its `PlayerPawn.uc` still
+declares `bSongFinished` but not `bDontLoopSong`, so how HP2 decides whether a song loops is not checked. The port is
+gated to HP1 (`IsKnowWonder()`, HP1 only for now). Not checked: stock HP2 may loop every song from start to end with no
+way to play one once, `bDontLoopSong` being HP1-only. If so, HP2 needs no `bDontLoopSong` branch: always loop.
 
 ## Songs
 
@@ -35,5 +36,6 @@ sets `bSongFinished` and clears an ended song like Galaxy. Checked 2026-10-05: `
 ## Not ported
 
 - `MusicFade` and the transition kinds (Galaxy fades the old song over time for MTRAN_Fade / FastFade / SlowFade);
-  upstream switches songs at once.
+  upstream switches songs at once. The original's menu song has a long fade-in at its
+  start; check whether that is this fade or in the mp2 itself.
 - `PercentMusicVolume` (MusicEvent's volume boost).

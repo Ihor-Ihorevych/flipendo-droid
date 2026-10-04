@@ -10,6 +10,13 @@ HP2's bugs will get their own list in `../hp2/` once HP2 runs.
 | Lumos lesson (Lev3_Lumos, the octagonal room) | A platform can stay too low after breaking nearby vases, leaving a gap Harry can't jump. | Type `Harry debug mode on`, then `Harry super jump` to cross the gap. Players also report that capping the original at 60 FPS (or 60 Hz with VSync) avoids it. | not reproduced in Flipendo (see below) |
 | Every Flipendo hit (`baseSpell.SpawnHitEffects`) | `spellFlip` sets no `reactParticleEffectClass`, so the spawn returns None and the next two lines log `Accessed None`. Harmless: the hit effect plays and the spell lands. | none needed | none (log noise only) |
 
+### Not checked
+
+- **Dialogue cut off on fast PCs.** At high frame rates the original may cut dialogue short, possibly from timing by
+  frames instead of seconds. The scripts time dialogue in seconds (`baseDialog`, `baseNarrator`, `SpellLearnTrigger`
+  wait `GetSoundDuration(dlgSound)`), so if the bug is real it is elsewhere: Galaxy's sound duration, cutscene command
+  timing, or one line ending the next. Try a long cutscene uncapped in the original and in Flipendo.
+
 ### Lumos lesson platform
 
 The room's "staircase" is the four AttachMovers tagged `GargoylePlatforms2` (gargoyle7 + spellTrigger1 raise them, Lumos

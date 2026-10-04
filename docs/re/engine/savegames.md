@@ -95,6 +95,10 @@ BMPs. `FEFilePage` (unused) would read `SaveGameSnap<i>.bmp`.
   buffer for SaveSnap / CreateTextureFromScreenShot. Nothing in HP1 reads the buffer, so Flipendo accepts the command and
   does nothing (`KW::ViewportCommand`, `kw/KWSave.cpp`).
 - SaveGame's mover-position bookkeeping.
+- Latent actions in a save: UE1 stores where a state is waiting (a `Sleep`, `FinishAnim`, `MoveTo`) as a byte offset
+  into the state's original bytecode (not checked in HP1). SurrealEngine turns bytecode into its own statement lists, so
+  it may not map that offset back. Saves written by the original game are the test: load one taken while an actor waits
+  in a state's latent code, and see where that actor resumes.
 - Native-only state isn't in the save package, so it restarts on load: particles, our side tables. The camera
   (`PotCam`, a BaseCam) is all script state and is saved with everything else. Checked 2026-10-04 in Lev_Tut1
   (`SaveGame 98` then `open save98.usa` while Harry stands in the entrance hall): PotCam0 comes back at the same

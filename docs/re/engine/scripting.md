@@ -41,6 +41,13 @@ Every HP2 `exec*` native wrapper, after reading its parameters and EndFunctionPa
 check is the ~29 extra bytes of most HP2 `exec*` functions listed as "changed" in [hp2_compare.md](../reports/hp2_compare.md); their behaviour
 is otherwise HP1's.
 
+### HP1 releases (not checked)
+
+The US HP1 may be a patched build whose `.u` files don't load with the UK release's engine (changed bytecode
+definitions), with tokens shifted like HP2's. Our disc already has the 1.1 script fixes and a stock token table, so
+either the shift is in the US build only or there is none. Before calling a token table final, compare `HPBase.u` from a
+US and a UK copy.
+
 ### What SurrealEngine needs
 
 Its bytecode reader uses the stock values (`ExprToken`, Packages/Core/UStruct.h). For HP2, `BytecodeStream`'s

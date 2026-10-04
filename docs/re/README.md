@@ -42,7 +42,7 @@ A note that says "HP2 not checked" means exactly that: don't assume HP2 is the s
 
 | Note | Topic |
 |---|---|
-| [gameplay.md](hp2/gameplay.md) | HP2's `hgame` scripts against HP1's: cutscenes from files, queued saves, the new spell system, HP2-only natives |
+| [gameplay.md](hp2/gameplay.md) | HP2's `hgame` scripts against HP1's: cutscenes from files, queued saves, the new spell system, HP2-only natives; engine differences not checked yet |
 
 ## Generated reports (`reports/`)
 
