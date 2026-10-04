@@ -12,11 +12,21 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 ## Next up (in order)
 1. **Lev_Tut1, the Flipendo lesson**: played by hand (2026-10-04) through the wizard card room, Malfoy, Hermione and
    Quirrell into the Flipendo lesson, which now runs (template, wand, pass mark, timer, IceTexture blackboard).
-   Next: draw and score the spell, the DADA doors after it, and the level change to Lev_Tut1b. Known: the classroom's
-   double-sided blackboard prop is lit differently per triangle (skeletal two-sided lighting, not reversed yet).
-2. Verify animations visually against the original (walk/run/breathe, tween blends, aux channels): needs the original
+   Next: draw and score the spell, the DADA doors after it, and the level change to Lev_Tut1b.
+2. **Classroom blackboard lighting**: in the Flipendo lesson the `TransBlackboard` prop (HProps.TransBlackboardMesh,
+   a skeletal mesh; Lev_Tut1 `TransBlackboard0` at (1702,-6860), `TransBlackboard1` at (1363,-6891)) is split along its
+   diagonal: one triangle lit bluish (windows), the other yellowish (candles); the original is evenly lit. Likely cause:
+   `KW::DrawSkeletalMesh` (`kw/Anim/KWSkeletal.cpp`) builds smooth vertex normals by summing face normals, and the
+   panel's two triangles have opposite winding (two-sided), so their normals cancel or point opposite ways. Reverse how
+   HP1 lights two-sided triangles of skeletal meshes (Render.dll / USkeletalMesh drawing) and port it; may fix other
+   two-sided props too. To look at it: load a save near the lesson, `@teleport 1621 -6578 827`, `@trigger SpellLearnTrigger`
+   (docs/development.md, HP1_EXEC). No save exists in `../eagames/hp1-work` yet: rebuild one after the Malfoy scene with
+   the same HP1_EXEC sequence as before (teleport onto CutScene55, Fred's sale via `@set Tut1Fred3 merchant False` +
+   `@trigger WizardCardCut`, the card at 2935,-4894, Filch at 2247,-5250,935, Malfoy at 2600,-5796,923, then
+   `@console SaveSelectedSlot`, with `HP1_SKIPCUTS=1`).
+3. Verify animations visually against the original (walk/run/breathe, tween blends, aux channels): needs the original
    game running next to ours, side by side.
-3. Broom / Quidditch levels now load and their paths fly (see phase 5). Next there: Lev4_Sneak stops on
+4. Broom / Quidditch levels now load and their paths fly (see phase 5). Next there: Lev4_Sneak stops on
    `goto lcloop` (gargoyle.lookaround: "Could not find label").
 
 ## 0. Groundwork
