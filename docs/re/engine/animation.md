@@ -190,3 +190,5 @@ Origin, X, Y, Z), the weapon coords cache @636.
 
 ## Still to reverse
 - Who destroys finished transient channels.
+- `Actor.Fatness` (default 128; not ported). In stock UE1 a vertex moves along its normal by `Fatness / 16 - 8`, off
+  at 128. Whether HP1's skeletal path applies it, and whether any map or script changes it, is not checked.

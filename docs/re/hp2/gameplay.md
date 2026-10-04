@@ -33,6 +33,19 @@ ParticleFX that shows the spell's `GestureSprite`), teaches with `SpellLessonTri
 
 Two new collide types, `CT_AlignedOvalCylinder` and `CT_OrientedOvalCylinder` ([collision.md](../engine/collision.md#hp1-and-hp2)).
 
+## Engine differences (not checked)
+
+Not read in HP2's code yet. Check each one in `../ida/hp2/` before relying on it.
+
+- **Sounds** are a modified Maxis XA format (an ADPCM), not plain wav; a decoder is ~150 lines.
+- **Saves** are not loaded with `load saveN` as in every other UE1 game (fits the queued saves above).
+- **Lip sync** is precomputed when a sound is imported: at runtime a sound gives one 0-1 mouth value. HP1 has none
+  (no script mentions it, no Engine.dll function is named for it).
+- **Movers** collide with the world by their bounding box, not only GridMover (the Flipendo blocks) as in HP1
+  ([collision.md](../engine/collision.md)); that breaks hollow movers.
+- **Mover flickering**: HP2 retail has Epic's fix for it.
+- **Script folders**: the script compiler searches class subfolders one level deep (no effect at runtime).
+
 ## HP2-only natives
 
 `Actor.BoneRot` (328), `IsSoftwareRendering` (329), `GetCurrentKeyState` (330) (`hp2/HP2Natives.cpp`), the OpenAL / Ogg Vorbis
