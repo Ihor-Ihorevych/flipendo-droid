@@ -49,7 +49,8 @@ engine build) comes after HP1. Read `README.md` and `docs/development.md` first 
   route, why a script state is never entered), add it to the matching `docs/re/<topic>.md`, or start a new topic
   file, in the same change. Don't leave findings only in commit messages or the conversation.
 - **Flipendo is licensed PolyForm Noncommercial 1.0.0** (`LICENSE.md`); `engine/` stays zlib.
-- Don't push to `origin` without explicit permission.
+- Don't push to `origin` without explicit permission. `origin` is the Gitea server; it mirrors to GitHub
+  (`github.com/kroplabeskidu/flipendo`, the README's clone URL) automatically, so a push to `origin` is all it takes.
 - The repository is `hp_re/flipendo`. Never modify `../eagames/hp1/` or `../eagames/hp2/` (pristine retail copies of HP1 and HP2).
   Runs use `../eagames/hp1-work/` (disposable copy, SurrealEngine writes ini/save files into it; `tools/run_hp1.sh`
   creates it from `../eagames/hp1` when it's missing).
