@@ -79,6 +79,12 @@ from the table at `off_10B38110` (3 dwords per effect: function + two flags) on 
 the result into the map with `sub_10B03430`. SurrealEngine keeps the light picking, shadow maps and caching; KnowWonder's
 terms replace its falloff, colour scale and ambient.
 
+- **Where the lumels are**: `sub_10B06920` takes `FCoords::Inverse` of the surface's map coords (origin `pBase`, X =
+  TextureU, Y = TextureV, Z = normal) and uses its columns, times UScale/VScale, as the world step per lumel. Lumels
+  therefore lie on the surface plane even when U and V don't (a projected texture). SurrealEngine stepped along U and V
+  themselves: on Lev_Tut1b's slanted fan-vault panels (`Ceiling_lev1`, Flipendo challenge room) the lumels sat ~400
+  units above the surface, out of reach of every light, and the vault was black instead of lit (fixed in
+  `LightmapBuilder::CalcWorldLocations`, ungated: stock UE1 places lumels the same way).
 - **Light map values** are 7 bits per channel, 127 = full. The ambient fill is `floor(FGetHSV(zone ambient) * 64)`
   (`0.25 * 256`), alpha 127. Each light adds `min(colour * L, 127)` per channel through a 256-entry palette (L = the
   lumel byte, 0..255; colour = `GlobalLighting` colour × brightness after LightType × `LevelInfo.Brightness`), with a
