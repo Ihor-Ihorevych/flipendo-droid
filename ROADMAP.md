@@ -218,6 +218,9 @@ channels) and particle effects.
       (`LD_Plane` parallel, `LD_Ambient`), `LightRadiusInner`, its smoothstep falloff, the 2x colour scale with 7-bit
       clamps, bDarkLight, the zone ambient, and `WorldLightRadius` scaled by DrawScale. The Quidditch pitch is lit like the original.
       Waver flicker and the rarer light effects (~60 lights) still use SurrealEngine's
+- [x] Light maps half as bright as the reading of Render.dll gave, measured against the original's Lev_Tut1 intro (every
+      level was ~2x too bright); lumels on the surface plane (Lev_Tut1b's fan vault was black). README screenshots
+      retaken with `tools/readme_shots.sh`
 - [ ] Bugs of the original to fix, not reproduce: [docs/re/hp1/original_bugs.md](docs/re/hp1/original_bugs.md)
 - [x] ImpactSoundSet, SoundContainer, ClipMarker, LocationID: Engine.dll has no native code for them, only boilerplate;
       their script classes are enough ([docs/re/engine/native_classes.md](docs/re/engine/native_classes.md))

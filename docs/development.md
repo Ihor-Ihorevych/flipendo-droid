@@ -92,6 +92,14 @@ python tools/dll_report.py              # -> docs/re/reports/dlls.md
 Environment variables for screenshots, scripted input, actor dumps and traces, fixed cameras and console commands at
 set times, plus crash reports and the script debugger: [debug-tools.md](debug-tools.md).
 
+## README screenshots
+
+`tools/readme_shots.sh` retakes every image in `images/screenshots/` (and `social-preview.jpg`) from fixed recipes:
+map, the second the shot is taken at, and whether it's cropped to the cutscene picture. Rerun it after a visual fix
+(`tools/readme_shots.sh dumbledore hagrid` for some). It uses its own game copy, `../eagames/hp1-shots`, set to a
+1920x1080 window, so `hp1-work` keeps its settings. To add or move a shot, film the level with `HP1_SHOTS` every second
+or two, pick the frame, and add a line to the script's list.
+
 ## Comparing with HP2
 
 HP2 (retail 1.0, `../eagames/hp2`) runs on the same engine build (433). To see which ports carry over:
