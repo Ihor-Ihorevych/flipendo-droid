@@ -87,6 +87,7 @@ namespace HP1
 		Mods::TickLaunchSkips();
 		Mods::TickStorybookSkip();
 		Mods::TickCutsceneSkip(realElapsed);
+		Mods::TickDiscordPresence(realElapsed);
 	}
 
 	void ModsKeyDown(int key)

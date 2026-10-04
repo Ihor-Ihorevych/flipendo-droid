@@ -230,6 +230,7 @@ channels) and particle effects.
 
 ## 6. Modding (`hp1/mods/` and beyond)
 - [x] `hp1/mods/` with `--vanilla`: cutscene skip, storybook skip, `--skip-splash`, `--skip-intro`
+- [x] Discord Rich Presence: level title, cutscene / paused, house points, play time (`--no-discord`)
 - [ ] Per-mod on/off and settings in an ini section (`[Flipendo.Mods]`), not only command-line flags; an *Extras*
       page in the options book (FEBook) to toggle them in game
 - [ ] Drop-in content mods: `Mods/<name>/` folders added to the package search path ahead of the originals
