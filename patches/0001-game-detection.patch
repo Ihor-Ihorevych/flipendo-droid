@@ -1,5 +1,116 @@
-flipendo: recognise the HP1 retail (SafeDisc) and No-CD HP.exe builds
+flipendo: recognise the HP1 retail (SafeDisc) and No-CD HP.exe builds, say why a folder isn't a game
 
+diff --git a/SurrealEngine/GameFolder.cpp b/SurrealEngine/GameFolder.cpp
+index 473146a7..639fff8a 100644
+--- a/SurrealEngine/GameFolder.cpp
++++ b/SurrealEngine/GameFolder.cpp
+@@ -9,16 +9,21 @@
+ #include <filesystem>
+ 
+ Array<GameLaunchInfo> GameFolderSelection::Games;
++Array<std::string> GameFolderSelection::Problems; // flipendo
+ 
+ void GameFolderSelection::UpdateList()
+ {
+ 	Games.clear();
++	Problems.clear();
+ 
+ 	for (const std::string& folder : commandline->GetItems())
+ 	{
+-		GameLaunchInfo game = ExamineFolder(folder);
++		std::string problem; // flipendo
++		GameLaunchInfo game = ExamineFolder(folder, &problem);
+ 		if (!game.gameName.empty())
+ 			Games.push_back(game);
++		else if (!problem.empty())
++			Problems.push_back(problem);
+ 	}
+ 
+ 	if (Games.empty())
+@@ -57,14 +62,14 @@ GameLaunchInfo GameFolderSelection::GetLaunchInfo(int selectedGame)
+ 	return info;
+ }
+ 
+-GameLaunchInfo GameFolderSelection::ExamineFolder(const std::string& path)
++GameLaunchInfo GameFolderSelection::ExamineFolder(const std::string& path, std::string* problem)
+ {
+ 	GameLaunchInfo info;
+ 
+ 	if (path.empty())
+ 		return info;
+ 
+-	auto ue1_game = FindUE1GameInPath(path);
++	auto ue1_game = FindUE1GameInPath(path, problem);
+ 
+ 	if (ue1_game.first != KnownUE1Games::UE1_GAME_NOT_FOUND)
+ 	{
+diff --git a/SurrealEngine/GameFolder.h b/SurrealEngine/GameFolder.h
+index 1a03615b..8b6862b6 100644
+--- a/SurrealEngine/GameFolder.h
++++ b/SurrealEngine/GameFolder.h
+@@ -34,9 +34,11 @@ public:
+ 	static GameLaunchInfo GetLaunchInfo(int selectedGame);
+ 
+ 	static Array<GameLaunchInfo> Games;
++	// flipendo: why each folder given on the command line wasn't recognised
++	static Array<std::string> Problems;
+ 
+ private:
+-	static GameLaunchInfo ExamineFolder(const std::string& path);
++	static GameLaunchInfo ExamineFolder(const std::string& path, std::string* problem = nullptr);
+ 	static Array<std::string> FindGameFolders();
+ 	static std::string GetExePath();
+ };
+diff --git a/SurrealEngine/UE1GameDatabase.cpp b/SurrealEngine/UE1GameDatabase.cpp
+index bf6912eb..3afeb79e 100644
+--- a/SurrealEngine/UE1GameDatabase.cpp
++++ b/SurrealEngine/UE1GameDatabase.cpp
+@@ -4,13 +4,20 @@
+ #include "Utils/SHA1Sum.h"
+ #include <iostream>
+ 
+-std::pair<KnownUE1Games, std::string> FindUE1GameInPath(const std::string& ue1_game_root_folder_path)
++std::pair<KnownUE1Games, std::string> FindUE1GameInPath(const std::string& ue1_game_root_folder_path, std::string* problem)
+ {
++	// flipendo: report why a folder isn't recognised instead of skipping it silently
++	auto notFound = [&](const std::string& why) {
++		if (problem)
++			*problem = why;
++		return std::make_pair(KnownUE1Games::UE1_GAME_NOT_FOUND, std::string());
++	};
++
+ 	if (ue1_game_root_folder_path.empty())
+-		return std::make_pair(KnownUE1Games::UE1_GAME_NOT_FOUND, "");
++		return notFound("no folder given");
+ 
+ 	if (!fs::exists(ue1_game_root_folder_path) || !fs::is_directory(ue1_game_root_folder_path))
+-		return std::make_pair(KnownUE1Games::UE1_GAME_NOT_FOUND, "");
++		return notFound(ue1_game_root_folder_path + ": folder does not exist");
+ 
+ 	const auto UE1GameSystemPath = fs::path(ue1_game_root_folder_path) / "System";
+ 	const auto UE1GameSystem64Path = fs::path(ue1_game_root_folder_path) / "System64";
+@@ -31,7 +38,8 @@ std::pair<KnownUE1Games, std::string> FindUE1GameInPath(const std::string& ue1_g
+ 		const auto it = !sha1sum64.empty() ? SHA1Database.find(sha1sum64) : SHA1Database.find(sha1sum);
+ 		
+ 		if (it == SHA1Database.end())
+-			return std::make_pair(KnownUE1Games::UE1_GAME_NOT_FOUND, "");
++			return notFound((!sha1sum64.empty() ? executablePath64 : executablePath).string() + " is not a recognised version (SHA-1 " +
++				(!sha1sum64.empty() ? sha1sum64 : sha1sum) + "). Please report it with the game's language and release.");
+ 
+ 		// Hack: Tactical-Ops has a version that contains the exact same UTv469d executable. Handle that here
+ 		if (it->second == KnownUE1Games::UT99_469d && executable_name == "TacticalOps.exe")
+@@ -40,5 +48,9 @@ std::pair<KnownUE1Games, std::string> FindUE1GameInPath(const std::string& ue1_g
+ 	}
+ 
+ 	// We got nothing here
+-	return std::make_pair(KnownUE1Games::UE1_GAME_NOT_FOUND, "");
++	// flipendo: a common mistake is pointing at the System folder itself instead of the game folder
++	if (fs::path(ue1_game_root_folder_path).filename() == "System" || fs::exists(fs::path(ue1_game_root_folder_path) / "Core.u"))
++		return notFound(ue1_game_root_folder_path + " looks like the game's System folder; use the folder above it (the one that contains System, Maps, Textures)");
++	return notFound(ue1_game_root_folder_path + ": no known game executable in its System folder (for Harry Potter: System/HP.exe). "
++		"Use the game's install folder, the one that contains System, Maps, Textures");
+ }
+\ No newline at end of file
 diff --git a/SurrealEngine/UE1GameDatabase.h b/SurrealEngine/UE1GameDatabase.h
 index 18ca9c13..4063dc70 100644
 --- a/SurrealEngine/UE1GameDatabase.h
