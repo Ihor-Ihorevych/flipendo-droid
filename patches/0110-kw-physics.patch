@@ -455,3 +455,28 @@ index 71dc2525..9e7ad93d 100644
  		}
  	}
  
+diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Touch.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Touch.cpp
+index 7076ca11..9ef00f6a 100644
+--- a/SurrealEngine/Packages/Engine/Actors/UActor_Touch.cpp
++++ b/SurrealEngine/Packages/Engine/Actors/UActor_Touch.cpp
+@@ -3,6 +3,7 @@
+ #include "UActor.h"
+ #include "VM/ScriptCall.h"
+ #include "Engine.h"
++#include "KW.h" // flipendo
+ 
+ void UActor::CheckPendingTouch()
+ {
+@@ -28,6 +29,12 @@ void UActor::Touch(UActor* actor)
+ 	if (bDeleteMe() || actor->bDeleteMe())
+ 		return;
+ 
++	if (engine->LaunchInfo.IsKnowWonder()) // flipendo: one side at a time, the second also when the first was destroyed
++	{
++		KW::BeginTouch(this, actor);
++		return;
++	}
++
+ 	if (engine->LaunchInfo.IsUnrealTournament_469())
+ 	{
+ 		auto TouchingArray = Touching_UT469();

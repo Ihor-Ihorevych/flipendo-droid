@@ -43,6 +43,9 @@ namespace KW
 
 	// UActor::TickAnimation.
 	void TickAnimation(UActor* actor, float elapsed);
+	// UActor::Touch: AActor::BeginTouch, Actor (the one moving) touches Other (kw/KWTouch.cpp).
+	void BeginTouch(UActor* actor, UActor* other);
+
 	// UActor::Tick, at the end: bAnimMove root motion moves the actor (kw/Anim/KWSkeletal.cpp).
 	void TickRootMotion(UActor* actor);
 
