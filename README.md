@@ -25,8 +25,8 @@ Flipendo is a source port of KnowWonder's Harry Potter games for PC, built on
 [SurrealEngine](https://github.com/dpjudas/SurrealEngine), an open-source reimplementation of Unreal Engine 1.
 **Right now it is focused on one game: getting Harry Potter and the Philosopher's Stone** (PC, 2001, KnowWonder /
 EA, Unreal Engine 1 build 433) **right, down to the details.** It isn't meant to stop there:
-Harry Potter and the Chamber of Secrets (PC, 2002) runs on the same engine build, and most of the engine code
-Flipendo reimplements carries over to it ([docs/hp2_compare.md](docs/hp2_compare.md)). HP2 support comes after HP1
+Harry Potter and the Chamber of Secrets (PC, 2002) runs on the same engine build, and much of its engine code
+is identical to HP1's ([docs/hp2_compare.md](docs/hp2_compare.md)). HP2 support comes after HP1
 is complete.
 
 Almost all of the game's logic is UnrealScript that ships inside its `.u` packages, and SurrealEngine
