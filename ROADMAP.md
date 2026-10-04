@@ -13,6 +13,8 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 1. **Lev_Tut1 after the jump room**: played by hand (2026-10-04) through the wizard card room (Fred sells the card
    for 25 beans; WizardCardCut opens FGsec2), the Folio Bruti, and up to the Malfoy scene (CutScene56). Next: past
    the Malfoy scene → DADA doors → CUTFLIPBEGIN (956,-6699) → the level change to Lev_Tut1b.
+   Known: the Flipendo lesson start (`SpellLearnTrigger.Trigger`) crashes with a null access; Harry hops between
+   marks in the lesson cutscene (check again after the setPhysics fix).
 2. Verify animations visually against the original (walk/run/breathe, tween blends, aux channels): needs the original
    game running next to ours, side by side.
 3. Broom / Quidditch levels now load and their paths fly (see phase 5). Next there: Lev4_Sneak stops on
