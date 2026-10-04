@@ -28,14 +28,19 @@ namespace KW
 		ReturnValue = engine->audiodev && engine->audiodev->ModifySoundHP1(SoundId(actor, Slot.value_or(SLOT_Misc)), sound, Parameter, Value);
 	}
 
-	// IDA Engine.dll: ?execStopSound@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x1040C060]
 	// IDA Galaxy.dll: ?StopSound@UGalaxyAudioSubsystem@@UAEHPAVAActor@@HPAVUSound@@@Z [HP1 Galaxy 0x10607BA0]
+	// Shared by HP1 (NStopSound below) and HP2 (hp2/HP2Natives.cpp, which adds FadeOutTime).
+	// TODO HP2: fadeOutTime (ALAudio.dll's StopSound, not reversed yet); HP1 always passes 0.
+	void StopSound(UActor* actor, USound* sound, uint8_t slot, float fadeOutTime)
+	{
+		if (engine->audiodev)
+			engine->audiodev->StopSoundHP1(SoundId(actor, slot), sound);
+	}
+
+	// IDA Engine.dll: ?execStopSound@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x1040C060]
 	static void NStopSound(UObject* Self, std::optional<UObject*> Sound, std::optional<uint8_t> Slot)
 	{
-		UActor* actor = UObject::Cast<UActor>(Self);
-		USound* sound = Sound ? UObject::Cast<USound>(*Sound) : nullptr;
-		if (engine->audiodev)
-			engine->audiodev->StopSoundHP1(SoundId(actor, Slot.value_or(SLOT_Misc)), sound);
+		StopSound(UObject::Cast<UActor>(Self), Sound ? UObject::Cast<USound>(*Sound) : nullptr, Slot.value_or(SLOT_Misc), 0.0f);
 	}
 
 	void RegisterSoundNatives()

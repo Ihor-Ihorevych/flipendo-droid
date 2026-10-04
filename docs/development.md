@@ -9,7 +9,8 @@ basics are in [CONTRIBUTING.md](../CONTRIBUTING.md#building).
 |---|---|
 | `kw/` | **KnowWonder's engine**, reimplemented: what the Harry Potter games' modified `Engine.dll` / `Fire.dll` / `Render.dll` do differently from stock Unreal (skeletal animation, ParticleFX, Wind, Gesture, physics and pawn movement, collision, interpolation, save games, IceTexture, natives) plus the debug tools. Namespace `KW`, files `KW*.cpp`. |
 | `hp1/` | **HP1 only**: the optional extras (`hp1/mods/`, [modding.md](modding.md)) and the widescreen canvas for HP1's menu classes (`HP1Canvas.cpp`). |
-| `flipendo.cmake` | Adds `kw/` and `hp1/` to SurrealEngine's build (one `flipendo:` line in `engine/CMakeLists.txt`). |
+| `hp2/` | **HP2 only**: HP2's own natives and bytecode differences, and adapters where HP2's script signatures differ. Rules for keeping HP1 and HP2 in one code path: [hp2/README.md](../hp2/README.md). |
+| `flipendo.cmake` | Adds `kw/`, `hp1/` and `hp2/` to SurrealEngine's build (one `flipendo:` line in `engine/CMakeLists.txt`). |
 | `engine/` | [SurrealEngine](https://github.com/dpjudas/SurrealEngine), our engine dependency, as a git submodule. Never committed to. |
 | `patches/` | Our changes to SurrealEngine, applied to `engine/` by the build, split by topic ([engine-hooks.md](engine-hooks.md)). |
 | `tools/` | Build, run, extraction, audit and comparison scripts. |
@@ -17,7 +18,7 @@ basics are in [CONTRIBUTING.md](../CONTRIBUTING.md#building).
 | `reference/` | Scripts and map dumps extracted from your own installs (`reference/hp1/`, `reference/hp2/`). **Gitignored**. |
 
 Next to the repository (not in it): `../eagames/hp1` and `../eagames/hp2` are the retail game folders (never modified),
-`../eagames/hp1-work` the disposable copy runs use (made by `tools/run_hp1.sh`), and `../ida/` the IDA databases.
+`../eagames/hp1-work` the disposable copy runs use (made by `tools/run_hp1.sh`), and `../ida/` the IDA databases (`hp1/` and `hp2/`, never mixed: `../ida/README.md`).
 
 **Engine hooks** call into `kw/` (`kw/KW.h`) gated by `engine->LaunchInfo.IsKnowWonder()`, which is HP1 only for
 now; HP1-only hooks (mods, menu canvas) call `hp1/HP1.h` gated by `IsHarryPotter1()`. HP2 joins `IsKnowWonder()`
@@ -116,7 +117,7 @@ disassembly) builds alongside the game.
 
 HP2 (retail 1.0, `../eagames/hp2`) runs on the same engine build (433). To see which ports carry over:
 
-1. Open each DLL in IDA (HP1: `../ida/<Dll>.dll(.i64)`, HP2: copies in `../ida/hp2/`).
+1. Open each DLL in IDA (HP1: `../ida/hp1/<Dll>.dll(.i64)`, HP2: copies in `../ida/hp2/`).
 2. In each database run `exec(open(r'<repo>/tools/ida_fingerprint.py').read()); fingerprint(r'../ida/fingerprints/<hp1|hp2>_<Dll>.json')`.
 3. `python tools/hp2_compare.py` writes [re/hp2_compare.md](re/hp2_compare.md): per DLL how many exports are identical,
    differ only in struct offsets/constants, or changed, and the same for every `// IDA`-tagged function;

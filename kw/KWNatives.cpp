@@ -1,5 +1,7 @@
 #include "Precomp.h"
 #include "KW.h"
+#include "KWGame.h"
+#include "HP2.h"
 #include "VM/NativeFunc.h"
 
 namespace KW
@@ -38,5 +40,10 @@ namespace KW
 		RegisterAttachNatives();
 		RegisterSaveNatives();
 		RegisterPlayerNatives();
+
+		// The natives above have HP1's script signatures, which HP2 shares for almost all of them. HP2 then adds its
+		// own natives and overrides the few whose signature changed (hp2/README.md).
+		if (IsHP2())
+			HP2::RegisterNatives();
 	}
 }
