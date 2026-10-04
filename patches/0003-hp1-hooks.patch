@@ -491,18 +491,31 @@ index 287956c1..a4e35445 100644
  }
  
 diff --git a/SurrealEngine/Package/IniFile.cpp b/SurrealEngine/Package/IniFile.cpp
-index 6aab46e1..0e2476e0 100644
+index 6aab46e1..12052c1a 100644
 --- a/SurrealEngine/Package/IniFile.cpp
 +++ b/SurrealEngine/Package/IniFile.cpp
-@@ -310,7 +310,7 @@ void IniFile::UpdateFile(const std::string& filename)
+@@ -303,18 +303,11 @@ void IniFile::UpdateFile(const std::string& filename)
+ 				std::string key_without_brackets = key; // Will differ from key if the said key contains brackets
+ 				std::string value_from_file = line.substr(equal_pos + 1);
  
- 				if (left_bracket_pos != std::string::npos && right_bracket_pos != std::string::npos && left_bracket_pos < right_bracket_pos)
- 				{
+-				size_t left_bracket_pos = key.find('['),
+-					   right_bracket_pos = key.find(']');
+-
++				// flipendo: the loader keeps "Aliases[0]" as a literal key name (its index parsing is disabled), so compare the
++				// key literally too. Splitting off the index threw in stoi, and once that was fixed looked up "Aliases"
++				// (no such key) and blanked every indexed line.
+ 				int bracket_index = 0;
+ 
+-				if (left_bracket_pos != std::string::npos && right_bracket_pos != std::string::npos && left_bracket_pos < right_bracket_pos)
+-				{
 -					bracket_index = Convert::to_int32(key.substr(left_bracket_pos, right_bracket_pos - left_bracket_pos + 1));
-+					bracket_index = Convert::to_int32(key.substr(left_bracket_pos + 1, right_bracket_pos - left_bracket_pos - 1)); // flipendo: without the brackets (stoi threw on "[0]")
- 					key_without_brackets = key.substr(0, left_bracket_pos);
- 					key_has_brackets = true;
- 				}
+-					key_without_brackets = key.substr(0, left_bracket_pos);
+-					key_has_brackets = true;
+-				}
+-
+ 				// If the key don't have any brackets, check if we encountered the said key before
+ 				// If we did, then get the next index from it, else add the key we found to the database
+ 				int found_index = 0;
 diff --git a/SurrealEngine/Package/Package.cpp b/SurrealEngine/Package/Package.cpp
 index 78b0a27d..262b8d22 100644
 --- a/SurrealEngine/Package/Package.cpp
