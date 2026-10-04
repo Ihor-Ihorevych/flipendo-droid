@@ -10,10 +10,9 @@ The native-level checklist is [docs/native_audit.md](docs/native_audit.md) (`pyt
 Legend: [x] done · [~] partly done / in progress · [ ] not started
 
 ## Next up (in order)
-1. **Lev_Tut1 after the jump room**: the autopilot now crosses the jump room and leaves through the jumpexit doors
-   (3140,-4061, ~205 s). Next: wizard cards (Fred, `merchant`, sells the card for 25 beans; the sale's
-   cutscene WizardCardCut opens FGsec2) → FGsec2/DADA doors → CUTFLIPBEGIN (956,-6699), and the
-   level change to Lev_Tut1b.
+1. **Lev_Tut1 after the jump room**: played by hand (2026-10-04) through the wizard card room (Fred sells the card
+   for 25 beans; WizardCardCut opens FGsec2), the Folio Bruti, and up to the Malfoy scene (CutScene56). Next: past
+   the Malfoy scene → DADA doors → CUTFLIPBEGIN (956,-6699) → the level change to Lev_Tut1b.
 2. Verify animations visually against the original (walk/run/breathe, tween blends, aux channels): needs the original
    game running next to ours, side by side.
 3. Broom / Quidditch levels now load and their paths fly (see phase 5). Next there: Lev4_Sneak stops on
