@@ -11,9 +11,9 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 
 ## Ported functions (`// IDA` tags in kw/, hp1/ and hp2/)
 
-134 tagged exports: 27 identical, 18 offsets only, 78 changed, 1 missing in HP2, 4 HP2 only, 6 no fingerprint.
+138 tagged exports: 27 identical, 20 offsets only, 79 changed, 1 missing in HP2, 4 HP2 only, 7 no fingerprint.
 
-### Changed (78)
+### Changed (79)
 
 | DLL | function | port | note |
 |---|---|---|---|
@@ -21,29 +21,30 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 | Engine | `?ApplyAnim@USkeletalMesh@@ABEXPAVAActor@@PAUCFSkelHeader@1@_N@Z` | `kw/Anim/KWSkeletal.cpp:276` | 7434 -> 7321 bytes, HP2 0x1042A520 |
 | Engine | `?Draw@UGameEngine@@UAEXPAVUViewport@@HPAEPAH@Z` | `kw/KWView.cpp:28` | 1592 -> 1529 bytes, HP2 0x103A8AA0 |
 | Engine | `?EmitParticles@AParticleFX@@QAEHM@Z` | `kw/KWParticleFX.cpp:554` | 5452 -> 5404 bytes, HP2 0x103CF620 |
-| Engine | `?Exec@UViewport@@UAEHPBGAAVFOutputDevice@@@Z` | `kw/KWSave.cpp:374` | 4000 -> 5271 bytes, HP2 0x1038C100 |
+| Engine | `?Exec@UViewport@@UAEHPBGAAVFOutputDevice@@@Z` | `kw/KWSave.cpp:410` | 4000 -> 5271 bytes, HP2 0x1038C100 |
 | Engine | `?GetBoneCoords@USkeletalMesh@@UBE?AVFCoords@@PAVAActor@@H@Z` | `kw/Anim/KWSkeletal.cpp:677` | 392 -> 386 bytes, HP2 0x1042DD40 |
-| Engine | `?GetCollisionBoundingBox@UBox@@UBE?AVFBox@@PBVAActor@@_N@Z` | `kw/KWCollision.cpp:32` | 669 -> 651 bytes, HP2 0x1040B810 |
-| Engine | `?GetCollisionBoundingBox@UMesh@@UBE?AVFBox@@PBVAActor@@_N@Z` | `kw/KWCollision.cpp:257` | 658 -> 626 bytes, HP2 0x103C5B70 |
-| Engine | `?GetCollisionBoundingBox@UOrientedCylinder@@UBE?AVFBox@@PBVAActor@@_N@Z` | `kw/KWCollision.cpp:254` | 645 -> 627 bytes, HP2 0x10407480 |
-| Engine | `?GetCollisionBoundingBox@UPrimitive@@UBE?AVFBox@@PBVAActor@@_N@Z` | `kw/KWCollision.cpp:253` | 227 -> 206 bytes, HP2 0x10406640 |
-| Engine | `?GetCollisionBoundingBox@USkeletalMesh@@UBE?AVFBox@@PBVAActor@@_N@Z` | `kw/KWCollision.cpp:258` | 332 -> 289 bytes, HP2 0x1042A3A0 |
+| Engine | `?GetCollisionBoundingBox@UBox@@UBE?AVFBox@@PBVAActor@@_N@Z` | `kw/KWCollision.cpp:35` | 669 -> 651 bytes, HP2 0x1040B810 |
+| Engine | `?GetCollisionBoundingBox@UMesh@@UBE?AVFBox@@PBVAActor@@_N@Z` | `kw/KWCollision.cpp:260` | 658 -> 626 bytes, HP2 0x103C5B70 |
+| Engine | `?GetCollisionBoundingBox@UOrientedCylinder@@UBE?AVFBox@@PBVAActor@@_N@Z` | `kw/KWCollision.cpp:257` | 645 -> 627 bytes, HP2 0x10407480 |
+| Engine | `?GetCollisionBoundingBox@UPrimitive@@UBE?AVFBox@@PBVAActor@@_N@Z` | `kw/KWCollision.cpp:256` | 227 -> 206 bytes, HP2 0x10406640 |
+| Engine | `?GetCollisionBoundingBox@USkeletalMesh@@UBE?AVFBox@@PBVAActor@@_N@Z` | `kw/KWCollision.cpp:261` | 332 -> 289 bytes, HP2 0x1042A3A0 |
 | Engine | `?GetDesiredRotationAtPause@AInterpolationPoint@@QAE?AVFRotator@@HVFVector@@@Z` | `kw/KWInterpolation.cpp:194` | 364 -> 313 bytes, HP2 0x10402DA0 |
 | Engine | `?GetDesiredRotationAtPosition@AInterpolationPoint@@QAE?AVFRotator@@HHVFVector@@@Z` | `kw/KWInterpolation.cpp:203` | 500 -> 463 bytes, HP2 0x10402B50 |
 | Engine | `?GetFrame@USkeletalMesh@@UAEXPAVFVector@@HVFCoords@@PAVAActor@@AAH@Z` | `kw/Anim/KWSkeletal.cpp:515` | 3017 -> 2999 bytes, HP2 0x1042C980 |
 | Engine | `?GetInterpolatedPosition@AInterpolationPoint@@QAE?AVFCoords@@V2@VFVector@@MH@Z` | `kw/KWInterpolation.cpp:249` | 3603 -> 3092 bytes, HP2 0x10402F30 |
 | Engine | `?GetMeshCoords@USkeletalMesh@@ABE?AVFCoords@@PBVAActor@@@Z` | `kw/Anim/KWSkeletal.cpp:453` | 803 -> 777 bytes, HP2 0x10429A00 |
 | Engine | `?GetParams@AParticleFX@@QBEXAAUFParams@@@Z` | `kw/KWParticleFX.cpp:109` | 1648 -> 1677 bytes, HP2 0x103D2750 |
-| Engine | `?GetPrimitive@AActor@@UBEPAVUPrimitive@@XZ` | `kw/KWCollision.cpp:237` | 82 -> 117 bytes, HP2 0x103815E0 |
+| Engine | `?GetPrimitive@AActor@@UBEPAVUPrimitive@@XZ` | `kw/KWCollision.cpp:240` | 82 -> 117 bytes, HP2 0x103815E0 |
 | Engine | `?GetRenderBoundingBox@AParticleFX@@UAE?AVFCoords@@H@Z` | `kw/KWParticleFX.cpp:888` | 2241 -> 1994 bytes, HP2 0x103CE660 |
 | Engine | `?GetRenderBoundingBox@USkeletalMesh@@UAE?AVFCoords@@PBVAActor@@H@Z` | `kw/Anim/KWSkeletal.cpp:614` | 403 -> 390 bytes, HP2 0x10429DE0 |
 | Engine | `?GetRootMovement@USkeletalMesh@@UAE?AVFVector@@PAVAActor@@@Z` | `kw/Anim/KWSkeletal.cpp:401` | 355 -> 334 bytes, HP2 0x1042D830 |
 | Engine | `?GetSysParams@AParticleFX@@QBEPBV1@PAD@Z` | `kw/KWParticleFX.cpp:179` | 3306 -> 3292 bytes, HP2 0x103D1730 |
 | Engine | `?GetWind@AWind@@QAE?AVFVector@@ABV2@@Z` | `kw/KWWind.cpp:115` | 1089 -> 931 bytes, HP2 0x1043F500 |
-| Engine | `?LoadMap@UGameEngine@@UAEPAVULevel@@ABVFURL@@PAVUPendingLevel@@PBV?$TMap@VFString@@V1@@@AAVFString@@@Z` | `kw/KWSave.cpp:359` | 11053 -> 11045 bytes, HP2 0x103A5430 |
+| Engine | `?LoadMap@UGameEngine@@UAEPAVULevel@@ABVFURL@@PAVUPendingLevel@@PBV?$TMap@VFString@@V1@@@AAVFString@@@Z` | `kw/KWSave.cpp:395` | 11053 -> 11045 bytes, HP2 0x103A5430 |
 | Engine | `?Mount@APawn@@QAE_NABVFVector@@AAUFCheckResult@@@Z` | `kw/KWPawn.cpp:374` | 1398 -> 1275 bytes, HP2 0x103F8E90 |
 | Engine | `?MultiLineCheck@ULevel@@UAEPAUFCheckResult@@AAVFMemStack@@VFVector@@11HPAVALevelInfo@@E@Z` | `kw/KWTraceTexture.cpp:78` | 1555 -> 1538 bytes, HP2 0x103B67A0 |
 | Engine | `?PlayAnim@AActor@@QAEHVFName@@_NMMMW4EAnimType@@0@Z` | `kw/Anim/KWAnimState.cpp:110` | 3277 -> 3482 bytes, HP2 0x10416830 |
+| Engine | `?SaveGame@UGameEngine@@UAEXH@Z` | `kw/KWSave.cpp:363` | 1154 -> 1380 bytes, HP2 0x103AB430 |
 | Engine | `?Tick@AActor@@UAEHMW4ELevelTick@@@Z` | `kw/Anim/KWAnimState.cpp:258` | 4226 -> 4446 bytes, HP2 0x103C0E10 |
 | Engine | `?Tick@AWind@@UAEHMW4ELevelTick@@@Z` | `kw/KWWind.cpp:190` | 540 -> 520 bytes, HP2 0x1043F260 |
 | Engine | `?Update@UParticle@@QAE_NABVFVector@@M0PAVULevel@@MPAVAParticleFX@@@Z` | `kw/KWParticleFX.cpp:245` | 3133 -> 3030 bytes, HP2 0x103CD230 |
@@ -56,31 +57,31 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 | Engine | `?execCompareGesturePoint@UGesture@@QAEXAAUFFrame@@QAX@Z` | `kw/KWGesture.cpp:145` | 514 -> 543 bytes, HP2 0x103AD6E0 |
 | Engine | `?execCreateAnimChannel@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/Anim/KWAnimState.cpp:396` | 361 -> 502 bytes, HP2 0x104165B0 |
 | Engine | `?execCreateNativeFont@UConsole@@QAEXAAUFFrame@@QAX@Z` | `kw/KWPlayerNatives.cpp:152` | 398 -> 365 bytes, HP2 0x10393C90 |
-| Engine | `?execCreateTextureFromBMP@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWSave.cpp:285` | 506 -> 534 bytes, HP2 0x10421D70 |
+| Engine | `?execCreateTextureFromBMP@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWSave.cpp:288` | 506 -> 534 bytes, HP2 0x10421D70 |
 | Engine | `?execFindPath@APawn@@QAEXAAUFFrame@@QAX@Z` | `kw/KWNavigation.cpp:94` | 138 -> 167 bytes, HP2 0x103E54B0 |
 | Engine | `?execFindStairRotation@APawn@@QAEXAAUFFrame@@QAX@Z` | `kw/KWPlayerNatives.cpp:30` | 1772 -> 1573 bytes, HP2 0x103E46A0 |
 | Engine | `?execFinishAnim@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/Anim/KWAnimState.cpp:226` | 261 -> 299 bytes, HP2 0x10415AC0 |
 | Engine | `?execGetAnimGroup@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/Anim/KWAnimState.cpp:408` | 189 -> 218 bytes, HP2 0x10417E80 |
 | Engine | `?execGetParticleParams@AParticleFX@@QAEXAAUFFrame@@QAX@Z` | `kw/KWParticleFX.cpp:949` | 596 -> 625 bytes, HP2 0x103D3E70 |
-| Engine | `?execGetRenderExtent@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWCollision.cpp:325` | 198 -> 230 bytes, HP2 0x10418810 |
+| Engine | `?execGetRenderExtent@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWCollision.cpp:328` | 198 -> 230 bytes, HP2 0x10418810 |
 | Engine | `?execGetWind@AWind@@QAEXAAUFFrame@@QAX@Z` | `kw/KWWind.cpp:213` | 91 -> 120 bytes, HP2 0x104404F0 |
-| Engine | `?execGetWorldCollisionBox@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWCollision.cpp:305` | 140 -> 169 bytes, HP2 0x10418730 |
+| Engine | `?execGetWorldCollisionBox@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWCollision.cpp:308` | 140 -> 169 bytes, HP2 0x10418730 |
 | Engine | `?execHasAnim@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/Anim/KWAnimState.cpp:402` | 116 -> 145 bytes, HP2 0x10417FA0 |
 | Engine | `?execIsAnimating@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/Anim/KWAnimState.cpp:384` | 277 -> 312 bytes, HP2 0x10417CF0 |
 | Engine | `?execLinkSkelAnim@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/Anim/KWAnimState.cpp:415` | 82 -> 111 bytes, HP2 0x10418480 |
-| Engine | `?execLoadGameSaveInfo@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWSave.cpp:173` | 500 -> 525 bytes, HP2 0x10422760 |
+| Engine | `?execLoadGameSaveInfo@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWSave.cpp:176` | 500 -> 525 bytes, HP2 0x10422760 |
 | Engine | `?execLoopAnim@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/Anim/KWAnimState.cpp:372` | 281 -> 310 bytes, HP2 0x10417A90 |
-| Engine | `?execModifySound@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWSound.cpp:22` | 247 -> 275 bytes, HP2 0x1041A3E0 |
+| Engine | `?execModifySound@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWSound.cpp:28` | 247 -> 275 bytes, HP2 0x1041A3E0 |
 | Engine | `?execNumParticles@AParticleFX@@QAEXAAUFFrame@@QAX@Z` | `kw/KWParticleFX.cpp:911` | 212 -> 240 bytes, HP2 0x103D3BB0 |
 | Engine | `?execPlayAnim@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/Anim/KWAnimState.cpp:366` | 242 -> 271 bytes, HP2 0x10417930 |
 | Engine | `?execRecomputeDeltas@AParticleFX@@QAEXAAUFFrame@@QAX@Z` | `kw/KWParticleFX.cpp:998` | 81 -> 110 bytes, HP2 0x103D4440 |
-| Engine | `?execSaveGameExists@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWSave.cpp:212` | 462 -> 431 bytes, HP2 0x1041AA70 |
-| Engine | `?execSaveGameSaveInfo@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWSave.cpp:146` | 469 -> 498 bytes, HP2 0x104224E0 |
+| Engine | `?execSaveGameExists@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWSave.cpp:215` | 462 -> 431 bytes, HP2 0x1041AA70 |
+| Engine | `?execSaveGameSaveInfo@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWSave.cpp:149` | 469 -> 498 bytes, HP2 0x104224E0 |
 | Engine | `?execScreenToWorld@APlayerPawn@@QAEXAAUFFrame@@QAX@Z` | `kw/KWPlayerNatives.cpp:117` | 585 -> 615 bytes, HP2 0x103E2FC0 |
-| Engine | `?execSetCollisionSize@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWCollision.cpp:194` | 173 -> 202 bytes, HP2 0x10418620 |
+| Engine | `?execSetCollisionSize@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWCollision.cpp:197` | 173 -> 202 bytes, HP2 0x10418620 |
 | Engine | `?execSetParticleParams@AParticleFX@@QAEXAAUFFrame@@QAX@Z` | `kw/KWParticleFX.cpp:973` | 506 -> 529 bytes, HP2 0x103D4190 |
-| Engine | `?execSetPhysics@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWCollision.cpp:357` | 69 -> 98 bytes, HP2 0x103F1F40 |
-| Engine | `?execStopSound@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWSound.cpp:40` | 140 -> 211 bytes, HP2 0x1041A550 |
+| Engine | `?execSetPhysics@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWCollision.cpp:360` | 69 -> 98 bytes, HP2 0x103F1F40 |
+| Engine | `?execStopSound@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWSound.cpp:46` | 140 -> 211 bytes, HP2 0x1041A550 |
 | Engine | `?execTraceActors@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWTraceTexture.cpp:77` | 805 -> 789 bytes, HP2 0x1041C6D0 |
 | Engine | `?execTraceTexture@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/KWTraceTexture.cpp:25` | 1019 -> 993 bytes, HP2 0x10381850 |
 | Engine | `?execTweenAnim@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/Anim/KWAnimState.cpp:378` | 128 -> 157 bytes, HP2 0x10417C20 |
@@ -111,18 +112,19 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 | Engine | `?execGetCurrentKeyState@AActor@@QAEXAAUFFrame@@QAX@Z` | `hp2/HP2Natives.cpp:46` | HP2 0x10422C60 |
 | Engine | `?execIsSoftwareRendering@AActor@@QAEXAAUFFrame@@QAX@Z` | `hp2/HP2Natives.cpp:38` | HP2 0x10422A50 |
 
-### No fingerprint (6)
+### No fingerprint (7)
 
 | DLL | function | port | note |
 |---|---|---|---|
-| Galaxy | `?ModifySound@UGalaxyAudioSubsystem@@UAEHPAVAActor@@HPAVUSound@@EM@Z` | `kw/KWSound.cpp:23` |  |
-| Galaxy | `?StopSound@UGalaxyAudioSubsystem@@UAEHPAVAActor@@HPAVUSound@@@Z` | `kw/KWSound.cpp:31` |  |
+| Galaxy | `?ModifySound@UGalaxyAudioSubsystem@@UAEHPAVAActor@@HPAVUSound@@EM@Z` | `kw/KWSound.cpp:29` |  |
+| Galaxy | `?StopSound@UGalaxyAudioSubsystem@@UAEHPAVAActor@@HPAVUSound@@@Z` | `kw/KWSound.cpp:37` |  |
+| Galaxy | `?Update@UGalaxyAudioSubsystem@@UAEXUFPointRegion@@AAVFCoords@@@Z` | `kw/KWSound.cpp:138` |  |
 | Render | `?DrawActorSprite@URender@@QAEXPAUFSceneNode@@PAUFDynamicSprite@@@Z` | `kw/KWAttach.cpp:93` |  |
 | Render | `?DrawLodMesh@URender@@QAEXPAUFSceneNode@@PAUFDynamicSprite@@PAVAActor@@ABVFCoords@@K@Z` | `kw/KWAttach.cpp:94` |  |
 | Render | `?DrawParticleSystem@URender@@QAEXPAUFSceneNode@@PAUFDynamicSprite@@@Z` | `kw/KWParticleRender.cpp:338` |  |
 | Render | `?GlobalLighting@URender@@UAEXHPAVAActor@@AAMAAVFPlane@@@Z` | `kw/KWMeshLight.cpp:153` |  |
 
-### Offsets only (18)
+### Offsets only (20)
 
 | DLL | function | port | note |
 |---|---|---|---|
@@ -132,25 +134,27 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 | Engine | `?FlucPeriod@AWind@@QBEMXZ` | `kw/KWWind.cpp:191` | HP2 0x10320370 |
 | Engine | `?InitExecution@AParticleFX@@UAEXXZ` | `kw/KWParticleFX.cpp:69` | HP2 0x103CE530 |
 | Engine | `?IsAnimating@AActor@@QBEHXZ` | `kw/Anim/KWAnimState.cpp:213` | HP2 0x1031D030 |
+| Engine | `?IsBlockedBy@AActor@@QBEHPBV1@@Z` | `kw/KWCollision.cpp:381` | HP2 0x103580C0 |
+| Engine | `?PaintProgress@UGameEngine@@UAEXXZ` | `kw/KWSave.cpp:346` | HP2 0x103A0550 |
 | Engine | `?Radius@AWind@@QBEMXZ` | `kw/KWWind.cpp:116` | HP2 0x103202E0 |
 | Engine | `?RecomputeDeltas@AParticleFX@@QAEHH@Z` | `kw/KWParticleFX.cpp:737` | HP2 0x103D3700 |
-| Engine | `?SetCollisionSize@AActor@@QAEXMM@Z` | `kw/KWCollision.cpp:195` | HP2 0x103808B0 |
+| Engine | `?SetCollisionSize@AActor@@QAEXMM@Z` | `kw/KWCollision.cpp:198` | HP2 0x103808B0 |
 | Engine | `?Tick@AParticleFX@@UAEHMW4ELevelTick@@@Z` | `kw/KWParticleFX.cpp:851` | HP2 0x103D10F0 |
-| Engine | `?ToLocal@AActor@@UBE?AVFCoords@@XZ` | `kw/KWCollision.cpp:33` | HP2 0x1031C750 |
+| Engine | `?ToLocal@AActor@@UBE?AVFCoords@@XZ` | `kw/KWCollision.cpp:36` | HP2 0x1031C750 |
 | Engine | `?Update@AParticleFX@@QAE_NM@Z` | `kw/KWParticleFX.cpp:786` | HP2 0x103D1250 |
 | Engine | `?execPollMoveTo@APawn@@QAEXAAUFFrame@@QAX@Z` | `kw/KWPawn.cpp:132` | HP2 0x103E5E30 |
 | Engine | `?execPollMoveToward@APawn@@QAEXAAUFFrame@@QAX@Z` | `kw/KWPawn.cpp:217` | HP2 0x103E60F0 |
 | Engine | `?execPollStrafeFacing@APawn@@QAEXAAUFFrame@@QAX@Z` | `kw/KWPawn.cpp:253` | HP2 0x103E6790 |
 | Engine | `?execPollWaitForLanding@APawn@@QAEXAAUFFrame@@QAX@Z` | `kw/KWPawn.cpp:272` | HP2 0x103E4560 |
 | Engine | `?findPath@APawn@@QAE_NAAPAVANavigationPoint@@PAVAActor@@VFName@@@Z` | `kw/KWNavigation.cpp:23` | HP2 0x1040FB10 |
-| Engine | `?setPhysics@AActor@@QAEXEPAV1@@Z` | `kw/KWCollision.cpp:358` | HP2 0x103F25C0 |
+| Engine | `?setPhysics@AActor@@QAEXEPAV1@@Z` | `kw/KWCollision.cpp:361` | HP2 0x103F25C0 |
 
 ### Identical (27)
 
 | DLL | function | port | note |
 |---|---|---|---|
 | Core | `??0FCoords@@QAE@ABVFPlace@@@Z` | `kw/Anim/KWSkeletal.cpp:52` |  |
-| Core | `??6@YAAAVFArchive@@AAV0@AAVFString@@@Z` | `kw/KWSave.cpp:53` |  |
+| Core | `??6@YAAAVFArchive@@AAV0@AAVFString@@@Z` | `kw/KWSave.cpp:56` |  |
 | Core | `?GRegisterNative@@YAEHABQ8UObject@@AEXAAUFFrame@@QAX@Z@Z` | `hp2/HP2Bytecode.cpp:19` |  |
 | Core | `?OrthoRotation@FCoords@@QBE?AVFRotator@@XZ` | `kw/KWInterpolation.cpp:151` |  |
 | Core | `?SlerpQuat@@YA?AVFQuat@@ABV1@0M@Z` | `kw/Anim/KWSkeletal.cpp:81` |  |
@@ -159,15 +163,15 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 | Engine | `?CreateNativeFont@UViewport@@UAEPAVUFont@@PBGH@Z` | `kw/KWPlayerNatives.cpp:153` |  |
 | Engine | `?FGetHSV@@YA?AVFPlane@@EEE@Z` | `kw/KWMeshLight.cpp:125` |  |
 | Engine | `?GetAnimSeq@UAnimation@@UAEPAUFMeshAnimSeq@@VFName@@@Z` | `kw/Anim/KWAnimation.cpp:23` |  |
-| Engine | `?GetCollisionBoundingBox@UBoxPrim@@UBE?AVFBox@@PBVAActor@@_N@Z` | `kw/KWCollision.cpp:256` |  |
+| Engine | `?GetCollisionBoundingBox@UBoxPrim@@UBE?AVFBox@@PBVAActor@@_N@Z` | `kw/KWCollision.cpp:259` |  |
 | Engine | `?GetFrame@USkeletalMesh@@UAEXPAVFVector@@HVFCoords@@PAVAActor@@@Z` | `kw/Anim/KWSkeletal.cpp:516` |  |
 | Engine | `?GetMovement@UAnimation@@UAEPAUMotionChunk@@VFName@@@Z` | `kw/Anim/KWAnimation.cpp:32` |  |
 | Engine | `?GetNumTris@ULodMesh@@UBEHXZ` | `kw/KWParticleFX.cpp:555` |  |
 | Engine | `?GetTotalWind@AWind@@SA?AVFVector@@PAVULevel@@ABV2@@Z` | `kw/KWWind.cpp:178` |  |
-| Engine | `?LineCheck@UBox@@UAEHAAUFCheckResult@@PAVAActor@@VFVector@@22K@Z` | `kw/KWCollision.cpp:96` |  |
-| Engine | `?PointCheck@UBox@@UAEHAAUFCheckResult@@PAVAActor@@VFVector@@2K@Z` | `kw/KWCollision.cpp:97` |  |
+| Engine | `?LineCheck@UBox@@UAEHAAUFCheckResult@@PAVAActor@@VFVector@@22K@Z` | `kw/KWCollision.cpp:99` |  |
+| Engine | `?PointCheck@UBox@@UAEHAAUFCheckResult@@PAVAActor@@VFVector@@2K@Z` | `kw/KWCollision.cpp:100` |  |
 | Engine | `?Serialize@UAnimation@@UAEXAAVFArchive@@@Z` | `kw/Anim/KWAnimation.cpp:81` |  |
-| Engine | `?Serialize@USkeletalMesh@@UAEXAAVFArchive@@@Z` | `kw/KWCollision.cpp:326` |  |
+| Engine | `?Serialize@USkeletalMesh@@UAEXAAVFArchive@@@Z` | `kw/KWCollision.cpp:329` |  |
 | Engine | `?execPollFinishAnim@AActor@@QAEXAAUFFrame@@QAX@Z` | `kw/Anim/KWAnimState.cpp:227` |  |
 | Fire | `?BlitIceTex@UIceTexture@@AAEXXZ` | `kw/KWIceTexture.cpp:82` |  |
 | Fire | `?BlitTexIce@UIceTexture@@AAEXXZ` | `kw/KWIceTexture.cpp:67` |  |

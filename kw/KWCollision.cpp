@@ -6,6 +6,9 @@
 #include "Packages/Engine/Resources/Mesh/UMesh.h"
 #include "Packages/Engine/Resources/Mesh/USkeletalMesh.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
+#include "Packages/Engine/Actors/UProjectile.h"
+#include "Packages/Engine/Actors/Info/ULevelInfo.h"
+#include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
 #include <cmath>
 
 // HP1 actors pick their collision primitive with Actor.CollideType. CT_Box (UBox) is an oriented box centered on
@@ -367,6 +370,35 @@ namespace KW
 			actor->Velocity() = vec3(0.0f);
 			actor->Acceleration() = vec3(0.0f);
 		}
+	}
+
+	// Whether a moving actor is stopped by another one (and bumps it) or passes through it (and touches it). A mover (an
+	// actor with a Brush) stops anything with bCollideWorld that it blocks: GridMover's BumpMove only moves on Bump, and
+	// the Flipendo spell that pushes it (bCollideWorld, no bBlockActors) must bump it, not touch it (Lev_Tut1b block
+	// puzzle). Otherwise each side's flag depends on the other: a player or a projectile looks at bBlockPlayers, anything
+	// else at bBlockActors. "Player" checks a PlayerPawn's dword at +0x4BC, read here as
+	// PlayerPawn.Player (NOT yet verified against the property layout).
+	// IDA Engine.dll: ?IsBlockedBy@AActor@@QBEHPBV1@@Z [HP1 0x10352140]
+	bool IsBlockedBy(UActor* self, UActor* other)
+	{
+		auto isPlayer = [](UActor* actor)
+		{
+			UPlayerPawn* player = UObject::TryCast<UPlayerPawn>(actor);
+			return player && player->Player();
+		};
+		auto blocksMe = [&](UActor* blocker, UActor* mover)
+		{
+			bool playerLike = isPlayer(mover) || UObject::TryCast<UProjectile>(mover);
+			return playerLike ? (bool)blocker->bBlockPlayers() : (bool)blocker->bBlockActors();
+		};
+
+		if (other == self->Level())
+			return self->bCollideWorld();
+		if (other->Brush())
+			return self->bCollideWorld() && (isPlayer(self) ? other->bBlockPlayers() : other->bBlockActors());
+		if (self->Brush())
+			return other->bCollideWorld() && (isPlayer(other) ? self->bBlockPlayers() : self->bBlockActors());
+		return blocksMe(other, self) && blocksMe(self, other);
 	}
 
 	void RegisterCollisionNatives()

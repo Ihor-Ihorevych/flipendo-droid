@@ -1,5 +1,23 @@
-flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files, packages, crash reports
+flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files, packages, crash reports, music streaming
 
+diff --git a/SurrealEngine/Audio/AudioDevice.cpp b/SurrealEngine/Audio/AudioDevice.cpp
+index 03e82566..c56da0d5 100644
+--- a/SurrealEngine/Audio/AudioDevice.cpp
++++ b/SurrealEngine/Audio/AudioDevice.cpp
+@@ -508,8 +508,11 @@ public:
+ 				while (musicQueue.Size() < musicBufferCount)
+ 				{
+ 					// render a chunk of music
+-					currentMusic->ReadSamples(musicQueue.GetNextFree(), musicBufferSize);
+-					musicQueue.Push(musicQueue.GetNextFree());
++					// flipendo: silence after the end of the stream (the buffer still holds an older chunk)
++					float* chunk = musicQueue.GetNextFree();
++					size_t samplesRead = currentMusic->ReadSamples(chunk, musicBufferSize);
++					std::fill(chunk + samplesRead, chunk + musicBufferSize, 0.0f);
++					musicQueue.Push(chunk);
+ 				}
+ 
+ 				if (!musicPlaying)
 diff --git a/SurrealEngine/Native/NObject.cpp b/SurrealEngine/Native/NObject.cpp
 index 1081c358..8bf87781 100644
 --- a/SurrealEngine/Native/NObject.cpp

@@ -87,10 +87,10 @@ Paths are relative to `engine/SurrealEngine/` unless they start with `engine/`.
 | `Packages/Engine/Actors/UActor_PhysWalking.cpp`, `UActor_PhysRolling.cpp` | `HP1::PawnWalkOffLedge` / `HP1::StartFalling` (MayFall, ledge rule, auto-jump, Falling) |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `HP1::PawnPollMoveToward`, `PawnPollStrafeFacing`, `PawnPollWaitForLanding`; WaitForLanding sets LatentFloat |
 | `Packages/Engine/Actors/UActor_PhysMovingBrush.cpp` | KeyFrameReached instead of InterpolateEnd(None) |
-| `Engine.cpp` | save games ([re/engine/savegames.md](re/engine/savegames.md)): `SaveGame` saves at once (not at the end of the frame); `open saveN.usa` → `HP1::SaveGameLoadURL` (`?load=N`); `HP1::LevelInfoLoaded` in LoadMap (empty LevelEnterText = URL map); `KW::ViewportCommand` before the exec functions (`Snap`) |
+| `Engine.cpp` | save games ([re/engine/savegames.md](re/engine/savegames.md)): `SaveGame` → `KW::SaveGame` at once (not at the end of the frame): LevelAction saving, the blue progress frame (`PaintProgress`), the save; `open saveN.usa` → `HP1::SaveGameLoadURL` (`?load=N`); `HP1::LevelInfoLoaded` in LoadMap (empty LevelEnterText = URL map); `KW::ViewportCommand` before the exec functions (`Snap`) |
 | `Native/NPlayerPawn.cpp` | ClientTravel raises PreClientTravel |
-| `Engine.cpp` (after the level tick), `Render/RenderSubsystem.cpp` | ViewFlash event; `HP1::ViewFlashParams` for the screen flash |
-| `Packages/Engine/Subsystems/USurrealAudioDevice.cpp` | music plays despite `UseDigitalMusic=False` (HP1's shipped ini; its mp2 songs play in the original) |
+| `Engine.cpp` (after the level tick), `Render/RenderSubsystem.cpp` | ViewFlash event; `HP1::ViewFlashParams` for the screen flash, from the viewport's player (not the camera actor the view goes through) |
+| `Packages/Engine/Subsystems/USurrealAudioDevice.cpp` | music plays despite `UseDigitalMusic=False` (HP1's shipped ini; its mp2 songs play in the original); `KW::MusicSource` wraps a new song (loops unless bDontLoopSong), `KW::TickMusic` every update (bSongFinished, an ended song clears Song) |
 | `Packages/Engine/Actors/UActor_PhysFlying.cpp` | flying keeps Velocity.z (HP1 physFlying 0x103F13A0) |
 | `Engine.cpp` | `SET Input` matches the class name ignoring case and saves the ini files at once; input alias names are looked up ignoring case (HP1's options menu writes them upper-cased) |
 | `Package/IniFile.cpp` | indexed keys (`Aliases[0]=`) are compared literally when updating a file, like the loader stores them (splitting the index threw, then blanked them) |
@@ -105,6 +105,9 @@ Paths are relative to `engine/SurrealEngine/` unless they start with `engine/`.
 | `Packages/Engine/Subsystems/USurrealAudioDevice.cpp/.h` | `ModifySoundHP1` / `StopSoundHP1` (Galaxy.dll's slot + sound match) |
 | `Packages/Core/Properties/UStructProperty.cpp` | struct members that are fixed arrays load/save every element |
 | `Packages/Engine/Actors/UActor_PhysTrailer.cpp` | `HP1::PhysTrailer` (AnimBone attachment, HP1's rotation rules) |
+| `Packages/Engine/Actors/UActor_Phys.cpp` (TryMove) | `KW::IsBlockedBy` decides blocked (Bump) vs touched (movers stop bCollideWorld actors: a spell bumps a GridMover) |
+| `Packages/Engine/Actors/UActor_PhysProjectile.cpp` | HitWall also for blocking actors (HP1 physProjectile), so a spell explodes on the mover it bumped |
+| `Audio/AudioDevice.cpp` | ungated fix: the music thread fills the rest of a buffer with silence when the stream ends (it replayed a stale chunk, a stuck ~1 s loop) |
 | `Packages/Engine/Actors/UActor_Touch.cpp` | `KW::BeginTouch` in `Touch` (one side at a time, the trigger is told even when the spell destroyed itself) |
 | `Render/VisibleMesh.cpp` | weapon on a skeletal pawn: `HP1::PawnWeaponFrame` (WeaponLoc/WeaponRot) + `Begin/EndWeaponDraw` around the weapon draw |
 | `Render/RenderCanvas.cpp` | RenderOverlays only without bBehindView, on the ViewTarget |

@@ -20,10 +20,11 @@ A note that says "HP2 not checked" means exactly that: don't assume HP2 is the s
 | [particles.md](engine/particles.md) | ParticleFX: parameters, emission, update, rendering; Wind |
 | [lighting.md](engine/lighting.md) | mesh lighting (light picking, colours and effects, per-vertex light, back-face culling) and BSP light maps |
 | [collision.md](engine/collision.md) | CollideType (HP2 adds two), CT_Box's box checks, world bounding boxes |
-| [physics.md](engine/physics.md) | setPhysics, walking and ledges, ledge grabbing (Mount), auto jump, pawn rotation, latent moves, movers, InterpolationManager |
+| [physics.md](engine/physics.md) | setPhysics, blocking and Bump, walking and ledges, ledge grabbing (Mount), auto jump, pawn rotation, latent moves, movers, InterpolationManager |
 | [scripting.md](engine/scripting.md) | the UnrealScript VM: HP2's bytecode tokens and DebugInfo, disable()/GotoState, latent calls on other actors |
 | [script_events.md](engine/script_events.md) | every script event the native code raises, and which ones SurrealEngine didn't |
-| [savegames.md](engine/savegames.md) | level saves, GameSaveInfo, thumbnails, loading; HP1's and HP2's script flows |
+| [savegames.md](engine/savegames.md) | level saves, the save screen, GameSaveInfo, thumbnails, loading; HP1's and HP2's script flows |
+| [music.md](engine/music.md) | songs: looping (bDontLoopSong), bSongFinished, the end of a song played once |
 | [gestures.md](engine/gestures.md) | the Gesture natives that score a drawn spell shape |
 | [textures.md](engine/textures.md) | Fire.dll procedural textures (IceTexture) |
 | [native_classes.md](engine/native_classes.md) | native classes with no native code (ImpactSoundSet, LocationID, ...) and leftover natives (FindStairRotation, ScreenToWorld, CreateNativeFont) |

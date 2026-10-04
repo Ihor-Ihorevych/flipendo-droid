@@ -39,11 +39,22 @@ code not read yet. The `FString` serializer in Core.dll is identical.
 
 ## Engine side
 
-- **`UGameEngine::SaveGame(int)`** [HP1 0x103A2280] is stock UE1: sets `LevelInfo.LevelAction` to saving, saves the
+In HP2 `PaintProgress` differs only in offsets; `UGameEngine::SaveGame` changed (1154 -> 1380 bytes, HP2 0x103AB430),
+not read yet.
+
+
+- **`UGameEngine::SaveGame(int)`** [HP1 0x103A2280] is stock UE1: sets `LevelInfo.LevelAction` to saving, paints one
+  progress frame (below), saves the
   level package to `"%s\Save%i.usa"` (SavePath, slot) with `UObject::SavePackage`, copies hub files
   `Game%i.usa` → `Save%i_%i.usa` (HP1 never uses hubs), resets the movers' saved positions and LevelAction. It is
   **synchronous**, which is why doLevelSave can clear Pauser around it. SurrealEngine defers `SaveGame` to the end of
-  the frame; for HP1 the hook saves at once.
+  the frame; for HP1 the hook saves at once (`KW::SaveGame`).
+- **The save screen**: `UGameEngine::PaintProgress` [HP1 0x10397BA0] draws one frame with the viewport player's
+  `FlashFog` forced to (0, 0.1, 0.25, W 0.2): the world at 0.2 brightness plus a dark blue, and on top
+  `baseConsole.DrawLevelAction` prints the LEVACT_Saving message, HPDialog `nearly_nick_40` ("Your game will restart
+  from this Save Game book."). The frame stays on screen while the synchronous save runs (about 3 s in Flipendo,
+  measured 2026-10-05 in Lev_Tut1b). `UGameEngine::Draw` takes the flash from `Viewport->Actor`, not from the camera
+  actor the view goes through; SurrealEngine used the view target, so no HP1 screen flash showed at all.
 - **`UGameEngine::LoadMap`** [HP1 0x1039C3D0] treats a level whose `LevelInfo.bBegunPlay` is set as a save: no
   InitGame/BeginPlay, `TimeSeconds` restored, the saved player possessed. SurrealEngine's `?load=N` path
   (`LoadFromSaveFile` + `PossessSavedPlayer`) does the same, so the `open` hook turns `open saveN.usa` into `?load=N`
@@ -83,7 +94,7 @@ BMPs. `FEFilePage` (unused) would read `SaveGameSnap<i>.bmp`.
 - `Snap 3` (FEBook.OpenBook, HPConsole): UViewport::Exec copies the frame, shrunk by 2^N, into the viewport's snapshot
   buffer for SaveSnap / CreateTextureFromScreenShot. Nothing in HP1 reads the buffer, so Flipendo accepts the command and
   does nothing (`KW::ViewportCommand`, `kw/KWSave.cpp`).
-- SaveGame's LevelAction/mover-position bookkeeping (nothing renders during our synchronous save).
+- SaveGame's mover-position bookkeeping.
 - Native-only state isn't in the save package, so it restarts on load: particles, our side tables. The camera
   (`PotCam`, a BaseCam) is all script state and is saved with everything else. Checked 2026-10-04 in Lev_Tut1
   (`SaveGame 98` then `open save98.usa` while Harry stands in the entrance hall): PotCam0 comes back at the same

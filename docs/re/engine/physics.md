@@ -13,7 +13,7 @@ Both games' `Pawn.uc` / `PlayerPawn.uc` declare the KnowWonder additions below (
 and the latent polls (`execPollMoveTo`, `execPollMoveToward`, `execPollStrafeFacing`, `execPollWaitForLanding`) differ
 only in offsets; `physWalking` (14847 -> 13679 bytes), `physFlying`, `physSwimming`, `physRolling`, `physMovingBrush`,
 `physTrailer`, `APawn::performPhysics`, `physicsRotation`, `moveToward`, `Mount` and
-`AInterpolationManager::performPhysics` changed, HP2 code not read yet.
+`AInterpolationManager::performPhysics` changed, HP2 code not read yet. `IsBlockedBy` differs only in offsets.
 
 ## setPhysics
 
@@ -84,6 +84,28 @@ actors whose `Touching` lists the destroyed one (`EndTouch(.., 1)`), and Other d
 `Touch(spell)` and fires its Event: Lev_Tut1b's Flipendo wall symbol (`spellTrigger9` -> `dispatcher155`, which
 opens the way). SurrealEngine linked both arrays before the first event, the spell's Destroy unlinked the trigger and
 the trigger was never told, so the symbol did nothing.
+
+## Blocking and Bump
+
+`AActor::IsBlockedBy` [HP1 0x10352140] decides whether a moving actor stops at another one (`ULevel::MoveActor`
+raises `Bump` on both, then the physics mode handles the hit) or passes through it (Touch). Ported as
+`KW::IsBlockedBy` (`kw/KWCollision.cpp`), used by `TryMove`:
+
+- Other is the level: `bCollideWorld`.
+- Other is a brush (a Mover): `bCollideWorld`, and Other's `bBlockPlayers` for a player (PlayerPawn whose dword at
+  +0x4BC is set, read as `Player`), else Other's `bBlockActors`. The reverse when the moving actor is the brush.
+- Otherwise both sides: a player or a Projectile looks at the other's `bBlockPlayers`, anything else at its
+  `bBlockActors`.
+
+SurrealEngine required `bBlockPlayers` on both sides for a projectile, so a spell (Projectile: `bCollideWorld`, no
+blocking flags) only touched movers. Lev_Tut1b's block puzzle (`GridMover`, `state BumpMove`) moves only on `Bump`,
+pushed `MoveIncrement` away from the bumper (the Flipendo spell, `Mover.IsRelevant` -> `baseSpell.IsRelevantToMover`):
+the block never moved.
+
+`AActor::physProjectile` [HP1 0x103F2AB0] raises `HitWall(Hit.Normal, Hit.Actor)` after any blocking hit, actors
+included (not after a teleport or Destroy). SurrealEngine only raised it for world hits; with the block now stopping
+the spell, the spell has to explode there (`Projectile.HitWall` -> `Explode`), or it stays against the block and
+bumps it again when `BumpMove` re-enables Bump. Checked 2026-10-05: each cast moves `GridMover1` one step (128).
 
 ## Movers
 

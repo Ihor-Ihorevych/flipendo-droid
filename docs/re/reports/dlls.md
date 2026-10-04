@@ -11,14 +11,14 @@ Details: [native_audit_hp1.md](native_audit_hp1.md), [native_audit_hp2.md](nativ
 | DLL | HP1 | HP2 | exports HP1 / HP2 | ported functions | provided by |
 |---|---|---|---|---|---|
 | [Core](#core) | 840 KB | 904 KB | 2046 / 2070 | 6 | SurrealEngine |
-| [Engine](#engine) | 2072 KB | 2092 KB | 2722 / 2784 | 126 | SurrealEngine + **kw/** |
+| [Engine](#engine) | 2072 KB | 2092 KB | 2722 / 2784 | 129 | SurrealEngine + **kw/** |
 | [Fire](#fire) | 104 KB | 104 KB | 133 / 133 | 7 | SurrealEngine + kw/ (IceTexture) |
 | [Render](#render) | 288 KB | 296 KB | 93 / 94 | 5 | SurrealEngine + kw/ (particles) |
 | [D3DDrv](#d3ddrv) | 216 KB | 216 KB | 392 / 392 | 0 | replaced (SurrealEngine render devices) |
 | [SoftDrv](#softdrv) | 384 KB | 384 KB | 74 / 74 | 0 | replaced (SurrealEngine render devices) |
 | [WinDrv](#windrv) | 164 KB | 220 KB | 87 / 87 | 0 | replaced (SurrealEngine window/input) |
 | [Window](#window) | 520 KB | 624 KB | 1289 / 1471 | 0 | not needed |
-| [Galaxy](#galaxy) | 336 KB | - | 42 / - | 2 | replaced (SurrealEngine audio) |
+| [Galaxy](#galaxy) | 336 KB | - | 42 / - | 4 | replaced (SurrealEngine audio) |
 | [IpDrv](#ipdrv) | 240 KB | - | 155 / - | 0 | not needed |
 | [UWeb](#uweb) | 68 KB | - | 45 / - | 0 | not needed |
 | [Editor](#editor) | 1324 KB | 1356 KB | 670 / 653 | 0 | not needed |
@@ -51,7 +51,7 @@ The object system everything else is built on: UObject, names, packages (.u/.unr
 | `?SlerpQuat@@YA?AVFQuat@@ABV1@0M@Z` | `kw/Anim/KWSkeletal.cpp:81` | identical |
 | `FCoords::OrthoRotation` | `kw/KWInterpolation.cpp:151` | identical |
 | `UObject::execDebugInfo` | `hp2/HP2Bytecode.cpp:29` | ? |
-| `YAAAVFArchive::?6` | `kw/KWSave.cpp:53` | identical |
+| `YAAAVFArchive::?6` | `kw/KWSave.cpp:56` | identical |
 
 ## Engine
 
@@ -65,7 +65,7 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 
 **HP2 script natives** (Engine.u): 102 OK, 24 HP1_PORT, 25 STUB, 3 MISSING, 1 INDEX, 4 OTHER_GAME.
 
-**Reimplemented in Flipendo** (126):
+**Reimplemented in Flipendo** (129):
 
 | function | where | HP2 |
 |---|---|---|
@@ -73,39 +73,40 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 | `?FGetHSV@@YA?AVFPlane@@EEE@Z` | `kw/KWMeshLight.cpp:125` | identical |
 | `AActor::BeginTouch` | `kw/KWTouch.cpp:87` | identical |
 | `AActor::CreateAnimChannel` | `kw/Anim/KWAnimState.cpp:72` | missing |
-| `AActor::GetPrimitive` | `kw/KWCollision.cpp:237` | changed |
+| `AActor::GetPrimitive` | `kw/KWCollision.cpp:240` | changed |
 | `AActor::IsAnimating` | `kw/Anim/KWAnimState.cpp:213` | offsets only |
+| `AActor::IsBlockedBy` | `kw/KWCollision.cpp:381` | offsets only |
 | `AActor::PlayAnim` | `kw/Anim/KWAnimState.cpp:110` | changed |
-| `AActor::SetCollisionSize` | `kw/KWCollision.cpp:195` | offsets only |
+| `AActor::SetCollisionSize` | `kw/KWCollision.cpp:198` | offsets only |
 | `AActor::Tick` | `kw/Anim/KWAnimState.cpp:258` | changed |
 | `AActor::Tick` | `kw/Anim/KWSkeletal.cpp:428` | changed |
-| `AActor::ToLocal` | `kw/KWCollision.cpp:33` | offsets only |
+| `AActor::ToLocal` | `kw/KWCollision.cpp:36` | offsets only |
 | `AActor::execBoneName` | `kw/Anim/KWAnimState.cpp:428` | changed |
 | `AActor::execBoneNumber` | `kw/Anim/KWAnimState.cpp:421` | changed |
 | `AActor::execBonePos` | `kw/KWAttach.cpp:22` | changed |
 | `AActor::execBoneRot` | `hp2/HP2Natives.cpp:24` | ? |
 | `AActor::execCreateAnimChannel` | `kw/Anim/KWAnimState.cpp:396` | changed |
-| `AActor::execCreateTextureFromBMP` | `kw/KWSave.cpp:285` | changed |
+| `AActor::execCreateTextureFromBMP` | `kw/KWSave.cpp:288` | changed |
 | `AActor::execFinishAnim` | `kw/Anim/KWAnimState.cpp:226` | changed |
 | `AActor::execFinishAnim` | `kw/Anim/KWAnimState.cpp:390` | changed |
 | `AActor::execGetAnimGroup` | `kw/Anim/KWAnimState.cpp:408` | changed |
 | `AActor::execGetCurrentKeyState` | `hp2/HP2Natives.cpp:46` | ? |
-| `AActor::execGetRenderExtent` | `kw/KWCollision.cpp:325` | changed |
-| `AActor::execGetWorldCollisionBox` | `kw/KWCollision.cpp:305` | changed |
+| `AActor::execGetRenderExtent` | `kw/KWCollision.cpp:328` | changed |
+| `AActor::execGetWorldCollisionBox` | `kw/KWCollision.cpp:308` | changed |
 | `AActor::execHasAnim` | `kw/Anim/KWAnimState.cpp:402` | changed |
 | `AActor::execIsAnimating` | `kw/Anim/KWAnimState.cpp:384` | changed |
 | `AActor::execIsSoftwareRendering` | `hp2/HP2Natives.cpp:38` | ? |
 | `AActor::execLinkSkelAnim` | `kw/Anim/KWAnimState.cpp:415` | changed |
-| `AActor::execLoadGameSaveInfo` | `kw/KWSave.cpp:173` | changed |
+| `AActor::execLoadGameSaveInfo` | `kw/KWSave.cpp:176` | changed |
 | `AActor::execLoopAnim` | `kw/Anim/KWAnimState.cpp:372` | changed |
-| `AActor::execModifySound` | `kw/KWSound.cpp:22` | changed |
+| `AActor::execModifySound` | `kw/KWSound.cpp:28` | changed |
 | `AActor::execPlayAnim` | `kw/Anim/KWAnimState.cpp:366` | changed |
 | `AActor::execPollFinishAnim` | `kw/Anim/KWAnimState.cpp:227` | identical |
-| `AActor::execSaveGameExists` | `kw/KWSave.cpp:212` | changed |
-| `AActor::execSaveGameSaveInfo` | `kw/KWSave.cpp:146` | changed |
-| `AActor::execSetCollisionSize` | `kw/KWCollision.cpp:194` | changed |
-| `AActor::execSetPhysics` | `kw/KWCollision.cpp:357` | changed |
-| `AActor::execStopSound` | `kw/KWSound.cpp:40` | changed |
+| `AActor::execSaveGameExists` | `kw/KWSave.cpp:215` | changed |
+| `AActor::execSaveGameSaveInfo` | `kw/KWSave.cpp:149` | changed |
+| `AActor::execSetCollisionSize` | `kw/KWCollision.cpp:197` | changed |
+| `AActor::execSetPhysics` | `kw/KWCollision.cpp:360` | changed |
+| `AActor::execStopSound` | `kw/KWSound.cpp:46` | changed |
 | `AActor::execStopSound` | `hp2/HP2Natives.cpp:55` | changed |
 | `AActor::execTraceActors` | `kw/KWTraceTexture.cpp:77` | changed |
 | `AActor::execTraceTexture` | `kw/KWTraceTexture.cpp:25` | changed |
@@ -114,7 +115,7 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 | `AActor::physRolling` | `kw/KWPawn.cpp:34` | changed |
 | `AActor::physRolling` | `kw/KWPawn.cpp:44` | changed |
 | `AActor::physTrailer` | `kw/KWAttach.cpp:33` | changed |
-| `AActor::setPhysics` | `kw/KWCollision.cpp:358` | offsets only |
+| `AActor::setPhysics` | `kw/KWCollision.cpp:361` | offsets only |
 | `AInterpolationManager::performPhysics` | `kw/KWInterpolation.cpp:311` | changed |
 | `AInterpolationPoint::GetDesiredRotationAtPause` | `kw/KWInterpolation.cpp:194` | changed |
 | `AInterpolationPoint::GetDesiredRotationAtPosition` | `kw/KWInterpolation.cpp:203` | changed |
@@ -164,27 +165,29 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 | `UAnimation::GetAnimSeq` | `kw/Anim/KWAnimation.cpp:23` | identical |
 | `UAnimation::GetMovement` | `kw/Anim/KWAnimation.cpp:32` | identical |
 | `UAnimation::Serialize` | `kw/Anim/KWAnimation.cpp:81` | identical |
-| `UBox::GetCollisionBoundingBox` | `kw/KWCollision.cpp:32` | changed |
-| `UBox::GetCollisionBoundingBox` | `kw/KWCollision.cpp:255` | changed |
-| `UBox::LineCheck` | `kw/KWCollision.cpp:96` | identical |
-| `UBox::PointCheck` | `kw/KWCollision.cpp:97` | identical |
-| `UBoxPrim::GetCollisionBoundingBox` | `kw/KWCollision.cpp:256` | identical |
+| `UBox::GetCollisionBoundingBox` | `kw/KWCollision.cpp:35` | changed |
+| `UBox::GetCollisionBoundingBox` | `kw/KWCollision.cpp:258` | changed |
+| `UBox::LineCheck` | `kw/KWCollision.cpp:99` | identical |
+| `UBox::PointCheck` | `kw/KWCollision.cpp:100` | identical |
+| `UBoxPrim::GetCollisionBoundingBox` | `kw/KWCollision.cpp:259` | identical |
 | `UConsole::execCreateNativeFont` | `kw/KWPlayerNatives.cpp:152` | changed |
 | `UGameEngine::Draw` | `kw/KWView.cpp:28` | changed |
-| `UGameEngine::LoadMap` | `kw/KWSave.cpp:359` | changed |
+| `UGameEngine::LoadMap` | `kw/KWSave.cpp:395` | changed |
+| `UGameEngine::PaintProgress` | `kw/KWSave.cpp:346` | offsets only |
+| `UGameEngine::SaveGame` | `kw/KWSave.cpp:363` | changed |
 | `UGesture::execCompareGesture` | `kw/KWGesture.cpp:128` | changed |
 | `UGesture::execCompareGesturePoint` | `kw/KWGesture.cpp:145` | changed |
 | `ULevel::MultiLineCheck` | `kw/KWTraceTexture.cpp:78` | changed |
 | `ULodMesh::GetNumTris` | `kw/KWParticleFX.cpp:555` | identical |
-| `UMesh::GetCollisionBoundingBox` | `kw/KWCollision.cpp:257` | changed |
-| `UOrientedCylinder::GetCollisionBoundingBox` | `kw/KWCollision.cpp:254` | changed |
+| `UMesh::GetCollisionBoundingBox` | `kw/KWCollision.cpp:260` | changed |
+| `UOrientedCylinder::GetCollisionBoundingBox` | `kw/KWCollision.cpp:257` | changed |
 | `UParticle::Update` | `kw/KWParticleFX.cpp:245` | changed |
-| `UPrimitive::GetCollisionBoundingBox` | `kw/KWCollision.cpp:253` | changed |
+| `UPrimitive::GetCollisionBoundingBox` | `kw/KWCollision.cpp:256` | changed |
 | `USkeletalMesh::AdjustRootMovement` | `kw/Anim/KWSkeletal.cpp:413` | offsets only |
 | `USkeletalMesh::ApplyAnim` | `kw/Anim/KWSkeletal.cpp:276` | changed |
 | `USkeletalMesh::BoneName` | `kw/Anim/KWAnimState.cpp:429` | identical |
 | `USkeletalMesh::GetBoneCoords` | `kw/Anim/KWSkeletal.cpp:677` | changed |
-| `USkeletalMesh::GetCollisionBoundingBox` | `kw/KWCollision.cpp:258` | changed |
+| `USkeletalMesh::GetCollisionBoundingBox` | `kw/KWCollision.cpp:261` | changed |
 | `USkeletalMesh::GetCollisionBoundingBox` | `kw/Anim/KWSkeletal.cpp:659` | changed |
 | `USkeletalMesh::GetFrame` | `kw/Anim/KWSkeletal.cpp:515` | changed |
 | `USkeletalMesh::GetFrame` | `kw/Anim/KWSkeletal.cpp:516` | identical |
@@ -192,9 +195,9 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 | `USkeletalMesh::GetMeshCoords` | `kw/Anim/KWSkeletal.cpp:453` | changed |
 | `USkeletalMesh::GetRenderBoundingBox` | `kw/Anim/KWSkeletal.cpp:614` | changed |
 | `USkeletalMesh::GetRootMovement` | `kw/Anim/KWSkeletal.cpp:401` | changed |
-| `USkeletalMesh::Serialize` | `kw/KWCollision.cpp:326` | identical |
+| `USkeletalMesh::Serialize` | `kw/KWCollision.cpp:329` | identical |
 | `UViewport::CreateNativeFont` | `kw/KWPlayerNatives.cpp:153` | identical |
-| `UViewport::Exec` | `kw/KWSave.cpp:374` | changed |
+| `UViewport::Exec` | `kw/KWSave.cpp:410` | changed |
 
 ## Fire
 
@@ -274,12 +277,14 @@ HP1's audio subsystem (Galaxy): sound effects, 3D positioning and music playback
 
 **Exported classes** (exports per class, largest first): UGalaxyAudioSubsystem (30).
 
-**Reimplemented in Flipendo** (2):
+**Reimplemented in Flipendo** (4):
 
 | function | where | HP2 |
 |---|---|---|
-| `UGalaxyAudioSubsystem::ModifySound` | `kw/KWSound.cpp:23` | ? |
-| `UGalaxyAudioSubsystem::StopSound` | `kw/KWSound.cpp:31` | ? |
+| `UGalaxyAudioSubsystem::ModifySound` | `kw/KWSound.cpp:29` | ? |
+| `UGalaxyAudioSubsystem::StopSound` | `kw/KWSound.cpp:37` | ? |
+| `UGalaxyAudioSubsystem::Update` | `kw/KWSound.cpp:138` | ? |
+| `UGalaxyAudioSubsystem::Update` | `kw/KWSound.cpp:152` | ? |
 
 ## IpDrv
 

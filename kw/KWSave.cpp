@@ -10,6 +10,9 @@
 #include "Utils/StrTools.h"
 #include "VM/NativeFunc.h"
 #include "Engine.h"
+#include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
+#include "Packages/Engine/UViewport.h"
+#include "Render/RenderSubsystem.h"
 
 // Save games (docs/re/engine/savegames.md). The level itself is saved by the SaveGame console command (upstream's
 // Engine::SaveGameToSlot writes <SavePath>/SaveN.usa) and loaded by "open saveN.usa" (KW::SaveGameLoadURL).
@@ -334,6 +337,39 @@ namespace KW
 		tex->UsedMipmaps = tex->UncompressedMipmaps;
 
 		ReturnValue = tex;
+	}
+
+	// One frame with the player's FlashFog forced to (0, 0.1, 0.25) at brightness W = 0.2: the world dimmed to dark
+	// blue, with the console drawing the LevelAction message on top (baseConsole.DrawLevelAction: LEVACT_Saving shows
+	// HPDialog nearly_nick_40, "Your game will restart from this Save Game book."). The frame stays on screen while
+	// the save runs.
+	// IDA Engine.dll: ?PaintProgress@UGameEngine@@UAEXXZ [HP1 0x10397BA0]
+	static void PaintProgress()
+	{
+		UPlayerPawn* player = engine->viewport ? UObject::TryCast<UPlayerPawn>(engine->viewport->Actor()) : nullptr;
+		if (!player)
+			return;
+		float* fog = &player->FlashFog().x; // FPlane: X, Y, Z, W
+		float saved[4] = { fog[0], fog[1], fog[2], fog[3] };
+		fog[0] = 0.0f; fog[1] = 0.1f; fog[2] = 0.25f; fog[3] = 0.2f;
+		engine->render->DrawGame(0.0f);
+		for (int i = 0; i < 4; i++)
+			fog[i] = saved[i];
+	}
+
+	// The SaveGame console command: LevelAction is LEVACT_Saving (2) while the save runs, and one progress frame is
+	// drawn before it. The level package is written by upstream's Engine::SaveGameToSlot. Hub copies and the movers'
+	// saved positions aren't ported (docs/re/engine/savegames.md).
+	// IDA Engine.dll: ?SaveGame@UGameEngine@@UAEXH@Z [HP1 0x103A2280] [HP2 0x103AB430] (HP2 changed, not read yet)
+	void SaveGame(int slot, const std::string& description)
+	{
+		ULevelInfo* level = engine->LevelInfo;
+		if (level)
+			level->LevelAction() = 2;
+		PaintProgress();
+		engine->SaveGameToSlot(slot, description);
+		if (level)
+			level->LevelAction() = 0;
 	}
 
 	std::string SaveGameLoadURL(const std::string& map)

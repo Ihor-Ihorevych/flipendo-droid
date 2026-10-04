@@ -15,7 +15,7 @@ index 74ab008f..912852dc 100644
  set_target_properties(SurrealCommon PROPERTIES CXX_STANDARD 20)
  target_precompile_headers(SurrealCommon PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/SurrealEngine/Precomp.h>)
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 34ee5181..bfa78a69 100644
+index 34ee5181..6d86e8c6 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,8 @@
@@ -102,10 +102,10 @@ index 34ee5181..bfa78a69 100644
  		}
  
 +		// flipendo: HP1 saves at once, like UGameEngine::SaveGame. HPConsole.doLevelSave clears Level.Pauser only
-+		// around this call and writes the slot's GameSaveInfo right after it.
++		// around this call and writes the slot's GameSaveInfo right after it. KW::SaveGame also draws the saving screen.
 +		if (LaunchInfo.IsKnowWonder())
 +		{
-+			SaveGameToSlot(slotNum, args.size() == 3 ? args[2] : std::string());
++			KW::SaveGame(slotNum, args.size() == 3 ? args[2] : std::string());
 +			return {};
 +		}
 +

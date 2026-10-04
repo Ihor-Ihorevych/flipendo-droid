@@ -4,6 +4,7 @@
 #include "Math/mat.h"
 #include "Math/rotator.h"
 #include <string>
+#include <memory>
 
 // KnowWonder's engine (kw/): what Flipendo reimplements of the modified Engine.dll / Fire.dll that the Harry Potter
 // games share. These are the entry points called from the flipendo: hooks inside engine/, each gated by
@@ -17,6 +18,8 @@ class UCanvas;
 class UPawn;
 class UZoneInfo;
 class UPlayerPawn;
+class UMusic;
+class AudioSource;
 class ULevelInfo;
 class CollisionHit;
 class UAnimation;
@@ -66,6 +69,8 @@ namespace KW
 
 	// Engine::ConsoleCommand "open": FESlotPage loads a slot with "open saveN.usa". Returns "?load=N" when the map names
 	// an existing save file in the Save folder, else empty (kw/KWSave.cpp).
+	// Engine::ConsoleCommand "SaveGame N": UGameEngine::SaveGame (LevelAction, the progress frame, then the save).
+	void SaveGame(int slot, const std::string& description);
 	std::string SaveGameLoadURL(const std::string& map);
 	// Engine::ConsoleCommand, before the exec functions: console commands of KnowWonder's UViewport::Exec that
 	// SurrealEngine doesn't know ("Snap"). Returns true when handled.
@@ -92,8 +97,15 @@ namespace KW
 	// RenderSubsystem::DrawGame: the screen flash from HP1's FlashFog (its W replaces FlashScale).
 	void ViewFlashParams(UPlayerPawn* player, vec3& flashScale, vec3& flashFog);
 
+	// USurrealAudioDevice::UpdateMusic (kw/KWSound.cpp): MusicSource wraps a new song's stream (loops unless
+	// bDontLoopSong, silence after the end); TickMusic, every update, sets bSongFinished and clears an ended Song.
+	std::unique_ptr<AudioSource> MusicSource(UPlayerPawn* player, UMusic* song, std::unique_ptr<AudioSource> source);
+	void TickMusic(UPlayerPawn* player, UMusic* currentSong);
+
 	// Collision (kw/KWCollision.cpp): actors with CollideType CT_Box are oriented boxes, not cylinders.
 	bool IsBoxCollider(UActor* actor);
+	// UActor::TryMove: whether the moving actor is stopped by (and bumps) another one, or touches it.
+	bool IsBlockedBy(UActor* self, UActor* other);
 	// TraceTester::TraceActor: swept cylinder (height/radius 0 = ray) against the box; returns tmax on a miss.
 	double BoxActorTrace(UActor* actor, const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, double height, double radius, vec3& outNormal);
 	// OverlapTester::CylinderActorOverlap / SphereActorOverlap / IsOverlapping.
