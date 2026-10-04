@@ -56,10 +56,16 @@ namespace KW
 	void OnFrameRendered(RenderDevice* device);
 	// Engine::Tick, after PlayerCalcView: HP1_CAMERA="x,y,z,pitch,yaw" replaces the view (kw/KWDebug.cpp).
 	void DebugCamera(vec3& location, Rotator& rotation);
+	// Engine::OpenWindow: HP1_BACKGROUND=1 shows the window windowed, behind the others and without taking focus
+	// (kw/KWDebug.cpp). Returns false (window shown as usual) when it isn't set.
+	bool ShowWindowInBackground(GameWindow* window, int width, int height);
 
 	// Engine::ConsoleCommand "open": FESlotPage loads a slot with "open saveN.usa". Returns "?load=N" when the map names
 	// an existing save file in the Save folder, else empty (kw/KWSave.cpp).
 	std::string SaveGameLoadURL(const std::string& map);
+	// Engine::ConsoleCommand, before the exec functions: console commands of KnowWonder's UViewport::Exec that
+	// SurrealEngine doesn't know ("Snap"). Returns true when handled.
+	bool ViewportCommand(const Array<std::string>& args);
 	// Engine::LoadMap, after the LevelInfo is found: UGameEngine::LoadMap sets an empty LevelEnterText to URL.Map
 	// ("Lev_Tut1.unr"); HPConsole.doLevelSave names the save slot (and its thumbnail) after it.
 	void LevelInfoLoaded(ULevelInfo* levelInfo, const std::string& urlMap);

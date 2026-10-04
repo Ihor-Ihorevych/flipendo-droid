@@ -15,7 +15,7 @@ index 74ab008f..912852dc 100644
  set_target_properties(SurrealCommon PROPERTIES CXX_STANDARD 20)
  target_precompile_headers(SurrealCommon PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/SurrealEngine/Precomp.h>)
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 34ee5181..9a396229 100644
+index 34ee5181..bfa78a69 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,8 @@
@@ -161,7 +161,16 @@ index 34ee5181..9a396229 100644
  		UClass* cls = packages->FindClass(className);
  		if (!cls)
  		{
-@@ -1423,6 +1475,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1414,6 +1466,8 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+ 	}
+ 	else
+ 	{
++		if (LaunchInfo.IsKnowWonder() && KW::ViewportCommand(args)) // flipendo: KnowWonder's UViewport::Exec commands (kw/KWSave.cpp)
++			return {};
+ 		if (!ExecCommand(args))
+ 		{
+ 			LogMessage("Unknown command: " + commandline);
+@@ -1423,6 +1477,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  	return {};
  }
  
@@ -176,7 +185,7 @@ index 34ee5181..9a396229 100644
  Array<std::string> Engine::GetArgs(const std::string& commandline)
  {
  	Array<std::string> args;
-@@ -1454,6 +1514,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
+@@ -1454,6 +1516,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
  			endpos = command.size();
  
  		std::string subcommand = command.substr(pos, endpos - pos);
@@ -187,7 +196,7 @@ index 34ee5181..9a396229 100644
  		if (!subcommand.empty())
  			subcommands.push_back(subcommand);
  		pos = endpos + 1;
-@@ -1510,7 +1574,7 @@ void Engine::LoadKeybindings()
+@@ -1510,7 +1576,7 @@ void Engine::LoadKeybindings()
  					std::string aliasCommand = alias.substr(commandStart.size(), pos - commandStart.size());
  					std::string aliasName = alias.substr(pos + commandSplit.size(), pos2 - pos - commandSplit.size());
  					if (!aliasName.empty() && aliasName != "None")
@@ -196,7 +205,16 @@ index 34ee5181..9a396229 100644
  				}
  			}
  		}
-@@ -1616,6 +1680,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
+@@ -1559,6 +1625,8 @@ void Engine::OpenWindow()
+ 	window->SetFrameGeometry(Rect::xywh(0.0, 0.0, width, height));
+ 	viewport->SetViewportRect(0, 0, width, height);
+ 
++	if (LaunchInfo.IsKnowWonder() && KW::ShowWindowInBackground(window.get(), width, height)) // flipendo: HP1_BACKGROUND debug runs
++		return;
+ 	if (fullscreen)
+ 		window->ShowFullscreen();
+ 	else
+@@ -1616,6 +1684,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
  	{
  		viewport->WindowsMouseX() = (float)(pos.x * window->GetDpiScale());
  		viewport->WindowsMouseY() = (float)(pos.y * window->GetDpiScale());
@@ -205,7 +223,7 @@ index 34ee5181..9a396229 100644
  	}
  }
  
-@@ -1689,6 +1755,9 @@ void Engine::OnWindowKeyChar(std::string chars)
+@@ -1689,6 +1759,9 @@ void Engine::OnWindowKeyChar(std::string chars)
  
  void Engine::OnWindowKeyDown(EInputKey key)
  {
@@ -215,7 +233,7 @@ index 34ee5181..9a396229 100644
  	if (playingAvi)
  	{
  		if (key == EInputKey::IK_Escape)
-@@ -1783,7 +1852,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
+@@ -1783,7 +1856,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
  
  			for (const std::string& command : GetSubcommands(keybindings[keynames[key]]))
  			{

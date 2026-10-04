@@ -366,6 +366,19 @@ namespace KW
 			levelInfo->LevelEnterText() = urlMap;
 	}
 
+	// "Snap N" (FEBook.OpenBook and HPConsole run "Snap 3" when the menu book opens): the original copies the viewport's
+	// frame, shrunk by 2^N, into the viewport's snapshot buffer, for "SaveSnap <file>" / "SaveSnap128" and
+	// Actor.CreateTextureFromScreenShot to write or wrap later. HP1 never uses that buffer (the SaveSnap calls are
+	// commented out, no script calls CreateTextureFromScreenShot; the slot thumbnails are the pre-made SGS BMPs), so
+	// the command is accepted and does nothing.
+	// IDA Engine.dll: ?Exec@UViewport@@UAEHPBGAAVFOutputDevice@@@Z [HP1 0x10384560] (the "SNAP" branch)
+	bool ViewportCommand(const Array<std::string>& args)
+	{
+		if (args.empty())
+			return false;
+		return StrTools::equals_ignore_case(args[0], "snap");
+	}
+
 	void RegisterSaveNatives()
 	{
 		OverrideNative(321, [] { RegisterVMNativeFunc_3("Actor", "CreateTextureFromBMP", &NCreateTextureFromBMP, 321); });
