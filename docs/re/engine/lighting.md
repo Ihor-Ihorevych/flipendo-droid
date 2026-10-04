@@ -93,6 +93,13 @@ terms replace its falloff, colour scale and ambient.
   is `D3DTOP_MODULATE2X` (`SetBlending`; the multipass fallback is DESTCOLOR × SRCCOLOR, also 2x). 127 is therefore
   about 2x the texture, the same range as SurrealEngine's shader (light map × 2): a KnowWonder byte b = SurrealEngine
   `2b/255`. SurrealEngine's own builder adds `illum * colour` (half of KnowWonder's) and fills ambient with the full HSV colour.
+- **Measured against the original** (2026-10-04): the terms above made every level about 2x too bright. Same frame of
+  the Lev_Tut1 intro (the wide staircase shot, 640x480, Brightness 0.4 in both), luminance percentiles 10/25/50/75/90
+  of the original 19/34/63/98/139, ours 37/67/120/180/217. Halving only the lights or only the ambient isn't enough;
+  halving both gives 19/35/64/97/136 and matches per channel (R/G/B quartiles within 3 levels). Keeping the cap at 127
+  (2x the texture) matters: with it lowered to 1x the top 10% stayed dark (121 vs 139). So the ambient fill and each
+  light's palette are half of what this reading says, somewhere a factor 2 is missed (the palette, the upload or the
+  blend); `kw/KWLightmap.cpp` applies it as `MeasuredScale` until it is found in Render.dll / D3DDrv.dll.
 - **The lumel byte**, LE_None (`loc_10B037C0`; with a LightRadiusInner it runs `sub_10B0CA70`, the same plus a clamp):
   `L = shadow * min(k * table[m], 1)`, 0 outside the radius, where
   - `m = floor((d / R * 4095)² / 4096)` (d = lumel to light, R = `WorldLightRadius`), `table[m]` at

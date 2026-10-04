@@ -21,6 +21,10 @@ namespace KW
 		// MODULATE2X; SurrealEngine's shaders double the light map, so 127 is 254/255 here.
 		constexpr float LightmapUnit = 2.0f / 255.0f;
 		constexpr float LightmapFull = 127.0f * LightmapUnit;
+		// The ambient fill and every light come out half as bright as the terms below say, measured against the
+		// original (Lev_Tut1 intro, docs/re/engine/lighting.md "Measured against the original"); the factor isn't
+		// found in the code yet. The 127 cap stays: the original's highlights go above the texture's own brightness.
+		constexpr float MeasuredScale = 0.5f;
 
 		// The falloff tables (sub_10B023A0): 2t³ - 3t² + 1 at t = sqrt((m + 1) / 4096), and the same divided by t for
 		// point lights, whose incidence factor is the light's distance from the surface plane over the radius.
@@ -90,7 +94,7 @@ namespace KW
 	{
 		// FGetHSV / 4 in 8-bit units, against 127 = full.
 		vec3 hsv = GetHSV(zone->AmbientHue(), zone->AmbientSaturation(), zone->AmbientBrightness());
-		auto channel = [](float c) { return std::clamp(std::floor(c * 64.0f), 0.0f, 255.0f) * LightmapUnit; };
+		auto channel = [](float c) { return std::clamp(std::floor(c * 64.0f), 0.0f, 255.0f) * LightmapUnit * MeasuredScale; };
 		return vec3(channel(hsv.x), channel(hsv.y), channel(hsv.z));
 	}
 
@@ -104,7 +108,7 @@ namespace KW
 		color = color * (brightness * light->Level()->Brightness());
 		bool dark = bDarkLight(light);
 		// illumination 1 = lumel byte 255.
-		vec3 scale = color * (255.0f * LightmapUnit);
+		vec3 scale = color * (255.0f * LightmapUnit * MeasuredScale);
 		for (int i = 0; i < size; i++)
 		{
 			float s = illumination[i];
