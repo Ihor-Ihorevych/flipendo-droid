@@ -765,7 +765,7 @@ index e3c87b45..fce70354 100644
  		return;
  
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor.cpp b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
-index 29c45a1c..fcd06f9c 100644
+index 29c45a1c..b0fceedb 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
 @@ -9,6 +9,7 @@
@@ -790,9 +790,9 @@ index 29c45a1c..fcd06f9c 100644
  
  void UActor::Tick(float elapsed)
  {
-+	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: AParticleFX::Tick
++	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: AParticleFX::Tick, AWind::Tick
 +	{
-+		HP1::TickParticleFX(this, elapsed);
++		HP1::TickNativeActor(this, elapsed);
 +		if (bDeleteMe())
 +			return;
 +	}

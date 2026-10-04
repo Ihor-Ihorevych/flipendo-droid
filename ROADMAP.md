@@ -70,7 +70,7 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
       weapon's ThirdPersonMesh is drawn in it. `physTrailer` follows the owner's bone AnimBone-1 (broom trail at
       'BroomTail'). The wand was also invisible because SurrealEngine raised RenderOverlays in third person:
       Weapon.RenderOverlays → Canvas.DrawActor leaves the weapon bHidden (HP1 only raises it without bBehindView)
-- [ ] GetRenderExtent, GetWorldCollisionBox (skeletal bounds)
+- [x] GetRenderExtent, GetWorldCollisionBox (`hp1/HP1Collision.cpp`, `docs/re/spells.md`)
 - [x] Transient channel cleanup (done in ApplyAnim, like the original)
 
 ## 2. Playable tutorial (Lev_Tut1)
@@ -130,8 +130,7 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
       `hp1/HP1Navigation.cpp`)
 - [x] ModifySound(567), StopSound(568) (`hp1/HP1Sound.cpp`; Galaxy.dll's match: first sound with the slot's Id and,
       if given, the same Sound). BroomHarry crashed on the first tick without it
-- [ ] Missing Actor natives: Wind.GetWind,
-      PlayerPawn.ScreenToWorld, Console.CreateNativeFont
+- [ ] Missing Actor natives: PlayerPawn.ScreenToWorld, Console.CreateNativeFont
 - [ ] Unknown console command `Snap` (FEBook.OpenBook `Snap 3`: screenshot for the save thumbnail, see phase 4)
 - [x] `FellOutOfWorld` on the first tick: HP1 only checks zone 0 in physWalking/physFalling, not flying/swimming/rolling
       (`HP1::PhysicsChecksLeftWorld`), so the flying `tut1Peeves0` waiting outside the BSP now survives. `Tut1McGonagall4`
@@ -151,12 +150,21 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
       UParticle::Update (gravity, damping, attraction, chaos, drip, colour palettes, elasticity bounce), all
       distributions incl. owner mesh and gesture patterns, ParentBlend. Lev_Tut1's torch fires burn
 - [x] ParticleFX billboard rendering (`hp1/HP1ParticleRender.cpp`, from Render.dll `URender::DrawParticleSystem`)
-- [ ] ParticleFX: Line, Liquid, Shard, TriTube and bShellOnly passes (drawn as billboards for now; Render.dll
-      functors at 0x10B1B7D0, 0x10B17CE0, 0x10B17350, 0x10B194C0, 0x10B16C70)
-- [ ] ParticleFX: lighting for bUnlit=False systems, LodParticleDensity thinning, the billboard overdraw budget,
-      Wind (`AWind::GetTotalWind`), Mover hits for Elasticity
-- [ ] Verify particle effects against the original (spell trails, fires)
-- [ ] Spell targeting / eVulnerableToSpell paths
+- [x] ParticleFX render passes (`hp1/HP1ParticleRender.cpp`, `docs/re/particles.md` "Rendering"): Line ribbon, Shard
+      triangle, Liquid (hanging drop / falling streak: water drips, fountains), Billboard, bShellOnly screen-space pass,
+      stacked per RenderPrimitive like the original. TriTube isn't drawn (the original fails an assert after it).
+      The shipped content only uses Billboard and Liquid
+- [x] ParticleFX lighting for bUnlit=False systems (LightColor from SurrealEngine's vertex light; no shipped system is lit),
+      the billboard overdraw budget (PriorityTag-weighted screen area fades particles), Mover hits for Elasticity (the
+      original's FastLineCheck + SingleLineCheck rule). LodParticleDensity/Lod/LodParticles are dead code in HP1
+- [x] Wind (`hp1/HP1Wind.cpp`): AWind::Tick fluctuation, GetWind (point/directional, noise, falloff), GetTotalWind for
+      ParticleFX, Wind.GetWind (425)
+- [ ] Verify particle effects against the original side by side (spell trails, fires). Checked in ours only: Lev_Tut1 torch
+      fires, the Lev2_HogFront fountain (liquid streaks), Lev2_fire1 water drips (hanging drops), a spell cast's puff
+- [~] Spell targeting (`docs/re/spells.md`): `Actor.GetWorldCollisionBox` (286) ported, the stub's empty box made lock-on
+      FX and spell homing aim at the world origin; `GetRenderExtent` (274) too. A cast (AltFire → playeraiming → Target →
+      CastSpell) works in Lev_Tut1. Still to test: locking onto a real victim (eVulnerableToSpell picks the spell) and
+      hit reactions, which need the Flipendo lesson
 
 ## 4. Save games and front end
 - [x] Saving and loading (`hp1/HP1Save.cpp`, [docs/re/savegames.md](docs/re/savegames.md)): `SaveGame N` writes
@@ -178,7 +186,7 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
       FinishedInterpolation. Quidditch Bludgers/Snitch/Quaffle fly their paths at ~300 u/s
 - [x] Struct defaults with fixed array members (QuidCommentator's `CommentInfo Variant[8]`) loaded only element 0, which
       desynced every Quidditch/broom map on load ("Property value does not match property type!")
-- [ ] Wind, ImpactSoundSet, SoundContainer, ClipMarker, LocationID
+- [ ] ImpactSoundSet, SoundContainer, ClipMarker, LocationID
 - [x] `ViewFlash` (UGameEngine::Tick) and the screen flash: HP1 has no FlashScale, FlashFog.W is the brightness
       (`hp1/HP1View.cpp`). Cutscene FadeIn/FadeOut, damage flashes and the level fade-in now show
 - [~] Quidditch / broom levels: Lev_Tut2, Lev2_Quid1, Lev2_RemChase, Lev5_FlyKeys load and run their intros

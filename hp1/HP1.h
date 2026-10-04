@@ -57,6 +57,8 @@ namespace HP1
 
 	// UActor::UpdateBspInfo: world space render box of a skeletal mesh actor (culling, BSP placement).
 	BBox GetRenderBoundingBox(UActor* actor, USkeletalMesh* mesh);
+	// Actor.GetWorldCollisionBox for a skeletal mesh: the mesh's bounding box through GetMeshCoords (hp1/Anim).
+	BBox GetSkeletalCollisionBox(UActor* actor, USkeletalMesh* mesh);
 
 	// Engine::Tick, after PlayerCalcView: the camera's horizontal FOV for the window's aspect ratio.
 	float ViewFovAngle(float fovAngle, int width, int height);
@@ -92,8 +94,9 @@ namespace HP1
 	void PawnPhysicsTime(UPawn* pawn, float elapsed);
 	// UPawn::TickRotating / UPlayerPawn::TickRotating: APawn::physicsRotation.
 	void PawnPhysicsRotation(UPawn* pawn, float elapsed);
-	// ParticleFX (hp1/HP1ParticleFX.cpp). UActor::Tick: AParticleFX::Tick (ages the system, destroys it when done).
-	void TickParticleFX(UActor* actor, float elapsed);
+	// UActor::Tick, first: the Tick overrides of HP1's native actor classes. AParticleFX::Tick ages the system and
+	// destroys it when done (hp1/HP1ParticleFX.cpp); AWind::Tick moves the wind's fluctuation (hp1/HP1Wind.cpp).
+	void TickNativeActor(UActor* actor, float elapsed);
 	// UActor::Destroy: frees the particle list.
 	void ParticleFXDestroyed(UActor* actor);
 	// UActor::UpdateBspInfo for DrawType DT_Particles.

@@ -8,6 +8,7 @@ namespace HP1
 	void RegisterTraceNatives();
 	void RegisterGestureNatives();
 	void RegisterParticleNatives();
+	void RegisterWindNatives();
 	void RegisterCollisionNatives();
 	void RegisterNavigationNatives();
 	void RegisterSoundNatives();
@@ -29,6 +30,7 @@ namespace HP1
 		RegisterTraceNatives();
 		RegisterGestureNatives();
 		RegisterParticleNatives();
+		RegisterWindNatives();
 		RegisterCollisionNatives();
 		RegisterNavigationNatives();
 		RegisterSoundNatives();
