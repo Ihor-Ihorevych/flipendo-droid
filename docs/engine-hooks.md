@@ -98,6 +98,7 @@ Paths are relative to `engine/SurrealEngine/` unless they start with `engine/`.
 | `VM/Bytecode.h` | `FindLabelIndex` on a state with no statements returns -1 |
 | `VM/Frame.cpp` | `goto` to a label that doesn't exist logs "GotoLabel (x): Label not found" and stops the state code (UE1's UObject::GotoLabel) instead of a fatal error; HP1's `gargoyle.lookaround` does it (Lev4_Sneak, Lev3_Lumos) |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `TurnToward` on a pawn whose state frame has no code does nothing (UE1 never polls it) |
+| `Native/NActor.cpp`, `Native/NPawn.cpp`, `Packages/Engine/Actors/UActor.h`, `UActor.cpp` | ungated: `Sleep` keeps its remaining time in `Actor.LatentFloat` (saved with the actor) instead of a C++ field, done once under half a tick; `StopWaiting` ends only a Sleep (LatentFloat -1). A Sleep now survives save/load ([re/engine/savegames.md](re/engine/savegames.md)) |
 | `Render/VisibleFrame.cpp` | HP1 translucents are sorted back to front (a modulated sprite behind a particle system darkened it) |
 | `Packages/Engine/Resources/Textures/UIceTexture.cpp` | `HP1::UpdateIceTexture` (Fire.dll IceTexture) in `UpdateFrame` |
 | `UI/ErrorWindow/ErrorWindow.cpp` | the crash reporter also writes the exception and symbolized call stack to `<dump>.txt` |

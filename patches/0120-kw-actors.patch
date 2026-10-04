@@ -1,7 +1,7 @@
 flipendo: KnowWonder actor tick, native actors (ParticleFX, Wind), animation
 
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor.cpp b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
-index 29c45a1c..8f0a58ea 100644
+index 29c45a1c..be628774 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
 @@ -9,6 +9,7 @@
@@ -36,7 +36,19 @@ index 29c45a1c..8f0a58ea 100644
  	if (engine->LaunchInfo.IsDeusEx())
  	{
  		DistanceFromPlayer() = length(engine->viewport->Actor()->Location() - Location());
-@@ -215,6 +226,9 @@ void UActor::Tick(float elapsed)
+@@ -186,8 +197,9 @@ void UActor::Tick(float elapsed)
+ 	{
+ 		if (StateFrame->LatentState == LatentRunState::Sleep)
+ 		{
+-			SleepTimeLeft = std::max(SleepTimeLeft - elapsed, 0.0f);
+-			if (SleepTimeLeft == 0.0f)
++			// flipendo: the time left lives in LatentFloat (saved with the actor); done once under half a tick
++			LatentFloat() -= elapsed;
++			if (LatentFloat() < elapsed * 0.5f)
+ 				StateFrame->LatentState = LatentRunState::Continue;
+ 		}
+ 		else if (StateFrame->LatentState == LatentRunState::FinishInterpolation)
+@@ -215,6 +227,9 @@ void UActor::Tick(float elapsed)
  			CallEvent(this, EventName::Timer);
  		}
  	}
@@ -46,7 +58,7 @@ index 29c45a1c..8f0a58ea 100644
  }
  
  bool UActor::Move(const vec3& delta)
-@@ -395,3 +409,13 @@ float UActor::AIVisibility(std::optional<bool> bIncludeVelocity)
+@@ -395,3 +410,13 @@ float UActor::AIVisibility(std::optional<bool> bIncludeVelocity)
  	//LogMessage(Name.ToString() + ": AIVisibility");
  	return 0.0f;
  }
@@ -61,9 +73,18 @@ index 29c45a1c..8f0a58ea 100644
 +	return radius;
 +}
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor.h b/SurrealEngine/Packages/Engine/Actors/UActor.h
-index 2bb8bdf4..2e96d7d4 100644
+index 2bb8bdf4..a65b0cb9 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor.h
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor.h
+@@ -576,7 +576,7 @@ public:
+ 
+ 	int LastDrawFrame = -1;
+ 
+-	float SleepTimeLeft = 0.0f;
++	// flipendo: no SleepTimeLeft; Sleep's remaining time is LatentFloat(), saved with the actor
+ 	vec3 gravityVector;
+ 
+ 	// Index in level Actors array
 @@ -599,7 +599,7 @@ public:
  
  	float WorldSoundRadius() { return ((int)SoundRadius() + 1) * 25.0f; }

@@ -202,8 +202,8 @@ channels) and particle effects.
       Lev_Tut1 (camera and screenshots identical, [docs/re/engine/savegames.md](docs/re/engine/savegames.md)); try a save taken
       while the camera moves
 - [ ] Save/LoadObjectAsFile, CreateTextureFromScreenShot, `Snap 3`: no script uses them (low priority)
-- [ ] A `Sleep` doesn't survive save/load (SurrealEngine keeps the time outside `LatentFloat`), and saves from the
-      original game resume Sleep/FinishAnim without waiting (latent IDs 384/385 vs 257/262)
+- [x] A `Sleep` survives save/load (its time is `LatentFloat`, saved with the actor), and saves use the original's
+      latent IDs (Sleep 384, FinishAnim 385), so the original game's saves resume them
       ([docs/re/engine/savegames.md](docs/re/engine/savegames.md))
 
 ## 5. Remaining native classes and polish
