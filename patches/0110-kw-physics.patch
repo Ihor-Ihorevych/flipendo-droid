@@ -220,7 +220,7 @@ index e3c87b45..ae67268f 100644
  		return;
  
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
-index 07b200e2..f7a8ea84 100644
+index 07b200e2..77204bea 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
 @@ -8,9 +8,18 @@
@@ -251,6 +251,28 @@ index 07b200e2..f7a8ea84 100644
  		return nullptr;
  
  	OldLocation() = Location();
+@@ -421,7 +430,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
+ 				if (hit.Actor)
+ 				{
+ 					bool isBlocking;
+-					if (useBlockPlayers || UObject::TryCast<UPlayerPawn>(hit.Actor) || UObject::TryCast<UProjectile>(hit.Actor))
++					if (engine->LaunchInfo.IsKnowWonder()) // flipendo: HP1's AActor::IsBlockedBy (movers stop bCollideWorld actors)
++						isBlocking = KW::IsBlockedBy(this, hit.Actor);
++					else if (useBlockPlayers || UObject::TryCast<UPlayerPawn>(hit.Actor) || UObject::TryCast<UProjectile>(hit.Actor))
+ 						isBlocking = hit.Actor->bBlockPlayers() && bBlockPlayers();
+ 					else
+ 						isBlocking = hit.Actor->bBlockActors() && bBlockActors();
+@@ -528,7 +539,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
+ 		{
+ 			// We can't touch stuff we are blocked by
+ 			bool isBlocking;
+-			if (useBlockPlayers || UObject::TryCast<UPlayerPawn>(hit.Actor) || UObject::TryCast<UProjectile>(hit.Actor))
++			if (engine->LaunchInfo.IsKnowWonder()) // flipendo: HP1's AActor::IsBlockedBy
++				isBlocking = KW::IsBlockedBy(this, hit.Actor);
++			else if (useBlockPlayers || UObject::TryCast<UPlayerPawn>(hit.Actor) || UObject::TryCast<UProjectile>(hit.Actor))
+ 				isBlocking = hit.Actor->bBlockPlayers() && bBlockPlayers();
+ 			else
+ 				isBlocking = hit.Actor->bBlockActors() && bBlockActors();
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysFalling.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysFalling.cpp
 index 7fa151c8..d03cda65 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysFalling.cpp
@@ -328,6 +350,20 @@ index 22b4b664..2f0cc55a 100644
  	}
  
  	if (elapsed > 0.0f)
+diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysProjectile.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysProjectile.cpp
+index b7d5a857..2db43e38 100644
+--- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysProjectile.cpp
++++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysProjectile.cpp
+@@ -42,7 +42,8 @@ void UActor::TickProjectile(float elapsed)
+ 
+ 	CollisionHit hit = TryMove(Velocity() * elapsed);
+ 
+-	if (hit.Fraction < 1.0f && !hit.Actor && !bDeleteMe() && !bJustTeleported())
++	// flipendo: HP1's physProjectile raises HitWall for blocking actors too (a spell bumps a GridMover, then explodes on it)
++	if (hit.Fraction < 1.0f && (!hit.Actor || engine->LaunchInfo.IsKnowWonder()) && !bDeleteMe() && !bJustTeleported())
+ 	{
+ 		CallEvent(this, EventName::HitWall, { ExpressionValue::VectorValue(hit.Normal), ExpressionValue::ObjectValue(hit.Actor ? hit.Actor : Level()) });
+ 	}
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysRolling.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysRolling.cpp
 index 31d7896f..d4bd7bb1 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysRolling.cpp

@@ -1,10 +1,18 @@
 flipendo: KnowWonder sound and music
 
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
-index d5615c73..5266668c 100644
+index d5615c73..5fe8e130 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 +++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
-@@ -356,7 +356,8 @@ void USurrealAudioDevice::UpdateMusic()
+@@ -12,6 +12,7 @@
+ #include "Packages/Engine/Resources/UMusic.h"
+ #include "Packages/Engine/Resources/USound.h"
+ #include "Packages/Engine/Resources/Level/ULevel.h"
++#include "KW.h" // flipendo
+ 
+ static float square(float x) { return x * x; }
+ 
+@@ -356,7 +357,8 @@ void USurrealAudioDevice::UpdateMusic()
  		CurrentSong = m_Viewport->Actor()->Song();
  		CurrentSection = m_Viewport->Actor()->SongSection();
  
@@ -14,7 +22,26 @@ index d5615c73..5266668c 100644
  		{
  			int subsong = CurrentSection != 255 ? CurrentSection : 0;
  
-@@ -475,6 +476,39 @@ void USurrealAudioDevice::StopSound(UActor* Actor, int Id)
+@@ -370,12 +372,18 @@ void USurrealAudioDevice::UpdateMusic()
+ 			else
+ 				source = AudioSource::CreateMod(CurrentSong->Data, true, subsong);
+ 
++			if (engine->LaunchInfo.IsKnowWonder()) // flipendo: HP1 loops the song unless bDontLoopSong
++				source = KW::MusicSource(m_Viewport->Actor(), CurrentSong, std::move(source));
++
+ 			if (source)
+ 				m_Device->PlayMusic(std::move(source));
+ 		}
+ 
+ 		m_Viewport->Actor()->Transition() = MTRAN_None;
+ 	}
++
++	if (engine->LaunchInfo.IsKnowWonder() && m_Viewport && m_Viewport->Actor()) // flipendo: bSongFinished, end of a song played once
++		KW::TickMusic(m_Viewport->Actor(), CurrentSong);
+ }
+ 
+ bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 Location, float Volume, float Radius, float Pitch, bool isTalk)
+@@ -475,6 +483,39 @@ void USurrealAudioDevice::StopSound(UActor* Actor, int Id)
  	}
  }
  

@@ -13,7 +13,9 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 1. **Lev_Tut1b, the Flipendo challenge**: the Flipendo lesson in Lev_Tut1 was played by hand (2026-10-04) through all
    4 rounds (scored, house points), CutScene60 and the level change. In Lev_Tut1b the barrels, cauldrons and the wall
    symbol react to Flipendo; the symbol did nothing until touch was ported (a spell destroyed in its own Touch still
-   touches the trigger, `kw/KWTouch.cpp`). Next: play the rest of Lev_Tut1b by hand.
+   touches the trigger, `kw/KWTouch.cpp`). Played by hand 2026-10-05 up to the block puzzle; fixed there: the
+   block moves on Flipendo (movers block spells and get bumped), the blue save screen, music loops and ends like
+   the original (no stuck loop at a song's end). Next: finish Lev_Tut1b by hand.
 2. Broom / Quidditch levels now load and their paths fly (see phase 5). Lev4_Sneak runs: a `goto` to a missing label
    (gargoyle.lookaround's `lcloop`) now stops the state code like UE1 instead of a fatal error.
 3. **Dark levels**: HP1's light maps are ported (phase 5); the Quidditch pitch is lit like the original. Still to look

@@ -227,7 +227,7 @@ index 4b2aa5c5..b246f541 100644
  	frame.FY = (float)Y * Canvas.uiscale;
  	frame.FX2 = frame.FX * 0.5f;
 diff --git a/SurrealEngine/Render/RenderSubsystem.cpp b/SurrealEngine/Render/RenderSubsystem.cpp
-index f3fcef6d..551a4419 100644
+index f3fcef6d..326fbd73 100644
 --- a/SurrealEngine/Render/RenderSubsystem.cpp
 +++ b/SurrealEngine/Render/RenderSubsystem.cpp
 @@ -12,6 +12,7 @@
@@ -238,25 +238,22 @@ index f3fcef6d..551a4419 100644
  
  RenderSubsystem::RenderSubsystem(RenderDevice* renderdevice) : Device(renderdevice)
  {
-@@ -34,8 +35,15 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
- 	UPlayerPawn* player = UObject::TryCast<UPlayerPawn>(engine->CameraActor);
- 	if (player)
- 	{
--		flashScale = player->FlashScale();
--		flashFog = player->FlashFog();
-+		if (engine->LaunchInfo.IsKnowWonder()) // flipendo: HP1 has no FlashScale; FlashFog.W is the brightness
-+		{
-+			KW::ViewFlashParams(player, flashScale, flashFog);
-+		}
-+		else
-+		{
-+			flashScale = player->FlashScale();
-+			flashFog = player->FlashFog();
-+		}
- 	}
+@@ -32,7 +33,13 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
+ 	vec3 flashFog = vec3(0.0f, 0.0f, 0.0f);
  
- 	Device->Brightness = engine->client->Brightness;
-@@ -55,6 +63,9 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
+ 	UPlayerPawn* player = UObject::TryCast<UPlayerPawn>(engine->CameraActor);
+-	if (player)
++	if (engine->LaunchInfo.IsKnowWonder()) // flipendo: HP1 has no FlashScale; FlashFog.W is the brightness
++	{
++		// The flash is the viewport's player's, not the view target's (HP1 views through a camera actor)
++		if (engine->viewport && engine->viewport->Actor())
++			KW::ViewFlashParams(engine->viewport->Actor(), flashScale, flashFog);
++	}
++	else if (player)
+ 	{
+ 		flashScale = player->FlashScale();
+ 		flashFog = player->FlashFog();
+@@ -55,6 +62,9 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
  
  	PostRender();
  
