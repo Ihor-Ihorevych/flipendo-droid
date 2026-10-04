@@ -30,6 +30,8 @@ What was learned from the games' binaries and scripts.
 | [re/cutscenes.md](re/cutscenes.md) | CutScene command lists, how cutscenes move Harry, Lev_Tut1's scenes and merchants |
 | [re/savegames.md](re/savegames.md) | save slots, GameSaveInfo, thumbnails, loading |
 | [re/script_events.md](re/script_events.md) | every script event the native code raises, and which ones SurrealEngine didn't |
+| [re/lighting.md](re/lighting.md) | mesh lighting: light picking, colours and effects, per-vertex light, back-face culling |
+| [re/original_bugs.md](re/original_bugs.md) | bugs in the original game that Flipendo fixes instead of reproducing |
 
 ## The top-level files
 

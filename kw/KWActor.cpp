@@ -24,6 +24,11 @@ namespace KW
 			props.CollideType = cls->GetPropertyDataOffset("CollideType");
 			props.bAlignBottom = cls->GetPropertyDataOffset("bAlignBottom");
 			props.CollisionWidth = cls->GetPropertyDataOffset("CollisionWidth");
+			props.SpecularGlow = cls->GetPropertyDataOffset("SpecularGlow");
+			props.SpecularWidth = cls->GetPropertyDataOffset("SpecularWidth");
+			props.LightRadiusInner = cls->GetPropertyDataOffset("LightRadiusInner");
+			props.LightSource = cls->GetPropertyDataOffset("LightSource");
+			props.bDarkLight = cls->GetPropertyDataOffset("bDarkLight");
 			initialized = true;
 		}
 		return props;
