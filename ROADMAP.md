@@ -226,6 +226,8 @@ channels) and particle effects.
 - [ ] Run custom levels made by the HP1 modding community (collect a few test maps, list what breaks)
 - [ ] More built-in extras: FOV slider, frame limiter / uncapped framerate, controller support, speedrun timer,
       free camera
+- [ ] In-game modding tools: Dear ImGui overlay with actor list, live property inspector, console and mod manager,
+      built from the `HP1_DUMP`/`HP1_TRACE`/`HP1_EXEC` debug tools ([docs/modding.md](docs/modding.md))
 - [~] Modder docs: [docs/modding.md](docs/modding.md) (writing a mod, hooks, tools); still missing a worked
       "first mod" walkthrough
 

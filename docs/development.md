@@ -1,7 +1,7 @@
 # Development
 
 How the code is laid out, where the knowledge comes from, and the tools for working on the port. Build and run
-basics are in the [README](../README.md#getting-started).
+basics are in [CONTRIBUTING.md](../CONTRIBUTING.md#building).
 
 ## Layout
 

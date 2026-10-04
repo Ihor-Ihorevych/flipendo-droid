@@ -33,7 +33,7 @@ The folder you gave isn't a recognised game folder. The reason line says why:
 | `folder does not exist` | Check the path. Quote it if it contains spaces. |
 | `looks like the game's System folder` | Use the folder above `System/`. |
 | `no known game executable in its System folder` | The folder has no `System/HP.exe`. Use the install folder, not the disc or a parent folder. |
-| `System/HP.exe is not a recognised version (SHA-1 ...)` | Your game release isn't in the list yet. [Open an issue](../README.md#contributing) with the SHA-1, language and release. |
+| `System/HP.exe is not a recognised version (SHA-1 ...)` | Your game release isn't in the list yet. [Open an issue](../CONTRIBUTING.md#other-game-versions) with the SHA-1, language and release. |
 
 ### `Could not find package 'X' (needed by package 'Y')`
 
