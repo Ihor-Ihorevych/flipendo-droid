@@ -8,15 +8,15 @@
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include <cmath>
 
-// HP1 actors pick their collision primitive with Actor.CollideType. CT_Box is an oriented box centered on
-// the actor, with half extents CollisionRadius (X), CollisionWidth (Y) and CollisionHeight (Z) in the
-// actor's rotated frame. Lev_Tut1 uses it for BlockAll walls along the Grand Hall stairs (250 x 10 x 200),
+// HP1 actors pick their collision primitive with Actor.CollideType. CT_Box (UBox) is an oriented box centered on
+// the actor, with half extents CollisionRadius (X), CollisionWidth (Y, CollisionRadius when 0) and CollisionHeight (Z)
+// in the actor's rotated frame. Lev_Tut1 uses it for BlockAll walls along the Grand Hall stairs (250 x 10 x 200),
 // BlockPlayers, Triggers and CutScene trigger volumes. As cylinders they block or trigger far too much.
 //
-// Upstream's moving shapes are vertical cylinders (radius, half height). In the box's frame a yaw-rotated
-// box keeps the cylinder vertical, so a swept cylinder against the box is a ray against the box grown by
-// the radius in X/Y and the half height in Z. The grown box has square corners where the exact shape is
-// rounded, which only matters right at the box's vertical edges.
+// UBox::LineCheck / PointCheck move the check into the box's frame (AActor::ToLocal): start and end are transformed,
+// and the checking actor's extent box (CollisionRadius, CollisionRadius, CollisionHeight, axis aligned in the world)
+// becomes the bounding box of its rotated corners. Then it is box against box: the target box grown by that extent,
+// with square corners. Hit locations and normals go back to world space.
 
 namespace KW
 {
@@ -29,6 +29,8 @@ namespace KW
 			dvec3 Extents;
 		};
 
+		// IDA Engine.dll: ?GetCollisionBoundingBox@UBox@@UBE?AVFBox@@PBVAActor@@_N@Z [HP1 0x103FE130] (local box, bWorld=false)
+		// IDA Engine.dll: ?ToLocal@AActor@@UBE?AVFCoords@@XZ [HP1 0x1031BAC0]
 		Box GetBox(UActor* actor)
 		{
 			Box box;
@@ -37,7 +39,8 @@ namespace KW
 			box.Axis[0] = to_dvec3(normalize((rot * vec4(1.0f, 0.0f, 0.0f, 0.0f)).xyz()));
 			box.Axis[1] = to_dvec3(normalize((rot * vec4(0.0f, 1.0f, 0.0f, 0.0f)).xyz()));
 			box.Axis[2] = to_dvec3(normalize((rot * vec4(0.0f, 0.0f, 1.0f, 0.0f)).xyz()));
-			box.Extents = dvec3(std::abs(actor->CollisionRadius()), std::abs(CollisionWidth(actor)), std::abs(actor->CollisionHeight()));
+			float width = CollisionWidth(actor) == 0.0f ? actor->CollisionRadius() : CollisionWidth(actor);
+			box.Extents = dvec3(actor->CollisionRadius(), width, actor->CollisionHeight());
 			return box;
 		}
 
@@ -46,110 +49,121 @@ namespace KW
 			return dvec3(dot(v, box.Axis[0]), dot(v, box.Axis[1]), dot(v, box.Axis[2]));
 		}
 
-		// Cylinder half extents measured along the box axes. Exact for yaw-only boxes; for tilted boxes it
-		// is the cylinder's bounding box projected on the axes.
-		dvec3 CylinderExtents(const Box& box, double height, double radius)
+		vec3 ToWorldNormal(const Box& box, const dvec3& n)
+		{
+			dvec3 w = box.Axis[0] * n.x + box.Axis[1] * n.y + box.Axis[2] * n.z;
+			return vec3((float)w.x, (float)w.y, (float)w.z);
+		}
+
+		// The checking actor's world extent box (radius, radius, height) in the box's frame: half size of the bounding
+		// box of its rotated corners (FBox::TransformBy).
+		dvec3 CheckExtents(const Box& box, double height, double radius)
 		{
 			dvec3 e;
 			for (int i = 0; i < 3; i++)
-			{
-				double horiz = std::sqrt(box.Axis[i].x * box.Axis[i].x + box.Axis[i].y * box.Axis[i].y);
-				e[i] = radius * horiz + height * std::abs(box.Axis[i].z);
-			}
+				e[i] = radius * (std::abs(box.Axis[i].x) + std::abs(box.Axis[i].y)) + height * std::abs(box.Axis[i].z);
 			return e;
+		}
+
+		// The axis aligned point check (box of half size e at p against the box of half size b at the origin), in the
+		// box's frame. Overlap needs more than 0.003 of penetration on every axis. On overlap: the push-out normal and
+		// depth of the shallowest axis, tested in the order +Z, -Z, +Y, -Y, +X, -X (later axes only win when smaller).
+		// IDA Engine.dll: not exported: sub_103FC1D0 [HP1 0x103FC1D0] (thunk sub_10302D6F; UBox::PointCheck's test)
+		bool LocalPointCheck(const dvec3& b, const dvec3& p, const dvec3& e, dvec3& normal, double& depth)
+		{
+			dvec3 lo = p - e, hi = p + e;
+			for (int i = 0; i < 3; i++)
+			{
+				if (!(-b[i] + 0.003 < hi[i] && b[i] - 0.003 > lo[i]))
+					return false;
+			}
+			const double candidates[6] = { b.z - lo.z, hi.z + b.z, b.y - lo.y, hi.y + b.y, b.x - lo.x, hi.x + b.x };
+			const dvec3 normals[6] = { dvec3(0, 0, 1), dvec3(0, 0, -1), dvec3(0, 1, 0), dvec3(0, -1, 0), dvec3(1, 0, 0), dvec3(-1, 0, 0) };
+			depth = candidates[0];
+			normal = normals[0];
+			for (int i = 1; i < 6; i++)
+			{
+				if (candidates[i] < depth)
+				{
+					depth = candidates[i];
+					normal = normals[i];
+				}
+			}
+			return true;
 		}
 	}
 
 	// IDA Engine.dll: ?LineCheck@UBox@@UAEHAAUFCheckResult@@PAVAActor@@VFVector@@22K@Z [HP1 0x103FE620]
 	// IDA Engine.dll: ?PointCheck@UBox@@UAEHAAUFCheckResult@@PAVAActor@@VFVector@@2K@Z [HP1 0x103FE590]
-	//   NOT yet verified against these: written from the Actor.uc CollideType comments. UBox builds its box via
-	//   vtable+96 and tests in sub_10303166 (line) / sub_10302D6F (point).
 	bool IsBoxCollider(UActor* actor)
 	{
 		return CollideType(actor) == CT_Box && !actor->Brush();
 	}
 
+	// The segment origin + dir * [tmin, tmax] against the box. Starting outside: the earliest of the six grown faces
+	// the segment crosses (tested -X, +X, -Y, +Y, -Z, +Z) whose crossing point, 0.001 inside, lies inside the grown box;
+	// the time is pulled back by 0.001 of the segment. Starting inside: blocked at once only when the end is inside too
+	// and deeper (larger shallowest-axis depth) than the start, with the start's push-out normal; otherwise free, so an
+	// actor that ends up overlapping can move out or along.
+	// IDA Engine.dll: not exported: sub_103FC980 [HP1 0x103FC980] (thunk sub_10303166; UBox::LineCheck's test)
 	double BoxActorTrace(UActor* actor, const dvec3& origin, double tmin, const dvec3& dirNormalized, double tmax, double height, double radius, vec3& outNormal)
 	{
 		Box box = GetBox(actor);
-		dvec3 ext = box.Extents + CylinderExtents(box, height, radius);
-		dvec3 o = ToLocal(box, origin - box.Center);
-		dvec3 d = ToLocal(box, dirNormalized);
+		dvec3 e = CheckExtents(box, height, radius);
+		dvec3 start = ToLocal(box, origin + dirNormalized * tmin - box.Center);
+		dvec3 end = ToLocal(box, origin + dirNormalized * tmax - box.Center);
+		dvec3 b = box.Extents;
 
-		// Slab test
-		double tEnter = -1e30, tExit = 1e30;
-		int enterAxis = -1;
-		double enterSign = 0.0;
-		for (int i = 0; i < 3; i++)
+		dvec3 startNormal;
+		double startDepth;
+		if (LocalPointCheck(b, start, e, startNormal, startDepth))
 		{
-			if (std::abs(d[i]) < 1e-12)
+			dvec3 endNormal;
+			double endDepth;
+			if (LocalPointCheck(b, end, e, endNormal, endDepth) && endDepth > startDepth)
 			{
-				if (o[i] < -ext[i] || o[i] > ext[i])
-					return tmax;
-				continue;
+				outNormal = ToWorldNormal(box, startNormal);
+				return tmin;
 			}
-			double t0 = (-ext[i] - o[i]) / d[i];
-			double t1 = (ext[i] - o[i]) / d[i];
-			double sign = -1.0; // entering through the -ext face
-			if (t0 > t1)
-			{
-				std::swap(t0, t1);
-				sign = 1.0;
-			}
-			if (t0 > tEnter)
-			{
-				tEnter = t0;
-				enterAxis = i;
-				enterSign = sign;
-			}
-			tExit = std::min(tExit, t1);
-		}
-		if (enterAxis < 0 || tEnter > tExit || tExit < tmin || tEnter >= tmax)
 			return tmax;
-
-		if (tEnter < tmin)
-		{
-			// Starting inside (or touching) the box: block only movement further in, through the nearest
-			// face, so an actor that ends up overlapping can still walk out.
-			int axis = 0;
-			double best = 1e30, sign = 1.0;
-			for (int i = 0; i < 3; i++)
-			{
-				double depth = ext[i] - std::abs(o[i]);
-				if (depth < best)
-				{
-					best = depth;
-					axis = i;
-					sign = o[i] >= 0.0 ? 1.0 : -1.0;
-				}
-			}
-			if (d[axis] * sign >= 0.0)
-				return tmax;
-			enterAxis = axis;
-			enterSign = sign;
-			tEnter = tmin;
 		}
 
-		dvec3 n = box.Axis[enterAxis] * enterSign;
-		outNormal = vec3((float)n.x, (float)n.y, (float)n.z);
-		return tEnter;
+		dvec3 grown = b + e;
+		dvec3 delta = end - start;
+		double time = 1.0;
+		dvec3 hitNormal(0.0);
+		for (int i = 0; i < 6; i++)
+		{
+			int axis = i / 2;
+			double sign = (i & 1) ? 1.0 : -1.0; // -X face first, then +X
+			double dist = sign < 0.0 ? (-grown[axis] - start[axis]) : (start[axis] - grown[axis]);
+			double travel = sign < 0.0 ? delta[axis] : -delta[axis];
+			if (dist <= -0.003 || std::max(dist, 0.0) >= travel * time)
+				continue;
+			double t = std::max(dist / travel, 0.0);
+			dvec3 n(0.0);
+			n[axis] = sign;
+			dvec3 p = start + delta * t - n * 0.001;
+			if (p.x > -grown.x && p.x < grown.x && p.y > -grown.y && p.y < grown.y && p.z > -grown.z && p.z < grown.z)
+			{
+				time = std::max(t - 0.001, 0.0);
+				hitNormal = n;
+			}
+		}
+		if (time == 1.0)
+			return tmax;
+		outNormal = ToWorldNormal(box, hitNormal);
+		return tmin + (tmax - tmin) * time;
 	}
 
+	// UBox::PointCheck with the cylinder's extent box (CollisionRadius, CollisionRadius, CollisionHeight).
+	// IDA Engine.dll: not exported: sub_103FC1D0 [HP1 0x103FC1D0] (thunk sub_10302D6F)
 	bool BoxActorOverlapCylinder(UActor* actor, const dvec3& center, double height, double radius)
 	{
 		Box box = GetBox(actor);
-		dvec3 p = ToLocal(box, center - box.Center);
-		bool yawOnly = std::abs(box.Axis[2].z) > 0.9999;
-		if (!yawOnly)
-		{
-			dvec3 ext = box.Extents + CylinderExtents(box, height, radius);
-			return std::abs(p.x) < ext.x && std::abs(p.y) < ext.y && std::abs(p.z) < ext.z;
-		}
-		if (std::abs(p.z) >= box.Extents.z + height)
-			return false;
-		double dx = std::max(std::abs(p.x) - box.Extents.x, 0.0);
-		double dy = std::max(std::abs(p.y) - box.Extents.y, 0.0);
-		return dx * dx + dy * dy < radius * radius;
+		dvec3 normal;
+		double depth;
+		return LocalPointCheck(box.Extents, ToLocal(box, center - box.Center), CheckExtents(box, height, radius), normal, depth);
 	}
 
 	bool BoxActorOverlapSphere(UActor* actor, const dvec3& center, double radius)
