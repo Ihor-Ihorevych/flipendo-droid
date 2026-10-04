@@ -123,7 +123,7 @@ namespace KW
 	}
 
 	// IDA Engine.dll: ?FGetHSV@@YA?AVFPlane@@EEE@Z [HP1 0x10420DD0]
-	static vec3 GetHSV(uint8_t hue, uint8_t saturation, uint8_t brightness)
+	vec3 GetHSV(uint8_t hue, uint8_t saturation, uint8_t brightness)
 	{
 		float v = brightness * 0.0054901959f;
 		float scale = std::clamp(0.7f / (std::sqrt(v) + 0.01f) * v, 0.0f, 1.0f);
@@ -155,7 +155,7 @@ namespace KW
 	//   sub_10B06370 (None), nullsub (Steady, Backdrop), sub_10B06390 (Pulse), sub_10B06410 (Blink), sub_10B06470
 	//   (Flicker), sub_10B064B0 (Strobe), sub_10B06510 (SubtlePulse), sub_10B06590/sub_10B066D0 (TexturePalette)
 	// The light's colour and brightness (0..1) this frame. The viewport's realtime flag is taken as set (in game).
-	static vec3 GlobalLighting(UActor* light, float& brightness)
+	vec3 GlobalLighting(UActor* light, float& brightness)
 	{
 		MeshLightState& s = State();
 		vec3 color = GetHSV(light->LightHue(), light->LightSaturation(), 255);

@@ -18,9 +18,8 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
    scoring over all 4 rounds, then Lev_Tut1b.
 2. Broom / Quidditch levels now load and their paths fly (see phase 5). Lev4_Sneak runs: a `goto` to a missing label
    (gargoyle.lookaround's `lcloop`) now stops the state code like UE1 instead of a fatal error.
-3. **Dark levels**: BSP surfaces lit by HP1's `LD_Plane` / `LD_Ambient` lights and `LightRadiusInner` come out far too
-   dark (the Quidditch pitch; Lev_Tut2 and Lev5_FlyKeys are nearly black), see phase 5. Not a parity detail: those
-   levels are hard to play like this.
+3. **Dark levels**: HP1's light maps are ported (phase 5); the Quidditch pitch is lit like the original. Still to look
+   at: Lev_Tut2 and Lev5_FlyKeys (were nearly black).
 4. **First prebuilt release** (see "Releases"): players can't try Flipendo without building it.
 
 Visual parity checks against the original, side by side, wait until the end (after gameplay works): mesh lighting
@@ -211,8 +210,10 @@ channels) and particle effects.
       (front and back quads z-fought). Not yet compared side by side with the original
 - [x] Skeletal mesh back-face cull and vertex normals had the winding backwards (the original tests in view space, a
       reflection of world space): every character was drawn inside out and lit from behind ([docs/re/lighting.md](docs/re/lighting.md))
-- [ ] BSP surface lighting for HP1's `LightSource` (`LD_Plane` parallel, `LD_Ambient`) and `LightRadiusInner`:
-      SurrealEngine ignores them, outdoor maps lit by them (the Quidditch pitch) are too dark. Needs Render.dll's light map code
+- [x] BSP light maps (`kw/KWLightmap.cpp`, [docs/re/lighting.md](docs/re/lighting.md) "Light maps"): HP1's `LightSource`
+      (`LD_Plane` parallel, `LD_Ambient`), `LightRadiusInner`, its smoothstep falloff, the 2x colour scale with 7-bit
+      clamps, bDarkLight, the zone ambient, and `WorldLightRadius` scaled by DrawScale. The Quidditch pitch is lit like the original.
+      Waver flicker and the rarer light effects (~60 lights) still use SurrealEngine's
 - [ ] Bugs of the original to fix, not reproduce: [docs/re/original_bugs.md](docs/re/original_bugs.md)
 - [x] ImpactSoundSet, SoundContainer, ClipMarker, LocationID: Engine.dll has no native code for them, only boilerplate;
       their script classes are enough ([docs/re/native_classes.md](docs/re/native_classes.md))
@@ -240,6 +241,56 @@ channels) and particle effects.
       built from the `HP1_DUMP`/`HP1_TRACE`/`HP1_EXEC` debug tools ([docs/modding.md](docs/modding.md))
 - [~] Modder docs: [docs/modding.md](docs/modding.md) (writing a mod, hooks, tools); still missing a worked
       "first mod" walkthrough
+
+## 7. Editor (grows out of the §6 ImGui overlay)
+The editor runs inside the game (no separate UnrealEd-style program): play-in-editor for free, edits visible while
+the game runs. Steps 1–2 can go alongside the first playable release (they double as debugging tools); the rest
+after it.
+
+Ground rules:
+- Read and write the original formats (`.unr`, `.u`), so existing community maps open in Flipendo and Flipendo maps
+  are ordinary UE1 packages. No private map format.
+- UnrealScript stays the game's language. The new scripting layers sit on top and never replace it, so existing
+  mods keep working.
+- Same editor for HP1 and HP2, gated like the rest (`IsKnowWonder()`), and it runs on Linux too.
+- First check what SurrealEngine's own `SurrealEditor` (builds alongside the game) already has: package loading,
+  viewports, anything reusable. Building on it means less of our code in `engine/`.
+
+1. Core
+   - [ ] Object tree: every actor in the level, filterable (class, tag, event, name, gamestate) and sortable, click to
+         select and focus the camera
+   - [ ] 3D previews of meshes, textures and prefabs in the browsers
+   - [ ] Property inspector with edit (the §6 overlay one), showing which values differ from the defaults
+   - [ ] ImGuizmo for move / rotate / scale, grid and angle snapping, multi-select
+   - [ ] Load maps and packages from the editor (file picker, recent list, `Mods/` folders included)
+   - [ ] Save to `.unr`: package writer (name / import / export tables). **Biggest risk:** BSP / CSG rebuild after
+         moving brushes; check early whether anything usable exists (SurrealEngine has no builder) before relying on it
+   - [ ] Undo / redo, copy / paste (also across maps), autosave and crash recovery
+2. Clarity
+   - [ ] Trigger graph: Event → Tag links drawn as lines in the viewport, highlight what a trigger fires
+   - [ ] Validator: broken references, missing textures, triggers that fire nothing, unreachable path nodes; click a
+         result to jump to it
+   - [ ] Gamestate preview: switch GState000/GState010/… and see which actors exist
+   - [ ] Search across all maps and packages ("where is this class used?")
+   - [ ] Prefab browser
+3. Scripting
+   - [ ] Sequence editor (timeline + nodes) for cutscenes and scripted moments; it outputs the game's existing cutscene
+         commands, so the result runs like an original cutscene
+   - [ ] Lua (or similar) for mod logic, with hot reload; bindings to actors, events and the cutscene system
+4. Assets and external tools
+   - [ ] Blender addon: import / export of the KnowWonder skeletal mesh and animation format (custom characters)
+   - [ ] "Edit in external app" for textures (Photoshop / Krita / GIMP): watch the file, reimport live on save. Small
+         built-in editor only for quick fixes (alpha, resize, palette)
+   - [ ] Text map format (T3D-like) for diffs and teamwork in git
+   - [ ] Sound browser with preview, dialogue and lipsync editor, localization strings
+5. HP tools
+   - [ ] Spell editor: draw new gesture shapes for the recognizer (`Gesture`) and attach effects
+   - [ ] ParticleFX editor with live preview (`kw/KWParticleFX.cpp`)
+   - [ ] Lighting: rebuild lightmaps, per-surface light scale preview
+   - [ ] Path-node building and visualization for AI navigation
+6. Sharing
+   - [ ] "Package mod": writes `Mods/<name>/` with a manifest (version, dependencies, game)
+   - [ ] In-game mod browser: enable / disable, load order; later a community mod index
 
 ## Releases
 - [ ] Prebuilt Windows download on the release page (zip with `SurrealEngine.exe` and its DLLs; no game data), with a

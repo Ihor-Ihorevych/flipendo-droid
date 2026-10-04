@@ -62,6 +62,8 @@ Paths are relative to `engine/SurrealEngine/` unless they start with `engine/`.
 | `Packages/Engine/Resources/Mesh/UAnimation.cpp` | `HP1::LoadAnimation` |
 | `Packages/Engine/Actors/UActor_Animation.cpp` | `HP1::TickAnimation` |
 | `Render/VisibleMesh.cpp` | `HP1::DrawSkeletalMesh` in `DrawSkeletalMesh` |
+| `Packages/Engine/Actors/UActor.h`, `UActor.cpp` | `WorldLightRadius` scaled by `max(DrawScale, 1)` for KnowWonder (moved out of line) |
+| `Light/LightmapBuilder.cpp` | BSP light maps: `KW::LightmapAmbient` (SetAmbientLight), `KW::LightmapIllumination` instead of `LightEffect::Run` (falloff, LightSource, LightRadiusInner), `KW::AddLightmapLight` (AddLightContribution: colour scale, 7-bit clamps, bDarkLight) |
 | `Packages/Engine/Actors/UActor_Render.cpp` | `HP1::GetRenderBoundingBox` in `UpdateBspInfo` |
 | `Packages/Engine/Actors/UActor_PhysMovingBrush.cpp` | `HP1::MoverPhysicsBegin/End` (Mover's shadowed PhysAlpha/PhysRate) |
 | `Render/RenderSubsystem.cpp` | `HP1::OnFrameRendered` (`HP1_SHOTS` debug screenshots) |

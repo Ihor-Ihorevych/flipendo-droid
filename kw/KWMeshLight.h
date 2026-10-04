@@ -39,4 +39,9 @@ namespace KW
 	// Sets up the lighting of a mesh actor: ambient from its zone, and the lights picked for lightActor (the actor
 	// whose location and lights are used, e.g. the owner of a weapon).
 	void SetupMeshLighting(MeshLighting& out, UActor* actor, UActor* lightActor, UZoneInfo* zone);
+
+	// Engine.dll's FGetHSV: a hue/saturation/brightness colour (brightness bent by HP1's curve).
+	vec3 GetHSV(uint8_t hue, uint8_t saturation, uint8_t brightness);
+	// URender::GlobalLighting: a light's colour this frame; brightness (0..1 in) is changed by its LightType.
+	vec3 GlobalLighting(UActor* light, float& brightness);
 }

@@ -1,7 +1,7 @@
 flipendo: KnowWonder actor tick, native actors (ParticleFX, Wind), animation
 
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor.cpp b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
-index 29c45a1c..2ba3c901 100644
+index 29c45a1c..bb969af6 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
 @@ -9,6 +9,7 @@
@@ -46,6 +46,33 @@ index 29c45a1c..2ba3c901 100644
  }
  
  bool UActor::Move(const vec3& delta)
+@@ -395,3 +409,13 @@ float UActor::AIVisibility(std::optional<bool> bIncludeVelocity)
+ 	//LogMessage(Name.ToString() + ": AIVisibility");
+ 	return 0.0f;
+ }
++
++// flipendo: KnowWonder's AActor::WorldLightRadius is max(DrawScale, 1) * (LightRadius + 1) * 25 (the Quidditch suns,
++// DrawScale 5, reach 32000 units). docs/re/lighting.md.
++float UActor::WorldLightRadius()
++{
++	float radius = ((int)LightRadius() + 1) * 25.0f;
++	if (engine->LaunchInfo.IsKnowWonder())
++		radius *= std::max(DrawScale(), 1.0f);
++	return radius;
++}
+diff --git a/SurrealEngine/Packages/Engine/Actors/UActor.h b/SurrealEngine/Packages/Engine/Actors/UActor.h
+index 2bb8bdf4..2e96d7d4 100644
+--- a/SurrealEngine/Packages/Engine/Actors/UActor.h
++++ b/SurrealEngine/Packages/Engine/Actors/UActor.h
+@@ -599,7 +599,7 @@ public:
+ 
+ 	float WorldSoundRadius() { return ((int)SoundRadius() + 1) * 25.0f; }
+ 	float WorldVolumetricRadius() { return ((int)VolumeRadius() + 1) * 25.0f; }
+-	float WorldLightRadius() { return ((int)LightRadius() + 1) * 25.0f; }
++	float WorldLightRadius(); // flipendo: KnowWonder scales it by DrawScale (UActor.cpp)
+ 
+ 	vec3& Acceleration() { return Value<vec3>(PropOffsets_Actor.Acceleration); }
+ 	uint8_t& AmbientGlow() { return Value<uint8_t>(PropOffsets_Actor.AmbientGlow); }
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
 index aceba9af..236654d4 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
