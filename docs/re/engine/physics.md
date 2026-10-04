@@ -2,7 +2,8 @@
 
 KnowWonder's physics modes, pawn movement and latent moves where they differ from what SurrealEngine does. Ported in
 `kw/KWPawn.cpp`, `kw/KWMover.cpp`, `kw/KWInterpolation.cpp`, `kw/KWNavigation.cpp`, `kw/KWAttach.cpp`
-(`physTrailer`, [animation.md](animation.md#bones-and-attachments)) and `kw/KWCollision.cpp` (`setPhysics`).
+(`physTrailer`, [animation.md](animation.md#bones-and-attachments)), `kw/KWCollision.cpp` (`setPhysics`) and
+`kw/KWTouch.cpp` (Touch).
 Root motion is in [animation.md](animation.md#root-motion-banimmove). Addresses are HP1's.
 
 ## HP1 and HP2
@@ -67,6 +68,22 @@ DesiredSpeed is halved once when the next physics step would pass the target; ai
   it for this step).
 - `Pawn.FindPath` (native 553, KnowWonder's): the first step from startPoint towards the navigation point named
   DestName, used by HP1's station-to-station AI (`tut1Peeves` and the other "basestation" patrollers).
+
+## Touch
+
+`AActor::BeginTouch` (0x10379FE0, byte-identical in HP2) is called by `ULevel::MoveActor` on the moving actor for
+every actor it moved into: `sub_1037A0A0(Actor, Other)` and only if that returns true `sub_1037A0A0(Other, Actor)`.
+`sub_1037A0A0` (0x1037A0A0) puts Other in the last free slot of Actor's `Touching[4]` and raises `Actor.Touch(Other)`;
+it returns false only when that event took Other out of the slot again. A full array first drops every entry with
+PHYS_None (`EndTouch` with UnTouch); still full, a Pawn Other drops the first non-pawn; still full, a `bIsPlayer` Other
+(Pawn's second bool) drops the first pawn that isn't one; otherwise there is no touch.
+
+The second side also runs when the first side's Touch destroyed Actor: `ULevel::DestroyActor` (0x103A72C0) only unlinks
+actors whose `Touching` lists the destroyed one (`EndTouch(.., 1)`), and Other doesn't yet. A spell explodes
+(`Destroy()`) in its own Touch (`baseSpell.Flying.ProcessTouch`), then the `spellTrigger` it hit gets
+`Touch(spell)` and fires its Event: Lev_Tut1b's Flipendo wall symbol (`spellTrigger9` -> `dispatcher155`, which
+opens the way). SurrealEngine linked both arrays before the first event, the spell's Destroy unlinked the trigger and
+the trigger was never told, so the symbol did nothing.
 
 ## Movers
 

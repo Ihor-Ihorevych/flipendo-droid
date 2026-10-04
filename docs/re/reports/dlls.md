@@ -11,7 +11,7 @@ Details: [native_audit_hp1.md](native_audit_hp1.md), [native_audit_hp2.md](nativ
 | DLL | HP1 | HP2 | exports HP1 / HP2 | ported functions | provided by |
 |---|---|---|---|---|---|
 | [Core](#core) | 840 KB | 904 KB | 2046 / 2070 | 6 | SurrealEngine |
-| [Engine](#engine) | 2072 KB | 2092 KB | 2722 / 2784 | 125 | SurrealEngine + **kw/** |
+| [Engine](#engine) | 2072 KB | 2092 KB | 2722 / 2784 | 126 | SurrealEngine + **kw/** |
 | [Fire](#fire) | 104 KB | 104 KB | 133 / 133 | 7 | SurrealEngine + kw/ (IceTexture) |
 | [Render](#render) | 288 KB | 296 KB | 93 / 94 | 5 | SurrealEngine + kw/ (particles) |
 | [D3DDrv](#d3ddrv) | 216 KB | 216 KB | 392 / 392 | 0 | replaced (SurrealEngine render devices) |
@@ -65,12 +65,13 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 
 **HP2 script natives** (Engine.u): 102 OK, 24 HP1_PORT, 25 STUB, 3 MISSING, 1 INDEX, 4 OTHER_GAME.
 
-**Reimplemented in Flipendo** (125):
+**Reimplemented in Flipendo** (126):
 
 | function | where | HP2 |
 |---|---|---|
 | `??0AParticleFX@@QAE@XZ` | `kw/KWParticleFX.cpp:70` | changed |
 | `?FGetHSV@@YA?AVFPlane@@EEE@Z` | `kw/KWMeshLight.cpp:125` | identical |
+| `AActor::BeginTouch` | `kw/KWTouch.cpp:87` | identical |
 | `AActor::CreateAnimChannel` | `kw/Anim/KWAnimState.cpp:72` | missing |
 | `AActor::GetPrimitive` | `kw/KWCollision.cpp:237` | changed |
 | `AActor::IsAnimating` | `kw/Anim/KWAnimState.cpp:213` | offsets only |

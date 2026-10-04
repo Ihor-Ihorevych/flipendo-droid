@@ -11,7 +11,7 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 
 ## Ported functions (`// IDA` tags in kw/, hp1/ and hp2/)
 
-133 tagged exports: 26 identical, 18 offsets only, 78 changed, 1 missing in HP2, 4 HP2 only, 6 no fingerprint.
+134 tagged exports: 27 identical, 18 offsets only, 78 changed, 1 missing in HP2, 4 HP2 only, 6 no fingerprint.
 
 ### Changed (78)
 
@@ -145,7 +145,7 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 | Engine | `?findPath@APawn@@QAE_NAAPAVANavigationPoint@@PAVAActor@@VFName@@@Z` | `kw/KWNavigation.cpp:23` | HP2 0x1040FB10 |
 | Engine | `?setPhysics@AActor@@QAEXEPAV1@@Z` | `kw/KWCollision.cpp:358` | HP2 0x103F25C0 |
 
-### Identical (26)
+### Identical (27)
 
 | DLL | function | port | note |
 |---|---|---|---|
@@ -154,6 +154,7 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 | Core | `?GRegisterNative@@YAEHABQ8UObject@@AEXAAUFFrame@@QAX@Z@Z` | `hp2/HP2Bytecode.cpp:19` |  |
 | Core | `?OrthoRotation@FCoords@@QBE?AVFRotator@@XZ` | `kw/KWInterpolation.cpp:151` |  |
 | Core | `?SlerpQuat@@YA?AVFQuat@@ABV1@0M@Z` | `kw/Anim/KWSkeletal.cpp:81` |  |
+| Engine | `?BeginTouch@AActor@@QAEXPAV1@@Z` | `kw/KWTouch.cpp:87` |  |
 | Engine | `?BoneName@USkeletalMesh@@QBE?AVFName@@H@Z` | `kw/Anim/KWAnimState.cpp:429` |  |
 | Engine | `?CreateNativeFont@UViewport@@UAEPAVUFont@@PBGH@Z` | `kw/KWPlayerNatives.cpp:153` |  |
 | Engine | `?FGetHSV@@YA?AVFPlane@@EEE@Z` | `kw/KWMeshLight.cpp:125` |  |

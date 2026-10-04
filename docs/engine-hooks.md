@@ -105,6 +105,7 @@ Paths are relative to `engine/SurrealEngine/` unless they start with `engine/`.
 | `Packages/Engine/Subsystems/USurrealAudioDevice.cpp/.h` | `ModifySoundHP1` / `StopSoundHP1` (Galaxy.dll's slot + sound match) |
 | `Packages/Core/Properties/UStructProperty.cpp` | struct members that are fixed arrays load/save every element |
 | `Packages/Engine/Actors/UActor_PhysTrailer.cpp` | `HP1::PhysTrailer` (AnimBone attachment, HP1's rotation rules) |
+| `Packages/Engine/Actors/UActor_Touch.cpp` | `KW::BeginTouch` in `Touch` (one side at a time, the trigger is told even when the spell destroyed itself) |
 | `Render/VisibleMesh.cpp` | weapon on a skeletal pawn: `HP1::PawnWeaponFrame` (WeaponLoc/WeaponRot) + `Begin/EndWeaponDraw` around the weapon draw |
 | `Render/RenderCanvas.cpp` | RenderOverlays only without bBehindView, on the ViewTarget |
 | `Package/PackageManager.cpp/.h`, `Package/Package.cpp` | missing data messages: a missing package names who imports it and every Paths folder searched; missing maps list the map folders; Paths folders that don't exist and imports a package lacks are logged ([troubleshooting](troubleshooting.md)) |

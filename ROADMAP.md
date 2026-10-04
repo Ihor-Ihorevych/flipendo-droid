@@ -10,12 +10,10 @@ The native-level checklist is [docs/re/reports/native_audit_hp1.md](docs/re/repo
 Legend: [x] done · [~] partly done / in progress · [ ] not started
 
 ## Next up (in order)
-1. **Lev_Tut1, the Flipendo lesson**: played by hand (2026-10-04) through the wizard card room, Malfoy, Hermione and
-   Quirrell into the Flipendo lesson, which now runs (template, wand, pass mark, timer, IceTexture blackboard). The
-   lesson hung on the second judging round (`disable('Tick')` outlived the state, fixed). After it, CutScene60 opens the
-   classroom door, Quirrell leads Harry out and the level changes to Lev_Tut1b (tested with `@trigger CUTFLIPBEGIN`:
-   inventory travels, first-tick autosave, Lev_Tut1b's intro plays). Next: play the whole lesson by hand to confirm
-   scoring over all 4 rounds, then Lev_Tut1b.
+1. **Lev_Tut1b, the Flipendo challenge**: the Flipendo lesson in Lev_Tut1 was played by hand (2026-10-04) through all
+   4 rounds (scored, house points), CutScene60 and the level change. In Lev_Tut1b the barrels, cauldrons and the wall
+   symbol react to Flipendo; the symbol did nothing until touch was ported (a spell destroyed in its own Touch still
+   touches the trigger, `kw/KWTouch.cpp`). Next: play the rest of Lev_Tut1b by hand.
 2. Broom / Quidditch levels now load and their paths fly (see phase 5). Lev4_Sneak runs: a `goto` to a missing label
    (gargoyle.lookaround's `lcloop`) now stops the state code like UE1 instead of a fatal error.
 3. **Dark levels**: HP1's light maps are ported (phase 5); the Quidditch pitch is lit like the original. Still to look
@@ -142,6 +140,9 @@ channels) and particle effects.
 - [x] Level change Lev_Tut1 → Lev_Tut1b (CutScene60 `CHANGELEVEL` → ServerTravel with items, first-tick autosave)
 - [x] Spell lesson no longer hangs on its second round: `GotoState` re-enables events turned off with `Disable`, like
       Core.dll ([docs/re/hp1/spells.md](docs/re/hp1/spells.md))
+- [x] Flipendo lesson played by hand through all 4 rounds into Lev_Tut1b
+- [x] Touch like `AActor::BeginTouch` (`kw/KWTouch.cpp`, [docs/re/engine/physics.md](docs/re/engine/physics.md#touch)): a
+      spell that explodes in its own Touch still triggers the `spellTrigger` it hit (Lev_Tut1b's Flipendo wall symbol)
 - [x] `Pawn.FindPath` (553, KnowWonder's station pathing; tut1Peeves crashed the game without it,
       `kw/KWNavigation.cpp`)
 - [x] ModifySound(567), StopSound(568) (`kw/KWSound.cpp`; Galaxy.dll's match: first sound with the slot's Id and,
