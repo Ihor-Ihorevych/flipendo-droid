@@ -93,3 +93,15 @@ HP1_KEYS="62:Up:5" HP1_GOTO="79:-400,-2000;-104,-2016;-20,-2016;140,-2016;232,-2
 ```
 
 `SurrealDebugger` (an UnrealScript debugger: breakpoints, call stack, disassembly) builds alongside the game.
+
+## Comparing with HP2
+
+HP2 (retail 1.0, `../eagames/hp2`) runs on the same engine build (433). To see which HP1 ports carry over:
+
+1. Open each DLL in IDA (HP1: `../ida/<Dll>.dll(.i64)`, HP2: copies in `../ida/hp2/`).
+2. In each database run `exec(open(r'<repo>/tools/ida_fingerprint.py').read()); fingerprint(r'../ida/fingerprints/<hp1|hp2>_<Dll>.json')`.
+3. `python tools/hp2_compare.py` writes [hp2_compare.md](hp2_compare.md): per DLL how many exports are identical, differ
+   only in struct offsets/constants, or changed, and the same for every `// IDA`-tagged function in `hp1/`.
+
+Native `exec*` wrappers mostly show as changed by about 29 bytes each; that looks systematic (not yet checked), so
+read the HP2 code before treating one of those as a real change.
