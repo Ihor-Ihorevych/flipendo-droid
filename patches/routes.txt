@@ -1,0 +1,54 @@
+# Which patch each changed engine/ file belongs to. tools/refresh_patches.sh reads this.
+#
+#   [patch-name.patch] description (becomes the patch's first line)
+#   glob                (path relative to engine/, * matches within a folder, ** across folders)
+#
+# The first matching glob wins. A changed file that matches nothing stops the refresh: add it here first.
+# Patches apply in file name order. Ranges:
+#   0001-0009  build and launcher plumbing, any game
+#   0010-0099  fixes to SurrealEngine bugs that aren't specific to one game
+#   0100-0199  Harry Potter 1 (calls into hp1/, gated by IsHarryPotter1())
+#   0200-0299  free for Harry Potter 2
+# Patches split by file, so a file has exactly one owner: an HP2 hook in a file an HP1 patch owns goes into that patch.
+
+[0001-game-detection.patch] flipendo: recognise the HP1 retail (SafeDisc) and No-CD HP.exe builds, say why a folder isn't a game
+SurrealEngine/UE1GameDatabase.*
+SurrealEngine/GameFolder.*
+
+[0002-launcher-flags.patch] flipendo: --autolaunch and --logfile command line flags
+SurrealEngine/GameApp.cpp
+
+[0003-cursor-focus.patch] flipendo: only recenter the mouse cursor, and only act on raw mouse/keyboard input, while the game window is the active (foreground) window
+SurrealWidgets/**
+
+[0010-engine-fixes.patch] flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files, packages, crash reports
+SurrealEngine/VM/**
+SurrealEngine/Packages/Core/**
+SurrealEngine/Package/IniFile.*
+SurrealEngine/Package/Package.*
+SurrealEngine/Native/NObject.cpp
+SurrealEngine/UI/**
+
+[0100-hp1-core.patch] flipendo: HP1 build, natives, engine loop (input, console, saves, view), missing data messages
+CMakeLists.txt
+SurrealEngine/Package/PackageManager.*
+SurrealEngine/Engine.*
+SurrealEngine/Native/**
+
+[0110-hp1-physics.patch] flipendo: HP1 physics, pawn movement and collision
+SurrealEngine/Collision/**
+SurrealEngine/Packages/Engine/Actors/UActor_Phys*
+SurrealEngine/Packages/Engine/Actors/Pawn/**
+
+[0120-hp1-actors.patch] flipendo: HP1 actor tick, native actors (ParticleFX, Wind), animation
+SurrealEngine/Packages/Engine/Actors/UActor.cpp
+SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
+SurrealEngine/Packages/Engine/Resources/Mesh/**
+
+[0130-hp1-render.patch] flipendo: HP1 rendering (FOV, canvas, skeletal meshes, particles, translucency, textures)
+SurrealEngine/Render/**
+SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp
+SurrealEngine/Packages/Engine/Resources/Textures/**
+
+[0140-hp1-audio.patch] flipendo: HP1 sound and music
+SurrealEngine/Packages/Engine/Subsystems/**

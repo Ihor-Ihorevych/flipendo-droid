@@ -1,0 +1,98 @@
+flipendo: HP1 actor tick, native actors (ParticleFX, Wind), animation
+
+diff --git a/SurrealEngine/Packages/Engine/Actors/UActor.cpp b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
+index 29c45a1c..b0fceedb 100644
+--- a/SurrealEngine/Packages/Engine/Actors/UActor.cpp
++++ b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
+@@ -9,6 +9,7 @@
+ #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
+ #include "Packages/Engine/Resources/Level/ULevel.h"
+ #include "Packages/Engine/Resources/Level/UModel.h"
++#include "HP1.h" // flipendo
+ #include "Packages/Engine/Subsystems/USurrealAudioDevice.h"
+ #include "Utils/Logger.h"
+ #include "Engine.h"
+@@ -122,6 +123,9 @@ bool UActor::Destroy()
+ 
+ 	bDeleteMe() = true;
+ 
++	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: free the ParticleFX particle list
++		HP1::ParticleFXDestroyed(this);
++
+ 	//GotoState({}, {}); // What should happen to function calls after Destroy() has been called? Razor2 calls SetRoll afterwards!
+ 	SetBase(nullptr, true);
+ 
+@@ -168,6 +172,13 @@ bool UActor::Destroy()
+ 
+ void UActor::Tick(float elapsed)
+ {
++	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: AParticleFX::Tick, AWind::Tick
++	{
++		HP1::TickNativeActor(this, elapsed);
++		if (bDeleteMe())
++			return;
++	}
++
+ 	if (engine->LaunchInfo.IsDeusEx())
+ 	{
+ 		DistanceFromPlayer() = length(engine->viewport->Actor()->Location() - Location());
+@@ -215,6 +226,9 @@ void UActor::Tick(float elapsed)
+ 			CallEvent(this, EventName::Timer);
+ 		}
+ 	}
++
++	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: bAnimMove root motion (end of AActor::Tick)
++		HP1::TickRootMotion(this);
+ }
+ 
+ bool UActor::Move(const vec3& delta)
+diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
+index aceba9af..9b2a02ac 100644
+--- a/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
++++ b/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
+@@ -6,6 +6,7 @@
+ #include "VM/Frame.h"
+ #include "Packages/Engine/Resources/Mesh/USkeletalMesh.h"
+ #include "Engine.h"
++#include "HP1.h" // flipendo
+ 
+ bool UActor::HasAnim(const NameString& sequence)
+ {
+@@ -329,6 +330,12 @@ void UActor::LoopAnim_HP(const NameString& Sequence, std::optional<float> Rate,
+ 
+ void UActor::TickAnimation(float elapsed)
+ {
++	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: HP1 anim channels/tweening (hp1/Anim)
++	{
++		HP1::TickAnimation(this, elapsed);
++		return;
++	}
++
+ 	if (StateFrame && StateFrame->LatentState == LatentRunState::FinishAnim)
+ 	{
+ 		if (!IsAnimating() || AnimFrame() >= AnimLast())
+diff --git a/SurrealEngine/Packages/Engine/Resources/Mesh/UAnimation.cpp b/SurrealEngine/Packages/Engine/Resources/Mesh/UAnimation.cpp
+index 53982dc0..6bf3a6bb 100644
+--- a/SurrealEngine/Packages/Engine/Resources/Mesh/UAnimation.cpp
++++ b/SurrealEngine/Packages/Engine/Resources/Mesh/UAnimation.cpp
+@@ -2,12 +2,19 @@
+ #include "Precomp.h"
+ #include "UAnimation.h"
+ #include "Engine.h"
++#include "HP1.h" // flipendo
+ 
+ void UAnimation::Load(ObjectStream* stream)
+ {
+ 	UObject::Load(stream);
+ 
+-	if (engine->LaunchInfo.IsHarryPotter1() || engine->LaunchInfo.IsHarryPotter2())
++	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: HP1 animation format (hp1/Anim)
++	{
++		HP1::LoadAnimation(this, stream);
++		return;
++	}
++
++	if (engine->LaunchInfo.IsHarryPotter2())
+ 		return; // To do: format changed. Figure out how. Maybe the arrays became skippable?
+ 
+ 	int NumRefBones = stream->ReadIndex();
