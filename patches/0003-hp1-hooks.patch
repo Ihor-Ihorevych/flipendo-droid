@@ -107,7 +107,7 @@ index aef803f8..91255987 100644
  		if (t < tmax)
  		{
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 34ee5181..dd069c59 100644
+index 34ee5181..52cb5c21 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,7 @@
@@ -250,7 +250,22 @@ index 34ee5181..dd069c59 100644
  		UClass* cls = packages->FindClass(className);
  		if (!cls)
  		{
-@@ -1454,6 +1503,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
+@@ -1423,6 +1472,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+ 	return {};
+ }
+ 
++// flipendo: input alias names are matched ignoring case, as in UE1. HP1's options menu rebinds keys with
++// upper-cased aliases ("SET Input W MOVEFORWARD | BUTTON BBROOMPITCHUP"), which never matched "MoveForward".
++static std::string ToLowerAlias(std::string name)
++{
++	for (char& c : name) c = std::tolower((unsigned char)c);
++	return name;
++}
++
+ Array<std::string> Engine::GetArgs(const std::string& commandline)
+ {
+ 	Array<std::string> args;
+@@ -1454,6 +1511,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
  			endpos = command.size();
  
  		std::string subcommand = command.substr(pos, endpos - pos);
@@ -261,7 +276,16 @@ index 34ee5181..dd069c59 100644
  		if (!subcommand.empty())
  			subcommands.push_back(subcommand);
  		pos = endpos + 1;
-@@ -1616,6 +1669,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
+@@ -1510,7 +1571,7 @@ void Engine::LoadKeybindings()
+ 					std::string aliasCommand = alias.substr(commandStart.size(), pos - commandStart.size());
+ 					std::string aliasName = alias.substr(pos + commandSplit.size(), pos2 - pos - commandSplit.size());
+ 					if (!aliasName.empty() && aliasName != "None")
+-						inputAliases[aliasName] = aliasCommand;
++						inputAliases[ToLowerAlias(aliasName)] = aliasCommand; // flipendo: alias names ignore case
+ 				}
+ 			}
+ 		}
+@@ -1616,6 +1677,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
  	{
  		viewport->WindowsMouseX() = (float)(pos.x * window->GetDpiScale());
  		viewport->WindowsMouseY() = (float)(pos.y * window->GetDpiScale());
@@ -270,7 +294,7 @@ index 34ee5181..dd069c59 100644
  	}
  }
  
-@@ -1689,6 +1744,9 @@ void Engine::OnWindowKeyChar(std::string chars)
+@@ -1689,6 +1752,9 @@ void Engine::OnWindowKeyChar(std::string chars)
  
  void Engine::OnWindowKeyDown(EInputKey key)
  {
@@ -280,6 +304,15 @@ index 34ee5181..dd069c59 100644
  	if (playingAvi)
  	{
  		if (key == EInputKey::IK_Escape)
+@@ -1783,7 +1849,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
+ 
+ 			for (const std::string& command : GetSubcommands(keybindings[keynames[key]]))
+ 			{
+-				auto it = inputAliases.find(command);
++				auto it = inputAliases.find(ToLowerAlias(command)); // flipendo: HP1's options menu writes aliases in upper case
+ 				if (it != inputAliases.end())
+ 				{
+ 					InputCommand(it->second, key, delta);
 diff --git a/SurrealEngine/GameFolder.cpp b/SurrealEngine/GameFolder.cpp
 index 473146a7..639fff8a 100644
 --- a/SurrealEngine/GameFolder.cpp
