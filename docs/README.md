@@ -15,6 +15,7 @@ Secrets) is being ported onto the same engine. The documents below say when some
 |---|---|
 | [modding.md](modding.md) | the built-in mods, writing your own, where modding is going |
 | [debug-tools.md](debug-tools.md) | environment variables to script input, dump and trace actors, call script functions; crash reports, the script debugger |
+| [speedrunning.md](speedrunning.md) | what HP1 speedrunners already have for the original, and the practice, research and timer tools Flipendo can add |
 
 ## Developing
 
