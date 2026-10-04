@@ -17,6 +17,11 @@ namespace KW
 		PropertyDataOffset CollideType;
 		PropertyDataOffset bAlignBottom;
 		PropertyDataOffset CollisionWidth;
+		PropertyDataOffset SpecularGlow;
+		PropertyDataOffset SpecularWidth;
+		PropertyDataOffset LightRadiusInner;
+		PropertyDataOffset LightSource;
+		PropertyDataOffset bDarkLight;
 	};
 	const ActorProps& GetActorProps();
 
@@ -38,4 +43,9 @@ namespace KW
 	inline uint8_t& CollideType(UActor* a) { return a->Value<uint8_t>(GetActorProps().CollideType); }
 	inline BitfieldBool bAlignBottom(UActor* a) { return a->BoolValue(GetActorProps().bAlignBottom); }
 	inline float& CollisionWidth(UActor* a) { return a->Value<float>(GetActorProps().CollisionWidth); }
+	inline float& SpecularGlow(UActor* a) { return a->Value<float>(GetActorProps().SpecularGlow); }
+	inline uint8_t& SpecularWidth(UActor* a) { return a->Value<uint8_t>(GetActorProps().SpecularWidth); }
+	inline uint8_t& LightRadiusInner(UActor* a) { return a->Value<uint8_t>(GetActorProps().LightRadiusInner); }
+	inline uint8_t& LightSource(UActor* a) { return a->Value<uint8_t>(GetActorProps().LightSource); }
+	inline BitfieldBool bDarkLight(UActor* a) { return a->BoolValue(GetActorProps().bDarkLight); }
 }

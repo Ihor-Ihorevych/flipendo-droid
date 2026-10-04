@@ -13,6 +13,7 @@
 #include "Render/RenderSubsystem.h"
 #include "RenderDevice/RenderDevice.h"
 #include "Light/LightSystem.h"
+#include "KWMeshLight.h"
 #include "Math/coords.h"
 #include "Collision/TopLevel/CollisionHit.h"
 #include "Engine.h"
@@ -736,6 +737,7 @@ namespace KW
 	}
 
 	// IDA Engine.dll: none: drawing is our own (HP1 renders through Render.dll/D3DDrv); pose and skinning come from GetFrame above
+	// IDA Render.dll: ?DrawLodMesh@URender@@QAEXPAUFSceneNode@@PAUFDynamicSprite@@PAVAActor@@ABVFCoords@@K@Z [HP1 0x10B0FF00] (vertex normals and lighting only)
 	bool DrawSkeletalMesh(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, USkeletalMesh* mesh, bool translucentPass)
 	{
 		static Array<vec3> verts;
@@ -747,8 +749,8 @@ namespace KW
 		auto wedgeVertex = [&](int w) -> int { return useExtWedges ? mesh->ExtWedges[w].Vertex : mesh->Wedges[w].Vertex; };
 		size_t numWedges = useExtWedges ? mesh->ExtWedges.size() : mesh->Wedges.size();
 
-		// Smooth normals from the skinned triangles. The Y mirror in GetMeshCoords flips the winding,
-		// hence the cross product order.
+		// Smooth normals from the skinned triangles (URender::DrawLodMesh). The Y mirror in GetMeshCoords flips the
+		// winding, hence the cross product order. bMeshCurvy points them away from the actor's location instead.
 		normals.clear();
 		normals.resize(verts.size(), vec3(0.0f));
 		for (const MeshFace& face : mesh->Faces)
@@ -763,11 +765,14 @@ namespace KW
 			normals[i1] += n;
 			normals[i2] += n;
 		}
-		for (vec3& n : normals)
+		if (actor->bMeshCurvy())
 		{
-			float len = length(n);
-			n = len > 0.0f ? n / len : vec3(0.0f, 0.0f, 1.0f);
+			for (size_t i = 0; i < verts.size(); i++)
+				normals[i] = verts[i] - actor->Location();
 		}
+		// The original's normalize adds 0.001 under the root: normals that cancel out stay (near) zero.
+		for (vec3& n : normals)
+			n *= 1.0f / std::sqrt(dot(n, n) + 0.001f);
 
 		auto lightsys = &engine->Level->Light;
 
@@ -783,11 +788,17 @@ namespace KW
 		if (actor->bSelected()) polyFlags |= PF_Selected;
 		if (actor->bMeshEnviroMap()) polyFlags |= PF_Environment;
 		if (actor->bMeshCurvy()) polyFlags |= PF_Flat;
-		if (actor->bUnlit() || actor->Region().ZoneNumber == 0) polyFlags |= PF_Unlit;
+		if (actor->bUnlit()) polyFlags |= PF_Unlit;
 
 		UZoneInfo* zoneActor = engine->GetZoneActor(actor->Region().ZoneNumber);
-		VertexLight vertexLight;
+		VertexLight vertexLight; // fog only; the light is HP1's (kw/KWMeshLight.cpp)
 		lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor);
+		MeshLighting lighting;
+		SetupMeshLighting(lighting, actor, lightLocationActor, zoneActor);
+		static Array<vec3> vertexLights;
+		vertexLights.resize(verts.size());
+		for (size_t i = 0; i < verts.size(); i++)
+			vertexLights[i] = lighting.Light(verts[i], normals[i]);
 
 		bool needTranslucentPass = false;
 		GouraudVertex vertices[3];
@@ -820,6 +831,7 @@ namespace KW
 
 			bool valid = true;
 			vec3 faceNormals[3];
+			int faceVerts[3];
 			for (int i = 0; i < 3; i++)
 			{
 				int w = face.Indices[i];
@@ -833,9 +845,19 @@ namespace KW
 				else
 					vertices[i].UV = { mesh->Wedges[w].U * width / 255.0f, mesh->Wedges[w].V * height / 255.0f };
 				faceNormals[i] = normals[v];
+				faceVerts[i] = v;
 			}
 			if (!valid)
 				continue;
+
+			// DrawLodMesh only draws faces turned towards the viewer unless they're two-sided. Without this the
+			// front and back of thin props (the classroom blackboards: two coplanar quads) z-fight triangle by triangle.
+			if (!(renderflags & PF_TwoSided))
+			{
+				vec3 faceNormal = cross(vertices[2].Point - vertices[0].Point, vertices[1].Point - vertices[0].Point);
+				if (dot(faceNormal, frame->ViewLocation.xyz() - vertices[0].Point) <= 0.0f)
+					continue;
+			}
 
 			if (renderflags & PF_Environment)
 			{
@@ -850,7 +872,7 @@ namespace KW
 
 			for (int i = 0; i < 3; i++)
 			{
-				vertices[i].Light = vertexLight.GetVertexLight(vertices[i].Point, faceNormals[i], !!(renderflags & PF_Unlit), !!(renderflags & PF_TwoSided));
+				vertices[i].Light = (renderflags & PF_Unlit) ? lighting.Unlit : vertexLights[faceVerts[i]];
 				vertices[i].Fog = vertexLight.GetVertexFog(vertices[i].Point);
 			}
 
