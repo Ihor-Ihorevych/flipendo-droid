@@ -22,3 +22,4 @@
 # tools/uelib_dump build output
 tools/uelib_dump/bin/
 tools/uelib_dump/obj/
+__pycache__/
