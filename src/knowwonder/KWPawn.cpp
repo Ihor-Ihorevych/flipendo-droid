@@ -250,6 +250,37 @@ namespace KW
 		return done;
 	}
 
+	// DesiredRotation towards the focal point (yaw kept in 0..65535; no pitch for a walking pawn unless it heads for
+	// a pawn). Done when the yaw is within 100 units (about half a degree) either way round; SurrealEngine's turn
+	// stopped 2000 units (11 degrees) short. PHYS_Spider never turns.
+	// IDA Engine.dll: ?rotateToward@APawn@@QAEHABVFVector@@@Z [HP1 0x103D9E90]
+	bool PawnRotateToward(UPawn* pawn, const vec3& focalPoint)
+	{
+		if (pawn->Physics() == PHYS_Spider)
+			return true;
+		Rotator desired = Rotator::FromVector(focalPoint - pawn->Location());
+		desired.Yaw &= 0xffff;
+		if (pawn->Physics() == PHYS_Walking && (!pawn->MoveTarget() || !pawn->MoveTarget()->IsA("Pawn")))
+			desired.Pitch = 0;
+		pawn->DesiredRotation() = desired;
+		int diff = std::abs(desired.Yaw - (pawn->Rotation().Yaw & 0xffff));
+		return diff < 100 || diff > 65435;
+	}
+
+	// One step of TurnTo / TurnToward: a flying or swimming pawn that can't strafe accelerates along its facing,
+	// then rotateToward. execTurnTo/execTurnToward do it once when the latent turn starts (TurnTo also clears
+	// MoveTarget, TurnToward sets FaceTarget and Focus to it); the polls every tick until rotateToward says done.
+	// IDA Engine.dll: ?execTurnTo@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D93F0]
+	// IDA Engine.dll: ?execPollTurnTo@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D9530]
+	// IDA Engine.dll: ?execTurnToward@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D9130]
+	// IDA Engine.dll: ?execPollTurnToward@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D9290]
+	bool PawnTurnStep(UPawn* pawn, const vec3& focus)
+	{
+		if (!pawn->bCanStrafe() && (pawn->Physics() == PHYS_Flying || pawn->Physics() == PHYS_Swimming))
+			pawn->Acceleration() = Coords::Rotation(pawn->Rotation()).XAxis * pawn->AccelRate();
+		return PawnRotateToward(pawn, focus);
+	}
+
 	// Focus = FaceTarget's location; moves to Destination, which AlterDestination may change for this step.
 	// IDA Engine.dll: ?execPollStrafeFacing@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D9010]
 	bool PawnPollStrafeFacing(UPawn* pawn)

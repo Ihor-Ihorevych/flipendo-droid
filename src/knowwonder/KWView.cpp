@@ -1,7 +1,13 @@
 #include "Precomp.h"
 #include "KW.h"
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
+#include "Packages/Engine/Actors/Info/ULevelInfo.h"
+#include "Packages/Engine/UViewport.h"
+#include "Packages/Engine/UConsole.h"
+#include "Render/RenderSubsystem.h"
+#include "Engine.h"
 #include <cmath>
+#include <chrono>
 
 namespace KW
 {
@@ -32,5 +38,62 @@ namespace KW
 		float scale = std::clamp(fog[3] * 0.5f, 0.0f, 1.0f);
 		flashScale = vec3(scale);
 		flashFog = vec3(std::clamp(fog[0], 0.0f, 1.0f), std::clamp(fog[1], 0.0f, 1.0f), std::clamp(fog[2], 0.0f, 1.0f));
+	}
+}
+
+
+namespace KW
+{
+	// The loading screen, part 1: before the old level goes, LoadMap clears LevelInfo.Pauser, the player's
+	// bShowMenu and LevelAction, then, if Console.FadeoutTime > 0 (HPConsole: 0.5 s) and the console drew the world
+	// last frame (Console.bDrewWorld = !bNoDrawWorld, set by UConsole::PostRender; SurrealEngine raises the script
+	// PostRender directly, so it's read from bNoDrawWorld here), keeps drawing frames while it lowers the player's
+	// FlashFog.W (the brightness) by elapsed time / FadeoutTime. Then W = 0 and one more (black) frame.
+	// IDA Engine.dll: ?LoadMap@UGameEngine@@UAEPAVULevel@@ABVFURL@@PAVUPendingLevel@@PBV?$TMap@VFString@@V1@@@AAVFString@@@Z [HP1 0x1039C3D0] (the block before the package checks)
+	static bool LoadingFromLevel = false;
+
+	void LoadMapFadeOut()
+	{
+		LoadingFromLevel = engine->Level && engine->LevelInfo && engine->viewport;
+		if (!LoadingFromLevel)
+			return;
+		UPlayerPawn* player = engine->viewport->Actor();
+		engine->LevelInfo->Pauser() = "";
+		if (player)
+			player->bShowMenu() = false;
+		engine->LevelInfo->LevelAction() = 0; // LEVACT_None
+		if (!player)
+			return;
+
+		float* fog = &player->FlashFog().x; // FPlane: X, Y, Z, W
+		UConsole* console = engine->console;
+		float fadeoutTime = (console && console->HasProperty("FadeoutTime")) ? *static_cast<float*>(console->GetProperty("FadeoutTime")) : 0.0f;
+		if (fadeoutTime > 0.0f && console && !console->bNoDrawWorld())
+		{
+			auto prev = std::chrono::steady_clock::now();
+			while (fog[3] > 0.0f)
+			{
+				engine->render->DrawGame(0.0f);
+				auto cur = std::chrono::steady_clock::now();
+				fog[3] -= std::chrono::duration<float>(cur - prev).count() / fadeoutTime;
+				prev = cur;
+			}
+		}
+		fog[3] = 0.0f;
+		engine->render->DrawGame(0.0f);
+	}
+
+	// The loading screen, part 2: once the new package's LevelInfo0 is loaded (and an empty LevelEnterText set to the
+	// URL's map, LevelInfoLoaded), LoadMap locks the viewport (cleared to black), raises
+	// Console.DrawLevelInfo(Canvas, LevelEnterText) and shows the frame while the rest of the level loads. HPConsole
+	// draws the parchment with the level's title and objective (docs/re/hp1/menus.md). Only with a viewport: the
+	// startup map is loaded by UGameEngine::Init before it opens the first viewport, so it never shows one.
+	// IDA Engine.dll: ?LoadMap@UGameEngine@@UAEPAVULevel@@ABVFURL@@PAVUPendingLevel@@PBV?$TMap@VFString@@V1@@@AAVFString@@@Z [HP1 0x1039C3D0] (after LoadObject LevelInfo0; FindFunctionChecked on the console)
+	void LoadMapLevelInfo(ULevelInfo* levelInfo)
+	{
+		if (!LoadingFromLevel || !levelInfo || !engine->console || !engine->viewport)
+			return;
+		LoadingFromLevel = false;
+		engine->render->DrawLevelInfo(levelInfo->LevelEnterText());
 	}
 }

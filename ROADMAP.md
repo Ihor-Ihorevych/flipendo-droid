@@ -114,6 +114,11 @@ channels) and particle effects.
       subcommands, so the alias was never found and Harry couldn't move (`Engine::GetSubcommands`)
 - [x] `APawn::physicsRotation` port: pawns, including the player, turn towards DesiredRotation every physics
       step (Harry ran sideways in cutscenes). Flying/swimming roll banking not ported yet
+- [x] Turning: `APawn::rotateToward` (TurnTo/TurnToward finish within half a degree, not 11), the turn polls
+- [x] Actor shadows: the renderer raises `ActorShadow.Update` (Harry's, the broom's and every character's blob shadow)
+- [x] `Actor.Opacity`: alpha-blended meshes (invisibility cloak, ghosts, Peeves). Back-to-front face sort inside a
+      translucent mesh not ported
+- [x] Loading screen: fade-out over `Console.FadeoutTime`, then `HPConsole.DrawLevelInfo` (level title and objective)
 - [ ] Some cutscene kids reportedly look like they walk while running (all play `run` at rate 1.5 with
       finished tweens; needs a closer look at which ones)
 - [ ] Kids spawned on the same patrol point can overlap (UE1 Spawn fails when the spot is occupied?)
@@ -381,6 +386,8 @@ community once the levels they run play like the original.
   - [ ] Enable `IsKnowWonder()` for HP2, OpenAL/Ogg audio (ALAudio.dll), first level
   - [ ] Check the unverified HP2 engine differences in HP2's code ([docs/re/hp2/gameplay.md](docs/re/hp2/gameplay.md)):
         music always loops, XA ADPCM sounds, save loading, lip sync, movers colliding by bounding box
+  - [ ] HP2-only engine features ([docs/re/hp2/engine.md](docs/re/hp2/engine.md)): GameState screening
+        (`OnResolveGameState`), Lumos surfaces, TurnTo's flattened focus, particle Opacity, I3DL2 reverb
 - [ ] HP3 (Prisoner of Azkaban, UE2 build 2226, packages 129): no UE2 counterpart of SurrealEngine exists. First check,
       with UELib: how many native classes/functions its gameplay packages have (HP1's have none). Mostly script =
       extending SurrealEngine towards UE2 is worth a look; otherwise fixes for the original exe are the better route

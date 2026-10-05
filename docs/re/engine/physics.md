@@ -14,6 +14,8 @@ and the latent polls (`execPollMoveTo`, `execPollMoveToward`, `execPollStrafeFac
 only in offsets; `physWalking` (14847 -> 13679 bytes), `physFlying`, `physSwimming`, `physRolling`, `physMovingBrush`,
 `physTrailer`, `APawn::performPhysics`, `physicsRotation`, `moveToward`, `Mount` and
 `AInterpolationManager::performPhysics` changed, HP2 code not read yet. `IsBlockedBy` differs only in offsets.
+The turn natives changed too (`execTurnTo` 250 -> 295 bytes, `execTurnToward`, `rotateToward`): HP2 flattens
+TurnTo's focal point while walking ([hp2/engine.md](../hp2/engine.md#pawn-turning)).
 
 ## The full port (src/knowwonder/KWPhysics.cpp, KWMove.cpp)
 
@@ -214,6 +216,20 @@ DesiredSpeed is halved once when the next physics step would pass the target; ai
   it for this step).
 - `Pawn.FindPath` (native 553, KnowWonder's): the first step from startPoint towards the navigation point named
   DestName, used by HP1's station-to-station AI (`tut1Peeves` and the other "basestation" patrollers).
+
+## Turning
+
+`APawn::rotateToward` (0x103D9E90): DesiredRotation = the direction to the focal point, yaw masked to 0..65535, pitch
+0 for a walking pawn unless its MoveTarget is a pawn; done when the yaw is within **100** units (about half a degree)
+of the current yaw, either way round the circle. PHYS_Spider is always done. (SurrealEngine stopped at 2000 units,
+11 degrees short, so HP1's cutscene turns ended early.) The MoveTo / MoveToward / StrafeTo polls call it as is.
+
+`execTurnTo` (0x103D93F0) clears MoveTarget, sets Focus and starts the latent turn; `execTurnToward` (0x103D9130)
+sets FaceTarget and Focus to its location. Both, and their polls (`execPollTurnTo` 0x103D9530, `execPollTurnToward`
+0x103D9290, which keeps Focus on FaceTarget and ends when FaceTarget is gone), first give a flying or swimming pawn
+that can't strafe `Acceleration = facing * AccelRate`, then call rotateToward; TurnTo/TurnToward do it once when they
+start, so the pawn turns that same tick. Port: `KW::PawnRotateToward`, `KW::PawnTurnStep` (`src/knowwonder/KWPawn.cpp`).
+HP2's execTurnTo also flattens Focus.Z for a walking pawn ([hp2/engine.md](../hp2/engine.md#pawn-turning)).
 
 ## Touch
 

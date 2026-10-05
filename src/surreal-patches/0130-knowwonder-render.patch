@@ -1,4 +1,4 @@
-flipendo: KnowWonder rendering (FOV, skeletal meshes, particles, translucency, textures; HP1 menu canvas)
+flipendo: KnowWonder rendering (FOV, skeletal meshes, particles, translucency, vertex alpha, actor shadows, textures; loading screen; HP1 menu canvas)
 
 diff --git a/SurrealEngine/Light/LightSystem.h b/SurrealEngine/Light/LightSystem.h
 index e1e0062e..5fa8f0dd 100644
@@ -225,10 +225,17 @@ index 07a06c4e..23cfa38c 100644
  	{
  		UnrealMipmap& mipmap = UsedMipmaps.front();
 diff --git a/SurrealEngine/Render/RenderCanvas.cpp b/SurrealEngine/Render/RenderCanvas.cpp
-index 4b2aa5c5..206d7b0a 100644
+index 4b2aa5c5..bec4dcb3 100644
 --- a/SurrealEngine/Render/RenderCanvas.cpp
 +++ b/SurrealEngine/Render/RenderCanvas.cpp
-@@ -14,6 +14,8 @@
+@@ -8,12 +8,15 @@
+ #include "Packages/Engine/UViewport.h"
+ #include "Packages/Engine/UCanvas.h"
+ #include "Packages/Engine/UConsole.h"
++#include "Packages/Engine/USurrealClient.h"
+ #include "Packages/Engine/Resources/UFont.h"
+ #include "Packages/Engine/Resources/UPalette.h"
+ #include "Packages/Engine/Resources/Level/UModel.h"
  #include "GameWindow.h"
  #include "VM/ScriptCall.h"
  #include "Engine.h"
@@ -237,7 +244,7 @@ index 4b2aa5c5..206d7b0a 100644
  
  void RenderSubsystem::ResetCanvas()
  {
-@@ -21,6 +23,8 @@ void RenderSubsystem::ResetCanvas()
+@@ -21,6 +24,8 @@ void RenderSubsystem::ResetCanvas()
  	// Assume 1280x960 for UT and newer.
  	int vertResolution = engine->LaunchInfo.ue1Version < 400 ? 768 : 960;
  	Canvas.uiscale = std::max((engine->viewport->ViewportHeight() + vertResolution / 2) / vertResolution, 1);
@@ -246,7 +253,7 @@ index 4b2aa5c5..206d7b0a 100644
  
  	SceneNode frame;
  	Canvas.Frame.XB = 0;
-@@ -54,11 +58,8 @@ void RenderSubsystem::ResetCanvas()
+@@ -54,11 +59,8 @@ void RenderSubsystem::ResetCanvas()
  	engine->canvas->SizeX() = sizeX;
  	engine->canvas->SizeY() = sizeY;
  
@@ -260,7 +267,7 @@ index 4b2aa5c5..206d7b0a 100644
  
  	//engine->viewport->bShowWindowsMouse() = true; // bShowWindowsMouse is set to true by WindowConsole if mouse cursor should be visible
  	//engine->viewport->bWindowsMouseAvailable() = true; // if true then RenderUWindow updates mouse pos from (WindowsMouseX,WindowsMouseY), otherwise it uses KeyEvent(IK_MouseX, delta) + KeyEvent(IK_MouseY, delta). Maybe used for windowed mode?
-@@ -80,7 +81,16 @@ void RenderSubsystem::RenderOverlays()
+@@ -80,7 +82,16 @@ void RenderSubsystem::RenderOverlays()
  	Device->SetSceneNode(&Canvas.Frame);
  	if (engine->viewport->Actor())
  	{
@@ -278,7 +285,7 @@ index 4b2aa5c5..206d7b0a 100644
  		{
  			CallEvent(engine->viewport->Actor(), EventName::RenderOverlays, { ExpressionValue::ObjectValue(engine->canvas) });
  		}
-@@ -101,7 +111,18 @@ void RenderSubsystem::PostRender()
+@@ -101,13 +112,39 @@ void RenderSubsystem::PostRender()
  	Device->SetSceneNode(&Canvas.Frame);
  	if (engine->viewport->Actor())
  		CallEvent(engine->viewport->Actor(), EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
@@ -297,7 +304,28 @@ index 4b2aa5c5..206d7b0a 100644
  	DrawTimedemoStats();
  	
  	if (ShowCollisionDebug)
-@@ -133,10 +154,10 @@ void RenderSubsystem::DrawActor(UActor* actor, bool WireFrame, bool ClearZ)
+ 		DrawCollisionDebug();
+ }
+ 
++// A frame with only the console's DrawLevelInfo on a black screen (the loading screen UGameEngine::LoadMap shows)
++void RenderSubsystem::DrawLevelInfo(const std::string& levelEnterText)
++{
++	Device->Brightness = engine->client->Brightness;
++	Device->Lock(vec4(0.5f, 0.5f, 0.5f, 1.0f), vec4(0.0f, 0.0f, 0.0f, 1.0f), vec4(0.0f), nullptr, nullptr);
++	ResetCanvas();
++	if (engine->LaunchInfo.IsHarryPotter1()) // console/menus in a centred 4:3 area (src/hp1/HP1Canvas.cpp)
++		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, true);
++	Device->SetSceneNode(&Canvas.Frame);
++	CallEvent(engine->console, "DrawLevelInfo", { ExpressionValue::ObjectValue(engine->canvas), ExpressionValue::StringValue(levelEnterText) });
++	if (engine->LaunchInfo.IsHarryPotter1())
++		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, false);
++	Device->Unlock(true);
++}
++
+ void RenderSubsystem::PostRenderFlash()
+ {
+ 	Device->SetSceneNode(&Canvas.Frame);
+@@ -133,10 +170,10 @@ void RenderSubsystem::DrawActor(UActor* actor, bool WireFrame, bool ClearZ)
  void RenderSubsystem::DrawClippedActor(UActor* actor, bool WireFrame, int X, int Y, int XB, int YB, bool ClearZ)
  {
  	SceneNode frame;
@@ -350,10 +378,18 @@ index f3fcef6d..fd253c8c 100644
  }
  
 diff --git a/SurrealEngine/Render/RenderSubsystem.h b/SurrealEngine/Render/RenderSubsystem.h
-index 0f88fc9c..bb90a969 100644
+index 0f88fc9c..d66b5d5b 100644
 --- a/SurrealEngine/Render/RenderSubsystem.h
 +++ b/SurrealEngine/Render/RenderSubsystem.h
-@@ -105,7 +105,7 @@ private:
+@@ -23,6 +23,7 @@ public:
+ 	void DrawVideoFrame(TextureInfo* frame, TextureInfo* background);
+ 
+ 	void DrawGame(float levelTimeElapsed);
++	void DrawLevelInfo(const std::string& levelEnterText);
+ 	void OnMapLoaded();
+ 
+ 	void DrawActor(UActor* actor, bool WireFrame, bool ClearZ);
+@@ -105,7 +106,7 @@ private:
  
  	struct
  	{
@@ -457,10 +493,29 @@ index 74911e16..c4c3da96 100644
  	if (!engine->getEditorMode() && PolyFlags & PolyFlags::PF_Invisible)
  		return false;
 diff --git a/SurrealEngine/Render/VisibleFrame.cpp b/SurrealEngine/Render/VisibleFrame.cpp
-index 818aa65d..5ef18732 100644
+index 818aa65d..9f0effbe 100644
 --- a/SurrealEngine/Render/VisibleFrame.cpp
 +++ b/SurrealEngine/Render/VisibleFrame.cpp
-@@ -308,6 +308,13 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -10,6 +10,8 @@
+ #include "Packages/Engine/Actors/Info/USkyZoneInfo.h"
+ #include "Packages/Engine/Actors/Info/ULevelInfo.h"
+ #include "Packages/Extension/Windows/TabGroup/URootWindow.h"
++#include "Engine.h"
++#include "KW.h"
+ 
+ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const Coords& viewRotation, bool mirrorFlag, int portalDepth, const Array<PortalSpan>& portalSpans, const vec4& portalPlane)
+ {
+@@ -38,6 +40,9 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
+ 	Coronas.clear();
+ 	Portals.clear();
+ 
++	if (engine->LaunchInfo.IsKnowWonder())
++		KW::UpdateActorShadows(this);
++
+ 	ProcessNode(&engine->Level->Model->Nodes[0]);
+ }
+ 
+@@ -308,6 +313,13 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  
  void VisibleFrame::SortTranslucent()
  {
@@ -475,7 +530,7 @@ index 818aa65d..5ef18732 100644
  }
  
 diff --git a/SurrealEngine/Render/VisibleMesh.cpp b/SurrealEngine/Render/VisibleMesh.cpp
-index 7f5e8efb..1f3da353 100644
+index 7f5e8efb..73bc0a31 100644
 --- a/SurrealEngine/Render/VisibleMesh.cpp
 +++ b/SurrealEngine/Render/VisibleMesh.cpp
 @@ -12,6 +12,7 @@
@@ -507,7 +562,55 @@ index 7f5e8efb..1f3da353 100644
  		{
  			// Find attachment triangle location in the world:
  			const vec3& v0 = attachmentTris[0];
-@@ -558,6 +571,12 @@ bool VisibleMesh::DrawLodMeshFace(VisibleFrame* frame, UActor* actor, UActor* li
+@@ -142,6 +155,7 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, UActor* lightLoca
+ 	if (actor->bUnlit() || actor->Region().ZoneNumber == 0) polyflags |= PF_Unlit;
+ 
+ 	bool needTranslucentPass = false;
++	float opacity = engine->LaunchInfo.IsKnowWonder() ? KW::MeshOpacity(actor) : 1.0f;
+ 
+ 	UZoneInfo* zoneActor = engine->GetZoneActor(actor->Region().ZoneNumber);
+ 
+@@ -155,6 +169,7 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, UActor* lightLoca
+ 			continue;
+ 
+ 		uint32_t renderflags = tri.PolyFlags | polyflags;
++		KW::ApplyOpacityFlags(opacity, renderflags);
+ 		UTexture* tex = (renderflags & PF_Environment) ? engine->render->Mesh.envmap : engine->render->Mesh.textures[tri.TextureIndex];
+ 		if (!tex)
+ 			continue;
+@@ -229,6 +244,7 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, UActor* lightLoca
+ 			vertices[i].Fog = vertexLight.GetVertexFog(vertices[i].Point);
+ 		}
+ 
++		KW::ApplyOpacityVertices(opacity, vertices, 3);
+ 		renderflags |= PF_RenderFog;
+ 
+ 		frame->Device->DrawGouraudPolygon(&frame->Frame, texinfo, vertices, 3, renderflags);
+@@ -456,6 +472,7 @@ bool VisibleMesh::DrawLodMeshFace(VisibleFrame* frame, UActor* actor, UActor* li
+ 	lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor);
+ 
+ 	bool needTranslucentPass = false;
++	float opacity = engine->LaunchInfo.IsKnowWonder() ? KW::MeshOpacity(actor) : 1.0f;
+ 
+ 	GouraudVertex vertices[3];
+ 	for (const MeshFace& face : faces)
+@@ -469,6 +486,7 @@ bool VisibleMesh::DrawLodMeshFace(VisibleFrame* frame, UActor* actor, UActor* li
+ 			continue;
+ 
+ 		uint32_t renderflags = material.PolyFlags | polyFlags;
++		KW::ApplyOpacityFlags(opacity, renderflags);
+ 		UTexture* tex = (renderflags & PF_Environment) ? engine->render->Mesh.envmap : engine->render->Mesh.textures[material.TextureIndex];
+ 
+ 		// skip if no texture
+@@ -548,6 +566,7 @@ bool VisibleMesh::DrawLodMeshFace(VisibleFrame* frame, UActor* actor, UActor* li
+ 			vertices[i].Fog = vertexLight.GetVertexFog(vertices[i].Point);
+ 		}
+ 
++		KW::ApplyOpacityVertices(opacity, vertices, 3);
+ 		renderflags |= PF_RenderFog;
+ 
+ 		frame->Device->DrawGouraudPolygon(&frame->Frame, texinfo, vertices, 3, renderflags);
+@@ -558,6 +577,12 @@ bool VisibleMesh::DrawLodMeshFace(VisibleFrame* frame, UActor* actor, UActor* li
  
  bool VisibleMesh::DrawSkeletalMesh(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, USkeletalMesh* mesh, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, bool translucentPass)
  {
@@ -520,3 +623,54 @@ index 7f5e8efb..1f3da353 100644
  	return DrawLodMesh(frame, actor, lightLocationActor, mesh, ObjectToWorld, ObjectNormalToWorld, translucentPass);
  }
  
+diff --git a/SurrealEngine/RenderDevice/D3D11/D3D11RenderDevice.cpp b/SurrealEngine/RenderDevice/D3D11/D3D11RenderDevice.cpp
+index ba22defd..1bb02add 100644
+--- a/SurrealEngine/RenderDevice/D3D11/D3D11RenderDevice.cpp
++++ b/SurrealEngine/RenderDevice/D3D11/D3D11RenderDevice.cpp
+@@ -2005,7 +2005,7 @@ void D3D11RenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info,
+ 				vertex->Color.r = P->Light.x;
+ 				vertex->Color.g = P->Light.y;
+ 				vertex->Color.b = P->Light.z;
+-				vertex->Color.a = 1.0f;
++				vertex->Color.a = P->Alpha;
+ 				vertex++;
+ 			}
+ 		}
+diff --git a/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp b/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp
+index 00a0aab8..406a3ea9 100644
+--- a/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp
++++ b/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp
+@@ -1469,7 +1469,7 @@ void GLRenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info, con
+ 				vertex->Color.r = P->Light.x;
+ 				vertex->Color.g = P->Light.y;
+ 				vertex->Color.b = P->Light.z;
+-				vertex->Color.a = 1.0f;
++				vertex->Color.a = P->Alpha;
+ 				vertex++;
+ 			}
+ 		}
+diff --git a/SurrealEngine/RenderDevice/RenderDevice.h b/SurrealEngine/RenderDevice/RenderDevice.h
+index 2e23b3c1..72b3f515 100644
+--- a/SurrealEngine/RenderDevice/RenderDevice.h
++++ b/SurrealEngine/RenderDevice/RenderDevice.h
+@@ -37,6 +37,7 @@ struct GouraudVertex
+ 	vec3 Light;
+ 	vec2 UV;
+ 	vec4 Fog;
++	float Alpha = 1.0f; // vertex alpha; blended as premultiplied alpha with PF_Highlighted
+ };
+ 
+ struct SurfaceFacet
+diff --git a/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp b/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp
+index 0c7b3bb7..a2a627f3 100644
+--- a/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp
++++ b/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp
+@@ -534,7 +534,7 @@ void VulkanRenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info,
+ 				vertex->Color.r = P->Light.x;
+ 				vertex->Color.g = P->Light.y;
+ 				vertex->Color.b = P->Light.z;
+-				vertex->Color.a = 1.0f;
++				vertex->Color.a = P->Alpha;
+ 				vertex->TextureBinds = textureBinds;
+ 				vertex++;
+ 			}

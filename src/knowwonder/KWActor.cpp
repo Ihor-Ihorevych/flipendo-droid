@@ -29,6 +29,10 @@ namespace KW
 			props.LightRadiusInner = cls->GetPropertyDataOffset("LightRadiusInner");
 			props.LightSource = cls->GetPropertyDataOffset("LightSource");
 			props.bDarkLight = cls->GetPropertyDataOffset("bDarkLight");
+			props.Shadow = cls->GetPropertyDataOffset("Shadow");
+			props.Opacity = cls->GetPropertyDataOffset("Opacity");
+			props.VisibilityRadius = cls->GetPropertyDataOffset("VisibilityRadius");
+			props.VisibilityHeight = cls->GetPropertyDataOffset("VisibilityHeight");
 			initialized = true;
 		}
 		return props;
