@@ -1,9 +1,18 @@
-flipendo: only recenter the mouse cursor, and only act on raw mouse/keyboard input, while the game window is the active (foreground) window
+flipendo: only recenter the mouse cursor, and only act on raw mouse/keyboard input, while the game window is the active (foreground) window; window icons the right way up
 
 diff --git a/SurrealWidgets/src/window/win32/win32_display_window.cpp b/SurrealWidgets/src/window/win32/win32_display_window.cpp
-index 03451a7d..02a45be5 100644
+index 03451a7d..b8ff6974 100644
 --- a/SurrealWidgets/src/window/win32/win32_display_window.cpp
 +++ b/SurrealWidgets/src/window/win32/win32_display_window.cpp
+@@ -177,7 +177,7 @@ static HICON CreateIconFromImageList(const std::vector<std::shared_ptr<Image>>&
+ 	BITMAPV5HEADER bmp_header = {};
+ 	bmp_header.bV5Size = sizeof(BITMAPV5HEADER);
+ 	bmp_header.bV5Width = width;
+-	bmp_header.bV5Height = height;
++	bmp_header.bV5Height = -height; // top-down rows, like the image (a positive height drew every icon upside down)
+ 	bmp_header.bV5Planes = 1;
+ 	bmp_header.bV5BitCount = 32;
+ 	bmp_header.bV5Compression = BI_RGB;
 @@ -723,7 +723,9 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
  
  	if (msg == WM_INPUT)

@@ -18,7 +18,7 @@ SurrealEngine/GameFolder.*
 [0002-launcher-flags.patch] flipendo: --autolaunch and --logfile command line flags
 SurrealEngine/GameApp.cpp
 
-[0003-cursor-focus.patch] flipendo: only recenter the mouse cursor, and only act on raw mouse/keyboard input, while the game window is the active (foreground) window
+[0003-cursor-focus.patch] flipendo: only recenter the mouse cursor, and only act on raw mouse/keyboard input, while the game window is the active (foreground) window; window icons the right way up
 SurrealWidgets/**
 
 [0010-engine-fixes.patch] flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files, packages, crash reports, music streaming, BSP regions

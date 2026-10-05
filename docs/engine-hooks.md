@@ -11,7 +11,7 @@ them, kept as patch files so a newer SurrealEngine rarely conflicts.
 |---|---|
 | `patches/0001-game-detection.patch` | HP1 `System/HP.exe` hashes (UK 1.1, EN retail SafeDisc, community No-CD); why a folder isn't a game |
 | `patches/0002-launcher-flags.patch` | `--autolaunch`, `--logfile`, the flags the HP1 code reads |
-| `patches/0003-cursor-focus.patch` | cursor recentering and raw input only while the game window has focus |
+| `patches/0003-cursor-focus.patch` | cursor recentering and raw input only while the game window has focus; window icons the right way up |
 | `patches/0010-engine-fixes.patch` | fixes to SurrealEngine bugs that aren't specific to one game (VM, properties, ini, packages, crash reports) |
 | `patches/0100-kw-core.patch` | build (`flipendo.cmake`), natives registration, engine loop (input, console, saves, view), missing data messages |
 | `patches/0110-kw-physics.patch` | KnowWonder physics, pawn movement, collision |
@@ -59,6 +59,7 @@ Paths are relative to `engine/SurrealEngine/` unless they start with `engine/`.
 | File | Hook |
 |---|---|
 | `engine/CMakeLists.txt` | includes `flipendo.cmake` (`kw/kw.cmake`, `hp1/hp1.cmake`) |
+| `Engine.cpp` (OpenWindow) | window icon `KW::GameIcons`: the game's own `System/<exe>.ico` from the player's folder (HP1 `hp.ico`, grey background made transparent), else SurrealEngine's |
 | `Package/PackageManager.cpp` | `HP1::RegisterNatives()` after SurrealEngine natives |
 | `Packages/Engine/Resources/Mesh/UAnimation.cpp` | `HP1::LoadAnimation` |
 | `Packages/Engine/Actors/UActor_Animation.cpp` | `HP1::TickAnimation` |
@@ -74,7 +75,7 @@ Paths are relative to `engine/SurrealEngine/` unless they start with `engine/`.
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `HP1::PawnMoveToward`, `HP1::PawnPhysicsTime`, `HP1::PawnPhysicsRotation` |
 | `Packages/Engine/Actors/Pawn/UPlayerPawn.cpp` | `HP1::PawnPhysicsRotation` |
 | `UE1GameDatabase.h`, `GameApp.cpp` | exe hashes, `--autolaunch` / `--logfile` |
-| `SurrealWidgets/.../win32_display_window.cpp` | cursor recentering and raw mouse/keyboard input need foreground focus (0004; raw input is RIDEV_INPUTSINK, so moving the mouse in another app turned the camera) |
+| `SurrealWidgets/.../win32_display_window.cpp` | cursor recentering and raw mouse/keyboard input need foreground focus (0004; raw input is RIDEV_INPUTSINK, so moving the mouse in another app turned the camera); the icon bitmap is top-down (it was drawn upside down) |
 | `Packages/Engine/Actors/UActor_Phys.cpp`, `UActor_PhysRolling.cpp` | `HP1::PhysicsChecksLeftWorld` (zone-0 FellOutOfWorld only while walking) |
 | `Packages/Engine/Actors/UActor_PhysWalking.cpp` | player slides along actors it hits (no pushable decoration); `HP1::PawnMount` before the step up |
 | `Packages/Engine/Actors/UActor_PhysFalling.cpp` | `HP1::PawnMount` on a wall hit |
