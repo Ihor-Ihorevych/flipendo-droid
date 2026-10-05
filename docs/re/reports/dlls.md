@@ -11,7 +11,7 @@ Details: [native_audit_hp1.md](native_audit_hp1.md), [native_audit_hp2.md](nativ
 | DLL | HP1 | HP2 | exports HP1 / HP2 | ported functions | provided by |
 |---|---|---|---|---|---|
 | [Core](#core) | 840 KB | 904 KB | 2046 / 2070 | 6 | SurrealEngine |
-| [Engine](#engine) | 2072 KB | 2092 KB | 2722 / 2784 | 190 | SurrealEngine + **src/knowwonder/** |
+| [Engine](#engine) | 2072 KB | 2092 KB | 2722 / 2784 | 188 | SurrealEngine + **src/knowwonder/** |
 | [Fire](#fire) | 104 KB | 104 KB | 133 / 133 | 7 | SurrealEngine + src/knowwonder/ (IceTexture) |
 | [Render](#render) | 288 KB | 296 KB | 93 / 94 | 5 | SurrealEngine + src/knowwonder/ (particles) |
 | [D3DDrv](#d3ddrv) | 216 KB | 216 KB | 392 / 392 | 0 | replaced (SurrealEngine render devices) |
@@ -65,7 +65,7 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 
 **HP2 script natives** (Engine.u): 102 OK, 24 HP1_PORT, 25 STUB, 3 MISSING, 1 INDEX, 4 OTHER_GAME.
 
-**Reimplemented in Flipendo** (190):
+**Reimplemented in Flipendo** (188):
 
 | function | where | HP2 |
 |---|---|---|
@@ -124,7 +124,6 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 | `AActor::execStopSound` | `src/hp2/HP2Natives.cpp:55` | changed |
 | `AActor::execTrace` | `src/knowwonder/KWMoveNatives.cpp:53` | changed |
 | `AActor::execTraceActors` | `src/knowwonder/KWMoveNatives.cpp:107` | changed |
-| `AActor::execTraceActors` | `src/knowwonder/KWTraceTexture.cpp:77` | changed |
 | `AActor::execTraceTexture` | `src/knowwonder/KWTraceTexture.cpp:25` | changed |
 | `AActor::execTweenAnim` | `src/knowwonder/Anim/KWAnimState.cpp:378` | changed |
 | `AActor::fixedTurn` | `src/knowwonder/KWPhysics.cpp:123` | offsets only |
@@ -226,7 +225,6 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 | `ULevel::FindSpot` | `src/knowwonder/KWMove.cpp:369` | changed |
 | `ULevel::MoveActor` | `src/knowwonder/KWMove.cpp:135` | changed |
 | `ULevel::MultiLineCheck` | `src/knowwonder/KWLevelCheck.cpp:350` | changed |
-| `ULevel::MultiLineCheck` | `src/knowwonder/KWTraceTexture.cpp:78` | changed |
 | `ULevel::MultiPointCheck` | `src/knowwonder/KWLevelCheck.cpp:445` | offsets only |
 | `ULevel::SetActorZone` | `src/knowwonder/KWMove.cpp:83` | changed |
 | `ULevel::SingleLineCheck` | `src/knowwonder/KWLevelCheck.cpp:412` | offsets only |
