@@ -11,7 +11,7 @@ Details: [native_audit_hp1.md](native_audit_hp1.md), [native_audit_hp2.md](nativ
 | DLL | HP1 | HP2 | exports HP1 / HP2 | ported functions | provided by |
 |---|---|---|---|---|---|
 | [Core](#core) | 840 KB | 904 KB | 2046 / 2070 | 6 | SurrealEngine |
-| [Engine](#engine) | 2072 KB | 2092 KB | 2722 / 2784 | 129 | SurrealEngine + **src/knowwonder/** |
+| [Engine](#engine) | 2072 KB | 2092 KB | 2722 / 2784 | 130 | SurrealEngine + **src/knowwonder/** |
 | [Fire](#fire) | 104 KB | 104 KB | 133 / 133 | 7 | SurrealEngine + src/knowwonder/ (IceTexture) |
 | [Render](#render) | 288 KB | 296 KB | 93 / 94 | 5 | SurrealEngine + src/knowwonder/ (particles) |
 | [D3DDrv](#d3ddrv) | 216 KB | 216 KB | 392 / 392 | 0 | replaced (SurrealEngine render devices) |
@@ -65,7 +65,7 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 
 **HP2 script natives** (Engine.u): 102 OK, 24 HP1_PORT, 25 STUB, 3 MISSING, 1 INDEX, 4 OTHER_GAME.
 
-**Reimplemented in Flipendo** (129):
+**Reimplemented in Flipendo** (130):
 
 | function | where | HP2 |
 |---|---|---|
@@ -100,18 +100,18 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 | `AActor::execLoadGameSaveInfo` | `src/knowwonder/KWSave.cpp:177` | changed |
 | `AActor::execLoopAnim` | `src/knowwonder/Anim/KWAnimState.cpp:372` | changed |
 | `AActor::execModifySound` | `src/knowwonder/KWSound.cpp:31` | changed |
-| `AActor::execStopSound` | `src/knowwonder/KWSound.cpp:49` | changed |
 | `AActor::execPlayAnim` | `src/knowwonder/Anim/KWAnimState.cpp:366` | changed |
 | `AActor::execPollFinishAnim` | `src/knowwonder/Anim/KWAnimState.cpp:227` | identical |
 | `AActor::execSaveGameExists` | `src/knowwonder/KWSave.cpp:216` | changed |
 | `AActor::execSaveGameSaveInfo` | `src/knowwonder/KWSave.cpp:150` | changed |
 | `AActor::execSetCollisionSize` | `src/knowwonder/KWCollision.cpp:197` | changed |
 | `AActor::execSetPhysics` | `src/knowwonder/KWCollision.cpp:360` | changed |
+| `AActor::execStopSound` | `src/knowwonder/KWSound.cpp:49` | changed |
 | `AActor::execStopSound` | `src/hp2/HP2Natives.cpp:55` | changed |
 | `AActor::execTraceActors` | `src/knowwonder/KWTraceTexture.cpp:77` | changed |
 | `AActor::execTraceTexture` | `src/knowwonder/KWTraceTexture.cpp:25` | changed |
 | `AActor::execTweenAnim` | `src/knowwonder/Anim/KWAnimState.cpp:378` | changed |
-| `AActor::physMovingBrush` | `src/knowwonder/KWMover.cpp:57` | changed |
+| `AActor::physMovingBrush` | `src/knowwonder/KWMover.cpp:95` | changed |
 | `AActor::physRolling` | `src/knowwonder/KWPawn.cpp:35` | changed |
 | `AActor::physRolling` | `src/knowwonder/KWPawn.cpp:45` | changed |
 | `AActor::physTrailer` | `src/knowwonder/KWAttach.cpp:33` | changed |
@@ -177,6 +177,7 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 | `UGameEngine::SaveGame` | `src/knowwonder/KWSave.cpp:364` | changed |
 | `UGesture::execCompareGesture` | `src/knowwonder/KWGesture.cpp:128` | changed |
 | `UGesture::execCompareGesturePoint` | `src/knowwonder/KWGesture.cpp:145` | changed |
+| `ULevel::MoveActor` | `src/knowwonder/KWMover.cpp:59` | changed |
 | `ULevel::MultiLineCheck` | `src/knowwonder/KWTraceTexture.cpp:78` | changed |
 | `ULodMesh::GetNumTris` | `src/knowwonder/KWParticleFX.cpp:555` | identical |
 | `UMesh::GetCollisionBoundingBox` | `src/knowwonder/KWCollision.cpp:260` | changed |

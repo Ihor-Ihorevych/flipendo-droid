@@ -60,9 +60,8 @@ namespace KW
 	// VisibleMesh::DrawSkeletalMesh, after the mesh textures are set up: pose, skin and draw.
 	bool DrawSkeletalMesh(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, USkeletalMesh* mesh, bool translucentPass);
 
-	// UActor::TickMovingBrush: sync HP1's shadowed Mover.PhysAlpha/PhysRate into Actor's and back.
-	void MoverPhysicsBegin(UActor* mover);
-	void MoverPhysicsEnd(UActor* mover);
+	// UActor::TickMovingBrush: KnowWonder's physMovingBrush (Mover's own PhysAlpha/PhysRate, falling, world collision).
+	void PhysMovingBrush(UActor* mover, float deltaTime);
 
 	// RenderSubsystem::DrawGame, before presenting: HP1_SHOTS debug screenshots (src/knowwonder/KWDebug.cpp).
 	void OnFrameRendered(RenderDevice* device);

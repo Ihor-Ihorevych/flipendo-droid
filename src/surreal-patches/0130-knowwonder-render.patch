@@ -410,10 +410,10 @@ index 984fdbfc..9e0d6356 100644
 +	}
  }
 diff --git a/SurrealEngine/Render/VisibleBrush.cpp b/SurrealEngine/Render/VisibleBrush.cpp
-index 74911e16..db83b986 100644
+index 74911e16..c4c3da96 100644
 --- a/SurrealEngine/Render/VisibleBrush.cpp
 +++ b/SurrealEngine/Render/VisibleBrush.cpp
-@@ -30,15 +30,27 @@ bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass
+@@ -30,15 +30,28 @@ bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass
  	frame->Device->SetSceneNode(&brushframe);
  	bool needTranslucentPass = false;
  
@@ -423,7 +423,8 @@ index 74911e16..db83b986 100644
 +	vec3 viewLocation = frame->ViewLocation.xyz();
 +	auto facesView = [&](const Poly& poly)
 +	{
-+		if ((poly.PolyFlags & PF_TwoSided) || engine->getEditorMode())
++		uint32_t flags = poly.PolyFlags | (poly.Texture ? poly.Texture->PolyFlags() : 0);
++		if ((flags & PF_TwoSided) || engine->getEditorMode())
 +			return true;
 +		vec3 point = (brushframe.ObjectToWorld * vec4(poly.Base, 1.0f)).xyz();
 +		vec3 normal = (brushframe.ObjectToWorld * vec4(poly.Normal, 0.0f)).xyz();
@@ -443,6 +444,18 @@ index 74911e16..db83b986 100644
  			needTranslucentPass = true;
  	}
  
+@@ -48,7 +61,11 @@ bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass
+ 
+ bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly& poly, int pass, UMover* mover, bool translucentPass)
+ {
++	// The texture's own flags count like the polygon's, as for BSP surfaces (VisibleFrame::ProcessNode). Without them
++	// a masked texture on a mover drew its holes black (Lev_Tut1b's portcullis in front of a star).
+ 	uint32_t PolyFlags = poly.PolyFlags;
++	if (poly.Texture)
++		PolyFlags |= poly.Texture->PolyFlags();
+ 
+ 	if (!engine->getEditorMode() && PolyFlags & PolyFlags::PF_Invisible)
+ 		return false;
 diff --git a/SurrealEngine/Render/VisibleFrame.cpp b/SurrealEngine/Render/VisibleFrame.cpp
 index 818aa65d..5ef18732 100644
 --- a/SurrealEngine/Render/VisibleFrame.cpp

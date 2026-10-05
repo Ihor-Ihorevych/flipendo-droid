@@ -11,9 +11,9 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 
 ## Ported functions (`// IDA` tags in src/knowwonder/, src/hp1/ and src/hp2/)
 
-138 tagged exports: 27 identical, 20 offsets only, 79 changed, 1 missing in HP2, 4 HP2 only, 7 no fingerprint.
+140 tagged exports: 27 identical, 20 offsets only, 80 changed, 1 missing in HP2, 4 HP2 only, 8 no fingerprint.
 
-### Changed (79)
+### Changed (80)
 
 | DLL | function | port | note |
 |---|---|---|---|
@@ -42,6 +42,7 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 | Engine | `?GetWind@AWind@@QAE?AVFVector@@ABV2@@Z` | `src/knowwonder/KWWind.cpp:115` | 1089 -> 931 bytes, HP2 0x1043F500 |
 | Engine | `?LoadMap@UGameEngine@@UAEPAVULevel@@ABVFURL@@PAVUPendingLevel@@PBV?$TMap@VFString@@V1@@@AAVFString@@@Z` | `src/knowwonder/KWSave.cpp:396` | 11053 -> 11045 bytes, HP2 0x103A5430 |
 | Engine | `?Mount@APawn@@QAE_NABVFVector@@AAUFCheckResult@@@Z` | `src/knowwonder/KWPawn.cpp:389` | 1398 -> 1275 bytes, HP2 0x103F8E90 |
+| Engine | `?MoveActor@ULevel@@UAEHPAVAActor@@VFVector@@VFRotator@@AAUFCheckResult@@HHHH@Z` | `src/knowwonder/KWMover.cpp:59` | 3729 -> 3770 bytes, HP2 0x103B3E80 |
 | Engine | `?MultiLineCheck@ULevel@@UAEPAUFCheckResult@@AAVFMemStack@@VFVector@@11HPAVALevelInfo@@E@Z` | `src/knowwonder/KWTraceTexture.cpp:78` | 1555 -> 1538 bytes, HP2 0x103B67A0 |
 | Engine | `?PlayAnim@AActor@@QAEHVFName@@_NMMMW4EAnimType@@0@Z` | `src/knowwonder/Anim/KWAnimState.cpp:110` | 3277 -> 3482 bytes, HP2 0x10416830 |
 | Engine | `?SaveGame@UGameEngine@@UAEXH@Z` | `src/knowwonder/KWSave.cpp:364` | 1154 -> 1380 bytes, HP2 0x103AB430 |
@@ -71,7 +72,7 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 | Engine | `?execLinkSkelAnim@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/Anim/KWAnimState.cpp:415` | 82 -> 111 bytes, HP2 0x10418480 |
 | Engine | `?execLoadGameSaveInfo@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWSave.cpp:177` | 500 -> 525 bytes, HP2 0x10422760 |
 | Engine | `?execLoopAnim@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/Anim/KWAnimState.cpp:372` | 281 -> 310 bytes, HP2 0x10417A90 |
-| Engine | `?execModifySound@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWSound.cpp:28` | 247 -> 275 bytes, HP2 0x1041A3E0 |
+| Engine | `?execModifySound@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWSound.cpp:31` | 247 -> 275 bytes, HP2 0x1041A3E0 |
 | Engine | `?execNumParticles@AParticleFX@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWParticleFX.cpp:911` | 212 -> 240 bytes, HP2 0x103D3BB0 |
 | Engine | `?execPlayAnim@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/Anim/KWAnimState.cpp:366` | 242 -> 271 bytes, HP2 0x10417930 |
 | Engine | `?execRecomputeDeltas@AParticleFX@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWParticleFX.cpp:998` | 81 -> 110 bytes, HP2 0x103D4440 |
@@ -81,7 +82,7 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 | Engine | `?execSetCollisionSize@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWCollision.cpp:197` | 173 -> 202 bytes, HP2 0x10418620 |
 | Engine | `?execSetParticleParams@AParticleFX@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWParticleFX.cpp:973` | 506 -> 529 bytes, HP2 0x103D4190 |
 | Engine | `?execSetPhysics@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWCollision.cpp:360` | 69 -> 98 bytes, HP2 0x103F1F40 |
-| Engine | `?execStopSound@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWSound.cpp:46` | 140 -> 211 bytes, HP2 0x1041A550 |
+| Engine | `?execStopSound@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWSound.cpp:49` | 140 -> 211 bytes, HP2 0x1041A550 |
 | Engine | `?execTraceActors@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWTraceTexture.cpp:77` | 805 -> 789 bytes, HP2 0x1041C6D0 |
 | Engine | `?execTraceTexture@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWTraceTexture.cpp:25` | 1019 -> 993 bytes, HP2 0x10381850 |
 | Engine | `?execTweenAnim@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/Anim/KWAnimState.cpp:378` | 128 -> 157 bytes, HP2 0x10417C20 |
@@ -90,7 +91,7 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 | Engine | `?performPhysics@AInterpolationManager@@UAEXM@Z` | `src/knowwonder/KWInterpolation.cpp:311` | 6429 -> 6587 bytes, HP2 0x10403E60 |
 | Engine | `?performPhysics@APawn@@UAEXM@Z` | `src/knowwonder/KWPawn.cpp:89` | 509 -> 544 bytes, HP2 0x103F2B80 |
 | Engine | `?physFlying@APawn@@QAEXMH@Z` | `src/knowwonder/KWPawn.cpp:33` | 1721 -> 1630 bytes, HP2 0x103FDBE0 |
-| Engine | `?physMovingBrush@AActor@@QAEXM@Z` | `src/knowwonder/KWMover.cpp:57` | 1960 -> 2115 bytes, HP2 0x104137A0 |
+| Engine | `?physMovingBrush@AActor@@QAEXM@Z` | `src/knowwonder/KWMover.cpp:95` | 1960 -> 2115 bytes, HP2 0x104137A0 |
 | Engine | `?physRolling@AActor@@QAEXMH@Z` | `src/knowwonder/KWPawn.cpp:35` | 3769 -> 3490 bytes, HP2 0x103FF770 |
 | Engine | `?physSwimming@APawn@@QAEXMH@Z` | `src/knowwonder/KWPawn.cpp:34` | 1964 -> 1857 bytes, HP2 0x103FE860 |
 | Engine | `?physTrailer@AActor@@QAEXM@Z` | `src/knowwonder/KWAttach.cpp:33` | 1245 -> 1395 bytes, HP2 0x10402470 |
@@ -112,13 +113,14 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 | Engine | `?execGetCurrentKeyState@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/hp2/HP2Natives.cpp:46` | HP2 0x10422C60 |
 | Engine | `?execIsSoftwareRendering@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/hp2/HP2Natives.cpp:38` | HP2 0x10422A50 |
 
-### No fingerprint (7)
+### No fingerprint (8)
 
 | DLL | function | port | note |
 |---|---|---|---|
-| Galaxy | `?ModifySound@UGalaxyAudioSubsystem@@UAEHPAVAActor@@HPAVUSound@@EM@Z` | `src/knowwonder/KWSound.cpp:29` |  |
-| Galaxy | `?StopSound@UGalaxyAudioSubsystem@@UAEHPAVAActor@@HPAVUSound@@@Z` | `src/knowwonder/KWSound.cpp:37` |  |
-| Galaxy | `?Update@UGalaxyAudioSubsystem@@UAEXUFPointRegion@@AAVFCoords@@@Z` | `src/knowwonder/KWSound.cpp:138` |  |
+| Galaxy | `?ModifySound@UGalaxyAudioSubsystem@@UAEHPAVAActor@@HPAVUSound@@EM@Z` | `src/knowwonder/KWSound.cpp:32` |  |
+| Galaxy | `?SetVolumes@UGalaxyAudioSubsystem@@QAEXXZ` | `src/knowwonder/KWSound.cpp:178` |  |
+| Galaxy | `?StopSound@UGalaxyAudioSubsystem@@UAEHPAVAActor@@HPAVUSound@@@Z` | `src/knowwonder/KWSound.cpp:40` |  |
+| Galaxy | `?Update@UGalaxyAudioSubsystem@@UAEXUFPointRegion@@AAVFCoords@@@Z` | `src/knowwonder/KWSound.cpp:177` |  |
 | Render | `?DrawActorSprite@URender@@QAEXPAUFSceneNode@@PAUFDynamicSprite@@@Z` | `src/knowwonder/KWAttach.cpp:93` |  |
 | Render | `?DrawLodMesh@URender@@QAEXPAUFSceneNode@@PAUFDynamicSprite@@PAVAActor@@ABVFCoords@@K@Z` | `src/knowwonder/KWAttach.cpp:94` |  |
 | Render | `?DrawParticleSystem@URender@@QAEXPAUFSceneNode@@PAUFDynamicSprite@@@Z` | `src/knowwonder/KWParticleRender.cpp:338` |  |
