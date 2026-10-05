@@ -7,6 +7,8 @@
 #include "VM/ScriptCall.h"
 #include "Packages/Engine/UConsole.h"
 #include "KWActor.h"
+#include "KWCheck.h"
+#include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Packages/Engine/Actors/UHUD.h"
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
@@ -51,7 +53,8 @@
 //                              "@set CutScene bDebugScript True" sets a property on every actor whose name starts so; "@get harry numBeans" logs one
 //                              "@teleport x y z" moves the player; "@trigger <tag>" triggers every actor with that Tag;
 //                              "@bump GridMover0 harry0" raises Bump(harry0) on the actors whose name starts with GridMover0;
-//                              "@polys Mover17" logs the brush polygons (normal, PolyFlags, texture) of the matching movers
+//                              "@polys Mover17" logs the brush polygons (normal, PolyFlags, texture) of the matching movers;
+//                              "@sweep x y z x y z ex ey ez" runs KnowWonder's BSP line/point checks with that box and logs them
 
 namespace KW
 {
@@ -350,6 +353,29 @@ namespace KW
 			}
 			return;
 		}
+		if (text.rfind("@sweep ", 0) == 0)
+		{
+			// "@sweep sx sy sz ex ey ez bx by bz": KnowWonder's level checks from start to end with a box (debugging collision)
+			float v[9] = {};
+			if (sscanf(text.c_str() + 7, "%f %f %f %f %f %f %f %f %f", &v[0], &v[1], &v[2], &v[3], &v[4], &v[5], &v[6], &v[7], &v[8]) == 9)
+			{
+				vec3 start(v[0], v[1], v[2]), end(v[3], v[4], v[5]), extent(v[6], v[7], v[8]);
+				CheckResult hit;
+				bool clear = ModelLineCheck(hit, ModelFrame::Level(engine->Level->Model), end, start, extent, 0);
+				char buf[400];
+				snprintf(buf, sizeof(buf), "HP1 sweep line: %s time=%.4f loc=(%.2f,%.2f,%.2f) normal=(%.3f,%.3f,%.3f) item=%d", clear ? "clear" : "hit", hit.Time, hit.Location.x, hit.Location.y, hit.Location.z, hit.Normal.x, hit.Normal.y, hit.Normal.z, hit.Item);
+				LogMessage(buf);
+				for (const vec3& p : { start, end })
+				{
+					CheckResult ph;
+					bool free = ModelPointCheck(ph, ModelFrame::Level(engine->Level->Model), p, extent, 0);
+					PointRegion region = engine->Level->Model->FindRegion(p, engine->LevelInfo);
+					snprintf(buf, sizeof(buf), "HP1 sweep point (%.2f,%.2f,%.2f): %s zone=%d leaf=%d push=(%.2f,%.2f,%.2f) normal=(%.3f,%.3f,%.3f)", p.x, p.y, p.z, free ? "free" : "blocked", region.ZoneNumber, region.BspLeaf, ph.Location.x, ph.Location.y, ph.Location.z, ph.Normal.x, ph.Normal.y, ph.Normal.z);
+					LogMessage(buf);
+				}
+			}
+			return;
+		}
 		if (text.rfind("@get ", 0) == 0)
 		{
 			// "@get <actor name prefix> <property>": log a property of every matching actor.
@@ -444,6 +470,22 @@ namespace KW
 				row += cell;
 			}
 			LogMessage(row);
+
+			// The same column traced with KnowWonder's own BSP check (level geometry only), to compare
+			std::string kwRow = "HP1 heightmap kw y=" + std::to_string((int)y) + ":";
+			for (float x = x0; x <= x1; x += step)
+			{
+				vec3 from(x, y, ztop), to(x, y, ztop - 2000.0f);
+				CheckResult hit;
+				hit.Time = 1.0f;
+				char cell[16];
+				if (!ModelLineCheck(hit, ModelFrame::Level(engine->Level->Model), to, from, extent, 0))
+					snprintf(cell, sizeof(cell), " %5d", (int)hit.Location.z);
+				else
+					snprintf(cell, sizeof(cell), "      ");
+				kwRow += cell;
+			}
+			LogMessage(kwRow);
 		}
 	}
 

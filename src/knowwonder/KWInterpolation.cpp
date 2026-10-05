@@ -1,5 +1,6 @@
 #include "Precomp.h"
 #include "KW.h"
+#include "KWMove.h"
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Core/UClass.h"
 #include "Packages/Core/Properties/UProperty.h"
@@ -492,10 +493,17 @@ namespace KW
 					m.TurnRateZ() = (desired.ZAxis - cur.ZAxis) * inv;
 				}
 
-				// XLevel->MoveActor(Owner, Delta, NewRotation, Hit): the owner has bCollideWorld off and only
-				// touches, so this is a plain move.
-				owner->SetRotation(OrthoRotation(desired));
-				owner->TryMove(location - owner->Location());
+				// XLevel->MoveActor(Owner, Delta, NewRotation, Hit)
+				if (UseKWPhysics())
+				{
+					CheckResult hit;
+					MoveActor(owner, location - owner->Location(), OrthoRotation(desired), hit);
+				}
+				else
+				{
+					owner->SetRotation(OrthoRotation(desired));
+					owner->TryMove(location - owner->Location());
+				}
 			}
 			else
 			{
@@ -553,7 +561,15 @@ namespace KW
 		if (ipSpeed > 0.0f && ipSpeed * 1.05f < speed)
 		{
 			vec3 target = startLocation + (owner->Location() - startLocation) * (ipSpeed / speed);
-			owner->TryMove(target - owner->Location());
+			if (UseKWPhysics())
+			{
+				CheckResult hit;
+				MoveActor(owner, target - owner->Location(), owner->Rotation(), hit);
+			}
+			else
+			{
+				owner->TryMove(target - owner->Location());
+			}
 			owner->Velocity() = (owner->Location() - startLocation) / deltaTime;
 		}
 		owner->Acceleration() = (owner->Velocity() - startVelocity) / deltaTime;

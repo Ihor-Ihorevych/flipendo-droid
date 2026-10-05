@@ -60,6 +60,13 @@ namespace KW
 	// VisibleMesh::DrawSkeletalMesh, after the mesh textures are set up: pose, skin and draw.
 	bool DrawSkeletalMesh(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, USkeletalMesh* mesh, bool translucentPass);
 
+	// UActor::TickPhysics: true when KnowWonder's own physics runs (not with FLIPENDO_SE_PHYSICS=1, which keeps
+	// SurrealEngine's for comparison). Then KW::PhysicsTick replaces the whole physics step.
+	bool UseKWPhysics();
+	// UActor::CheckLocation (spawning): ULevel::SpawnActor's FindSpot(cylinder, Location, no actors, check first)
+	bool SpawnFindSpot(float radius, float height, vec3& location);
+	void PhysicsTick(UActor* actor, float elapsed);
+
 	// UActor::TickMovingBrush: KnowWonder's physMovingBrush (Mover's own PhysAlpha/PhysRate, falling, world collision).
 	void PhysMovingBrush(UActor* mover, float deltaTime);
 
@@ -112,6 +119,8 @@ namespace KW
 
 	// Collision (src/knowwonder/KWCollision.cpp): actors with CollideType CT_Box are oriented boxes, not cylinders.
 	bool IsBoxCollider(UActor* actor);
+	// FCollisionHash::GetActorExtent: the world box of the actor's collision primitive (CollisionSystem::AddToCollision).
+	BBox ActorWorldCollisionBox(UActor* actor);
 	// UActor::TryMove: whether the moving actor is stopped by (and bumps) another one, or touches it.
 	bool IsBlockedBy(UActor* self, UActor* other);
 	// TraceTester::TraceActor: swept cylinder (height/radius 0 = ray) against the box; returns tmax on a miss.
@@ -119,8 +128,6 @@ namespace KW
 	// OverlapTester::CylinderActorOverlap / SphereActorOverlap / IsOverlapping.
 	bool BoxActorOverlapCylinder(UActor* actor, const dvec3& center, double height, double radius);
 	bool BoxActorOverlapSphere(UActor* actor, const dvec3& center, double radius);
-	// CollisionSystem::AddToCollision: half extents of the box's world AABB for the collision hash.
-	vec3 BoxCollisionExtents(UActor* actor);
 
 	// UPawn::Tick: APawn::performPhysics' AvgPhysicsTime running average (src/knowwonder/KWPawn.cpp).
 	void PawnPhysicsTime(UPawn* pawn, float elapsed);

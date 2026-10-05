@@ -10,6 +10,7 @@ Times are seconds since the first frame.
 
 | Variable | Example | What it does |
 |---|---|---|
+| `FLIPENDO_SE_PHYSICS` | `1` | run SurrealEngine's physics and movement instead of KnowWonder's own (to compare behaviour) |
 | `HP1_SHOTS`, `HP1_SHOT_DIR` | `HP1_SHOTS="5,8.5"` | in-engine screenshots at those times |
 | `HP1_KEYS` | `"62:Up:3,66:Left:0.6"` | hold a key from a time for a duration |
 | `HP1_MOUSE` | `"63:0:-30:4"` | move the mouse by dx,dy raw counts every frame for a duration (dy<0 looks up) |
@@ -36,6 +37,7 @@ Times are seconds since the first frame.
 | `@trigger <tag>` | trigger every actor with that Tag |
 | `@bump <actor> <other>` | raise `Bump(other)` on every actor whose name starts with `<actor>` (push a GridMover without aiming a spell: `@set GridMover0 bProjTarget False` first, so it takes the player as the bumper) |
 | `@polys <actor>` | log the brush polygons of every actor whose name starts with `<actor>`: normal, PolyFlags (0x1000 = mountable), texture |
+| `@sweep sx sy sz ex ey ez bx by bz` | KnowWonder's BSP line check from start to end with a box of half size b, and point checks at both ends (zone, leaf, push-out): debugging collision |
 
 ## Crashes and the script debugger
 

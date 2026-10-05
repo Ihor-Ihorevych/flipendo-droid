@@ -15,6 +15,116 @@ only in offsets; `physWalking` (14847 -> 13679 bytes), `physFlying`, `physSwimmi
 `physTrailer`, `APawn::performPhysics`, `physicsRotation`, `moveToward`, `Mount` and
 `AInterpolationManager::performPhysics` changed, HP2 code not read yet. `IsBlockedBy` differs only in offsets.
 
+## The full port (src/knowwonder/KWPhysics.cpp, KWMove.cpp)
+
+Since 2026-10-05 KnowWonder games run HP1's own physics instead of SurrealEngine's (`FLIPENDO_SE_PHYSICS=1` brings
+SurrealEngine's back, to compare). Layers, each on the one below:
+
+- collision checks ([collision.md](collision.md#bsp-checks)): `KWBspCheck.cpp`, `KWLevelCheck.cpp`;
+- moving actors (below): `KWMove.cpp`, and the natives that move or trace (`KWMoveNatives.cpp`: Move, MoveSmooth,
+  SetLocation, SetRotation, Trace, FastTrace, AutonomousPhysics, SetBase, IsOverlapping, SetPhysics);
+- physics modes: `KWPhysics.cpp`. Walking, falling, rotation, landing and hit-wall are ported; flying, swimming,
+  spider, projectile and rolling still run SurrealEngine's code for now.
+
+`AActor::Tick` (0x103B3840) calls `performPhysics` once per tick with the whole frame time, after the script Tick,
+latent code, Timer and LifeSpan, and only when Physics isn't PHYS_None and Role isn't ROLE_AutonomousProxy. The modes
+split it themselves (falling: steps of at most 0.1 s, walking 0.05 s, up to 8). SurrealEngine split every tick into
+0.02 s steps before the Timer.
+
+`AActor::performPhysics` (0x103E52C0) handles falling, projectile, rolling, moving brush and trailer only; a non-pawn in
+PHYS_Walking or PHYS_Interpolating doesn't move by itself (an InterpolationManager moves its owner).
+`APawn::performPhysics` (0x103E5520) adds walking, swimming, flying, spider, then turns the pawn (below) unless it is a
+player already at its DesiredRotation with no roll to ease, counts MoveTimer down and averages AvgPhysicsTime. Both raise
+PostTouch.
+
+### Moving actors
+
+- `ULevel::MoveActor` (0x103AA3A0): static or non-movable actors don't move; a move under 0.0001 with no rotation change
+  succeeds at once (a non-mover with nothing standing on it just takes the rotation). It sweeps the primitive's world
+  collision box (a mover's shrunk by 0.51, everything else 2 units further than the move) through `MultiLineCheck`; the
+  first hit that isn't ignored (bIgnorePawns: pawns and decorations that aren't static; bIgnoreBases: what the actor
+  stands on; always: what stands on the actor) and blocks it (`IsBlockedBy`) stops it, the time pulled back by the
+  probe. What stands on it is carried (the yaw change turns them, a pawn's ViewRotation too). Non-pawns check
+  encroachment (a refused one cancels the move). Then Bump both ways (not against the level or its own base),
+  BeginTouch for the non-blocking hits before the stop (unless it blocks actors and players and no hit was looked at),
+  EndTouch for touches no longer overlapping, SetActorZone.
+- `AActor::IsBasedOn` (0x10352430): this stands on other, through its base chain. **SurrealEngine's `a->IsBasedOn(b)`
+  is the other way round** ("b stands on a"); `KW::IsBasedOn(a, b)` is HP1's. Mixing them up skipped the floor under
+  every pawn standing on the level (Harry fell through Lev_Tut1's floor in the intro).
+- `AActor::IsOverlapping` (0x10379D90): a brush never overlaps anything (touches with movers end at once); otherwise the
+  plain cylinders (no CollisionWidth offset), strictly within the summed radii and heights.
+- `ULevel::CheckEncroachment` (0x103AB5F0): actors that collide at the new place (`ActorEncroachmentCheck`: other
+  actors' cylinders point checked against this actor's primitive, other movers skipped) and that it blocks; a mover
+  first pushes each along (`moveSmooth`), and only what is still in the way afterwards gets EncroachingOn (true refuses
+  the move; the pushed actor is put back). Then EncroachedBy for blocked actors, touch for the rest.
+- `ULevel::FarMoveActor` (0x103A9DE0): FindSpot (bCollideWorld, or bCollideWhenPlacing off clients), encroachment with
+  touch, unbases what stood on it, bJustTeleported, OldLocation = Location.
+- `ULevel::FindSpot` (0x103A9690): its last argument decides whether a spot that is already free is kept (SpawnActor
+  passes 1); FarMoveActor passes 0, so the push-out steps always run: `AdjustSpot` (0x103A9570, a ray towards a test
+  point, pushed back along the hit normal by (1.05 - time) times the extent) along -X, -Y, -Z, +X, +Y, +Z, then the 8
+  diagonals; it fails when that moved the spot more than sqrt(1.5) times the extent or the spot still isn't free.
+  `ULevel::SpawnActor` (0x103A65A0) places bCollideWorld / bCollideWhenPlacing actors with it (SurrealEngine's
+  CheckLocation now calls it).
+- `ULevel::SetActorZone` (0x103ACDD0): ActorLeaving, then ZoneChange **before** Region changes (the script still sees
+  the old zone), then ActorEntered; a pawn also gets FootZoneChange (Location - CollisionHeight) and HeadZoneChange
+  (Location + EyeHeight). No carcass or inventory destruction (SurrealEngine's UpdateActorZone had UT's).
+- `AActor::moveSmooth` (0x103E4C30): on a hit, HitWall, then the rest along the wall, then `TwoWallAdjust`
+  (0x1031C3E0) along a second wall. `AActor::FindBase` (0x103E4FD0): 8 units down with the cylinder.
+- Script movement (`baseChar` moves itself with MoveSmooth), the InterpolationManager, physTrailer and movers all go
+  through these; with half of them on SurrealEngine's movement, students walked into Lev_Tut1's walls and fell out of
+  the world.
+
+### Falling (physFalling 0x103EEA20)
+
+Air control first (pawns): AirControl over 0.15 is cut to 0.05 when a trace a step ahead hits something; the
+acceleration is capped at AirControl * AccelRate (more below a horizontal speed of 10; at GroundSpeed or more only that
+speed is kept, or with little air control hardly any acceleration). Each step integrates half of gravity plus
+acceleration (in water with buoyancy and fluid friction; a bBobbing decoration with half gravity; a player whose feet
+are in a water zone, falling, with that zone's friction), splits once at the top of the arc, adds ZoneVelocity (a player
+only over 200), moves, and averages the velocity with the step's displacement (capped at ZoneTerminalVelocity). Hits:
+bBounce raises HitWall; a floor (normal.z > 0.7) lands (`processLanded`); a wall tries a ledge grab (`Mount`), HitWall
+(`processHitWall`), and slides along it and a second wall, landing on a ditch or floor.
+
+`processHitWall` (0x103ECF20): never against pawns. A pawn steering into the wall (towards Destination, flat when
+walking, within MinHitWall) gets HitWall only if its script probes it (falling: always); otherwise its move ends
+(MoveTimer -1, bFromWall). `processLanded` (0x103ED210): a decoration landing over an edge rolls off it (a ray under it
+finds nothing, four short traces under its corners pick the way), 5 times at most; a bSlidingCarcass on a slope slides;
+a non-pawn in a bBounceVelocity zone bounces; else Landed, then walking (pawns, spending the time left) or none.
+
+### Walking (physWalking 0x103E6B60)
+
+`calcVelocity` (0x103EB3E0) with ground friction: acceleration capped at AccelRate (a walking player 30%), friction
+turns the velocity towards it; braking in 0.03 s steps, stopping dead under 10; non-players' MaxSpeed times
+DesiredSpeed; a walking player slows towards 30% of it. ZoneVelocity x25 (a player only over 300). Then per step:
+
+- AI pawns that can't fly, and walking players, look ahead for a ledge (a probe one radius ahead, half without
+  bAvoidLedges, down past MaxStepHeight). At one: the edge face under it; none found: a side step either way; found:
+  back away (bAvoidLedges; bStopAtLedges also ends the move) or slide along it. MayFall once; a pawn that can jump walks
+  off, one that can't stops (MoveTimer -1, or -0.1 by chance). A walking player just stops at the edge.
+- bHitSlopedWall (the last step hit a wall sloped 0.01..0.7): slide along it; a player probes for one 100 ahead and
+  45 degrees either side.
+- The move, `stepUp` on a hit (0x103EC690: a ledge grab first, else up MaxStepHeight, the move, down; a player pushes a
+  bPushable decoration hit head on, the velocity shared by mass; a short shallow hit steps up again).
+- The floor (MaxStepHeight + 2 down with the cylinder): kept (lifted to 2.1 above it), snapped down to, slid down a
+  slope (normal.z * ZoneGroundFriction < 3.3), or lost: MayFall, and a pawn that can't jump or walks (bIsWalking) is put
+  back where it started (FarMoveActor, MoveTimer -1); else Falling and physFalling with the time left.
+- PlayerPawn.bAutoJump: walking off an edge whose face (a ray behind the feet) faces forward by more than 0.25, if a
+  jump from the edge lands more than 10 higher than a fall (`sub_103E6310`, steps of 0.2 s), DoJump(1).
+- At the end the velocity is the step's displacement, projected on the floor (keeping its speed).
+
+The ledge grab (`APawn::Mount` 0x103EBFB0) finds the wall's surface from the hit's node (`Item`) along its coplanar chain
+(`sub_103FEBD0`: the polygon facing the hit that contains the hit point within the pawn's largest extent; a mover's hit
+taken into its brush's frame first).
+
+### Pawn rotation (APawn::physicsRotation 0x103E5950)
+
+Yaw and pitch turn towards DesiredRotation at RotationRate (`fixedTurn` 0x103E57E0, bRotateToDesired on). Roll: none
+without RotationRate.Roll; eased back to level when walking slower than 200 or accelerating less than 100; else banked
+by the sideways acceleration (x28000, x4096 walking, over AccelRate) up to RotationRate.Roll, eased in at 5x the frame
+time. The new rotation goes through MoveActor, so what stands on the pawn turns with it. Other actors
+(`AActor::physicsRotation` 0x103E5FB0) turn with bRotateToDesired / bFixedRotationDir and raise EndedRotation on
+arrival.
+
 ## setPhysics
 
 `AActor::setPhysics` (0x103E5140): switching to PHYS_None or PHYS_Rotating zeroes Velocity and Acceleration, so the

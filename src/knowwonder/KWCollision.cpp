@@ -1,7 +1,9 @@
 #include "Precomp.h"
 #include "KW.h"
 #include "KWActor.h"
+#include "KWCheck.h"
 #include "Math/coords.h"
+#include "Packages/Engine/Actors/Brush/UBrush.h"
 #include "VM/NativeFunc.h"
 #include "Packages/Engine/Resources/Mesh/UMesh.h"
 #include "Packages/Engine/Resources/Mesh/USkeletalMesh.h"
@@ -60,12 +62,23 @@ namespace KW
 
 		// The checking actor's world extent box (radius, radius, height) in the box's frame: half size of the bounding
 		// box of its rotated corners (FBox::TransformBy).
-		dvec3 CheckExtents(const Box& box, double height, double radius)
+		dvec3 CheckExtents(const Box& box, const dvec3& extent)
 		{
 			dvec3 e;
 			for (int i = 0; i < 3; i++)
-				e[i] = radius * (std::abs(box.Axis[i].x) + std::abs(box.Axis[i].y)) + height * std::abs(box.Axis[i].z);
+				e[i] = extent.x * std::abs(box.Axis[i].x) + extent.y * std::abs(box.Axis[i].y) + extent.z * std::abs(box.Axis[i].z);
 			return e;
+		}
+
+		dvec3 CheckExtents(const Box& box, double height, double radius)
+		{
+			return CheckExtents(box, dvec3(radius, radius, height));
+		}
+
+		vec3 ToWorldPoint(const Box& box, const dvec3& p)
+		{
+			dvec3 w = box.Center + box.Axis[0] * p.x + box.Axis[1] * p.y + box.Axis[2] * p.z;
+			return vec3((float)w.x, (float)w.y, (float)w.z);
 		}
 
 		// The axis aligned point check (box of half size e at p against the box of half size b at the origin), in the
@@ -94,6 +107,49 @@ namespace KW
 			}
 			return true;
 		}
+
+		// The axis aligned line check in the box's frame: Time (1 = no hit) and the local normal.
+		// IDA Engine.dll: not exported: sub_103FC980 [HP1 0x103FC980] (thunk sub_10303166; UBox::LineCheck's test)
+		double LocalLineCheck(const dvec3& b, const dvec3& start, const dvec3& end, const dvec3& e, dvec3& hitNormal)
+		{
+			dvec3 startNormal;
+			double startDepth;
+			if (LocalPointCheck(b, start, e, startNormal, startDepth))
+			{
+				dvec3 endNormal;
+				double endDepth;
+				if (LocalPointCheck(b, end, e, endNormal, endDepth) && endDepth > startDepth)
+				{
+					hitNormal = startNormal;
+					return 0.0;
+				}
+				return 1.0;
+			}
+
+			dvec3 grown = b + e;
+			dvec3 delta = end - start;
+			double time = 1.0;
+			hitNormal = dvec3(0.0);
+			for (int i = 0; i < 6; i++)
+			{
+				int axis = i / 2;
+				double sign = (i & 1) ? 1.0 : -1.0; // -X face first, then +X
+				double dist = sign < 0.0 ? (-grown[axis] - start[axis]) : (start[axis] - grown[axis]);
+				double travel = sign < 0.0 ? delta[axis] : -delta[axis];
+				if (dist <= -0.003 || std::max(dist, 0.0) >= travel * time)
+					continue;
+				double t = std::max(dist / travel, 0.0);
+				dvec3 n(0.0);
+				n[axis] = sign;
+				dvec3 p = start + delta * t - n * 0.001;
+				if (p.x > -grown.x && p.x < grown.x && p.y > -grown.y && p.y < grown.y && p.z > -grown.z && p.z < grown.z)
+				{
+					time = std::max(t - 0.001, 0.0);
+					hitNormal = n;
+				}
+			}
+			return time;
+		}
 	}
 
 	// IDA Engine.dll: ?LineCheck@UBox@@UAEHAAUFCheckResult@@PAVAActor@@VFVector@@22K@Z [HP1 0x103FE620]
@@ -115,48 +171,49 @@ namespace KW
 		dvec3 e = CheckExtents(box, height, radius);
 		dvec3 start = ToLocal(box, origin + dirNormalized * tmin - box.Center);
 		dvec3 end = ToLocal(box, origin + dirNormalized * tmax - box.Center);
-		dvec3 b = box.Extents;
-
-		dvec3 startNormal;
-		double startDepth;
-		if (LocalPointCheck(b, start, e, startNormal, startDepth))
-		{
-			dvec3 endNormal;
-			double endDepth;
-			if (LocalPointCheck(b, end, e, endNormal, endDepth) && endDepth > startDepth)
-			{
-				outNormal = ToWorldNormal(box, startNormal);
-				return tmin;
-			}
-			return tmax;
-		}
-
-		dvec3 grown = b + e;
-		dvec3 delta = end - start;
-		double time = 1.0;
-		dvec3 hitNormal(0.0);
-		for (int i = 0; i < 6; i++)
-		{
-			int axis = i / 2;
-			double sign = (i & 1) ? 1.0 : -1.0; // -X face first, then +X
-			double dist = sign < 0.0 ? (-grown[axis] - start[axis]) : (start[axis] - grown[axis]);
-			double travel = sign < 0.0 ? delta[axis] : -delta[axis];
-			if (dist <= -0.003 || std::max(dist, 0.0) >= travel * time)
-				continue;
-			double t = std::max(dist / travel, 0.0);
-			dvec3 n(0.0);
-			n[axis] = sign;
-			dvec3 p = start + delta * t - n * 0.001;
-			if (p.x > -grown.x && p.x < grown.x && p.y > -grown.y && p.y < grown.y && p.z > -grown.z && p.z < grown.z)
-			{
-				time = std::max(t - 0.001, 0.0);
-				hitNormal = n;
-			}
-		}
+		dvec3 hitNormal;
+		double time = LocalLineCheck(box.Extents, start, end, e, hitNormal);
 		if (time == 1.0)
 			return tmax;
 		outNormal = ToWorldNormal(box, hitNormal);
 		return tmin + (tmax - tmin) * time;
+	}
+
+	// UBox::LineCheck as a CheckResult. True when nothing is hit.
+	bool BoxLineCheck(CheckResult& hit, UActor* actor, const vec3& end, const vec3& start, const vec3& extent)
+	{
+		Box box = GetBox(actor);
+		dvec3 e = CheckExtents(box, to_dvec3(extent));
+		dvec3 localStart = ToLocal(box, to_dvec3(start) - box.Center);
+		dvec3 localEnd = ToLocal(box, to_dvec3(end) - box.Center);
+		dvec3 normal;
+		double time = LocalLineCheck(box.Extents, localStart, localEnd, e, normal);
+		if (time == 1.0)
+			return true;
+		hit.Actor = actor;
+		hit.Time = (float)time;
+		hit.Normal = ToWorldNormal(box, normal);
+		hit.Location = ToWorldPoint(box, localStart + (localEnd - localStart) * time);
+		hit.Model = nullptr;
+		return false;
+	}
+
+	// UBox::PointCheck as a CheckResult: Time is the push-out depth, Location the point clamped to the box.
+	bool BoxPointCheck(CheckResult& hit, UActor* actor, const vec3& location, const vec3& extent)
+	{
+		Box box = GetBox(actor);
+		dvec3 p = ToLocal(box, to_dvec3(location) - box.Center);
+		dvec3 normal;
+		double depth;
+		if (!LocalPointCheck(box.Extents, p, CheckExtents(box, to_dvec3(extent)), normal, depth))
+			return true;
+		dvec3 clamped(std::clamp(p.x, -box.Extents.x, box.Extents.x), std::clamp(p.y, -box.Extents.y, box.Extents.y), std::clamp(p.z, -box.Extents.z, box.Extents.z));
+		hit.Actor = actor;
+		hit.Time = (float)depth;
+		hit.Normal = ToWorldNormal(box, normal);
+		hit.Location = ToWorldPoint(box, clamped);
+		hit.Model = nullptr;
+		return false;
 	}
 
 	// UBox::PointCheck with the cylinder's extent box (CollisionRadius, CollisionRadius, CollisionHeight).
@@ -177,16 +234,6 @@ namespace KW
 		double dy = std::max(std::abs(p.y) - box.Extents.y, 0.0);
 		double dz = std::max(std::abs(p.z) - box.Extents.z, 0.0);
 		return dx * dx + dy * dy + dz * dz < radius * radius;
-	}
-
-	vec3 BoxCollisionExtents(UActor* actor)
-	{
-		Box box = GetBox(actor);
-		dvec3 e(0.0);
-		for (int i = 0; i < 3; i++)
-			for (int j = 0; j < 3; j++)
-				e[i] += std::abs(box.Axis[j][i]) * box.Extents[j];
-		return vec3((float)e.x, (float)e.y, (float)e.z);
 	}
 
 	void OverrideNative(int index, void (*registerFunc)());
@@ -234,23 +281,7 @@ namespace KW
 			return mat4::translate(a->Location()) * Coords::Rotation(a->Rotation()).ToMatrix();
 		}
 
-		// The primitives of HP1's UPrimitive::GetCollisionBoundingBox overrides, chosen like AActor::GetPrimitive.
-		enum class PrimKind { Cylinder, OrientedCylinder, Box, Mesh, Brush };
-
-		// IDA Engine.dll: ?GetPrimitive@AActor@@UBEPAVUPrimitive@@XZ [HP1 0x1037A880]
-		PrimKind GetPrimitive(UActor* a)
-		{
-			uint8_t type = CollideType(a);
-			if (type == CT_Shape && a->Mesh())
-				return PrimKind::Mesh;
-			if (type == CT_Shape && a->Brush())
-				return PrimKind::Brush;
-			if (type == CT_OrientedCylinder)
-				return PrimKind::OrientedCylinder;
-			if (type == CT_Box)
-				return PrimKind::Box;
-			return PrimKind::Cylinder;
-		}
+		using PrimKind = PrimitiveKind;
 
 		// The collision box of a primitive for an actor, in the actor's local space or (bWorld) the world.
 		// IDA Engine.dll: ?GetCollisionBoundingBox@UPrimitive@@UBE?AVFBox@@PBVAActor@@_N@Z [HP1 0x103FA2F0]
@@ -303,6 +334,31 @@ namespace KW
 		}
 	}
 
+	// IDA Engine.dll: ?GetPrimitive@AActor@@UBEPAVUPrimitive@@XZ [HP1 0x1037A880]
+	// IDA Engine.dll: ?GetPrimitive@ABrush@@UBEPAVUPrimitive@@XZ [HP1 0x1032AF50] (a brush actor is always its Brush)
+	PrimitiveKind ActorPrimitive(UActor* a)
+	{
+		if (a->Brush() && UObject::TryCast<UBrush>(a))
+			return PrimitiveKind::Brush;
+		uint8_t type = CollideType(a);
+		if (type == CT_Shape && a->Mesh())
+			return PrimitiveKind::Mesh;
+		if (type == CT_Shape && a->Brush())
+			return PrimitiveKind::Brush;
+		if (type == CT_OrientedCylinder)
+			return PrimitiveKind::OrientedCylinder;
+		if (type == CT_Box)
+			return PrimitiveKind::Box;
+		return PrimitiveKind::Cylinder;
+	}
+
+	// The world box FCollisionHash::AddActor files an actor under.
+	// IDA Engine.dll: ?GetActorExtent@FCollisionHash@@QAEXPAVAActor@@AAH11111@Z [HP1 0x10364900]
+	BBox ActorWorldCollisionBox(UActor* a)
+	{
+		return GetCollisionBoundingBox(a, ActorPrimitive(a), true);
+	}
+
 	// With bVisual the actor's Mesh (or Brush) gives the box, otherwise its collision primitive. Always in the world.
 	// Target and baseSpell aim at the centre of this box (spell lock-on and homing).
 	// IDA Engine.dll: ?execGetWorldCollisionBox@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x1040A950]
@@ -315,7 +371,7 @@ namespace KW
 		else if (bVisual.value_or(false) && a->Brush())
 			kind = PrimKind::Brush;
 		else
-			kind = GetPrimitive(a);
+			kind = ActorPrimitive(a);
 		BBox box = GetCollisionBoundingBox(a, kind, true);
 		ReturnValue.Min = box.min;
 		ReturnValue.Max = box.max;
@@ -348,7 +404,7 @@ namespace KW
 		}
 		else
 		{
-			box = GetCollisionBoundingBox(a, a->Mesh() ? PrimKind::Mesh : a->Brush() ? PrimKind::Brush : GetPrimitive(a), false);
+			box = GetCollisionBoundingBox(a, a->Mesh() ? PrimKind::Mesh : a->Brush() ? PrimKind::Brush : ActorPrimitive(a), false);
 		}
 		ReturnValue = box.max - box.min;
 	}
