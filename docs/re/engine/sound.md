@@ -51,7 +51,9 @@ Engine.dll's `WorldSoundRadius` is `(SoundRadius + 1) * 25`.
   Priority. There is no volume rescaling.
 
 `ModifySound` [HP1 Galaxy 0x10607AE0]: first channel whose Id matches ignoring bit 0 and whose sound is the given one
-(any sound when None). Parameter 0/1/2 sets Volume/Radius/Pitch, stored as given.
+(any sound when None). Parameter 0/1/2 sets Volume/Radius/Pitch, stored as given. A negative volume is kept and plays
+silent (Update clamps the integer volume at 0): `BroomHarry.UpdateBroomSound` fades the broom loop slightly below 0
+at the end of Lev_Tut2's intro, which SurrealEngine's OpenAL device rejected with a fatal error.
 
 `Update` [HP1 Galaxy 0x106081F0], for every playing channel (music channel aside):
 
@@ -61,11 +63,17 @@ Engine.dll's `WorldSoundRadius` is `(SoundRadius + 1) * 25`.
   played at Volume 3.2 (101 calls in HP1's scripts) stays at full volume out to 0.69 of its radius;
 - **pan**: the sound's offset in the view coordinates (the `FCoords` passed to Update), angle =
   `atan2(right, forward)`. Within a tenth of the radius the angle is scaled by `dist / (0.1 * Radius)`, so near
-  sounds drift to the centre. `pan = angle * 9126.3 + 16383`, clamped 0..32767. Stereo samples are centred
+  sounds drift to the centre. `pan = angle * 9126.3 + 16383`, clamped 0..32767. The angle is folded to the front
+  (`atan2(right, |forward|)`), so the pan stays within 2048..30718: a sound to the side is never fully in one ear.
+  The mixer [HP1 Galaxy 0x10612C7C, not a defined function; the table is filled in Galaxy's init at 0x1060BAB9]
+  moves the playing pan towards the new one by at most 0x200 per mix block, and plays with a constant-power square
+  root law: `table[i] = sqrt(i / 32767) * 32767`, right gain `table[pan]`, left gain `table[32767 - pan]` (0.707
+  each in the centre; 0.968 / 0.25 at the side). Stereo samples are centred
   (0x4000); a reverse-stereo option mirrors it, and a sound behind the listener goes to 49152 (rear) when that
   option is set;
 - **Doppler** only for ambient sounds (`Id & 14 == SLOT_Ambient * 2`): `pitch × clamp(1 - dot(dirToSource,
-  Actor.Velocity) / speedOfSound, 0.5, 2)`;
+  Actor.Velocity) / DopplerSpeed, 0.5, 2)`, `dirToSource` from the listener to the actor, `DopplerSpeed` from the
+  ini (9000 on the disc). The listener's own velocity plays no part;
 - frequency = sample rate × Pitch × Doppler. With 3D hardware enabled the position (× 0.0025) goes to the 3D voice
   instead of the pan.
 
