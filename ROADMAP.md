@@ -242,6 +242,20 @@ channels) and particle effects.
 - [x] Light maps half as bright as the reading of Render.dll gave, measured against the original's Lev_Tut1 intro (every
       level was ~2x too bright); lumels on the surface plane (Lev_Tut1b's fan vault was black). README screenshots
       retaken with `tools/readme_shots.sh`
+- [x] Lev_Tut2 lit like the original (`tools/orig_shots.ps1` frames): BSP surfaces take the ambient of the zone on the
+      camera's side, the zone ambient fill isn't halved (only lights are), coronas follow HP1's DrawFrame rule
+- [~] SurrealEngine's guesses replaced with HP1's code, in this order
+      ([docs/surrealengine-coverage.md](docs/surrealengine-coverage.md); move each row there from "Guess" to "HP1"):
+  - [ ] Sound: `PlaySound` and the Galaxy device (volume, radius, attenuation, pitch, panning, slots, ambient sounds)
+  - [ ] Vertex mesh lighting (props, non-skeletal meshes)
+  - [ ] Sprites and decals (spell sprites, actor shadows)
+  - [ ] `Spawn` and `Destroy` (placement when blocked, event order)
+  - [~] BSP drawing rules: surface zone and coronas done; masked/translucent/modulated, two-sided, panning, sky zone,
+        mirrors, fog
+  - [ ] Canvas text and tiles (HUD, menus, storybook)
+  - [ ] Level load and travel (`LoadMap`, `ClientTravel`, event order)
+  - [ ] The remaining light effects (~60 lights), the Waver flicker, the factor 2 behind the lights' 0.5
+  - [ ] The rest of the coverage list's "Guess" rows, as they come up
 - [ ] Bugs of the original to fix, not reproduce: [docs/re/hp1/original_bugs.md](docs/re/hp1/original_bugs.md)
 - [x] ImpactSoundSet, SoundContainer, ClipMarker, LocationID: Engine.dll has no native code for them, only boilerplate;
       their script classes are enough ([docs/re/engine/native_classes.md](docs/re/engine/native_classes.md))
