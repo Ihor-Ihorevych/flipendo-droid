@@ -141,6 +141,8 @@ namespace KW
 
 	void RegisterMoveNatives()
 	{
+		// TraceActors only needs KnowWonder's checks, not its physics (BaseCam pulls the camera to its hits)
+		OverrideNative(309, [] { RegisterVMNativeFunc_7("Actor", "TraceActors", &NTraceActors, 309); });
 		if (!UseKWPhysics())
 			return;
 		OverrideNative(266, [] { RegisterVMNativeFunc_2("Actor", "Move", &NMove, 266); });
@@ -153,6 +155,5 @@ namespace KW
 		OverrideNative(298, [] { RegisterVMNativeFunc_1("Actor", "SetBase", &NSetBase, 298); });
 		OverrideNative(718, [] { RegisterVMNativeFunc_2("Actor", "IsOverlapping", &NIsOverlapping, 718); });
 		OverrideNative(3970, [] { RegisterVMNativeFunc_1("Actor", "SetPhysics", &NSetPhysics, 3970); });
-		OverrideNative(309, [] { RegisterVMNativeFunc_7("Actor", "TraceActors", &NTraceActors, 309); });
 	}
 }
