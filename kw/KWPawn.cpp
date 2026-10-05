@@ -10,6 +10,7 @@
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Packages/Engine/Actors/Brush/UMover.h"
+#include "Packages/Engine/Resources/Level/UPolys.h"
 #include "Package/PackageManager.h"
 #include "Engine.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
@@ -367,6 +368,20 @@ namespace KW
 		return (tolerance == 0.0f && candidate && candidate->Surf >= 0) ? &model->Surfaces[candidate->Surf] : nullptr;
 	}
 
+	// A surface's flags. A mover's brush keeps them on its polygons (the brush BSP's own surfaces have none); the
+	// original adds a mover's polygons to the level's BSP with their flags, so its sides can be mountable (Lev_Tut1b's
+	// GridMover blocks: PF_SpecialPoly on the four sides).
+	static uint32_t SurfaceFlags(const CollisionHit& hit, const BspSurface* surf)
+	{
+		uint32_t flags = surf->PolyFlags;
+		UMover* mover = UObject::TryCast<UMover>(hit.Actor);
+		UModel* brush = mover ? mover->Brush() : nullptr;
+		if (brush && brush->Polys && surf >= brush->Surfaces.data() && surf < brush->Surfaces.data() + brush->Surfaces.size() &&
+			surf->BrushPoly >= 0 && (size_t)surf->BrushPoly < brush->Polys->Polys.size())
+			flags |= brush->Polys->Polys[surf->BrushPoly].PolyFlags;
+		return flags;
+	}
+
 	// Ledge grabbing. physFalling calls this with (0,0,1) when a falling pawn hits a wall, stepUp with -GravDir
 	// when a walking pawn runs into one. Only BSP surfaces flagged PF_SpecialPoly (0x1000, HP1's "mountable")
 	// qualify. It looks for a floor at most MaxMountHeight up just behind the wall, checks the way up and over is
@@ -389,7 +404,7 @@ namespace KW
 		vec3 extent(pawn->CollisionRadius(), pawn->CollisionRadius(), pawn->CollisionHeight());
 		float maxExtent = std::max(std::max(std::abs(extent.x), std::abs(extent.y)), std::abs(extent.z));
 		const BspSurface* surf = HitSurface(hit, pawn->Location(), maxExtent);
-		if (!surf || (surf->PolyFlags & PF_SpecialPoly) == 0)
+		if (!surf || (SurfaceFlags(hit, surf) & PF_SpecialPoly) == 0)
 			return false;
 
 		// Horizontal direction into the wall.
