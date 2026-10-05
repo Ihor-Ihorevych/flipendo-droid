@@ -301,10 +301,43 @@ index 66408992..d251aff8 100644
  		if (labels)
  		{
 diff --git a/SurrealEngine/VM/Frame.cpp b/SurrealEngine/VM/Frame.cpp
-index 2b0b45c8..77d28b57 100644
+index ab62632c..12570002 100644
 --- a/SurrealEngine/VM/Frame.cpp
 +++ b/SurrealEngine/VM/Frame.cpp
-@@ -553,7 +553,14 @@ ExpressionEvalResult Frame::Run()
+@@ -11,6 +11,7 @@
+ #include "Package/PackageManager.h"
+ #include "Utils/AlignedAlloc.h"
+ #include "Commandlet/VM/DisassemblyCommandlet.h"
++#include <unordered_set>
+ 
+ std::function<void()> Frame::RunDebugger;
+ Array<Breakpoint> Frame::Breakpoints;
+@@ -209,12 +210,22 @@ ExpressionValue Frame::Call(UFunction* func, UObject* instance, ArrayView<Expres
+ 	return Call(func, instance, args2);
+ }
+ 
++// Logs an Accessed None once per script expression: a script that reads None every frame (HP1's
++// BaseCam.CheckPosition does) would otherwise put a callstack in the log every frame.
++static void LogAccessedNone(Expression* where, const std::string& message)
++{
++	static std::unordered_set<Expression*> logged;
++	if (where && !logged.insert(where).second)
++		return;
++	LogMessage(message + (where ? " (logged once for this line)" : ""));
++	LogMessage(Frame::GetCallstack());
++}
++
+ ExpressionValue Frame::Call(UFunction* func, UObject* instance, Array<ExpressionValue> args)
+ {
+ 	if (!instance)
+ 	{
+-		LogMessage("Accessed None when calling " + func->Name.ToString());
+-		LogMessage(Frame::GetCallstack());
++		LogAccessedNone(Frame::StepExpression, "Accessed None when calling " + func->Name.ToString());
+ 		return ExpressionValue::NothingValue();
+ 	}
+ 
+@@ -553,7 +564,14 @@ ExpressionEvalResult Frame::Run()
  						}
  					}
  					if (!found)
@@ -320,3 +353,13 @@ index 2b0b45c8..77d28b57 100644
  				}
  			}
  			break;
+@@ -607,8 +625,7 @@ ExpressionEvalResult Frame::Run()
+ 			Iterators.pop_back();
+ 			break;
+ 		case StatementResult::AccessedNone:
+-			LogMessage("Accessed None");
+-			LogMessage(Frame::GetCallstack());
++			LogAccessedNone(statement, "Accessed None");
+ 			break;
+ 		}
+ 
