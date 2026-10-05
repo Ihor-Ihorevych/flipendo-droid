@@ -63,6 +63,7 @@ namespace KW
 	// UActor::TickPhysics: true when KnowWonder's own physics runs (not with FLIPENDO_SE_PHYSICS=1, which keeps
 	// SurrealEngine's for comparison). Then KW::PhysicsTick replaces the whole physics step.
 	bool UseKWPhysics();
+	void SetStartupZones(size_t loadedCount);
 	// UActor::CheckLocation (spawning): ULevel::SpawnActor's FindSpot(cylinder, Location, no actors, check first)
 	bool SpawnFindSpot(float radius, float height, vec3& location);
 	void PhysicsTick(UActor* actor, float elapsed);

@@ -92,6 +92,10 @@ asks the level's brush tracker whether the surface belongs to a mover (`Surf.Act
   `KW::DynamicMoverLights` (`src/knowwonder/KWLightmap.cpp`). SurrealEngine instead used the lights with a clear line to the
   mover's pivot, which for Lev_Tut1b's portcullis (`Mover15`, pivot inside the door frame) was none: dropped, it
   showed as black with a faint blue zone ambient.
+  The leaf is the one SetActorZone found. HP1's LoadMap (0x1039C3D0) calls `SetActorZone(actor, 1, 1)` for every
+  loaded actor between BeginPlay and PostBeginPlay; SurrealEngine kept the Region saved in the map, which for movers is
+  leaf -1, so a bDynamicLightMover had no lights until it first moved: Lev_Tut1b's turning bridge (`Mover2`,
+  FlipBridge1) was dim before it turned (`KW::SetStartupZones`).
 - **Any other surface**: the light map's own light list (`LightActors`, from the editor's light build, with its shadow
   bits) plus the dynamic lights.
 
