@@ -8,7 +8,10 @@
 #include "Packages/Core/UClass.h"
 #include "Package/PackageManager.h"
 #include "Audio/AudioSource.h"
+#include "Audio/AudioDevice.h"
+#include <algorithm>
 #include <atomic>
+#include <chrono>
 #include "VM/NativeFunc.h"
 #include "Engine.h"
 
@@ -49,15 +52,20 @@ namespace KW
 		StopSound(UObject::Cast<UActor>(Self), Sound ? UObject::Cast<USound>(*Sound) : nullptr, Slot.value_or(SLOT_Misc), 0.0f);
 	}
 
-	// Music. Galaxy plays an mp2 Song as a streamed sound, looped unless PlayerPawn.bDontLoopSong (ClientSetMusic's
-	// bDontLoop; MusicEvent passes bPlayOnceOnly). Every update it sets PlayerPawn.bSongFinished when no music plays
-	// or the stream has ended, and on the end clears Song with Transition = MTRAN_Instant, so the song stops cleanly.
-	// MusicEvent.WaitForSongToFinish waits on bSongFinished. Upstream plays the stream once and leaves the music
-	// thread replaying stale buffers at the end (a stuck ~1 s loop).
+	// Music, as Galaxy (HP1's audio driver) runs it every update:
+	// - an mp2 Song plays as a streamed sound, looped unless PlayerPawn.bDontLoopSong (ClientSetMusic's bDontLoop;
+	//   MusicEvent passes bPlayOnceOnly). bSongFinished is set when no music plays or the stream has ended; the end
+	//   also clears Song with Transition = MTRAN_Instant. MusicEvent.WaitForSongToFinish waits on bSongFinished.
+	// - a Transition is a request: the old song fades out (MTRAN_Fade 1 s, FastFade 1/3 s, SlowFade 5 s, the others at
+	//   once), then the new one starts. The stream is only stopped and started again when the Song is a different one:
+	//   a MusicEvent for the song already playing (a doorway trigger crossed again) leaves it playing.
+	// - the music volume is PercentMusicVolume % (MusicEvent's boost) of MusicVolume, times the fade.
+	// Upstream restarts the song on every Transition, switches at once and plays every stream once.
 	namespace
 	{
 		struct PlayerMusicProps
 		{
+			PropertyDataOffset PercentMusicVolume;
 			PropertyDataOffset bDontLoopSong;
 			PropertyDataOffset bSongFinished;
 		};
@@ -71,6 +79,7 @@ namespace KW
 				UClass* cls = engine->packages->FindClass("Engine.PlayerPawn");
 				if (!cls)
 					Exception::Throw("HP1: Engine.PlayerPawn class not found");
+				props.PercentMusicVolume = cls->GetPropertyDataOffset("PercentMusicVolume");
 				props.bDontLoopSong = cls->GetPropertyDataOffset("bDontLoopSong");
 				props.bSongFinished = cls->GetPropertyDataOffset("bSongFinished");
 				initialized = true;
@@ -132,37 +141,129 @@ namespace KW
 			std::shared_ptr<std::atomic<bool>> finished;
 		};
 
-		std::shared_ptr<std::atomic<bool>> songFinished; // the playing song's flag; null when no song plays
-	}
-
-	// IDA Galaxy.dll: ?Update@UGalaxyAudioSubsystem@@UAEXUFPointRegion@@AAVFCoords@@@Z [HP1 Galaxy 0x106081F0] (starting the mp2 song: USound(Music, !bDontLoopSong))
-	std::unique_ptr<AudioSource> MusicSource(UPlayerPawn* player, UMusic* song, std::unique_ptr<AudioSource> source)
-	{
-		if (!source)
+		// Galaxy's music state: the current song, its CD track and section, MusicFade
+		struct MusicState
 		{
-			songFinished.reset();
-			return source;
+			UMusic* song = nullptr; // only compared, never read (it can be gone after a level change)
+			uint8_t cdTrack = 255;
+			uint8_t section = 255;
+			float fade = 1.0f;
+			std::shared_ptr<std::atomic<bool>> finished; // the playing stream's end flag; null when no song plays
+			std::chrono::steady_clock::time_point lastUpdate;
+			bool started = false;
+		} music;
+
+		std::unique_ptr<AudioSource> CreateSongSource(UPlayerPawn* player, UMusic* song)
+		{
+			// HP1's songs are all mp2; Galaxy streams those, the other formats are upstream's
+			bool isMp3 = song->Format == "mp3" || song->Format == "mp2";
+			std::unique_ptr<AudioSource> source;
+			if (isMp3)
+				source = AudioSource::CreateMp3(song->Data);
+			else if (song->Format == "ogg")
+				source = AudioSource::CreateOgg(song->Data, true);
+			else if (song->Format == "wav")
+				source = AudioSource::CreateWav(song->Data);
+			else
+				source = AudioSource::CreateMod(song->Data, true, music.section != 255 ? music.section : 0);
+			if (!source)
+				return source;
+			bool loop = !player->BoolValue(GetPlayerMusicProps().bDontLoopSong);
+			music.finished = std::make_shared<std::atomic<bool>>(false);
+			return std::make_unique<SongSource>(std::move(source), isMp3 ? song->Data : Array<uint8_t>(), isMp3, loop, music.finished);
 		}
-		bool loop = !player->BoolValue(GetPlayerMusicProps().bDontLoopSong);
-		bool isMp3 = song->Format == "mp3" || song->Format == "mp2";
-		songFinished = std::make_shared<std::atomic<bool>>(false);
-		return std::make_unique<SongSource>(std::move(source), isMp3 ? song->Data : Array<uint8_t>(), isMp3, loop, songFinished);
 	}
 
-	// IDA Galaxy.dll: ?Update@UGalaxyAudioSubsystem@@UAEXUFPointRegion@@AAVFCoords@@@Z [HP1 Galaxy 0x106081F0] (bSongFinished at 0x10608F21)
-	void TickMusic(UPlayerPawn* player, UMusic* currentSong)
+	// IDA Galaxy.dll: ?Update@UGalaxyAudioSubsystem@@UAEXUFPointRegion@@AAVFCoords@@@Z [HP1 Galaxy 0x106081F0] (the music part, from bSongFinished at 0x10608F21; the music channel's volume in the channel loop)
+	// IDA Galaxy.dll: ?SetVolumes@UGalaxyAudioSubsystem@@QAEXXZ [HP1 Galaxy 0x10606640]
+	float UpdateMusic(AudioDevice* device, UPlayerPawn* player, uint8_t musicVolume, int latency)
 	{
-		if (!currentSong)
-			songFinished.reset();
+		// Galaxy's time step: real time since the last update, at most 1 s
+		auto now = std::chrono::steady_clock::now();
+		float deltaTime = music.started ? std::chrono::duration<float>(now - music.lastUpdate).count() : 0.0f;
+		deltaTime = std::clamp(deltaTime, 0.0f, 1.0f);
+		music.lastUpdate = now;
+		music.started = true;
+
+		if (!player)
+		{
+			// No viewport: SurrealEngine plays a video on the music stream. The song starts again afterwards
+			// (SetViewport sets MTRAN_Instant).
+			music.song = nullptr;
+			music.cdTrack = 255;
+			music.finished.reset();
+			return musicVolume / 255.0f;
+		}
+
+		const PlayerMusicProps& props = GetPlayerMusicProps();
+
 		// No music playing: only the flag. A song that played to its end is also cleared.
-		bool ended = songFinished && songFinished->load();
-		player->BoolValue(GetPlayerMusicProps().bSongFinished) = !songFinished || ended;
+		bool ended = music.finished && music.finished->load();
+		player->BoolValue(props.bSongFinished) = !music.finished || ended;
 		if (ended)
 		{
-			songFinished.reset();
+			music.finished.reset();
 			player->Transition() = MTRAN_Instant;
 			player->Song() = nullptr;
 		}
+
+		uint8_t transition = player->Transition();
+		if (transition != MTRAN_None)
+		{
+			// With the music volume at 0 Galaxy doesn't change the stream, even for a different song
+			bool changed = music.song != player->Song() && musicVolume != 0;
+			if (music.song || music.cdTrack != 255)
+			{
+				// Fade the old song out first; a song set with section 255 stops at once. The fade ends a little
+				// below 0, by the output latency.
+				bool faded = true;
+				if (music.section != 255)
+				{
+					if (transition == MTRAN_Fade)
+					{
+						music.fade -= deltaTime;
+						faded = music.fade < latency * -0.002f;
+					}
+					else if (transition == MTRAN_SlowFade)
+					{
+						music.fade -= deltaTime * 0.2f;
+						faded = music.fade < latency * -0.0004f;
+					}
+					else if (transition == MTRAN_FastFade)
+					{
+						music.fade -= deltaTime * 3.0f;
+						faded = music.fade < latency * -0.006f;
+					}
+				}
+				if (faded)
+				{
+					if (music.song && changed)
+					{
+						device->PlayMusic(nullptr);
+						music.finished.reset();
+					}
+					music.song = nullptr;
+					music.cdTrack = 255;
+				}
+			}
+
+			if (!music.song && music.cdTrack == 255)
+			{
+				music.fade = 1.0f;
+				music.song = player->Song();
+				music.cdTrack = player->CdTrack();
+				music.section = player->SongSection();
+				if (music.song && changed)
+				{
+					if (auto source = CreateSongSource(player, music.song))
+						device->PlayMusic(std::move(source));
+				}
+				player->Transition() = MTRAN_None;
+			}
+		}
+
+		float volume = player->Value<uint8_t>(props.PercentMusicVolume) * musicVolume / (255.0f * 100.0f) * music.fade;
+		return std::clamp(volume, 0.0f, 1.0f);
 	}
 
 	void RegisterSoundNatives()

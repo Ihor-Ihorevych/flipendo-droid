@@ -99,14 +99,14 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 | `AActor::execLinkSkelAnim` | `src/knowwonder/Anim/KWAnimState.cpp:415` | changed |
 | `AActor::execLoadGameSaveInfo` | `src/knowwonder/KWSave.cpp:177` | changed |
 | `AActor::execLoopAnim` | `src/knowwonder/Anim/KWAnimState.cpp:372` | changed |
-| `AActor::execModifySound` | `src/knowwonder/KWSound.cpp:28` | changed |
+| `AActor::execModifySound` | `src/knowwonder/KWSound.cpp:31` | changed |
+| `AActor::execStopSound` | `src/knowwonder/KWSound.cpp:49` | changed |
 | `AActor::execPlayAnim` | `src/knowwonder/Anim/KWAnimState.cpp:366` | changed |
 | `AActor::execPollFinishAnim` | `src/knowwonder/Anim/KWAnimState.cpp:227` | identical |
 | `AActor::execSaveGameExists` | `src/knowwonder/KWSave.cpp:216` | changed |
 | `AActor::execSaveGameSaveInfo` | `src/knowwonder/KWSave.cpp:150` | changed |
 | `AActor::execSetCollisionSize` | `src/knowwonder/KWCollision.cpp:197` | changed |
 | `AActor::execSetPhysics` | `src/knowwonder/KWCollision.cpp:360` | changed |
-| `AActor::execStopSound` | `src/knowwonder/KWSound.cpp:46` | changed |
 | `AActor::execStopSound` | `src/hp2/HP2Natives.cpp:55` | changed |
 | `AActor::execTraceActors` | `src/knowwonder/KWTraceTexture.cpp:77` | changed |
 | `AActor::execTraceTexture` | `src/knowwonder/KWTraceTexture.cpp:25` | changed |
@@ -281,10 +281,10 @@ HP1's audio subsystem (Galaxy): sound effects, 3D positioning and music playback
 
 | function | where | HP2 |
 |---|---|---|
-| `UGalaxyAudioSubsystem::ModifySound` | `src/knowwonder/KWSound.cpp:29` | ? |
-| `UGalaxyAudioSubsystem::StopSound` | `src/knowwonder/KWSound.cpp:37` | ? |
-| `UGalaxyAudioSubsystem::Update` | `src/knowwonder/KWSound.cpp:138` | ? |
-| `UGalaxyAudioSubsystem::Update` | `src/knowwonder/KWSound.cpp:152` | ? |
+| `UGalaxyAudioSubsystem::ModifySound` | `src/knowwonder/KWSound.cpp:32` | ? |
+| `UGalaxyAudioSubsystem::SetVolumes` | `src/knowwonder/KWSound.cpp:178` | ? |
+| `UGalaxyAudioSubsystem::StopSound` | `src/knowwonder/KWSound.cpp:40` | ? |
+| `UGalaxyAudioSubsystem::Update` | `src/knowwonder/KWSound.cpp:177` | ? |
 
 ## IpDrv
 

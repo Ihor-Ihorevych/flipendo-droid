@@ -19,8 +19,7 @@ class UCanvas;
 class UPawn;
 class UZoneInfo;
 class UPlayerPawn;
-class UMusic;
-class AudioSource;
+class AudioDevice;
 class ULevelInfo;
 class CollisionHit;
 class UAnimation;
@@ -108,10 +107,9 @@ namespace KW
 	// RenderSubsystem::DrawGame: the screen flash from HP1's FlashFog (its W replaces FlashScale).
 	void ViewFlashParams(UPlayerPawn* player, vec3& flashScale, vec3& flashFog);
 
-	// USurrealAudioDevice::UpdateMusic (src/knowwonder/KWSound.cpp): MusicSource wraps a new song's stream (loops unless
-	// bDontLoopSong, silence after the end); TickMusic, every update, sets bSongFinished and clears an ended Song.
-	std::unique_ptr<AudioSource> MusicSource(UPlayerPawn* player, UMusic* song, std::unique_ptr<AudioSource> source);
-	void TickMusic(UPlayerPawn* player, UMusic* currentSong);
+	// USurrealAudioDevice::Update, in place of UpdateMusic (src/knowwonder/KWSound.cpp): Galaxy's music update (song
+	// changes with fades, looping unless bDontLoopSong, bSongFinished). Returns the music volume (0-1) to set.
+	float UpdateMusic(AudioDevice* device, UPlayerPawn* player, uint8_t musicVolume, int latency);
 
 	// Collision (src/knowwonder/KWCollision.cpp): actors with CollideType CT_Box are oriented boxes, not cylinders.
 	bool IsBoxCollider(UActor* actor);
