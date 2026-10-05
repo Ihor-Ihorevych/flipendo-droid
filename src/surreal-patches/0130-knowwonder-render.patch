@@ -399,7 +399,7 @@ index 0f88fc9c..d66b5d5b 100644
  		int framesDrawn = 0;
  		uint64_t startFPSTime = 0;
 diff --git a/SurrealEngine/Render/VisibleActor.cpp b/SurrealEngine/Render/VisibleActor.cpp
-index 984fdbfc..7ffa98c4 100644
+index 984fdbfc..e3ab5663 100644
 --- a/SurrealEngine/Render/VisibleActor.cpp
 +++ b/SurrealEngine/Render/VisibleActor.cpp
 @@ -9,10 +9,13 @@
@@ -417,7 +417,25 @@ index 984fdbfc..7ffa98c4 100644
  	{
  		if (engine->LaunchInfo.IsDeusEx())
  		{
-@@ -70,6 +73,13 @@ void VisibleActor::Process(VisibleFrame* frame, UActor* actor)
+@@ -56,6 +59,17 @@ void VisibleActor::Process(VisibleFrame* frame, UActor* actor)
+ 	if (!frame->Clipper.IsAABBVisible(actor->BspInfo.BoundingBox))
+ 		return;
+ 
++	// A reflection doesn't show what is behind the mirror. The clipper only culls BSP surfaces by the mirror's plane and
++	// the GPU doesn't clip, so an actor wholly behind it (the mirror's own mover) would cover the reflection.
++	if (frame->MirrorFlag && frame->PortalDepth > 0)
++	{
++		const BBox& box = actor->BspInfo.BoundingBox;
++		const vec4& plane = frame->PortalPlane;
++		float maxDist = plane.w + std::max(plane.x * box.min.x, plane.x * box.max.x) + std::max(plane.y * box.min.y, plane.y * box.max.y) + std::max(plane.z * box.min.z, plane.z * box.max.z);
++		if (maxDist < 1.0f)
++			return;
++	}
++
+ 	EDrawType dt = (EDrawType)actor->DrawType();
+ 	if (dt == DT_Mesh && actor->Mesh())
+ 	{
+@@ -70,6 +84,13 @@ void VisibleActor::Process(VisibleFrame* frame, UActor* actor)
  		frame->Actors.push_back(*this);
  	}
  	else if (dt == DT_Brush && actor->Brush() && UActor::TryCast<UMover>(actor))
@@ -431,7 +449,7 @@ index 984fdbfc..7ffa98c4 100644
  	{
  		Type = dt;
  		Actor = actor;
-@@ -103,6 +113,11 @@ void VisibleActor::DrawOpaque(VisibleFrame* frame)
+@@ -103,6 +124,11 @@ void VisibleActor::DrawOpaque(VisibleFrame* frame)
  			frame->Translucents.emplace_back(*this, dot(v, v));
  		}
  	}
@@ -443,7 +461,7 @@ index 984fdbfc..7ffa98c4 100644
  }
  
  void VisibleActor::DrawTranslucent(VisibleFrame* frame)
-@@ -122,4 +137,8 @@ void VisibleActor::DrawTranslucent(VisibleFrame* frame)
+@@ -122,4 +148,8 @@ void VisibleActor::DrawTranslucent(VisibleFrame* frame)
  		VisibleBrush visbrush;
  		visbrush.Draw(frame, Actor, true);
  	}
@@ -633,7 +651,7 @@ index 36448a66..3f69fb58 100644
  	bool DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly& poly, int pass, UMover* mover, bool translucentPass);
  };
 diff --git a/SurrealEngine/Render/VisibleFrame.cpp b/SurrealEngine/Render/VisibleFrame.cpp
-index 818aa65d..a71fb44b 100644
+index 818aa65d..bf676595 100644
 --- a/SurrealEngine/Render/VisibleFrame.cpp
 +++ b/SurrealEngine/Render/VisibleFrame.cpp
 @@ -2,6 +2,7 @@
@@ -653,7 +671,15 @@ index 818aa65d..a71fb44b 100644
  
  void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const Coords& viewRotation, bool mirrorFlag, int portalDepth, const Array<PortalSpan>& portalSpans, const vec4& portalPlane)
  {
-@@ -38,6 +41,9 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
+@@ -19,6 +22,7 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
+ 	FrameCounter = engine->render->FrameCounter++;
+ 	MirrorFlag = mirrorFlag;
+ 	PortalDepth = portalDepth;
++	PortalPlane = portalPlane;
+ 
+ 	SetupSceneFrame(worldToView);
+ 
+@@ -38,6 +42,9 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
  	Coronas.clear();
  	Portals.clear();
  
@@ -663,7 +689,7 @@ index 818aa65d..a71fb44b 100644
  	ProcessNode(&engine->Level->Model->Nodes[0]);
  }
  
-@@ -191,7 +197,10 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -191,7 +198,10 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  
  	VisibleNode info;
  	info.Node = node;
@@ -675,7 +701,7 @@ index 818aa65d..a71fb44b 100644
  	info.PolyFlags = PolyFlags;
  
  	if (PortalDepth < 4)
-@@ -264,7 +273,7 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -264,7 +274,7 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  			{
  				for (auto& p : Portals)
  				{
@@ -684,7 +710,7 @@ index 818aa65d..a71fb44b 100644
  					{
  						p.Nodes.push_back(info);
  						p.Spans.insert(p.Spans.end(), spans.begin(), spans.end());
-@@ -308,6 +317,13 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -308,6 +318,13 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  
  void VisibleFrame::SortTranslucent()
  {
@@ -698,7 +724,7 @@ index 818aa65d..a71fb44b 100644
  	std::sort(Translucents.begin(), Translucents.end(), [](const VisibleTranslucent& a, const VisibleTranslucent& b) { return a.DistSqr < b.DistSqr; });
  }
  
-@@ -354,6 +370,12 @@ void VisibleFrame::DrawCoronas()
+@@ -354,6 +371,12 @@ void VisibleFrame::DrawCoronas()
  	frame2d.WorldToView = mat4::identity();
  	Device->SetSceneNode(&frame2d);
  
@@ -711,7 +737,7 @@ index 818aa65d..a71fb44b 100644
  	for (VisibleCorona &corona : Coronas)
  		corona.Draw(this);
  }
-@@ -425,15 +447,33 @@ void VisibleFrame::DrawPortals()
+@@ -425,15 +448,33 @@ void VisibleFrame::DrawPortals()
  		}
  		else // Mirror
  		{
@@ -750,7 +776,7 @@ index 818aa65d..a71fb44b 100644
  			Device->SetSceneNode(&mirrorframe.Frame);
  			mirrorframe.Draw();
  			Device->ClearZ();
-@@ -444,6 +484,8 @@ void VisibleFrame::DrawPortals()
+@@ -444,6 +485,8 @@ void VisibleFrame::DrawPortals()
  	Device->SetSceneNode(&Frame);
  	for (VisiblePortal& portal : Portals)
  	{
@@ -759,6 +785,18 @@ index 818aa65d..a71fb44b 100644
  		for (const auto& info : portal.Nodes)
  		{
  			VisibleNode visnode(info);
+diff --git a/SurrealEngine/Render/VisibleFrame.h b/SurrealEngine/Render/VisibleFrame.h
+index 435b42ab..4ae777ce 100644
+--- a/SurrealEngine/Render/VisibleFrame.h
++++ b/SurrealEngine/Render/VisibleFrame.h
+@@ -27,6 +27,7 @@ public:
+ 	int FrameCounter = 0;
+ 	bool MirrorFlag = false;
+ 	int PortalDepth = 0;
++	vec4 PortalPlane = vec4(0.0f, 0.0f, 0.0f, 1.0f); // what a portal's frame keeps: dot(PortalPlane, p) >= 0
+ 
+ 	Array<VisibleNode> OpaqueNodes;
+ 	Array<VisibleActor> Actors;
 diff --git a/SurrealEngine/Render/VisibleMesh.cpp b/SurrealEngine/Render/VisibleMesh.cpp
 index 7f5e8efb..73bc0a31 100644
 --- a/SurrealEngine/Render/VisibleMesh.cpp

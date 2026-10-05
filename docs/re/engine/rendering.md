@@ -87,7 +87,9 @@ open on Alohomora; the translucent `MirrorBlur` pane (Translucent, NotSolid, Two
 surface. SurrealEngine draws movers as actors and only made portals of mirrored BSP surfaces, so the face drew as its
 dark texture. Flipendo (render patch, any game): `VisibleBrush::AddMirrorPortals` makes a mirror portal of every
 mirrored mover face that faces the view, drawn from the camera reflected in the face's plane and clipped to it (the
-room behind the mover isn't reflected); the face then only fills the depth buffer.
+room behind the mover isn't reflected); the face then only fills the depth buffer. The reflection also leaves out
+actors wholly behind the mirror's plane: the clipper only culls BSP surfaces by it and the GPU doesn't clip, so the
+mirror's own mover (its back face nearest the reflected camera) covered the whole reflection with its stone texture.
 
 ## HP1 and HP2
 
