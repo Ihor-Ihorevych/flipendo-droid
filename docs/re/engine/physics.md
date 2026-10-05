@@ -33,6 +33,15 @@ latent code, Timer and LifeSpan, and only when Physics isn't PHYS_None and Role 
 split it themselves (falling: steps of at most 0.1 s, walking 0.05 s, up to 8). SurrealEngine split every tick into
 0.02 s steps before the Timer.
 
+The latent code is `UObject::ProcessState`, called right after the script `Tick` event: it polls the latent action
+(`execPollMoveTo`, `execPollTurnToward`, ...), and when that ends it runs the state code on in the same tick. So a
+latent move or turn sees where the actor's own `Tick` put it this frame. SurrealEngine polled a pawn's latent action
+in `UPawn::Tick`, before the `Tick` event. BaseCam's `RotateAroundHarry` (the Wizard Card pickup) moves the camera in
+`Tick` and turns it with a `sleep(0.0005); turntoward(p)` loop. Polled first, the poll aimed from last frame's spot,
+so the yaw moved only every other frame (+220, 0, +220) and the view shook left and right. Flipendo polls after the
+`Tick` event for KnowWonder (`UPawn::PollLatentAction`, called from `UActor::Tick`). Checked in HP1; HP2's
+`AActor::Tick` not read yet.
+
 `AActor::performPhysics` (0x103E52C0) handles falling, projectile, rolling, moving brush and trailer only; a non-pawn in
 PHYS_Walking or PHYS_Interpolating doesn't move by itself (an InterpolationManager moves its owner).
 `APawn::performPhysics` (0x103E5520) adds walking, swimming, flying, spider, then turns the pawn (below) unless it is a
