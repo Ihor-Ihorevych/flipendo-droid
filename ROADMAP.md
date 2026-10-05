@@ -17,7 +17,8 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
    portcullis, ledge grabbing (a point-in-polygon sign error rejected walls Harry was facing). Lev_Tut2, the flying
    lesson, played in the story flow (`--level`) through to Lev_Tut3 (2026-10-05; a negative broom volume crashed its
    intro); saving and loading at Lev_Tut3's save book checked. Lev_Tut3, the Wingardium Leviosa lesson and challenge, played by
-   hand to the end (2026-10-05; Lev_Tut3b failed to load, a UTF-16 string the package reader rejected). Next: Lev_Tut3b.
+   hand to the end (2026-10-05; Lev_Tut3b failed to load, a UTF-16 string the package reader rejected). Lev_Tut3b and Lev2_HogFront played by hand to the
+   end (2026-10-05; nothing Harry carried survived a level change, and Lev2_Inc_A crashed on load). Next: Lev2_Inc_A.
 2. **HP1's physics, ported whole** (2026-10-05, in progress): collision (BSP box/ray/point checks, actor primitives,
    level checks), moving actors (MoveActor, FarMoveActor, FindSpot, encroachment, zones, touch) and the movement natives
    run HP1's code; so do walking, falling, flying, swimming, projectiles, rolling, landing, rotation and TraceActors.

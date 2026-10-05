@@ -4,6 +4,8 @@
 #   HP1_GAME_DIR  game folder (default: ../eagames/hp1-work, a disposable copy of the retail install in ../eagames/hp1,
 #                 made on first use; SurrealEngine writes ini and save files into it)
 #   HP1_LOG       log file    (default: build/hp1_run.log)
+#   HP1_WINDOW    windowed size for development runs, written into the game folder's SE-HP.ini before launch
+#                 (default: 1280x720); HP1_FULLSCREEN=1 leaves the ini alone
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -16,6 +18,17 @@ fi
 LOG="${HP1_LOG:-$ROOT/build/hp1_run.log}"
 SECS="${1:-0}"
 shift || true
+
+INI="$GAME/System/SE-HP.ini"
+if [ "${HP1_FULLSCREEN:-0}" != 1 ] && [ -f "$INI" ]; then
+	WIN="${HP1_WINDOW:-1280x720}"
+	awk -v w="${WIN%x*}" -v h="${WIN#*x}" '
+		/^\[/ { client = ($0 ~ /^\[(Engine\.SurrealClient|WinDrv\.WindowsClient)\]/) }
+		client && /^StartupFullscreen=/ { sub(/=.*/, "=False") }
+		client && /^WindowedViewportX=/ { sub(/=.*/, "=" w) }
+		client && /^WindowedViewportY=/ { sub(/=.*/, "=" h) }
+		{ print }' "$INI" > "$INI.tmp" && mv "$INI.tmp" "$INI"
+fi
 
 EXE="$ROOT/build/Release/SurrealEngine.exe"
 [ -x "$EXE" ] || { echo "build first: tools/build.sh" >&2; exit 1; }

@@ -109,6 +109,27 @@ offset both ways (`FindOffset` / `FindStatementIndex`, `Packages/Core/UObject.cp
   registers 384/385 for them: a save from the original game resumes a Sleep / FinishAnim instead of continuing at once,
   and our saves use the original's IDs. Saves made before that (257/262) still load.
 
+## Level changes (travel)
+
+What Harry carries from one level to the next is his `travel` properties (beans, house points, `WizardCards[25]`,
+potions, quest items) and his inventory chain (the wand). Every HP1 level exit calls `baseConsole.ChangeLevel(map, true)`
+(`TriggerChangeLevel`, `CutScene`, `CutScriptII`, `BroomPracticeReferee`), so `LevelInfo.ServerTravel` sets
+`bNextItems` and the engine writes the travel info. Checked in HP1's `ULevel::SpawnPlayActor` (0x103A8270): after
+`Login` it calls `TravelPreAccept` on the pawn, finds the travel entry by the URL's `Name` option (in a standalone game
+it falls back to the first entry), spawns each incoming object and sets its properties, then `TravelPreAccept`,
+`AcceptInventory` and `TravelPostAccept`. It does this whether or not `Login` spawned the pawn: HP1's maps place Harry
+(`harry0`), and `Login` returns him. Nothing destroys what he already has, so after a level change Harry owns two wands:
+the one his `PostBeginPlay` spawned in the new map and the carried one, which `Weapon` points to.
+
+SurrealEngine lost all of it (2026-10-05: 180 house points and 52 beans came out of Lev_Tut3b as 0 in Lev2_HogFront):
+- `Engine::LoginPlayer` accepted travel info only for a pawn `Login` had just spawned; for KnowWonder it now always
+  accepts (patch 0100).
+- Fixed arrays travelled as their first element only, and a struct value read back from text wrote every field at the
+  struct's start (`bHasCard=True` landed on `ID`). Both fixed for every game (patch 0010): arrays travel as
+  `Name[i]` per element, struct fields are written at their offsets. All of Harry's wizard cards now come through.
+
+`HP1_EXEC="9:@travel Lev2_HogFront"` changes level the way the exits do, and `@get harry WizardCards` logs every card.
+
 ## Not ported
 
 - `CreateTextureFromScreenShot`, `SaveObjectAsFile`, `LoadObjectAsFile`: no script calls them.
