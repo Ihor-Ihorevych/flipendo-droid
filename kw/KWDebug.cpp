@@ -11,6 +11,7 @@
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Packages/Core/UClass.h"
+#include "Package/PackageManager.h"
 #include "Collision/TopLevel/CollisionSystem.h"
 #include "GameWindow.h"
 #include <chrono>
@@ -257,9 +258,34 @@ namespace KW
 		if (text.rfind("@teleport ", 0) == 0)
 		{
 			// "@teleport x y z": move the player there (touches whatever is at the new spot, like a real move would not skip).
+			// The game camera (HPBase.BaseCam) moves by the same offset, with its buffer of the player's past locations it
+			// steers by, so it doesn't fly to the new spot through the walls.
 			vec3 pos;
 			if (sscanf(text.c_str() + 10, "%f %f %f", &pos.x, &pos.y, &pos.z) == 3)
-				LogMessage(std::string("HP1 exec: teleport ") + (engine->viewport->Actor()->SetLocation(pos) ? "ok" : "blocked"));
+			{
+				UPlayerPawn* player = engine->viewport->Actor();
+				vec3 old = player->Location();
+				bool ok = player->SetLocation(pos);
+				LogMessage(std::string("HP1 exec: teleport ") + (ok ? "ok" : "blocked"));
+				UClass* camClass = engine->packages->FindClass("HPBase.BaseCam");
+				if (ok && camClass)
+				{
+					vec3 delta = player->Location() - old;
+					size_t previous = camClass->GetPropertyDataOffset("previousLocations").DataOffset;
+					for (UActor* a : engine->Level->Actors)
+					{
+						if (!a || !a->IsA(camClass->Name))
+							continue;
+						a->SetLocation(a->Location() + delta);
+						for (int i = 0; i < 16; i++) // BaseCam: var vector previousLocations[16]
+						{
+							PropertyDataOffset element;
+							element.DataOffset = previous + i * sizeof(vec3);
+							a->Value<vec3>(element) += delta;
+						}
+					}
+				}
+			}
 			return;
 		}
 		if (text.rfind("@trigger ", 0) == 0)
