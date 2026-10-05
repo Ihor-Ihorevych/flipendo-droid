@@ -259,6 +259,16 @@ channels) and particle effects.
       free camera
 - [ ] In-game modding tools: Dear ImGui overlay with actor list, live property inspector, console and mod manager,
       built from the `HP1_DUMP`/`HP1_TRACE`/`HP1_EXEC` debug tools ([docs/modding.md](docs/modding.md))
+- [ ] Twitch chaos mod (opt-in, `--chaos`): stream viewers vote in chat on effects every N seconds (low gravity,
+      giant or tiny Harry, a random spell cast, camera upside down, slow motion, Harry runs backwards, beans
+      rain). Each effect is a timed `@set` on live actors / `Level.TimeDilation`, undone when it ends; a vote
+      bar drawn in `PostRenderMods`. Reads chat over Twitch's anonymous IRC (no login, no keys); an offline
+      mode picks effects at random. Effects must never break a save (all undone before saving)
+- [ ] Restored content mod (opt-in), from [docs/re/hp1/cut_content.md](docs/re/hp1/cut_content.md). First check
+      whether the cut actors still work when spawned (`Hub2.h2barron` Bloody Baron fight, `mirrortarget` shrinking
+      Harry, `InvisibilityCloak` pickup, `FloatingSpellBook`); do the mod only if most do. Then add the unused audio:
+      Lee Jordan's alternate takes as commentator variants, wizard card voice lines in the Folio, student chatter,
+      extra final-battle taunts. Cut spells are out (no level content uses them)
 - [~] Modder docs: [docs/modding.md](docs/modding.md) (writing a mod, hooks, tools); still missing a worked
       "first mod" walkthrough
 
