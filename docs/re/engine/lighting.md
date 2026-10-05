@@ -87,7 +87,8 @@ asks the level's brush tracker whether the surface belongs to a mover (`Surf.Act
 - **A mover with `bDynamicLightMover`** (AMover+720 bit 4): every light in the permeating list of the BSP leaf the mover
   is in (`Region.iLeaf`, AActor+164 → `Leaves[iLeaf].iPermeating` → `Model.Lights`, null-terminated) whose location is
   in front of the surface's plane and whose `bSpecialLit` (AActor+496 bit 0) matches the mover's, with no shadow; then
-  the surface's dynamic lights and volumetric lights. Nothing if the mover's leaf is -1. Ported in
+  the surface's dynamic lights and volumetric lights. Nothing if the mover's leaf is -1: when Lev_Tut1b's portcullis
+  rises into the wall its pivot enters solid space and the bars go black on the way up (the original does the same). Ported in
   `KW::DynamicMoverLights` (`kw/KWLightmap.cpp`). SurrealEngine instead used the lights with a clear line to the
   mover's pivot, which for Lev_Tut1b's portcullis (`Mover15`, pivot inside the door frame) was none: dropped, it
   showed as black with a faint blue zone ambient.

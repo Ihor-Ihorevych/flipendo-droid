@@ -8,7 +8,7 @@
 #include <vector>
 
 // KnowWonder's engine (kw/): what Flipendo reimplements of the modified Engine.dll / Fire.dll that the Harry Potter
-// games share. These are the entry points called from the flipendo: hooks inside engine/, each gated by
+// games share. These are the entry points called from our hooks inside engine/, each gated by
 // engine->LaunchInfo.IsKnowWonder() (HP1 for now; HP2 joins once its differences are handled, docs/re/reports/hp2_compare.md).
 // Game-specific code (HP1's mods and menu canvas) is in hp1/HP1.h.
 
@@ -76,6 +76,8 @@ namespace KW
 	// Engine::ConsoleCommand, before the exec functions: console commands of KnowWonder's UViewport::Exec that
 	// SurrealEngine doesn't know ("Snap"). Returns true when handled.
 	bool ViewportCommand(const Array<std::string>& args);
+	// Engine, right after a save is loaded: every actor's BSP leaf found again from its location.
+	void SaveGameLoaded();
 	// Engine::LoadMap, after the LevelInfo is found: UGameEngine::LoadMap sets an empty LevelEnterText to URL.Map
 	// ("Lev_Tut1.unr"); HPConsole.doLevelSave names the save slot (and its thumbnail) after it.
 	void LevelInfoLoaded(ULevelInfo* levelInfo, const std::string& urlMap);
