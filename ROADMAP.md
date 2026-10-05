@@ -26,7 +26,10 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
    matches the original's intro frames (`tools/orig_shots.ps1`) after two fixes (2026-10-05): walls took the zone
    behind them for their ambient, and the ambient fill was halved along with the lights. Coronas follow HP1's rule
    (only lights around the viewport actor, faded). Still to look at: Lev5_FlyKeys.
-5. **First prebuilt release** (see "Releases"): players can't try Flipendo without building it.
+5. **SurrealEngine's guesses, reversed in order** ([docs/surrealengine-coverage.md](docs/surrealengine-coverage.md)): HP1
+   still runs SurrealEngine's own behaviour for sound (PlaySound), vertex mesh lighting, sprites and decals, Spawn and
+   Destroy, BSP drawing rules, canvas text and level travel. Next: PlaySound and the Galaxy device.
+6. **First prebuilt release** (see "Releases"): players can't try Flipendo without building it.
 
 Visual parity checks against the original, side by side, wait until the end (after gameplay works): mesh lighting
 (brightness, specular highlights, light fades; ported in phase 5), animations (walk/run/breathe, tween blends, aux
