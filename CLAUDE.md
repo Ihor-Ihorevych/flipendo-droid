@@ -202,7 +202,8 @@ Each file has one job; keep them apart:
 - Rebuilding fails if `SurrealEngine.exe` is running (file lock). The user is fine with Claude killing it
   (`taskkill //IM SurrealEngine.exe //F`) to rebuild or relaunch.
 - `tools/run_hp1.sh [secs] [args]` — `--autolaunch --logfile=build/hp1_run.log` against `../eagames/hp1-work`.
-  `--skip-splash` goes straight to the main menu, `--skip-intro` skips the New Game storybook,
+  `--level=<map>` starts a level with the story flow and the state a player carries in (playtesting; `--url` only
+  loads the map), `--skip-splash` goes straight to the main menu, `--skip-intro` skips the New Game storybook,
   `--vanilla` disables the default-on mods (`src/hp1/mods/`).
 - Debug env vars (`src/knowwonder/KWDebug.cpp`, times in seconds since the first frame): `HP1_SHOTS="5,8.5"` +
   `HP1_SHOT_DIR` for in-engine screenshots (never capture the desktop), `HP1_KEYS="62:Up:3,66:Left:0.6"`

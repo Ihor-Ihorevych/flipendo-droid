@@ -77,7 +77,7 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Collision/TopLevel/TraceTest.cpp`, `OverlapTest.cpp`, `CollisionSystem.cpp` | CT_Box trace/overlap/hash extents |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `HP1::PawnMoveToward`, `HP1::PawnPhysicsTime`, `HP1::PawnPhysicsRotation` |
 | `Packages/Engine/Actors/Pawn/UPlayerPawn.cpp` | `HP1::PawnPhysicsRotation` |
-| `UE1GameDatabase.h`, `GameApp.cpp` | exe hashes, `--autolaunch` / `--logfile` |
+| `UE1GameDatabase.h`, `GameApp.cpp` | exe hashes, `--autolaunch` / `--logfile`; `--level=<map>` loads the map as `--url` does |
 | `SurrealWidgets/.../win32_display_window.cpp` | cursor recentering and raw mouse/keyboard input need foreground focus (0004; raw input is RIDEV_INPUTSINK, so moving the mouse in another app turned the camera); the icon bitmap is top-down (it was drawn upside down) |
 | `Packages/Engine/Actors/UActor_Phys.cpp`, `UActor_PhysRolling.cpp` | `HP1::PhysicsChecksLeftWorld` (zone-0 FellOutOfWorld only while walking) |
 | `Packages/Engine/Actors/UActor_PhysWalking.cpp` | player slides along actors it hits (no pushable decoration); `HP1::PawnMount` before the step up |
@@ -93,6 +93,7 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Packages/Engine/Actors/UActor_PhysWalking.cpp`, `UActor_PhysRolling.cpp` | `HP1::PawnWalkOffLedge` / `HP1::StartFalling` (MayFall, ledge rule, auto-jump, Falling) |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `HP1::PawnPollMoveToward`, `PawnPollStrafeFacing`, `PawnPollWaitForLanding`; WaitForLanding sets LatentFloat |
 | `Engine.cpp` | save games ([re/engine/savegames.md](re/engine/savegames.md)): `SaveGame` → `KW::SaveGame` at once (not at the end of the frame): LevelAction saving, the blue progress frame (`PaintProgress`), the save; `open saveN.usa` → `HP1::SaveGameLoadURL` (`?load=N`); `KW::SaveGameLoaded` after LoadFromSaveFile (BSP leaves found again); `HP1::LevelInfoLoaded` in LoadMap (empty LevelEnterText = URL map); `KW::ViewportCommand` before the exec functions (`Snap`) |
+| `Engine.cpp` (LoginPlayer) | `HP1::LevelStartPlayer` before Possess: `--level` sets `HPConsole.bInHubFlow` and Harry's travel state (`src/hp1/HP1LevelStart.cpp`) |
 | `Engine.cpp` (LoadMap) | `KW::SetStartupZones` after BeginPlay: every loaded actor's zone and BSP leaf, as HP1's LoadMap does (a map saves movers with leaf -1, which left bDynamicLightMover movers unlit) |
 | `Native/NPlayerPawn.cpp` | ClientTravel raises PreClientTravel |
 | `Engine.cpp` (after the level tick), `Render/RenderSubsystem.cpp` | ViewFlash event; `HP1::ViewFlashParams` for the screen flash, from the viewport's player (not the camera actor the view goes through) |
