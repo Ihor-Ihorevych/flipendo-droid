@@ -29,6 +29,7 @@ A note that says "HP2 not checked" means exactly that: don't assume HP2 is the s
 | [music.md](engine/music.md) | songs: looping (bDontLoopSong), bSongFinished, the end of a song played once |
 | [gestures.md](engine/gestures.md) | the Gesture natives that score a drawn spell shape |
 | [textures.md](engine/textures.md) | Fire.dll procedural textures (IceTexture) |
+| [packages.md](engine/packages.md) | package file contents SurrealEngine didn't read: Unicode (UTF-16) strings |
 | [native_classes.md](engine/native_classes.md) | native classes with no native code (ImpactSoundSet, LocationID, ...) and leftover natives (FindStairRotation, ScreenToWorld, CreateNativeFont) |
 
 ## Harry Potter 1 (`hp1/`)

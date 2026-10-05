@@ -1,4 +1,4 @@
-flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files, packages, crash reports, music streaming (and an optional linear sound falloff, off unless a game asks), BSP regions
+flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files, packages (Unicode strings), crash reports, music streaming (and an optional linear sound falloff, off unless a game asks), BSP regions
 
 diff --git a/SurrealEngine/Audio/AudioDevice.cpp b/SurrealEngine/Audio/AudioDevice.cpp
 index 03e82566..89c4363b 100644
@@ -209,6 +209,36 @@ index 6aab46e1..3450a8ef 100644
  				// If the key don't have any brackets, check if we encountered the said key before
  				// If we did, then get the next index from it, else add the key we found to the database
  				int found_index = 0;
+diff --git a/SurrealEngine/Package/ObjectStream.h b/SurrealEngine/Package/ObjectStream.h
+index 1c5144c4..9825a51a 100644
+--- a/SurrealEngine/Package/ObjectStream.h
++++ b/SurrealEngine/Package/ObjectStream.h
+@@ -3,6 +3,7 @@
+ #include "Package.h"
+ #include <string.h>
+ #include "Utils/Exception.h"
++#include "Utils/UTF16.h"
+ 
+ enum class ObjectFlags : uint32_t;
+ class UClass;
+@@ -88,6 +89,17 @@ public:
+ 		if (GetVersion() >= 64)
+ 		{
+ 			int len = ReadIndex();
++			if (len < 0 && len >= -1024 * 1024)
++			{
++				// Unicode builds store a string with a character above 0xFF as UTF-16, the count negated
++				// (terminator included; HP1's Lev_Tut3b has one)
++				std::wstring s;
++				for (int i = 0; i < -len; i++)
++					s.push_back((wchar_t)ReadUInt16());
++				while (!s.empty() && s.back() == 0)
++					s.pop_back();
++				return from_utf16(s);
++			}
+ 			if (len < 0 || len > 1024 * 1024)
+ 				Exception::Throw("ObjectStream::ReadString: Invalid size in " + package->GetPackageName().ToString());
+ 			Array<char> s;
 diff --git a/SurrealEngine/Package/Package.cpp b/SurrealEngine/Package/Package.cpp
 index 78b0a27d..c96a6e5b 100644
 --- a/SurrealEngine/Package/Package.cpp
