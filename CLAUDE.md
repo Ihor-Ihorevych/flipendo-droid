@@ -136,7 +136,7 @@ Each file has one job; keep them apart:
 - `README.md`: for players (what, why, screenshots, status, how to play, extras, community). Keep it short, plain
   and free of developer detail; link to `CONTRIBUTING.md` and `docs/`.
 - `CONTRIBUTING.md`: for contributors (ways to help, building, developer flags, ground rules, the AI/SurrealEngine note).
-- `ROADMAP.md`: the phase checklist, what's done and next. Update it when something lands. No how-it-works detail.
+- `ROADMAP.md`: the phase checklist of open work and what's next. Remove an item when it lands (no done items). No how-it-works detail.
 - `docs/`: all other documentation, how things work (index: `docs/README.md`). Player-facing error messages in
   `docs/troubleshooting.md`; modding in `docs/modding.md`, debug env vars in `docs/debug-tools.md`; workflow in
   `docs/development.md`, the src/knowwonder/hp1/hp2 split in `docs/one-engine.md`, every SurrealEngine hook in
