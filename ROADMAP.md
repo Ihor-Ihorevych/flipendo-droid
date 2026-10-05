@@ -122,20 +122,21 @@ channels) and particle effects.
 - [x] The player slides along actor walls instead of sticking to them (SurrealEngine TickWalking left player-vs-actor
       hits as a TODO; HP1's `APawn::stepUp` slides). Harry can now run up the Lev_Tut1 stairs along the
       BlockAll banister and reach the Ron cutscene
-- [~] Play through Lev_Tut1 + Lev_Tut1b, fix what breaks (`tools/run_hp1.sh 60 --url=Lev_Tut1`). With `HP1_GOTO`:
+- [x] Play through Lev_Tut1 + Lev_Tut1b, fix what breaks (`tools/run_hp1.sh 60 --url=Lev_Tut1`). With `HP1_GOTO`:
       stairs → Ron cutscene → door D1stA → CutScene52 → Fred & George's room (~126 s) → bookcase climb (`137:Up:2.5`)
       → shelves along the jelly-bean trail (-32,-4470; 600,-4470; 768,-4432; 864,-3952; 1056,-3744) → climbexit
       trigger (1541,-3749) → jumping-help cutscene → jump room (2080,-3808; 2304,-3824; 2288,-3456; 2640,-3488;
       2650,-3392,J; 2650,-3150 = the west balcony) → through the west arch past the candle stand (2656,-3020;
       2656,-2944) → corridor (2656,-2790; 3136,-2790) → east arch (3136,-2960; 3150,-3030) → jump down onto box C
       (3150,-3068,J; 3150,-3300) → box D (3150,-3346,J; 3150,-3640) → south ledge (3150,-3748,J; 3150,-3930) →
-      jumpexit doors (3136,-4100) works. Peeves patrols (Pawn.FindPath). See "Next up"
+      jumpexit doors (3136,-4100) works. Peeves patrols (Pawn.FindPath). Both levels played by hand to the end
+      (2026-10-05)
 - [x] Flying pawns keep their vertical velocity (SurrealEngine TickFlying zeroed it; HP1's physFlying doesn't). Peeves
       pitched up towards his higher nav point but couldn't climb and orbited it forever; now he flies his patrol,
       waitforTrigger2, attackCamera, Taunt and obspatrol
-- [x] Ledge grabbing: `APawn::Mount` (`src/knowwonder/KWPawn.cpp`), called from walking (stepUp) and falling wall hits. Only
-      BSP surfaces with PolyFlags 0x1000 (PF_SpecialPoly = HP1's "mountable") qualify. SurrealEngine's cylinder collision
-      can report the node of a neighbouring plane, so the face is re-found with a zero-extent ray
+- [x] Ledge grabbing: `APawn::Mount` (`src/knowwonder/KWPhysics.cpp`), called from walking (stepUp) and falling wall hits. Only
+      BSP surfaces with PolyFlags 0x1000 (PF_SpecialPoly = HP1's "mountable") qualify, mover sides included; the hit
+      polygon is found with HP1's point-in-polygon test (Lev_Tut1b's climb to the optional room's star)
 - [x] `Actor.SetCollisionSize` has HP1's optional third parameter NewWidth (MountFinish passes three values)
 - [x] Gameplay events SurrealEngine never raised (`docs/re/engine/script_events.md`, `src/knowwonder/KWPawn.cpp`):
   - [x] `Falling` when walking or rolling off a ledge, before PHYS_Falling (Pawn.Falling → PlayInAir: Harry's fall
@@ -152,6 +153,7 @@ channels) and particle effects.
 - [x] Spell lesson no longer hangs on its second round: `GotoState` re-enables events turned off with `Disable`, like
       Core.dll ([docs/re/hp1/spells.md](docs/re/hp1/spells.md))
 - [x] Flipendo lesson played by hand through all 4 rounds into Lev_Tut1b
+- [x] Flipendo challenge (Lev_Tut1b) played by hand into Lev_Tut2: block puzzle, the optional room's falling block and star
 - [x] Touch like `AActor::BeginTouch` (`src/knowwonder/KWTouch.cpp`, [docs/re/engine/physics.md](docs/re/engine/physics.md#touch)): a
       spell that explodes in its own Touch still triggers the `spellTrigger` it hit (Lev_Tut1b's Flipendo wall symbol)
 - [x] `Pawn.FindPath` (553, KnowWonder's station pathing; tut1Peeves crashed the game without it,
