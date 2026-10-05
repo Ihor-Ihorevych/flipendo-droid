@@ -2,6 +2,7 @@
 #include "KW.h"
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
+#include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Packages/Engine/Resources/Textures/UTexture.h"
 #include "Package/PackageManager.h"
 #include "Package/Package.h"
@@ -413,6 +414,21 @@ namespace KW
 		if (args.empty())
 			return false;
 		return StrTools::equals_ignore_case(args[0], "snap");
+	}
+
+	// A save stores each actor's Region, BSP leaf included, and the original game trusts it. Saves made by Flipendo before
+	// UModel::FindRegion took the leaf from the right side of the node (2026-10-05) hold the other side's leaf, often -1;
+	// a mover keeps it until it moves, and a bDynamicLightMover with leaf -1 gets no lights (Lev_Tut1b's dropped
+	// portcullis showed black after a load). Recomputing the leaf from the location is a no-op for good saves.
+	void SaveGameLoaded()
+	{
+		if (!engine->Level)
+			return;
+		for (UActor* actor : engine->Level->Actors)
+		{
+			if (actor && actor->XLevel())
+				actor->Region().BspLeaf = actor->FindRegion().BspLeaf;
+		}
 	}
 
 	void RegisterSaveNatives()

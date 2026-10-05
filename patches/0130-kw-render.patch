@@ -409,6 +409,40 @@ index 984fdbfc..9e0d6356 100644
 +		KW::DrawParticleSystem(frame, Actor);
 +	}
  }
+diff --git a/SurrealEngine/Render/VisibleBrush.cpp b/SurrealEngine/Render/VisibleBrush.cpp
+index 74911e16..db83b986 100644
+--- a/SurrealEngine/Render/VisibleBrush.cpp
++++ b/SurrealEngine/Render/VisibleBrush.cpp
+@@ -30,15 +30,27 @@ bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass
+ 	frame->Device->SetSceneNode(&brushframe);
+ 	bool needTranslucentPass = false;
+ 
++	// A brush polygon is one-sided like a BSP surface: only drawn from in front of its plane, unless PF_TwoSided.
++	// Drawing both sides showed a mover's back faces through its masked front (Lev_Tut1b's portcullis: the plank back
++	// face filled the gate's holes and hid the doors behind it).
++	vec3 viewLocation = frame->ViewLocation.xyz();
++	auto facesView = [&](const Poly& poly)
++	{
++		if ((poly.PolyFlags & PF_TwoSided) || engine->getEditorMode())
++			return true;
++		vec3 point = (brushframe.ObjectToWorld * vec4(poly.Base, 1.0f)).xyz();
++		vec3 normal = (brushframe.ObjectToWorld * vec4(poly.Normal, 0.0f)).xyz();
++		return dot(viewLocation - point, normal) > 0.0f;
++	};
+ 	for (const Poly& poly : brush->Polys->Polys)
+ 	{
+-		if (DrawBrushPoly(frame, brush, poly, 0, mover, translucentPass))
++		if (facesView(poly) && DrawBrushPoly(frame, brush, poly, 0, mover, translucentPass))
+ 			needTranslucentPass = true;
+ 	}
+ 
+ 	for (const Poly& poly : brush->Polys->Polys)
+ 	{
+-		if (DrawBrushPoly(frame, brush, poly, 1, mover, translucentPass))
++		if (facesView(poly) && DrawBrushPoly(frame, brush, poly, 1, mover, translucentPass))
+ 			needTranslucentPass = true;
+ 	}
+ 
 diff --git a/SurrealEngine/Render/VisibleFrame.cpp b/SurrealEngine/Render/VisibleFrame.cpp
 index 818aa65d..5ef18732 100644
 --- a/SurrealEngine/Render/VisibleFrame.cpp

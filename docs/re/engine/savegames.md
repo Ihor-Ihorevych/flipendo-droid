@@ -114,6 +114,9 @@ offset both ways (`FindOffset` / `FindStatementIndex`, `Packages/Core/UObject.cp
   buffer for SaveSnap / CreateTextureFromScreenShot. Nothing in HP1 reads the buffer, so Flipendo accepts the command and
   does nothing (`KW::ViewportCommand`, `kw/KWSave.cpp`).
 - SaveGame's mover-position bookkeeping.
+- **Regions.** Every actor's `Region` (zone, BSP leaf) is in the save and the original trusts it. Flipendo's saves from
+  before the `FindRegion` leaf fix (2026-10-05) hold wrong leaves, so `KW::SaveGameLoaded` recomputes every actor's leaf
+  after a load (a no-op for good saves); without it a dropped portcullis stayed black until it moved.
 - Native-only state isn't in the save package, so it restarts on load: particles, our side tables. The camera
   (`PotCam`, a BaseCam) is all script state and is saved with everything else. Checked 2026-10-04 in Lev_Tut1
   (`SaveGame 98` then `open save98.usa` while Harry stands in the entrance hall): PotCam0 comes back at the same
