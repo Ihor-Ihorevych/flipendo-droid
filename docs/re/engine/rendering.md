@@ -78,6 +78,17 @@ full colour, so Lev_Tut2's fountain arches and Lev_Tut1's stair lamps had glows 
 lights aren't in the leaf where Harry stands). `src/knowwonder/KWActorRender.cpp` (`KW::DrawCoronas`); the LeafLights
 part isn't ported (SurrealEngine keeps no per-leaf dynamic light list).
 
+## Mirrors on movers (`URender::OccludeBsp` [HP1 Render 0x10B22480])
+
+Checked in HP1's Render.dll. A surface reflects when its PolyFlags have PF_Mirrored (0x08000000), the portal depth
+is below 3 and the viewport's show flag 0x800 is set. UE1 adds mover polygons to the level BSP every frame, so a mirror can be a mover face. Lev_Tut3's mirror in the
+Alohomora room is one: the `Mirror1` mover (Mover20, a box textured `arch1runner_B`, one face mirrored), which swings
+open on Alohomora; the translucent `MirrorBlur` pane (Translucent, NotSolid, TwoSided, SpecialLit) is a separate BSP
+surface. SurrealEngine draws movers as actors and only made portals of mirrored BSP surfaces, so the face drew as its
+dark texture. Flipendo (render patch, any game): `VisibleBrush::AddMirrorPortals` makes a mirror portal of every
+mirrored mover face that faces the view, drawn from the camera reflected in the face's plane and clipped to it (the
+room behind the mover isn't reflected); the face then only fills the depth buffer.
+
 ## HP1 and HP2
 
 HP2's DLLs not read yet for these; what to check there:
