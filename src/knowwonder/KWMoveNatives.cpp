@@ -3,10 +3,13 @@
 #include "KWMove.h"
 #include "KWPhysics.h"
 #include "VM/NativeFunc.h"
+#include "VM/Frame.h"
+#include "VM/Iterator.h"
 #include "Engine.h"
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
+#include "Packages/Engine/Actors/Info/ULevelInfo.h"
 
 // The natives that move or trace actors, on KnowWonder's own movement and collision (KWMove.h, KWCheck.h), so script
 // and physics agree on what blocks what. Registered when KnowWonder's physics runs (KW::UseKWPhysics).
@@ -98,6 +101,44 @@ namespace KW
 		SetPhysics(UObject::Cast<UActor>(Self), newPhysics, nullptr);
 	}
 
+	// TraceActors(BaseClass, out Actor, out HitLoc, out HitNorm, End, optional Start = Location, optional Extent): every
+	// hit of MultiLineCheck (actors and the level, by time). HP1 doesn't filter by BaseClass, and the level's LevelInfo
+	// comes up too.
+	// IDA Engine.dll: ?execTraceActors@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x1040DF50]
+	class TraceActorsHitIterator : public Iterator
+	{
+	public:
+		TraceActorsHitIterator(Array<CheckResult> hits, UObject** actor, vec3* hitLoc, vec3* hitNorm) : Hits(std::move(hits)), Actor(actor), HitLoc(hitLoc), HitNorm(hitNorm) {}
+
+		bool Next() override
+		{
+			if (Index >= Hits.size())
+			{
+				*Actor = nullptr;
+				return false;
+			}
+			const CheckResult& hit = Hits[Index++];
+			*Actor = hit.Actor;
+			*HitLoc = hit.Location;
+			*HitNorm = hit.Normal;
+			return true;
+		}
+
+	private:
+		Array<CheckResult> Hits;
+		size_t Index = 0;
+		UObject** Actor;
+		vec3* HitLoc;
+		vec3* HitNorm;
+	};
+
+	static void NTraceActors(UObject* Self, UObject* BaseClass, UObject*& Actor, vec3& HitLoc, vec3& HitNorm, const vec3& End, std::optional<vec3> Start, std::optional<vec3> Extent)
+	{
+		UActor* actor = UObject::Cast<UActor>(Self);
+		Array<CheckResult> hits = MultiLineCheck(End, Start.value_or(actor->Location()), Extent.value_or(vec3(0.0f)), true, actor->Level(), 0);
+		Frame::CreatedIterator = std::make_unique<TraceActorsHitIterator>(std::move(hits), &Actor, &HitLoc, &HitNorm);
+	}
+
 	void RegisterMoveNatives()
 	{
 		if (!UseKWPhysics())
@@ -112,5 +153,6 @@ namespace KW
 		OverrideNative(298, [] { RegisterVMNativeFunc_1("Actor", "SetBase", &NSetBase, 298); });
 		OverrideNative(718, [] { RegisterVMNativeFunc_2("Actor", "IsOverlapping", &NIsOverlapping, 718); });
 		OverrideNative(3970, [] { RegisterVMNativeFunc_1("Actor", "SetPhysics", &NSetPhysics, 3970); });
+		OverrideNative(309, [] { RegisterVMNativeFunc_7("Actor", "TraceActors", &NTraceActors, 309); });
 	}
 }
