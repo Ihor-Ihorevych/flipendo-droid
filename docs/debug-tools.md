@@ -40,6 +40,16 @@ Times are seconds since the first frame.
 | `@sweep sx sy sz ex ey ez bx by bz` | KnowWonder's BSP line check from start to end with a box of half size b, point checks at both ends (zone, leaf, push-out), and every actor the box sweep hits (MultiLineCheck), and the hit node's coplanar polygons with their flags and vertices: debugging collision and ledge grabs |
 | `@hull <actor>` | log every collision leaf hull of the actor's brush: its planes in world space (node, flipped) and its local box: where a mover is solid |
 
+## Comparing with the original
+
+`tools/orig_shots.ps1 -Map Lev_Tut2 [-Seconds 28] [-Out dir]` runs the original `HP.exe` from `../eagames/hp1-orig`
+straight into a map and saves its window every second (PrintWindow: the game window only, never the desktop). Take
+ours at the same times with `HP1_SHOTS="1,2,3,..."`; the original loads a few seconds slower, so pair frames by
+content. `hp1-orig`'s `System/HP.ini` skips the first-run wizard (`FirstRun=433`), runs windowed (`StartupFullscreen`,
+D3DDrv `UseFullscreen` False) with Direct3D at Brightness 0.4 like ours. A `Running.ini` left by a killed run starts
+the original in Recovery Mode; the script deletes it. Its window takes the focus while it runs. The original's `shot`
+command wrote nothing (F9 bound in `User.ini`), hence the window capture.
+
 ## Crashes and the script debugger
 
 Crashes leave a minidump and `<dump>.txt` with the symbolized call stack in `%LOCALAPPDATA%\SurrealEngine\CrashReports`

@@ -61,6 +61,23 @@ loaded through LoadMap like a map, so it gets both.
 Flipendo: `KW::LoadMapFadeOut` and `KW::LoadMapLevelInfo` (`src/knowwonder/KWView.cpp`) from `Engine::LoadMap` and
 `Engine::LoadFromSaveFile`; `RenderSubsystem::DrawLevelInfo` draws the canvas-only frame.
 
+## Coronas (`URender::DrawFrame` [HP1 Render 0x10B254F0], the block at its end)
+
+Drawn after the scene, for the main view only (FSceneNode +28 == 0), and only when the viewport's actor is in a zone
+and a BSP leaf and the render device's `Coronas` option is on. The lights come from the viewport actor's leaf
+(`Region.iLeaf`, Actor +164; in a cutscene that's Harry's, not the camera's): the map's `Leaves[leaf].iPermeating`
+list and `URender::LeafLights[leaf]` (dynamic lights). `sub_10B26F10` takes a light with `bCorona` (Actor +496 bit 4;
+the byte holds bSpecialLit 1, bActorShadows 2, bCorona 4, bLensFlare 8, bDarkLight 0x10), a Skin (+352), and a clear
+level line (ULevel vtable +196, TRACE_Movers | TRACE_Level) from the camera to it. A table of 32 (a FMemCache item,
+id 39) keeps actor, actor index and fade: every frame each fade drops by 3 × the real seconds passed (appSeconds,
+not level time) and is freed below 0; a gathered light adds twice that (a new one starts there), capped at 1. Every
+live entry in front of the camera is drawn with Canvas `DrawIcon` (vtable +100): its Skin centred on the projected
+light, viewport width × DrawScale (+364) × 0.8 wide, colour = the light's hue and saturation (FGetHSV's colour
+without the brightness curve, LightBrightness unused) × fade. SurrealEngine drew every visible bCorona actor at
+full colour, so Lev_Tut2's fountain arches and Lev_Tut1's stair lamps had glows the original doesn't show (their
+lights aren't in the leaf where Harry stands). `src/knowwonder/KWActorRender.cpp` (`KW::DrawCoronas`); the LeafLights
+part isn't ported (SurrealEngine keeps no per-leaf dynamic light list).
+
 ## HP1 and HP2
 
 HP2's DLLs not read yet for these; what to check there:

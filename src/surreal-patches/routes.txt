@@ -49,7 +49,7 @@ SurrealEngine/Packages/Engine/Actors/UActor.h
 SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
 SurrealEngine/Packages/Engine/Resources/Mesh/**
 
-[0130-knowwonder-render.patch] flipendo: KnowWonder rendering (FOV, skeletal meshes, particles, translucency, vertex alpha, actor shadows, textures; loading screen; HP1 menu canvas)
+[0130-knowwonder-render.patch] flipendo: KnowWonder rendering (FOV, skeletal meshes, particles, translucency, vertex alpha, actor shadows, textures; loading screen; HP1 menu canvas, coronas); BSP surfaces take the zone on the camera's side (any game)
 SurrealEngine/Render/**
 SurrealEngine/Light/**
 SurrealEngine/RenderDevice/**
