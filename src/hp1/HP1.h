@@ -31,6 +31,8 @@ namespace HP1
 	// --level=<map> (src/hp1/HP1LevelStart.cpp). Engine::LoginPlayer, before Possess: the first level started with
 	// --level gets the story flow and the state a player carries in.
 	void LevelStartPlayer(UPlayerPawn* pawn, const std::string& map);
+	// HP1::TickMods (runs with --vanilla too): selects --level's save slot once the menu book exists.
+	void LevelStartTick();
 	// Engine::ConsoleCommand "getres": the display's modes, with FEOptionsPage's 1024x768 cap lifted.
 	std::string AvailableResolutions(GameWindow* window);
 }

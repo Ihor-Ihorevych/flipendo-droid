@@ -85,6 +85,7 @@ namespace HP1
 			return;
 		Mods::UpdateSpace();
 		Mods::TickLaunchSkips();
+		LevelStartTick();
 		Mods::TickStorybookSkip();
 		Mods::TickCutsceneSkip(realElapsed);
 		Mods::TickDiscordPresence(realElapsed);

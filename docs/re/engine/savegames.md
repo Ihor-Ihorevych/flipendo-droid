@@ -8,7 +8,9 @@ KnowWonder's `GameSaveInfo` file for the slot page; the script side around them 
 
 - **Slots.** `FESlotPage` shows 6 slots (indices 0-5, shown as 1-6). Picking an empty one starts a new game in it;
   `nSelectedSlot` stays the current slot for the whole session. With no slot (`-1`, e.g. a game started with
-  `--url=` or after the credits) saves go to slot 99, which the page never lists.
+  `--url=` or after the credits) saves go to slot 99, which the page never lists. Quitting from the pause book also
+  sets `-1` ("So game doesnt save when in menus or quidditch"): the main menu's Quidditch button then starts the flying
+  lesson's replay, whose level-start save overwrites slot 99. `--level` selects slot 0 (or `--slot=`).
 - **Saving** is always `FESlotPage.SaveSelectedSlot` → `HPConsole.doLevelSave(slot)`. It's called:
   - on the first tick of every level reached through `HPConsole.ChangeLevel` (`bLoadNewLevel`, "Saving level at start");
   - when Harry touches a `savepoint` (the floating book; it plays `save_game` and destroys itself first).
