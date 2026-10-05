@@ -1,5 +1,6 @@
 #include "Precomp.h"
 #include "KW.h"
+#include "KWMove.h"
 #include "KWActor.h"
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Engine/Actors/Pawn/UPawn.h"
@@ -28,6 +29,25 @@ namespace KW
 		vec3 x, y, z;
 		if (!mesh || !GetBoneCoords(actor, mesh, BoneIndex(mesh, Bone), ReturnValue, x, y, z))
 			ReturnValue = actor->Location();
+	}
+
+	// physTrailer places the trailer with FarMoveActor(bNoCheck) and turns it with MoveActor (KnowWonder's movement
+	// when its physics runs, else SurrealEngine's)
+	static void TrailerPlace(UActor* actor, const vec3& location)
+	{
+		if (UseKWPhysics())
+			FarMoveActor(actor, location, false, true);
+		else
+			actor->SetLocation(location);
+	}
+
+	static void TrailerTurn(UActor* actor, const Rotator& rotation)
+	{
+		CheckResult hit;
+		if (UseKWPhysics())
+			MoveActor(actor, vec3(0.0f), rotation, hit);
+		else
+			actor->SetRotation(rotation);
 	}
 
 	// IDA Engine.dll: ?physTrailer@AActor@@QAEXM@Z [HP1 0x103F5F80]
@@ -73,20 +93,20 @@ namespace KW
 						rotation = Rotator(0x4000, 0, 0);
 				}
 			}
-			actor->SetLocation(location);
-			actor->SetRotation(rotation);
+			TrailerPlace(actor, location);
+			TrailerTurn(actor, rotation);
 		}
 		else if (actor->bTrailerPrePivot())
 		{
-			actor->SetLocation(owner->Location() + actor->PrePivot());
+			TrailerPlace(actor, owner->Location() + actor->PrePivot());
 		}
 		else if (actor->bTrailerSameRotation())
 		{
-			actor->SetLocation(owner->Location() - Coords::Rotation(owner->Rotation()).XAxis * actor->Mass());
+			TrailerPlace(actor, owner->Location() - Coords::Rotation(owner->Rotation()).XAxis * actor->Mass());
 		}
 		else
 		{
-			actor->SetLocation(owner->Location());
+			TrailerPlace(actor, owner->Location());
 		}
 	}
 

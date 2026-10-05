@@ -21,11 +21,15 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
    drops into its hole (HP1's mover physics: blocks fall and collide with the world). The block puzzle fixes (Flipendo
    pushing the block, grabbing its sides) are not played by hand yet. Next: play Lev_Tut1b by hand from the block
    puzzle on.
-2. Broom / Quidditch levels now load and their paths fly (see phase 5). Lev4_Sneak runs: a `goto` to a missing label
+2. **HP1's physics, ported whole** (2026-10-05, in progress): collision (BSP box/ray/point checks, actor primitives,
+   level checks), moving actors (MoveActor, FarMoveActor, FindSpot, encroachment, zones, touch) and the movement natives
+   run HP1's code; walking, falling, landing and rotation too. Still SurrealEngine's: flying, swimming, spider,
+   projectile, rolling, and AI reachability (walkReachable etc.). `FLIPENDO_SE_PHYSICS=1` switches back to compare.
+3. Broom / Quidditch levels now load and their paths fly (see phase 5). Lev4_Sneak runs: a `goto` to a missing label
    (gargoyle.lookaround's `lcloop`) now stops the state code like UE1 instead of a fatal error.
-3. **Dark levels**: HP1's light maps are ported (phase 5); the Quidditch pitch is lit like the original. Still to look
+4. **Dark levels**: HP1's light maps are ported (phase 5); the Quidditch pitch is lit like the original. Still to look
    at: Lev_Tut2 and Lev5_FlyKeys (were nearly black).
-4. **First prebuilt release** (see "Releases"): players can't try Flipendo without building it.
+5. **First prebuilt release** (see "Releases"): players can't try Flipendo without building it.
 
 Visual parity checks against the original, side by side, wait until the end (after gameplay works): mesh lighting
 (brightness, specular highlights, light fades; ported in phase 5), animations (walk/run/breathe, tween blends, aux

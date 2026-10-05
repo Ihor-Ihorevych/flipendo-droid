@@ -8,7 +8,7 @@
 #include "Packages/Engine/Actors/Info/UZoneInfo.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
-#include "Collision/BottomLevel/TraceAABBModel.h"
+#include "KWMove.h"
 #include "Collision/TopLevel/CollisionHit.h"
 #include "Math/coords.h"
 #include "VM/ScriptCall.h"
@@ -16,8 +16,9 @@
 
 // HP1's Mover.uc re-declares PhysAlpha and PhysRate, shadowing Actor's. Mover script (InterpolateTo etc.) and
 // KnowWonder's native mover physics use the Mover copies; upstream's TickMovingBrush uses Actor's, which stay 0.
-// KnowWonder's physMovingBrush also lets a mover with bCollideWorld (GridMover, the Flipendo blocks) collide with the
-// world by its bounding box and fall with the zone's gravity, and stops a mover whose move was blocked.
+// KnowWonder's physMovingBrush also lets a mover with bCollideWorld (GridMover, the Flipendo blocks) fall with the zone's
+// gravity, and stops a mover whose move was blocked. It moves with ULevel::MoveActor (KWMove.cpp), which collides a
+// bCollideWorld brush with the world by its bounding box and pushes encroached actors.
 
 namespace KW
 {
@@ -54,44 +55,6 @@ namespace KW
 		return props;
 	}
 
-	// How far (0-1) a brush can move by delta before its bounding box, shrunk by 0.51 on each side, hits the level.
-	// SurrealEngine's TryMove never collides brushes with the world.
-	// IDA Engine.dll: ?MoveActor@ULevel@@UAEHPAVAActor@@VFVector@@VFRotator@@AAUFCheckResult@@HHHH@Z [HP1 0x103AA3A0]
-	// (an actor with bCollideWorld, brushes included, sweeps its primitive's world box through MultiLineCheck)
-	static float BrushWorldFraction(UMover* mover, const vec3& delta)
-	{
-		UModel* brush = mover->Brush();
-		double length2 = dot(delta, delta);
-		if (!brush || length2 < 0.00000001)
-			return 1.0f;
-
-		mat4 objectToWorld = mat4::translate(mover->Location()) * Coords::Rotation(mover->Rotation()).ToMatrix() * mat4::scale(mover->MainScale().Scale) * mat4::translate(-mover->PrePivot());
-		BBox box = brush->BoundingBox.transform(objectToWorld);
-		vec3 extents = box.extents();
-		extents = vec3(std::max(extents.x - 0.51f, 0.0f), std::max(extents.y - 0.51f, 0.0f), std::max(extents.z - 0.51f, 0.0f));
-
-		// Same margin handling as TraceTester::Trace, so a block stops where a pawn would
-		double margin = 1.0;
-		double tmax = std::sqrt(length2);
-		dvec3 direction = to_dvec3(delta) * (1.0 / tmax);
-		TraceAABBModel tracemodel;
-		CollisionHitList hits = tracemodel.Trace(engine->Level->Model, to_dvec3(box.center()), 0.01, direction, tmax + margin, to_dvec3(extents), false);
-		float fraction = 1.0f;
-		for (const CollisionHit& hit : hits)
-			fraction = std::min(fraction, (float)(std::max(hit.Fraction - margin, 0.0) / tmax));
-		return fraction;
-	}
-
-	// Moves by delta, stopping at the world for bCollideWorld. Returns the fraction moved, or -1 when the move was
-	// refused (an encroached actor stopped it), which ULevel::MoveActor reports by returning 0.
-	static float MoveBrush(UMover* mover, const vec3& delta)
-	{
-		float fraction = mover->bCollideWorld() ? BrushWorldFraction(mover, delta) : 1.0f;
-		if (fraction > 0.0f && mover->TryMove(delta * fraction).Fraction < 1.0f)
-			return -1.0f;
-		return fraction;
-	}
-
 	// IDA Engine.dll: ?physMovingBrush@AActor@@QAEXM@Z [HP1 0x104061F0]
 	void PhysMovingBrush(UActor* actor, float deltaTime)
 	{
@@ -117,7 +80,13 @@ namespace KW
 					vec3 delta = along * deltaTime + gravity * (deltaTime * deltaTime * 0.5f);
 					mover->Velocity() += gravity * deltaTime;
 					vec3 start = mover->Location();
-					if (MoveBrush(mover, delta) > 0.0f)
+					CheckResult hit;
+					MoveActor(mover, delta, mover->Rotation(), hit);
+					if (hit.Time <= 0.0f)
+					{
+						FindBase(mover);
+					}
+					else
 					{
 						vec3 moved = mover->Location() - start;
 						mover->KeyPos()[key] += moved;
@@ -153,16 +122,12 @@ namespace KW
 			vec3 oldPos = mover->OldPos();
 			vec3 targetPos = oldPos + (mover->BasePos() + mover->KeyPos()[key] - oldPos) * t;
 
-			float time = MoveBrush(mover, targetPos - mover->Location());
-			if (time >= 0.0f)
-			{
-				mover->SetRotation(targetRot);
-				physAlpha += (alpha - physAlpha) * time;
-			}
-			else
-			{
-				break; // refused: try again next tick
-			}
+			CheckResult hit;
+			if (MoveActor(mover, targetPos - mover->Location(), targetRot, hit))
+				physAlpha += (alpha - physAlpha) * hit.Time;
+			float time = hit.Time;
+			if (time >= 1.0f && physAlpha < 1.0f && !fell && deltaTime > 0.0f)
+				break; // refused or not there yet with time left over: try again next tick
 
 			if (!fell)
 			{

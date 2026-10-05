@@ -60,6 +60,53 @@ movement into the nearest face while inside; since 2026-10-04 it is the original
 Harry still runs up the Lev_Tut1 stairs along the BlockAll banister, and the intro cutscene's kids and Dumbledore make
 it up without timeout teleports.
 
+## BSP checks
+
+KnowWonder's physics (`src/knowwonder/KWBspCheck.cpp`) tests boxes and lines against a BSP model (the level's, or a
+mover's brush with its planes taken to world space) the way HP1 does; SurrealEngine's own traces are close but differ
+at edges and corners.
+
+- **Box sweep** (`UModel::LineCheck` 0x10429C80 with an extent; `sub_1042A480`): walks the BSP with the node planes
+  pushed out by 1.1 times the box, tracking whether it is inside solid space (a node is solid with vertices and none of
+  NodeFlags 0x21, `sub_1042CDA0`); only a solid leaf's convex hull (`UModel.LeafHulls` from the parent node's
+  CollisionBound: the hull's node planes, then its bounding box) is tested. The segment is clipped (`sub_1042C050`)
+  against each hull plane pushed out by the box, then (the level only) the hull's box planes (-X, -Y and both Z sides
+  pushed out by 0.1, +X and +Y pulled in by 0.1), then bevel planes between two hull planes facing opposite ways along
+  an axis (when the axis' crossings with them agree, dot > 0.001; through their intersection line, `sub_1042CAF0`). A
+  box already inside a plane and moving into it counts as entering at once. The hit's Item is the hull plane's node
+  (the surface lookup uses it). The time is pulled back by 0.5 / length.
+- **Ray** (zero extent, `sub_104294C0`): the BSP walk with the inside/outside rule; a hit is the point where the line
+  enters solid space after having been outside (unless the extra node flags have 0x10, starting inside counts too), the
+  normal is the last node crossed, facing the start.
+- **Point / box at a location** (`UModel::PointCheck` 0x104271D0; `sub_10427630` with an extent): the box is out of a
+  hull when it is wholly in front of any of its planes; else the hit is the shallowest penetration, pushed out 1.02
+  times as far.
+- **FastLineCheck** (0x104291E0, `sub_10429300`): a line of sight; only NF_NotCsg (bit 0) makes a node non-solid here.
+
+## Actor primitives and the level checks
+
+`src/knowwonder/KWLevelCheck.cpp`. An actor's primitive (`AActor::GetPrimitive` 0x1037A880, a brush always its Brush):
+
+- the cylinder (`UPrimitive::LineCheck` 0x103FA760 / `PointCheck` 0x103FA420) has its centre raised by
+  CollisionWidth. Lines: through the caps (normal +/-Z) and the side (quadratic), time pulled back 0.001; a line
+  starting inside only blocks when it moves towards the axis. Points: strictly inside; the hit location is odd but kept
+  as in the original (a cap gives (x, y, Location.Z - Extent.Z), the side adds the point's Z onto Location.Z);
+- the oriented cylinder (0x103FBC50 / 0x103FB7A0): the same in the actor's rotated frame;
+- the box (CT_Box, above); meshes use the cylinder; brushes their BSP.
+
+The actor hash (`FCollisionHash`, 256-unit cells by each actor's world collision box) is SurrealEngine's bucket grid,
+filled with HP1's boxes; candidates are then tested with their own primitive.
+
+- `ULevel::MultiLineCheck` (0x103AC620): the level first (when LevelInfo is passed), then actors only up to 5 units past
+  the level's hit (their times rescaled); with a level hit closer than 0.01 of the line and 30 units only movers still
+  count, and without actors asked for only movers; a mover hit on the level hit's plane within 2 units of it is put 2
+  units before it. Sorted by time.
+- `ULevel::SingleLineCheck` (0x103AC180): the first hit of MultiLineCheck the flags accept, skipping the tracer and its
+  owners: 4 the level, 2 movers, 8 zone infos, **1 actors that block the tracer** (`IsBlockedBy`), 16 the others. Trace
+  uses 23 (6 without actors); physics mostly 6 (level, movers) or 7.
+- `ULevel::MultiPointCheck` / `SinglePointCheck` (0x103ABF70 / 0x103ABD70): the level's hit first, then actors'; the
+  single check keeps the hit whose pushed-out location is nearest the point.
+
 ## World bounding boxes: Actor.GetWorldCollisionBox(optional bool bVisual) (0x1040A950)
 
 With bVisual, the actor's Mesh (else Brush) gives the box; otherwise its collision primitive (`AActor::GetPrimitive`,

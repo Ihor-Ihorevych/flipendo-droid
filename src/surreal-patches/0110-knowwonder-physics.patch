@@ -1,7 +1,7 @@
 flipendo: KnowWonder physics, pawn movement and collision
 
 diff --git a/SurrealEngine/Collision/TopLevel/CollisionSystem.cpp b/SurrealEngine/Collision/TopLevel/CollisionSystem.cpp
-index 051ad9f9..0cd829d3 100644
+index 051ad9f9..45573f6c 100644
 --- a/SurrealEngine/Collision/TopLevel/CollisionSystem.cpp
 +++ b/SurrealEngine/Collision/TopLevel/CollisionSystem.cpp
 @@ -1,5 +1,7 @@
@@ -12,17 +12,67 @@ index 051ad9f9..0cd829d3 100644
  #include "CollisionSystem.h"
  #include "Packages/Engine/Actors/UActor.h"
  #include "Packages/Engine/Actors/Brush/UMover.h"
-@@ -127,6 +129,10 @@ void CollisionSystem::AddToCollision(UActor* actor)
+@@ -102,6 +104,35 @@ Array<UActor*> CollisionSystem::EncroachingActors(UActor* actor)
+ 	return overlap.EncroachingActors(actor);
+ }
+ 
++Array<UActor*> CollisionSystem::ActorsInBox(const vec3& boxMin, const vec3& boxMax)
++{
++	Array<UActor*> result;
++	vec3 center = (boxMin + boxMax) * 0.5f;
++	vec3 extents = (boxMax - boxMin) * 0.5f;
++	ivec3 start = GetStartExtents(center, extents);
++	ivec3 end = GetEndExtents(center, extents);
++	if (end.x - start.x >= 100 || end.y - start.y >= 100 || end.z - start.z >= 100)
++		return result;
++	for (int z = start.z; z < end.z; z++)
++	{
++		for (int y = start.y; y < end.y; y++)
++		{
++			for (int x = start.x; x < end.x; x++)
++			{
++				auto it = CollisionActors.find(GetBucketId(x, y, z));
++				if (it == CollisionActors.end())
++					continue;
++				for (UActor* actor : it->second)
++				{
++					if (std::find(result.begin(), result.end(), actor) == result.end())
++						result.push_back(actor);
++				}
++			}
++		}
++	}
++	return result;
++}
++
+ void CollisionSystem::SetLevel(ULevel* level)
+ {
+ 	Level = level;
+@@ -127,6 +158,12 @@ void CollisionSystem::AddToCollision(UActor* actor)
  				extents = bbox.extents() + 0.1f; // 0.1 for numerical stability
  			}
  		}
-+		else if (engine->LaunchInfo.IsKnowWonder() && KW::IsBoxCollider(actor)) // CollideType CT_Box
++		else if (engine->LaunchInfo.IsKnowWonder()) // KnowWonder hashes an actor by its primitive's world box (CT_Box, CollisionWidth offset)
 +		{
-+			extents = KW::BoxCollisionExtents(actor) + 0.1f;
++			BBox bbox = KW::ActorWorldCollisionBox(actor);
++			location = bbox.center();
++			extents = bbox.extents() + 0.1f;
 +		}
  
  		actor->Collision.Inserted = true;
  		actor->Collision.Location = location;
+diff --git a/SurrealEngine/Collision/TopLevel/CollisionSystem.h b/SurrealEngine/Collision/TopLevel/CollisionSystem.h
+index 147ce3db..1fe94c4b 100644
+--- a/SurrealEngine/Collision/TopLevel/CollisionSystem.h
++++ b/SurrealEngine/Collision/TopLevel/CollisionSystem.h
+@@ -37,6 +37,7 @@ public:
+ 	Array<UActor*> CollidingActors(const vec3& origin, float radius);
+ 	Array<UActor*> CollidingActors(const vec3& origin, float height, float radius);
+ 	Array<UActor*> EncroachingActors(UActor* actor);
++	Array<UActor*> ActorsInBox(const vec3& boxMin, const vec3& boxMax); // every actor in the hash cells the box touches
+ 
+ 	void SetLevel(ULevel* level);
+ 	void AddToCollision(UActor* actor);
 diff --git a/SurrealEngine/Collision/TopLevel/OverlapTest.cpp b/SurrealEngine/Collision/TopLevel/OverlapTest.cpp
 index badaaaf5..3b1dd333 100644
 --- a/SurrealEngine/Collision/TopLevel/OverlapTest.cpp
@@ -220,10 +270,10 @@ index e3c87b45..cafa042c 100644
  		return;
  
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
-index 07b200e2..9223fe4d 100644
+index 07b200e2..5db4948a 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
-@@ -8,9 +8,18 @@
+@@ -8,9 +8,25 @@
  #include "Packages/Engine/Actors/Info/ULevelInfo.h"
  #include "Packages/Engine/Resources/Level/ULevel.h"
  #include "Packages/Engine/Resources/Level/UModel.h"
@@ -231,6 +281,13 @@ index 07b200e2..9223fe4d 100644
  
  void UActor::TickPhysics(float elapsed)
  {
++	// KnowWonder's own physics (src/knowwonder/KWPhysics.cpp): one step with the whole frame time
++	if (engine->LaunchInfo.IsKnowWonder() && KW::UseKWPhysics())
++	{
++		KW::PhysicsTick(this, elapsed);
++		return;
++	}
++
 +	// HP1's InterpolationManager overrides performPhysics (one call per tick, moves its Owner)
 +	if (engine->LaunchInfo.IsKnowWonder() && Physics() == PHYS_Interpolating && KW::IsInterpolationManager(this))
 +	{
@@ -242,7 +299,7 @@ index 07b200e2..9223fe4d 100644
  	for (float timeLeft = elapsed; timeLeft > 0.0f && !bDeleteMe(); timeLeft -= 0.02f)
  	{
  		float physTimeElapsed = std::min(timeLeft, 0.02f);
-@@ -210,7 +219,7 @@ UPawn* UActor::PreparePawnMovementTick()
+@@ -210,7 +226,7 @@ UPawn* UActor::PreparePawnMovementTick()
  	if (!pawn)
  		return nullptr;
  
@@ -251,7 +308,20 @@ index 07b200e2..9223fe4d 100644
  		return nullptr;
  
  	OldLocation() = Location();
-@@ -421,7 +430,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
+@@ -255,6 +271,12 @@ std::pair<bool, vec3> UActor::CheckLocation(vec3 location, float radius, float h
+ 	if (!check)
+ 		return { true, location };
+ 
++	if (engine->LaunchInfo.IsKnowWonder() && KW::UseKWPhysics()) // ULevel::SpawnActor's FindSpot (src/knowwonder/KWMove.cpp)
++	{
++		bool found = KW::SpawnFindSpot(radius, height, location);
++		return { found, location };
++	}
++
+ 	// What is a reasonable size for this grid? what did UE1 do?
+ 	int offset[] = { 0, 1, -1 };
+ 	bool found = false;
+@@ -421,7 +443,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
  				if (hit.Actor)
  				{
  					bool isBlocking;
@@ -262,7 +332,7 @@ index 07b200e2..9223fe4d 100644
  						isBlocking = hit.Actor->bBlockPlayers() && bBlockPlayers();
  					else
  						isBlocking = hit.Actor->bBlockActors() && bBlockActors();
-@@ -528,7 +539,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
+@@ -528,7 +552,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
  		{
  			// We can't touch stuff we are blocked by
  			bool isBlocking;

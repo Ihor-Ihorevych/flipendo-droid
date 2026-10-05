@@ -12,6 +12,7 @@ namespace KW
 	void RegisterParticleNatives();
 	void RegisterWindNatives();
 	void RegisterCollisionNatives();
+	void RegisterMoveNatives();
 	void RegisterNavigationNatives();
 	void RegisterSoundNatives();
 	void RegisterAttachNatives();
@@ -35,6 +36,7 @@ namespace KW
 		RegisterParticleNatives();
 		RegisterWindNatives();
 		RegisterCollisionNatives();
+		RegisterMoveNatives(); // after RegisterCollisionNatives: replaces its SetPhysics with HP1's whole setPhysics
 		RegisterNavigationNatives();
 		RegisterSoundNatives();
 		RegisterAttachNatives();

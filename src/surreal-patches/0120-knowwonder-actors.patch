@@ -1,7 +1,7 @@
 flipendo: KnowWonder actor tick, native actors (ParticleFX, Wind), animation
 
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor.cpp b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
-index 29c45a1c..c3229269 100644
+index 29c45a1c..c4b365e3 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
 @@ -9,6 +9,7 @@
@@ -48,17 +48,31 @@ index 29c45a1c..c3229269 100644
  				StateFrame->LatentState = LatentRunState::Continue;
  		}
  		else if (StateFrame->LatentState == LatentRunState::FinishInterpolation)
-@@ -215,6 +227,9 @@ void UActor::Tick(float elapsed)
+@@ -202,7 +214,9 @@ void UActor::Tick(float elapsed)
+ 		}
+ 	}
+ 
+-	TickPhysics(elapsed);
++	bool timerFirst = engine->LaunchInfo.IsKnowWonder() && KW::UseKWPhysics(); // HP1's AActor::Tick: Timer, then physics
++	if (!timerFirst)
++		TickPhysics(elapsed);
+ 
+ 	if (TimerRate() > 0.0f) // Role() == ROLE_Authority && RemoteRole() == ROLE_AutonomousProxy
+ 	{
+@@ -215,6 +229,12 @@ void UActor::Tick(float elapsed)
  			CallEvent(this, EventName::Timer);
  		}
  	}
++
++	if (timerFirst && !bDeleteMe())
++		TickPhysics(elapsed);
 +
 +	if (engine->LaunchInfo.IsKnowWonder()) // bAnimMove root motion (end of AActor::Tick)
 +		KW::TickRootMotion(this);
  }
  
  bool UActor::Move(const vec3& delta)
-@@ -395,3 +410,13 @@ float UActor::AIVisibility(std::optional<bool> bIncludeVelocity)
+@@ -395,3 +415,13 @@ float UActor::AIVisibility(std::optional<bool> bIncludeVelocity)
  	//LogMessage(Name.ToString() + ": AIVisibility");
  	return 0.0f;
  }
