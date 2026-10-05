@@ -15,19 +15,21 @@ Flipendo keeps a strict line between the **faithful port** and **additions**:
 | `CutsceneSkip.cpp` | on (`--vanilla` disables) | "Press Space to skip" during cutscenes; Space fast-forwards to the end |
 | `StorybookSkip.cpp` | on (`--vanilla` disables) | "Press Space to skip" in storybooks (New Game intro, chapter interludes) |
 | `DiscordPresence.cpp` | on (`--vanilla` or `--no-discord` disables) | Discord Rich Presence: the level (the game's own level titles), cutscene / paused, Gryffindor's points, play time. Uses Flipendo's Discord application (its name and App Icon); `--discord-app=<id>` uses another |
+| `FastForward.cpp` | on (`--vanilla` disables) | hold Shift to run the game 2.5 times as fast (Shift is unbound in HP1) |
 | `LaunchSkips.cpp` | off (`--skip-splash`, `--skip-intro`) | skip the logo/title splash screens; skip the New Game storybook |
 
 ## Writing a mod
 
 A mod is a C++ file in `src/hp1/mods/`. The build picks up new files automatically (`src/hp1/hp1.cmake` globs `src/hp1/`). Mods are HP1's: they
 read HP1's script classes (`HPBase`, `HPMenu`).
-Mods hook in only through three calls in `src/hp1/mods/HP1Mods.cpp`:
+Mods hook in only through four calls in `src/hp1/mods/HP1Mods.cpp`:
 
 | Hook | Called | Use it for |
 |---|---|---|
 | `HP1::TickMods` | every frame, after the console tick | reading and changing game state |
 | `HP1::ModsKeyDown` | on every key press in the game window | key handling, also in menus |
 | `HP1::PostRenderMods` | after the HUD and menus are drawn | drawing on top of everything |
+| `HP1::ModsTimeScale` | every frame, when the frame's game time is worked out | running the game faster or slower (multiplies the frame time; leaves `LevelInfo.TimeDilation`, which save games store, alone) |
 
 Steps:
 
@@ -39,7 +41,7 @@ Steps:
 
 Rules:
 
-- Mods hook in only through the three calls above, never through engine hooks of their own.
+- Mods hook in only through the four calls above, never through engine hooks of their own.
 - No `// IDA` tags in a mod (nothing is reversed); say in a comment which script code it relies on.
 
 Helpers in `HP1Mods.h`: `ObjectProperty` / `BoolProperty` read script properties by name, `SpacePressed` reports a
@@ -50,7 +52,7 @@ layer over vanilla behaviour. To find what to touch, read the game's scripts: `t
 them, with KnowWonder's comments, to `reference/hp1/ScriptSource/` (see [development.md](development.md#reference-material)).
 `CutsceneSkip.cpp` is a short example that follows a script's state and calls into it.
 
-If a mod needs a hook the three above don't give, add it to `HP1Mods.h` and to
+If a mod needs a hook the four above don't give, add it to `HP1Mods.h` and to
 [engine-hooks.md](engine-hooks.md); mods don't add engine hooks of their own.
 
 ## Tools for modders

@@ -55,7 +55,7 @@ change, also HP1-only work: code written for HP1 today is the code HP2 runs tomo
   `tools/refresh_patches.sh`, commit `src/surreal-patches/`. Temporary debug edits in `src/engine/` must be reverted
   (`tools/apply_patches.sh --reset`) before refreshing patches.
 - **Features the original game doesn't have go in `src/hp1/mods/`** (`docs/modding.md`): optional, off with
-  `--vanilla`, hooked only through `HP1::TickMods`/`ModsKeyDown`/`PostRenderMods`. Everything else is the faithful port.
+  `--vanilla`, hooked only through `HP1::TickMods`/`ModsKeyDown`/`PostRenderMods`/`ModsTimeScale`. Everything else is the faithful port.
 - **Our code goes in `src/knowwonder/`, `src/hp1/` or `src/hp2/` (previous section), not in `src/engine/`.** `src/knowwonder/` files are `KW*.cpp`,
   `src/hp1/` `HP1*.cpp`, `src/hp2/` `HP2*.cpp`. `src/engine/` is SurrealEngine (actively developed); every line we change there
   is a future merge conflict. Engine files only get small hooks that call into `src/knowwonder/`/`src/hp1/`/`src/hp2/` (see
