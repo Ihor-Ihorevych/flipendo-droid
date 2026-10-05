@@ -651,7 +651,7 @@ index 36448a66..3f69fb58 100644
  	bool DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly& poly, int pass, UMover* mover, bool translucentPass);
  };
 diff --git a/SurrealEngine/Render/VisibleFrame.cpp b/SurrealEngine/Render/VisibleFrame.cpp
-index 818aa65d..bf676595 100644
+index 818aa65d..c3b63895 100644
 --- a/SurrealEngine/Render/VisibleFrame.cpp
 +++ b/SurrealEngine/Render/VisibleFrame.cpp
 @@ -2,6 +2,7 @@
@@ -671,7 +671,7 @@ index 818aa65d..bf676595 100644
  
  void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const Coords& viewRotation, bool mirrorFlag, int portalDepth, const Array<PortalSpan>& portalSpans, const vec4& portalPlane)
  {
-@@ -19,6 +22,7 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
+@@ -19,9 +22,21 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
  	FrameCounter = engine->render->FrameCounter++;
  	MirrorFlag = mirrorFlag;
  	PortalDepth = portalDepth;
@@ -679,7 +679,21 @@ index 818aa65d..bf676595 100644
  
  	SetupSceneFrame(worldToView);
  
-@@ -38,6 +42,9 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
++	// A mirror on a mover reflects only what is in front of it. The clipper culls BSP surfaces by the plane, but
++	// whatever crosses it (walls beside the mirror, actors) is drawn whole, and its part behind the mirror covers the
++	// reflection when the camera is close. The device clips every vertex by NearClip (view space) instead.
++	if (mirrorFlag && portalDepth > 0 && (portalPlane.x != 0.0f || portalPlane.y != 0.0f || portalPlane.z != 0.0f))
++	{
++		vec3 n = portalPlane.xyz();
++		vec3 p = (Frame.WorldToView * vec4(n * -portalPlane.w, 1.0f)).xyz();
++		vec3 nv = normalize((Frame.WorldToView * vec4(n, 0.0f)).xyz());
++		Frame.NearClip = vec4(nv, -dot(p, nv));
++	}
++
+ 	Clipper.numDrawSpans = 0;
+ 	Clipper.numSurfs = 0;
+ 	Clipper.numTris = 0;
+@@ -38,6 +53,9 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
  	Coronas.clear();
  	Portals.clear();
  
@@ -689,7 +703,7 @@ index 818aa65d..bf676595 100644
  	ProcessNode(&engine->Level->Model->Nodes[0]);
  }
  
-@@ -191,7 +198,10 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -191,7 +209,10 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  
  	VisibleNode info;
  	info.Node = node;
@@ -701,7 +715,7 @@ index 818aa65d..bf676595 100644
  	info.PolyFlags = PolyFlags;
  
  	if (PortalDepth < 4)
-@@ -264,7 +274,7 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -264,7 +285,7 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  			{
  				for (auto& p : Portals)
  				{
@@ -710,7 +724,7 @@ index 818aa65d..bf676595 100644
  					{
  						p.Nodes.push_back(info);
  						p.Spans.insert(p.Spans.end(), spans.begin(), spans.end());
-@@ -308,6 +318,13 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -308,6 +329,13 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  
  void VisibleFrame::SortTranslucent()
  {
@@ -724,7 +738,7 @@ index 818aa65d..bf676595 100644
  	std::sort(Translucents.begin(), Translucents.end(), [](const VisibleTranslucent& a, const VisibleTranslucent& b) { return a.DistSqr < b.DistSqr; });
  }
  
-@@ -354,6 +371,12 @@ void VisibleFrame::DrawCoronas()
+@@ -354,6 +382,12 @@ void VisibleFrame::DrawCoronas()
  	frame2d.WorldToView = mat4::identity();
  	Device->SetSceneNode(&frame2d);
  
@@ -737,7 +751,7 @@ index 818aa65d..bf676595 100644
  	for (VisibleCorona &corona : Coronas)
  		corona.Draw(this);
  }
-@@ -425,15 +448,33 @@ void VisibleFrame::DrawPortals()
+@@ -425,15 +459,33 @@ void VisibleFrame::DrawPortals()
  		}
  		else // Mirror
  		{
@@ -776,7 +790,7 @@ index 818aa65d..bf676595 100644
  			Device->SetSceneNode(&mirrorframe.Frame);
  			mirrorframe.Draw();
  			Device->ClearZ();
-@@ -444,6 +485,8 @@ void VisibleFrame::DrawPortals()
+@@ -444,6 +496,8 @@ void VisibleFrame::DrawPortals()
  	Device->SetSceneNode(&Frame);
  	for (VisiblePortal& portal : Portals)
  	{
