@@ -1,7 +1,7 @@
 flipendo: KnowWonder sound and music
 
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
-index d5615c73..89ab8e33 100644
+index d5615c73..4ded9973 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 +++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 @@ -12,6 +12,7 @@
@@ -12,36 +12,28 @@ index d5615c73..89ab8e33 100644
  
  static float square(float x) { return x * x; }
  
-@@ -356,7 +357,8 @@ void USurrealAudioDevice::UpdateMusic()
- 		CurrentSong = m_Viewport->Actor()->Song();
- 		CurrentSection = m_Viewport->Actor()->SongSection();
+@@ -182,9 +183,18 @@ void USurrealAudioDevice::Update(const mat4& listener)
+ 	StartAmbience();
+ 	UpdateAmbience();
+ 	UpdateSounds(listener);
+-	UpdateMusic();
  
--		if (CurrentSong && UseDigitalMusic)
-+		// HP1 ships UseDigitalMusic=False yet plays its mp2 music; its audio driver doesn't gate on the flag
-+		if (CurrentSong && (UseDigitalMusic || engine->LaunchInfo.IsKnowWonder()))
- 		{
- 			int subsong = CurrentSection != 255 ? CurrentSection : 0;
- 
-@@ -370,12 +372,18 @@ void USurrealAudioDevice::UpdateMusic()
- 			else
- 				source = AudioSource::CreateMod(CurrentSong->Data, true, subsong);
- 
-+			if (engine->LaunchInfo.IsKnowWonder()) // HP1 loops the song unless bDontLoopSong
-+				source = KW::MusicSource(m_Viewport->Actor(), CurrentSong, std::move(source));
-+
- 			if (source)
- 				m_Device->PlayMusic(std::move(source));
- 		}
- 
- 		m_Viewport->Actor()->Transition() = MTRAN_None;
- 	}
-+
-+	if (engine->LaunchInfo.IsKnowWonder() && m_Viewport && m_Viewport->Actor()) // bSongFinished, end of a song played once
-+		KW::TickMusic(m_Viewport->Actor(), CurrentSong);
+-	m_Device->SetMusicVolume(MusicVolume / 255.0f);
++	// HP1's audio driver fades between songs, keeps a song playing when it is set again and scales the music by
++	// PlayerPawn.PercentMusicVolume. It also plays its mp2 music although HP1 ships UseDigitalMusic=False.
++	if (engine->LaunchInfo.IsKnowWonder())
++	{
++		m_Device->SetMusicVolume(KW::UpdateMusic(m_Device.get(), m_Viewport ? m_Viewport->Actor() : nullptr, MusicVolume, Latency));
++	}
++	else
++	{
++		UpdateMusic();
++		m_Device->SetMusicVolume(MusicVolume / 255.0f);
++	}
+ 	m_Device->SetSoundVolume(SoundVolume / 255.0f * 0.5f);
+ 	m_Device->Update();
  }
- 
- bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 Location, float Volume, float Radius, float Pitch, bool isTalk)
-@@ -475,6 +483,39 @@ void USurrealAudioDevice::StopSound(UActor* Actor, int Id)
+@@ -475,6 +485,39 @@ void USurrealAudioDevice::StopSound(UActor* Actor, int Id)
  	}
  }
  
