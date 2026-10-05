@@ -78,6 +78,19 @@ namespace KW
 		CallEvent(actor, EventName::Bump, { ExpressionValue::ObjectValue(other) });
 	}
 
+	// After BeginPlay, every actor loaded with the map gets its zone (no events): the Region a map saves for a mover is
+	// leaf -1, and a bDynamicLightMover is lit by the lights of its leaf (Lev_Tut1b's turning bridge stayed dark until it
+	// first moved).
+	// IDA Engine.dll: ?LoadMap@UGameEngine@@UAEPAVULevel@@ABVFURL@@PAVUPendingLevel@@PBV?$TMap@VFString@@V1@@@AAVFString@@@Z [HP1 0x1039C3D0] (the SetActorZone(actor, 1, 1) loop between BeginPlay and PostBeginPlay)
+	void SetStartupZones(size_t loadedCount)
+	{
+		for (size_t i = 0; i < loadedCount && i < engine->Level->Actors.size(); i++)
+		{
+			if (UActor* actor = engine->Level->Actors[i])
+				SetActorZone(actor, true, true);
+		}
+	}
+
 	// The region an actor is in; a pawn also gets its foot (Location - CollisionHeight) and head (Location + EyeHeight)
 	// regions. ZoneChange is raised before Region changes (the script still sees the old zone), then ActorEntered.
 	// IDA Engine.dll: ?SetActorZone@ULevel@@UAEXPAVAActor@@HH@Z [HP1 0x103ACDD0]
