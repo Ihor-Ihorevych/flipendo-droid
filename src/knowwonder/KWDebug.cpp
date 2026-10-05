@@ -55,6 +55,7 @@
 //                              "@set CutScene bDebugScript True" sets a property on every actor whose name starts so; "@get harry numBeans" logs one
 //                              "@teleport x y z" moves the player; "@trigger <tag>" triggers every actor with that Tag;
 //                              "@state tut3peeves2 dieing" sends the matching actors to that script state;
+//                              "@travel Lev2_HogFront" changes level as the game's level exits do (carrying Harry's travel properties);
 //                              "@bump GridMover0 harry0" raises Bump(harry0) on the actors whose name starts with GridMover0;
 //                              "@polys Mover17" logs the brush polygons (normal, PolyFlags, texture) of the matching movers;
 //                              "@sweep x y z x y z ex ey ez" runs KnowWonder's BSP line/point checks and the actor sweep with that box and logs them;
@@ -321,6 +322,14 @@ namespace KW
 			LogMessage("HP1 exec: triggered " + std::to_string(count) + " actors");
 			return;
 		}
+		if (text.rfind("@travel ", 0) == 0)
+		{
+			// "@travel <map>": baseConsole.ChangeLevel(map, true), as TriggerChangeLevel and the cutscenes call it.
+			std::string map = text.substr(8);
+			if (engine->console)
+				CallEvent(engine->console, "ChangeLevel", { ExpressionValue::StringValue(map), ExpressionValue::BoolValue(true) });
+			return;
+		}
 		if (text.rfind("@state ", 0) == 0)
 		{
 			// "@state <actor name prefix> <state>": GotoState on the matching actors (reach a script state without playing up to it).
@@ -466,13 +475,26 @@ namespace KW
 		}
 		if (text.rfind("@get ", 0) == 0)
 		{
-			// "@get <actor name prefix> <property>": log a property of every matching actor.
+			// "@get <actor name prefix> <property>": log a property of every matching actor (every element of a fixed array).
 			std::stringstream parts(text.substr(5));
 			std::string prefix, prop;
 			parts >> prefix >> prop;
 			for (UActor* a : engine->Level->Actors)
-				if (a && a->Name.ToString().compare(0, prefix.size(), prefix) == 0)
+			{
+				if (!a || a->Name.ToString().compare(0, prefix.size(), prefix) != 0)
+					continue;
+				UProperty* p = a->GetMemberProperty(NameString(prop));
+				if (p && p->ArrayDimension > 1)
+				{
+					const uint8_t* data = static_cast<const uint8_t*>(a->GetProperty(p));
+					for (int i = 0; i < p->ArrayDimension; i++)
+						LogMessage("HP1 get " + a->Name.ToString() + "." + prop + "[" + std::to_string(i) + "] = " + p->PrintValue(data + i * p->ElementPitch()));
+				}
+				else
+				{
 					LogMessage("HP1 get " + a->Name.ToString() + "." + prop + " = " + a->GetPropertyAsString(NameString(prop)));
+				}
+			}
 			return;
 		}
 		if (text.rfind("@set ", 0) == 0)

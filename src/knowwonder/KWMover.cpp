@@ -58,7 +58,10 @@ namespace KW
 	// IDA Engine.dll: ?physMovingBrush@AActor@@QAEXM@Z [HP1 0x104061F0]
 	void PhysMovingBrush(UActor* actor, float deltaTime)
 	{
-		UMover* mover = UObject::Cast<UMover>(actor);
+		// Only movers move: any other actor with PHYS_MovingBrush stays put (Lev2_Inc_A's spellTrigger2)
+		UMover* mover = UObject::TryCast<UMover>(actor);
+		if (!mover)
+			return;
 		const MoverProps& p = GetMoverProps();
 		float& physAlpha = mover->Value<float>(p.PhysAlpha);
 		float& physRate = mover->Value<float>(p.PhysRate);

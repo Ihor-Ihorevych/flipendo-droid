@@ -1,4 +1,4 @@
-flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files, packages (Unicode strings), crash reports, music streaming (and an optional linear sound falloff, off unless a game asks), BSP regions
+flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files, packages (Unicode strings), crash reports, music streaming (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties
 
 diff --git a/SurrealEngine/Audio/AudioDevice.cpp b/SurrealEngine/Audio/AudioDevice.cpp
 index 03e82566..89c4363b 100644
@@ -183,6 +183,43 @@ index 1081c358..f866bb72 100644
  	}
  }
  
+diff --git a/SurrealEngine/ObjectTravelInfo.cpp b/SurrealEngine/ObjectTravelInfo.cpp
+index 7f6fe2b7..d584bb60 100644
+--- a/SurrealEngine/ObjectTravelInfo.cpp
++++ b/SurrealEngine/ObjectTravelInfo.cpp
+@@ -106,6 +106,13 @@ ActorTravelInfo::TravelObject ActorTravelInfo::CreateObject(UObject* travelObjec
+ 			if (!name.empty())
+ 				info.Properties[property->Name.ToString()] = name;
+ 		}
++		else if (property->ArrayDimension > 1)
++		{
++			// A fixed array travels element by element, as Name[i] (HP1's baseHarry.WizardCards[25])
++			const uint8_t* data = static_cast<const uint8_t*>(travelObject->GetProperty(property));
++			for (int i = 0; i < property->ArrayDimension; i++)
++				info.Properties[property->Name.ToString() + "[" + std::to_string(i) + "]"] = property->PrintValue(data + i * property->ElementPitch());
++		}
+ 		else
+ 		{
+ 			info.Properties[property->Name.ToString()] = travelObject->GetPropertyAsString(property->Name);
+@@ -184,6 +191,18 @@ Array<UObject*> ActorTravelInfo::Accept(UPlayerPawn* pawn, const std::string& tr
+ 			if (property->Name == "Inventory" && !AllFlags(property->PropFlags, PropertyFlags::Travel))
+ 				continue;
+ 
++			if (property->ArrayDimension > 1 && !UObject::TryCast<UObjectProperty>(property))
++			{
++				uint8_t* data = static_cast<uint8_t*>(acceptedObject->GetProperty(property));
++				for (int i = 0; i < property->ArrayDimension; i++)
++				{
++					auto element = objInfo.Properties.find(property->Name.ToString() + "[" + std::to_string(i) + "]");
++					if (element != objInfo.Properties.end())
++						property->SetValueFromString(data + i * property->ElementPitch(), element->second);
++				}
++				continue;
++			}
++
+ 			auto it = objInfo.Properties.find(property->Name.ToString());
+ 			if (it == objInfo.Properties.end())
+ 				continue;
 diff --git a/SurrealEngine/Package/IniFile.cpp b/SurrealEngine/Package/IniFile.cpp
 index 6aab46e1..3450a8ef 100644
 --- a/SurrealEngine/Package/IniFile.cpp
@@ -274,7 +311,7 @@ index 78b0a27d..c96a6e5b 100644
  	}
  	else
 diff --git a/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp b/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp
-index 2f91f141..e390734e 100644
+index 2f91f141..e3a86d3f 100644
 --- a/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp
 +++ b/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp
 @@ -49,8 +49,12 @@ void UStructProperty::LoadStructMemberValue(void* data, ObjectStream* stream)
@@ -307,6 +344,15 @@ index 2f91f141..e390734e 100644
  	}
  }
  
+@@ -268,7 +276,7 @@ void UStructProperty::SetValueFromString(void* data, const std::string& valueStr
+ 
+ 				if (it != properties.end())
+ 				{
+-					fieldprop->SetValueFromString(data, it->second);
++					fieldprop->SetValueFromString((uint8_t*)data + fieldprop->DataOffset.DataOffset, it->second);
+ 				}
+ 			}
+ 		}
 diff --git a/SurrealEngine/Packages/Core/UObject.cpp b/SurrealEngine/Packages/Core/UObject.cpp
 index 2b855f33..7e6bc3ff 100644
 --- a/SurrealEngine/Packages/Core/UObject.cpp

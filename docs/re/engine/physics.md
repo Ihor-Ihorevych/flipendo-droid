@@ -287,7 +287,9 @@ bumps it again when `BumpMove` re-enables Bump. Checked 2026-10-05: each cast mo
 `Mover.uc` re-declares `PhysAlpha` and `PhysRate`, shadowing Actor's. Mover script (InterpolateTo etc.) and
 `AActor::physMovingBrush` (0x104061F0) use the Mover copies; SurrealEngine's TickMovingBrush used Actor's, which stay
 0, so doors were triggered but never moved. Ported whole in `KW::PhysMovingBrush` (`src/knowwonder/KWMover.cpp`).
-Checked in HP1. While `bInterpolating`, each step:
+Checked in HP1. It first walks the actor's class chain and returns unless the actor is a Mover: any other actor with
+`PHYS_MovingBrush` doesn't move (Lev2_Inc_A's `spellTrigger2`, Tag `Shelf2`, has `Physics=9` in the map). While
+`bInterpolating`, each step:
 
 - **Falling** (KnowWonder's addition, [original_bugs.md](../hp1/original_bugs.md#lumos-lesson-platform)): a mover
   with `bCollideWorld` (AActor+476 bit 1; bit 0 is `bCollideActors`) in a zone first moves by its velocity along
