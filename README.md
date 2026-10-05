@@ -78,8 +78,11 @@ All taken in Flipendo at 1920x1080 from the original game files.
 | | |
 |---|---|
 | ✅ Works | Menus and options (incl. key rebinding), widescreen at any resolution, music, cutscenes, characters and their animations, doors, NPCs, Peeves, jelly beans, wizard cards, saving and loading |
-| 🟡 Partly | The first level plays through the Flipendo lesson and moves on to the next level. Spell casting and particle effects mostly work. Broom and Quidditch levels load and play their intros |
-| ❌ Not yet | A full playthrough, Linux / macOS builds, prebuilt downloads |
+| 🟡 Partly | The first four levels play through to the end: the castle entrance and the Flipendo lesson, the Flipendo challenge, the flying lesson, and the Wingardium Leviosa lesson and challenge. Spell casting and particle effects mostly work. The Quidditch matches load and play their intros |
+| ❌ Not yet | The rest of the game (26 more story levels, the Quidditch League), Linux / macOS builds, prebuilt downloads |
+
+Every level in story order and how far it has been played: [docs/playtest.md](docs/playtest.md). Playtesters are
+welcome; a level that hasn't been played yet is the most useful bug report.
 
 Harry Potter and the Chamber of Secrets (2002) runs on the same engine and is next once the first game is finished.
 
@@ -128,13 +131,15 @@ switched on, and `--vanilla` switches all of them off.
 | Cutscene skip | on | "Press Space to skip" during cutscenes |
 | Storybook skip | on | "Press Space to skip" in storybooks (New Game intro, chapter interludes) |
 | Fast forward | on | hold Shift to play 2.5x as fast |
+| Discord status | on | friends on Discord see which level you're in and Gryffindor's house points; `--no-discord` turns it off |
 | 60 FPS cap | on | the game runs at most 60 frames a second, as the original was played (some of its movement goes wrong at high frame rates); `--fps=<n>` for another limit, `--fps=0` for none |
 | Launch skips | off | `--skip-splash`, `--skip-intro` |
 
-**Coming:** an in-game *Extras* page to switch these on and off, FOV slider, uncapped framerate, controller support,
-a speedrun timer, and drop-in `Mods/` folders for texture packs, custom levels and script mods, including the
-levels the HP1 modding community has already made. In-game modding tools (actor inspector, property editor,
-mod manager) are planned too. See [docs/modding.md](docs/modding.md) to write a mod today or help shape the platform.
+**Coming:** an in-game *Extras* page to switch these on and off, FOV slider, smooth high frame rates (the game logic
+kept at 60), controller support, speedrun practice tools ([docs/speedrunning.md](docs/speedrunning.md)), and drop-in
+`Mods/` folders for texture packs, custom levels and script mods, including the levels the HP1 modding community has
+already made. In-game modding tools (actor inspector, property editor, mod manager) are planned too. See
+[docs/modding.md](docs/modding.md) to write a mod today or help shape the platform.
 
 ## Community
 
