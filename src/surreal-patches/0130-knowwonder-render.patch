@@ -399,7 +399,7 @@ index 0f88fc9c..d66b5d5b 100644
  		int framesDrawn = 0;
  		uint64_t startFPSTime = 0;
 diff --git a/SurrealEngine/Render/VisibleActor.cpp b/SurrealEngine/Render/VisibleActor.cpp
-index 984fdbfc..41db5dfc 100644
+index 984fdbfc..7ffa98c4 100644
 --- a/SurrealEngine/Render/VisibleActor.cpp
 +++ b/SurrealEngine/Render/VisibleActor.cpp
 @@ -9,10 +9,13 @@
@@ -417,20 +417,21 @@ index 984fdbfc..41db5dfc 100644
  	{
  		if (engine->LaunchInfo.IsDeusEx())
  		{
-@@ -75,6 +78,12 @@ void VisibleActor::Process(VisibleFrame* frame, UActor* actor)
- 		Actor = actor;
+@@ -70,6 +73,13 @@ void VisibleActor::Process(VisibleFrame* frame, UActor* actor)
  		frame->Actors.push_back(*this);
  	}
-+	else if (dt == 8 && engine->LaunchInfo.IsKnowWonder()) // DT_Particles (ParticleFX)
+ 	else if (dt == DT_Brush && actor->Brush() && UActor::TryCast<UMover>(actor))
 +	{
++		VisibleBrush::AddMirrorPortals(frame, UActor::Cast<UMover>(actor));
 +		Type = dt;
 +		Actor = actor;
 +		frame->Actors.push_back(*this);
 +	}
- }
- 
- void VisibleActor::DrawOpaque(VisibleFrame* frame)
-@@ -103,6 +112,11 @@ void VisibleActor::DrawOpaque(VisibleFrame* frame)
++	else if (dt == 8 && engine->LaunchInfo.IsKnowWonder()) // DT_Particles (ParticleFX)
+ 	{
+ 		Type = dt;
+ 		Actor = actor;
+@@ -103,6 +113,11 @@ void VisibleActor::DrawOpaque(VisibleFrame* frame)
  			frame->Translucents.emplace_back(*this, dot(v, v));
  		}
  	}
@@ -442,7 +443,7 @@ index 984fdbfc..41db5dfc 100644
  }
  
  void VisibleActor::DrawTranslucent(VisibleFrame* frame)
-@@ -122,4 +136,8 @@ void VisibleActor::DrawTranslucent(VisibleFrame* frame)
+@@ -122,4 +137,8 @@ void VisibleActor::DrawTranslucent(VisibleFrame* frame)
  		VisibleBrush visbrush;
  		visbrush.Draw(frame, Actor, true);
  	}
@@ -452,10 +453,21 @@ index 984fdbfc..41db5dfc 100644
 +	}
  }
 diff --git a/SurrealEngine/Render/VisibleBrush.cpp b/SurrealEngine/Render/VisibleBrush.cpp
-index 74911e16..c4c3da96 100644
+index 74911e16..aaf3de88 100644
 --- a/SurrealEngine/Render/VisibleBrush.cpp
 +++ b/SurrealEngine/Render/VisibleBrush.cpp
-@@ -30,15 +30,28 @@ bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass
+@@ -20,25 +20,39 @@ bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass
+ 	engine->render->Stats.Actors++;
+ 
+ 	UModel* brush = mover->Brush();
+-	const vec3& location = mover->Location();
+ 	SceneNode brushframe = frame->Frame;
+ 
+ 	engine->Level->Light.UpdateLightList(mover);
+ 
+-	brushframe.ObjectToWorld = mat4::translate(location) * Coords::Rotation(mover->Rotation()).ToMatrix() * mat4::scale(mover->MainScale().Scale) * mat4::translate(-mover->PrePivot());
++	brushframe.ObjectToWorld = BrushToWorld(mover);
+ 
  	frame->Device->SetSceneNode(&brushframe);
  	bool needTranslucentPass = false;
  
@@ -472,22 +484,119 @@ index 74911e16..c4c3da96 100644
 +		vec3 normal = (brushframe.ObjectToWorld * vec4(poly.Normal, 0.0f)).xyz();
 +		return dot(viewLocation - point, normal) > 0.0f;
 +	};
++	// A mirror polygon is a portal of the frame (AddMirrorPortals), drawn by DrawPortals instead
++	auto isMirror = [&](const Poly& poly) { return IsMirrorPortal(frame, poly.PolyFlags | (poly.Texture ? poly.Texture->PolyFlags() : 0)); };
  	for (const Poly& poly : brush->Polys->Polys)
  	{
 -		if (DrawBrushPoly(frame, brush, poly, 0, mover, translucentPass))
-+		if (facesView(poly) && DrawBrushPoly(frame, brush, poly, 0, mover, translucentPass))
++		if (facesView(poly) && !isMirror(poly) && DrawBrushPoly(frame, brush, poly, 0, mover, translucentPass))
  			needTranslucentPass = true;
  	}
  
  	for (const Poly& poly : brush->Polys->Polys)
  	{
 -		if (DrawBrushPoly(frame, brush, poly, 1, mover, translucentPass))
-+		if (facesView(poly) && DrawBrushPoly(frame, brush, poly, 1, mover, translucentPass))
++		if (facesView(poly) && !isMirror(poly) && DrawBrushPoly(frame, brush, poly, 1, mover, translucentPass))
  			needTranslucentPass = true;
  	}
  
-@@ -48,7 +61,11 @@ bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass
+@@ -46,9 +60,106 @@ bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass
+ 	return needTranslucentPass;
+ }
  
++mat4 VisibleBrush::BrushToWorld(UMover* mover)
++{
++	return mat4::translate(mover->Location()) * Coords::Rotation(mover->Rotation()).ToMatrix() * mat4::scale(mover->MainScale().Scale) * mat4::translate(-mover->PrePivot());
++}
++
++// Mirrors are only followed from the main view, as VisibleFrame::ProcessNodeSurface does for BSP mirrors
++bool VisibleBrush::IsMirrorPortal(VisibleFrame* frame, uint32_t polyFlags)
++{
++	return (polyFlags & PF_Mirrored) && frame->PortalDepth == 0 && !engine->getEditorMode();
++}
++
++// UE1 inserts mover polygons into the level's BSP every frame, so a mirrored polygon on a mover reflects like a
++// mirrored wall. Here movers are drawn as actors, so their mirror polygons are added as portals separately (HP1's
++// Lev_Tut3: the mirror in the Alohomora room is the Mirror1 mover, which swings open; without this it drew its
++// texture, dark under the translucent MirrorBlur pane in front of it).
++void VisibleBrush::AddMirrorPortals(VisibleFrame* frame, UMover* mover)
++{
++	if (frame->PortalDepth != 0 || engine->getEditorMode())
++		return;
++
++	UModel* brush = mover->Brush();
++	if (!brush || !brush->Polys)
++		return;
++
++	mat4 objectToWorld;
++	bool transformReady = false;
++	vec3 viewLocation = frame->ViewLocation.xyz();
++	const Array<Poly>& polys = brush->Polys->Polys;
++	for (int i = 0; i < (int)polys.size(); i++)
++	{
++		const Poly& poly = polys[i];
++		if (!IsMirrorPortal(frame, poly.PolyFlags | (poly.Texture ? poly.Texture->PolyFlags() : 0)) || poly.Vertices.size() < 3)
++			continue;
++
++		if (!transformReady)
++		{
++			objectToWorld = BrushToWorld(mover);
++			transformReady = true;
++		}
++
++		vec3 base = (objectToWorld * vec4(poly.Base, 1.0f)).xyz();
++		vec3 normal = normalize((objectToWorld * vec4(poly.Normal, 0.0f)).xyz());
++		if (dot(viewLocation - base, normal) <= 0.0f)
++			continue;
++
++		int numverts = (int)poly.Vertices.size();
++		vec3* points = engine->render->GetTempVertexBuffer(numverts);
++		for (int j = 0; j < numverts; j++)
++			points[j] = (objectToWorld * vec4(poly.Vertices[j], 1.0f)).xyz();
++
++		Array<PortalSpan> spans = frame->Clipper.CheckPortal(points, numverts);
++		if (spans.empty())
++			continue;
++
++		VisiblePortal portal;
++		portal.Mover = mover;
++		portal.MoverPoly = i;
++		portal.MirrorBase = base;
++		portal.MirrorNormal = normal;
++		portal.Spans = std::move(spans);
++		frame->Portals.push_back(std::move(portal));
++	}
++}
++
++// Fills the depth buffer where the mirror polygon is, after its reflection was drawn
++void VisibleBrush::DrawMirrorSeal(VisibleFrame* frame, UMover* mover, int polyIndex)
++{
++	const Poly& poly = mover->Brush()->Polys->Polys[polyIndex];
++
++	SceneNode brushframe = frame->Frame;
++	brushframe.ObjectToWorld = BrushToWorld(mover);
++	frame->Device->SetSceneNode(&brushframe);
++
++	UTexture* tex = poly.Texture ? poly.Texture->GetAnimTexture() : engine->LevelInfo->DefaultTexture();
++	TextureInfo texture;
++	engine->render->UpdateTexture(tex);
++	engine->render->UpdateTextureInfo(texture, poly, tex, 0.0f, 0.0f);
++
++	SurfaceInfo surfaceinfo;
++	surfaceinfo.PolyFlags = PF_Occlude | PF_Invisible;
++	surfaceinfo.Texture = &texture;
++
++	SurfaceFacet facet;
++	facet.MapCoords.Origin = poly.Base;
++	facet.MapCoords.XAxis = poly.TextureU;
++	facet.MapCoords.YAxis = poly.TextureV;
++	facet.Vertices = const_cast<vec3*>(poly.Vertices.data());
++	facet.VertexCount = (int)poly.Vertices.size();
++	frame->Device->DrawComplexSurface(&brushframe, surfaceinfo, facet);
++
++	frame->Device->SetSceneNode(&frame->Frame);
++}
++
  bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly& poly, int pass, UMover* mover, bool translucentPass)
  {
 +	// The texture's own flags count like the polygon's, as for BSP surfaces (VisibleFrame::ProcessNode). Without them
@@ -498,11 +607,44 @@ index 74911e16..c4c3da96 100644
  
  	if (!engine->getEditorMode() && PolyFlags & PolyFlags::PF_Invisible)
  		return false;
+diff --git a/SurrealEngine/Render/VisibleBrush.h b/SurrealEngine/Render/VisibleBrush.h
+index 36448a66..3f69fb58 100644
+--- a/SurrealEngine/Render/VisibleBrush.h
++++ b/SurrealEngine/Render/VisibleBrush.h
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++#include "Math/mat.h"
++
+ class VisibleFrame;
+ class UActor;
+ class UModel;
+@@ -11,6 +13,12 @@ class VisibleBrush
+ public:
+ 	bool Draw(VisibleFrame* frame, UActor* actor, bool translucentPass);
+ 
++	// Mirror polygons (PF_Mirrored) facing the view become mirror portals of the frame, like mirrored BSP surfaces
++	static void AddMirrorPortals(VisibleFrame* frame, UMover* mover);
++	static void DrawMirrorSeal(VisibleFrame* frame, UMover* mover, int polyIndex);
++
+ private:
++	static mat4 BrushToWorld(UMover* mover);
++	static bool IsMirrorPortal(VisibleFrame* frame, uint32_t polyFlags);
+ 	bool DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly& poly, int pass, UMover* mover, bool translucentPass);
+ };
 diff --git a/SurrealEngine/Render/VisibleFrame.cpp b/SurrealEngine/Render/VisibleFrame.cpp
-index 818aa65d..77696e4c 100644
+index 818aa65d..a71fb44b 100644
 --- a/SurrealEngine/Render/VisibleFrame.cpp
 +++ b/SurrealEngine/Render/VisibleFrame.cpp
-@@ -10,6 +10,8 @@
+@@ -2,6 +2,7 @@
+ #include "Precomp.h"
+ #include "VisibleFrame.h"
+ #include "VisibleCorona.h"
++#include "VisibleBrush.h"
+ #include "RenderSubsystem.h"
+ #include "RenderDevice/RenderDevice.h"
+ #include "Packages/Engine/UViewport.h"
+@@ -10,6 +11,8 @@
  #include "Packages/Engine/Actors/Info/USkyZoneInfo.h"
  #include "Packages/Engine/Actors/Info/ULevelInfo.h"
  #include "Packages/Extension/Windows/TabGroup/URootWindow.h"
@@ -511,7 +653,7 @@ index 818aa65d..77696e4c 100644
  
  void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const Coords& viewRotation, bool mirrorFlag, int portalDepth, const Array<PortalSpan>& portalSpans, const vec4& portalPlane)
  {
-@@ -38,6 +40,9 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
+@@ -38,6 +41,9 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
  	Coronas.clear();
  	Portals.clear();
  
@@ -521,7 +663,7 @@ index 818aa65d..77696e4c 100644
  	ProcessNode(&engine->Level->Model->Nodes[0]);
  }
  
-@@ -191,7 +196,10 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -191,7 +197,10 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  
  	VisibleNode info;
  	info.Node = node;
@@ -533,7 +675,16 @@ index 818aa65d..77696e4c 100644
  	info.PolyFlags = PolyFlags;
  
  	if (PortalDepth < 4)
-@@ -308,6 +316,13 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -264,7 +273,7 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+ 			{
+ 				for (auto& p : Portals)
+ 				{
+-					if (!p.WarpZone && !p.SkyZone) // To do: how do we best merge mirrors using the same plane?
++					if (!p.WarpZone && !p.SkyZone && !p.Mover) // To do: how do we best merge mirrors using the same plane?
+ 					{
+ 						p.Nodes.push_back(info);
+ 						p.Spans.insert(p.Spans.end(), spans.begin(), spans.end());
+@@ -308,6 +317,13 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  
  void VisibleFrame::SortTranslucent()
  {
@@ -547,7 +698,7 @@ index 818aa65d..77696e4c 100644
  	std::sort(Translucents.begin(), Translucents.end(), [](const VisibleTranslucent& a, const VisibleTranslucent& b) { return a.DistSqr < b.DistSqr; });
  }
  
-@@ -354,6 +369,12 @@ void VisibleFrame::DrawCoronas()
+@@ -354,6 +370,12 @@ void VisibleFrame::DrawCoronas()
  	frame2d.WorldToView = mat4::identity();
  	Device->SetSceneNode(&frame2d);
  
@@ -560,6 +711,54 @@ index 818aa65d..77696e4c 100644
  	for (VisibleCorona &corona : Coronas)
  		corona.Draw(this);
  }
+@@ -425,15 +447,33 @@ void VisibleFrame::DrawPortals()
+ 		}
+ 		else // Mirror
+ 		{
+-			UModel* model = engine->Level->Model;
+-			const BspSurface& surface = model->Surfaces[portal.Nodes.front().Node->Surf];
+-			vec3 v = model->Points[surface.pBase];
+-			vec3 n = model->Vectors[surface.vNormal];
++			vec3 v, n;
++			vec4 mirrorPlane(0.0f, 0.0f, 0.0f, 1.0f);
++			if (portal.Mover)
++			{
++				// Keep only what is in front of the mirror: the room behind a mover mirror isn't reflected
++				v = portal.MirrorBase;
++				n = portal.MirrorNormal;
++				mirrorPlane = vec4(n, -dot(v, n));
++			}
++			else
++			{
++				UModel* model = engine->Level->Model;
++				const BspSurface& surface = model->Surfaces[portal.Nodes.front().Node->Surf];
++				v = model->Points[surface.pBase];
++				n = model->Vectors[surface.vNormal];
++			}
+ 			mat4 mirrorRotation = mat4::mirror(n);
+ 			mat4 mirrorToView = Frame.WorldToView * mat4::translate(v) * mirrorRotation * mat4::translate(-v);
+ 
++			// The reflection is seen from the camera mirrored behind the mirror plane: the BSP is walked front to back
++			// from there (from the real camera, the walls between it and the mirror culled the reflected room)
++			vec3 mirrorViewLocation = ViewLocation.xyz();
++			if (portal.Mover)
++				mirrorViewLocation -= n * (2.0f * dot(mirrorViewLocation - v, n));
++
+ 			VisibleFrame mirrorframe;
+-			mirrorframe.Process(ViewLocation.xyz(), mirrorToView, ViewRotation * Coords::FromMatrix(mirrorRotation).Inverse(), !MirrorFlag, PortalDepth + 1, portal.Spans);
++			mirrorframe.Process(mirrorViewLocation, mirrorToView, ViewRotation * Coords::FromMatrix(mirrorRotation).Inverse(), !MirrorFlag, PortalDepth + 1, portal.Spans, mirrorPlane);
+ 			Device->SetSceneNode(&mirrorframe.Frame);
+ 			mirrorframe.Draw();
+ 			Device->ClearZ();
+@@ -444,6 +484,8 @@ void VisibleFrame::DrawPortals()
+ 	Device->SetSceneNode(&Frame);
+ 	for (VisiblePortal& portal : Portals)
+ 	{
++		if (portal.Mover)
++			VisibleBrush::DrawMirrorSeal(this, portal.Mover, portal.MoverPoly);
+ 		for (const auto& info : portal.Nodes)
+ 		{
+ 			VisibleNode visnode(info);
 diff --git a/SurrealEngine/Render/VisibleMesh.cpp b/SurrealEngine/Render/VisibleMesh.cpp
 index 7f5e8efb..73bc0a31 100644
 --- a/SurrealEngine/Render/VisibleMesh.cpp
@@ -654,6 +853,30 @@ index 7f5e8efb..73bc0a31 100644
  	return DrawLodMesh(frame, actor, lightLocationActor, mesh, ObjectToWorld, ObjectNormalToWorld, translucentPass);
  }
  
+diff --git a/SurrealEngine/Render/VisiblePortal.h b/SurrealEngine/Render/VisiblePortal.h
+index 70dc72e3..1ec0d278 100644
+--- a/SurrealEngine/Render/VisiblePortal.h
++++ b/SurrealEngine/Render/VisiblePortal.h
+@@ -4,6 +4,7 @@
+ #include "BspClipper.h"
+ 
+ class BspNode;
++class UMover;
+ class USkyZoneInfo;
+ class UWarpZoneInfo;
+ 
+@@ -14,4 +15,11 @@ public:
+ 	Array<PortalSpan> Spans;
+ 	USkyZoneInfo* SkyZone = nullptr;
+ 	UWarpZoneInfo* WarpZone = nullptr;
++
++	// A mirror on a mover polygon instead of a BSP surface (UE1 adds mover polygons to the BSP, so they mirror too):
++	// its world-space plane, and the polygon to seal the portal with
++	UMover* Mover = nullptr;
++	int MoverPoly = -1;
++	vec3 MirrorBase = vec3(0.0f);
++	vec3 MirrorNormal = vec3(0.0f);
+ };
 diff --git a/SurrealEngine/RenderDevice/D3D11/D3D11RenderDevice.cpp b/SurrealEngine/RenderDevice/D3D11/D3D11RenderDevice.cpp
 index ba22defd..1bb02add 100644
 --- a/SurrealEngine/RenderDevice/D3D11/D3D11RenderDevice.cpp
