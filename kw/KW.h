@@ -5,6 +5,7 @@
 #include "Math/rotator.h"
 #include <string>
 #include <memory>
+#include <vector>
 
 // KnowWonder's engine (kw/): what Flipendo reimplements of the modified Engine.dll / Fire.dll that the Harry Potter
 // games share. These are the entry points called from the flipendo: hooks inside engine/, each gated by
@@ -91,6 +92,9 @@ namespace KW
 	bool LightmapIllumination(UActor* light, int size, const vec3* locations, const vec3& base, const vec3& normal, const float* shadowmap, float* result);
 	// AddLightContribution: adds (bDarkLight: subtracts) the light's colour, clamped like HP1's 7-bit light maps.
 	void AddLightmapLight(UActor* light, const float* illumination, vec3* lightcolors, int size);
+	// GetMoverLightmap for a bDynamicLightMover: the lights a surface (world space point and normal) is lit by, the
+	// lights permeating the mover's BSP leaf in front of the surface. Appends to `lights`.
+	void DynamicMoverLights(UActor* mover, const vec3& point, const vec3& normal, std::vector<UActor*>& lights);
 
 	// Engine::Tick, after PlayerCalcView: the camera's horizontal FOV for the window's aspect ratio.
 	float ViewFovAngle(float fovAngle, int width, int height);

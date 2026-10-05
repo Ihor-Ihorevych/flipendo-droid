@@ -1,4 +1,4 @@
-flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files, packages, crash reports, music streaming
+flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files, packages, crash reports, music streaming, BSP regions
 
 diff --git a/SurrealEngine/Audio/AudioDevice.cpp b/SurrealEngine/Audio/AudioDevice.cpp
 index 03e82566..c56da0d5 100644
@@ -249,6 +249,19 @@ index 2b855f33..f26b8410 100644
  {
  	Data = other.Data;
  	Size = other.Size;
+diff --git a/SurrealEngine/Packages/Engine/Resources/Level/UModel.cpp b/SurrealEngine/Packages/Engine/Resources/Level/UModel.cpp
+index 79b40d31..804d5229 100644
+--- a/SurrealEngine/Packages/Engine/Resources/Level/UModel.cpp
++++ b/SurrealEngine/Packages/Engine/Resources/Level/UModel.cpp
+@@ -479,7 +479,7 @@ PointRegion UModel::FindRegion(const vec3& point, UZoneInfo* levelZoneInfo)
+ 		else
+ 		{
+ 			region.ZoneNumber = side >= 0.0f ? node->Zone1 : node->Zone0;
+-			region.BspLeaf = side >= 0.0f ? node->Leaf0 : node->Leaf1;
++			region.BspLeaf = side >= 0.0f ? node->Leaf1 : node->Leaf0; // flipendo: the leaf on the point's side, like the zone (was swapped)
+ 			break;
+ 		}
+ 	}
 diff --git a/SurrealEngine/UI/ErrorWindow/ErrorWindow.cpp b/SurrealEngine/UI/ErrorWindow/ErrorWindow.cpp
 index 218f7552..a9391d52 100644
 --- a/SurrealEngine/UI/ErrorWindow/ErrorWindow.cpp

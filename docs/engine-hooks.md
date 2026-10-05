@@ -98,6 +98,8 @@ Paths are relative to `engine/SurrealEngine/` unless they start with `engine/`.
 | `VM/Bytecode.h` | `FindLabelIndex` on a state with no statements returns -1 |
 | `VM/Frame.cpp` | `goto` to a label that doesn't exist logs "GotoLabel (x): Label not found" and stops the state code (UE1's UObject::GotoLabel) instead of a fatal error; HP1's `gargoyle.lookaround` does it (Lev4_Sneak, Lev3_Lumos) |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `TurnToward` on a pawn whose state frame has no code does nothing (UE1 never polls it) |
+| `Packages/Engine/Resources/Level/UModel.cpp` | ungated: `FindRegion` takes the leaf on the point's side of the node, like the zone (it took the other side's, often -1) |
+| `Light/LightSystem.h`, `LightSystem_Light.cpp` | `GetMoverLightmap`: a bDynamicLightMover is lit by `KW::DynamicMoverLights` (the lights permeating its leaf, in front of the surface) plus nearby dynamic lights, instead of the lights that see its pivot ([re/engine/lighting.md](re/engine/lighting.md)) |
 | `Native/NActor.cpp`, `Native/NPawn.cpp`, `Packages/Engine/Actors/UActor.h`, `UActor.cpp` | ungated: `Sleep` keeps its remaining time in `Actor.LatentFloat` (saved with the actor) instead of a C++ field, done once under half a tick; `StopWaiting` ends only a Sleep (LatentFloat -1). A Sleep now survives save/load ([re/engine/savegames.md](re/engine/savegames.md)) |
 | `Render/VisibleFrame.cpp` | HP1 translucents are sorted back to front (a modulated sprite behind a particle system darkened it) |
 | `Packages/Engine/Resources/Textures/UIceTexture.cpp` | `HP1::UpdateIceTexture` (Fire.dll IceTexture) in `UpdateFrame` |

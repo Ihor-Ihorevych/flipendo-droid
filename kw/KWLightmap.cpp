@@ -6,6 +6,9 @@
 #include "Packages/Engine/Actors/Pawn/UPawn.h"
 #include "Packages/Engine/Actors/Info/UZoneInfo.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
+#include "Packages/Engine/Resources/Level/ULevel.h"
+#include "Packages/Engine/Resources/Level/UModel.h"
+#include "Engine.h"
 #include "Math/coords.h"
 #include <algorithm>
 
@@ -120,6 +123,30 @@ namespace KW
 				dest = vec3(std::max(dest.x - c.x, 0.0f), std::max(dest.y - c.y, 0.0f), std::max(dest.z - c.z, 0.0f));
 			else
 				dest = vec3(std::min(dest.x + c.x, LightmapFull), std::min(dest.y + c.y, LightmapFull), std::min(dest.z + c.z, LightmapFull));
+		}
+	}
+
+	// A bDynamicLightMover's surfaces are lit every frame by the lights permeating the BSP leaf the mover is in
+	// (Region.iLeaf), those in front of the surface's plane and with the mover's bSpecialLit, plus the surface's dynamic
+	// lights (the caller's). No line of sight to the mover: its pivot is often inside a wall or door frame, and
+	// SurrealEngine's trace from each light to it left Lev_Tut1b's portcullis (bars down) black.
+	// IDA Render.dll: not exported: sub_10B077F0 [HP1 0x10B077F0] (the light manager's light map builder, vtable slot 3
+	// at 0x10B386E0; the branch for a surface whose actor has AMover+720 bit 4, bDynamicLightMover)
+	void DynamicMoverLights(UActor* mover, const vec3& point, const vec3& normal, std::vector<UActor*>& lights)
+	{
+		UModel* model = engine->Level->Model;
+		int leaf = mover->Region().BspLeaf;
+		if (leaf < 0 || (size_t)leaf >= model->Leaves.size())
+			return;
+		int first = model->Leaves[leaf].Permeating;
+		if (first < 0)
+			return;
+		bool specialLit = mover->bSpecialLit();
+		for (size_t i = first; i < model->Lights.size() && model->Lights[i]; i++)
+		{
+			UActor* light = model->Lights[i];
+			if (dot(light->Location() - point, normal) > 0.0f && light->bSpecialLit() == specialLit)
+				lights.push_back(light);
 		}
 	}
 }

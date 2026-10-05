@@ -1,5 +1,91 @@
 flipendo: KnowWonder rendering (FOV, skeletal meshes, particles, translucency, textures; HP1 menu canvas)
 
+diff --git a/SurrealEngine/Light/LightSystem.h b/SurrealEngine/Light/LightSystem.h
+index e1e0062e..c6f242f5 100644
+--- a/SurrealEngine/Light/LightSystem.h
++++ b/SurrealEngine/Light/LightSystem.h
+@@ -200,7 +200,7 @@ public:
+ 	void InitVertexLight(VertexLight& vertexlight, UActor* actor, UZoneInfo* zoneActor);
+ 
+ private:
+-	TextureInfo GetLightmap(UModel* model, int lightmapIndex, const Coords& coords, UZoneInfo* zoneActor, const vec3& worldLocation, float radius, UMover* mover, bool specialLit);
++	TextureInfo GetLightmap(UModel* model, int lightmapIndex, const Coords& coords, UZoneInfo* zoneActor, const vec3& worldLocation, float radius, UMover* mover, bool specialLit, const std::vector<UActor*>* moverLights = nullptr); // flipendo: moverLights (KnowWonder)
+ 	TextureInfo GetFogmap(UModel* model, int lightmapIndex, const Coords& coords, UZoneInfo* zoneActor);
+ 	void CheckLight(UActor* light);
+ 	void UpdateFogmapTexture(uint32_t* texels, UModel* model, const Coords& mapCoords, int lightMap, UZoneInfo* zoneActor);
+diff --git a/SurrealEngine/Light/LightSystem_Light.cpp b/SurrealEngine/Light/LightSystem_Light.cpp
+index 2c1f7f54..ce670b53 100644
+--- a/SurrealEngine/Light/LightSystem_Light.cpp
++++ b/SurrealEngine/Light/LightSystem_Light.cpp
+@@ -9,6 +9,7 @@
+ #include "Packages/Engine/Actors/Info/UZoneInfo.h"
+ #include "Packages/Engine/Resources/Level/UPolys.h"
+ #include "Packages/Engine/Resources/Level/UModel.h"
++#include "KW.h" // flipendo
+ 
+ TextureInfo LightSystem::GetMoverLightmap(UMover* mover, const Poly& poly, UZoneInfo* zoneActor, UModel* model)
+ {
+@@ -62,11 +63,24 @@ TextureInfo LightSystem::GetMoverLightmap(UMover* mover, const Poly& poly, UZone
+ 		mover->Light.Radius = radius;
+ 	}
+ 
++	// flipendo: KnowWonder lights a bDynamicLightMover's surface by the lights permeating the mover's leaf in front of
++	// the surface (kw/KWLightmap.cpp), not by the lights that see the mover's pivot
++	static std::vector<UActor*> kwMoverLights;
++	bool kwDynamic = mover->bDynamicLightMover() && engine->LaunchInfo.IsKnowWonder();
++	if (kwDynamic)
++	{
++		mat4 brushToWorld = mat4::translate(mover->Location()) * Coords::Rotation(mover->Rotation()).ToMatrix() * mat4::scale(scale) * mat4::translate(-mover->PrePivot());
++		vec3 point = (brushToWorld * vec4(poly.Base, 1.0f)).xyz();
++		vec3 normal = normalize((brushToWorld * vec4(poly.Normal, 0.0f)).xyz());
++		kwMoverLights.clear();
++		KW::DynamicMoverLights(mover, point, normal, kwMoverLights);
++	}
++
+ 	return GetLightmap(
+ 		model, poly.BrushPolyIndex, worldCoords, zoneActor,
+ 		(objectToWorld * vec4(mover->Light.Center, 1.0f)).xyz(),
+ 		mover->Light.Radius * std::max(scale.x, std::max(scale.y, scale.z)),
+-		mover->bDynamicLightMover() ? mover : nullptr, mover->bSpecialLit());
++		mover->bDynamicLightMover() ? mover : nullptr, mover->bSpecialLit(), kwDynamic ? &kwMoverLights : nullptr);
+ }
+ 
+ TextureInfo LightSystem::GetLevelLightmap(BspSurface& surface, UZoneInfo* zoneActor, UModel* model)
+@@ -79,7 +93,7 @@ TextureInfo LightSystem::GetLevelLightmap(BspSurface& surface, UZoneInfo* zoneAc
+ 	return GetLightmap(model, surface.LightMap, mapCoords, zoneActor, surface.Center, surface.Radius, nullptr, surface.PolyFlags & PF_SpecialLit);
+ }
+ 
+-TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coords& coords, UZoneInfo* zoneActor, const vec3& worldLocation, float radius, UMover* dynamicMover, bool specialLit)
++TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coords& coords, UZoneInfo* zoneActor, const vec3& worldLocation, float radius, UMover* dynamicMover, bool specialLit, const std::vector<UActor*>* moverLights)
+ {
+ 	if (lightmapIndex < 0)
+ 		return {};
+@@ -145,6 +159,25 @@ TextureInfo LightSystem::GetLightmap(UModel* model, int lightmapIndex, const Coo
+ 		// To do: ideally we only want to do this if the mover moved
+ 		lastDynamicUpdate = FrameCounter;
+ 
++		if (moverLights) // flipendo: KnowWonder's lights, plus the dynamic lights near the surface
++		{
++			for (UActor* light : *moverLights)
++			{
++				CheckLight(light);
++				TempDynLightList.push_back(light);
++			}
++			LightTree.CollectLights(worldLocation, radius);
++			for (UActor* light : LightTree.CollectedLights)
++			{
++				if (!light->bStatic() && !light->bNoDelete() && light->bSpecialLit() == specialLit &&
++					std::find(moverLights->begin(), moverLights->end(), light) == moverLights->end())
++				{
++					CheckLight(light);
++					TempDynLightList.push_back(light);
++				}
++			}
++		}
++		else
+ 		for (UActor* light : dynamicMover->TouchingLights.List)
+ 		{
+ 			CheckLight(light);
 diff --git a/SurrealEngine/Light/LightmapBuilder.cpp b/SurrealEngine/Light/LightmapBuilder.cpp
 index e4c8f7d2..3040f64d 100644
 --- a/SurrealEngine/Light/LightmapBuilder.cpp

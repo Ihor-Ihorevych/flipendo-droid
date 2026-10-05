@@ -79,6 +79,25 @@ from the table at `off_10B38110` (3 dwords per effect: function + two flags) on 
 the result into the map with `sub_10B03430`. SurrealEngine keeps the light picking, shadow maps and caching; KnowWonder's
 terms replace its falloff, colour scale and ambient.
 
+## Which lights a surface gets
+
+`sub_10B077F0` is slot 3 of the light manager's vtable (0x10B386E0; slot 2 is SetupForActor, `sub_10B098F0`). It
+asks the level's brush tracker whether the surface belongs to a mover (`Surf.Actor`), then:
+
+- **A mover with `bDynamicLightMover`** (AMover+720 bit 4): every light in the permeating list of the BSP leaf the mover
+  is in (`Region.iLeaf`, AActor+164 → `Leaves[iLeaf].iPermeating` → `Model.Lights`, null-terminated) whose location is
+  in front of the surface's plane and whose `bSpecialLit` (AActor+496 bit 0) matches the mover's, with no shadow; then
+  the surface's dynamic lights and volumetric lights. Nothing if the mover's leaf is -1. Ported in
+  `KW::DynamicMoverLights` (`kw/KWLightmap.cpp`). SurrealEngine instead used the lights with a clear line to the
+  mover's pivot, which for Lev_Tut1b's portcullis (`Mover15`, pivot inside the door frame) was none: dropped, it
+  showed as black with a faint blue zone ambient.
+- **Any other surface**: the light map's own light list (`LightActors`, from the editor's light build, with its shadow
+  bits) plus the dynamic lights.
+
+The leaf in `Region` comes from `UModel::PointRegion` (Engine.dll 0x1042C2A0): walking the BSP, a point in front of a
+node's plane takes `iLeaf[1]` and `iZone[1]`, behind it `iLeaf[0]` and `iZone[0]`. SurrealEngine's `FindRegion` paired
+the front zone with the back leaf, so actors often had leaf -1 (fixed for every game, `patches/0010-engine-fixes.patch`).
+
 - **Where the lumels are**: `sub_10B06920` takes `FCoords::Inverse` of the surface's map coords (origin `pBase`, X =
   TextureU, Y = TextureV, Z = normal) and uses its columns, times UScale/VScale, as the world step per lumel. Lumels
   therefore lie on the surface plane even when U and V don't (a projected texture). SurrealEngine stepped along U and V
