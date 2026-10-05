@@ -89,6 +89,7 @@ namespace HP1
 		Mods::TickStorybookSkip();
 		Mods::TickCutsceneSkip(realElapsed);
 		Mods::TickDiscordPresence(realElapsed);
+		Mods::TickFrameLimit();
 	}
 
 	float ModsTimeScale()
