@@ -43,6 +43,9 @@ actor stops dead. HP1's cutscenes depend on it ([cutscenes.md](../hp1/cutscenes.
   and raises `Pawn.Mount(ledge - Location)`; the script's mounting states do the climb (HP1:
   [animation.md](animation.md#root-motion-banimmove)). The surface hit is found by `sub_103FF1B0` / `sub_103FEBD0` (not
   exported): walk the hit node's coplanar chain for the polygon containing the hit location.
+  A mover's sides count too: its polygons go into the level's BSP with their flags, so Lev_Tut1b's pushable blocks
+  (`GridMover`, `PF_SpecialPoly` on the four sides) can be grabbed. SurrealEngine keeps a mover's polygons in the brush's
+  own BSP, whose surfaces have no flags, so `kw/KWPawn.cpp` takes them from the polygon (`BspSurface.BrushPoly`).
 - `execWaitForLanding` (0x103D6EB0) sets LatentFloat = 2.5 and is latent only while falling; the poll is done once the
   pawn stops falling and raises `LongFall` every tick after LatentFloat runs out.
 
