@@ -21,6 +21,29 @@ The biggest engine feature HP1 doesn't have. HP2's Engine.dll has it (`ScreenAct
   GameState Token: %s!!!"). It sets `bInCurrentGameState` and, outside the editor, raises `OnResolveGameState()`.
 - Flipendo: nothing yet. Needs a hook after LoadMap's BeginPlay calls (and save loading), gated `KW::IsHP2()`.
 
+## Persistent actors across hub travel
+
+HP2 lets Harry walk between hub maps (`Entryhall_hub`, `Grounds_hub`, ...) and back; actors marked `bPersistent`
+keep their state in between. HP1 has nothing like it and doesn't need it: every HP1 map links only forward to the next
+one in the story (checked 2026-10-05 over every `.unr` in HP1's `Maps`).
+
+- Script side: `Actor.bPersistent` ("If the actor is persistant it will be saved/loaded seperatly when you save/load
+  your game"). On by default for `GenericSpawner` (and what it spawns, `bMakeSpawnPersistent`; also `bronzecauldron`,
+  `chestbronze`), `Jellybean`, `QArmor`, `WizardCardIcon`, `SecretAreaMarker`, `ChallengeScoreManager`,
+  `VendorNimbusBroom`. `harry.LoadLevel` stores each persistent `Characters`' state, `LeadingActor` and `navP` names
+  in `PersistentState` / `PersistentLeadingActor` / `PersistentNavPName` (read back in `Characters` on the next visit,
+  only for the idle / leading-actor states), then runs `ConsoleCommand("SavePActors")` and travels.
+- Engine side, HP2 only (none of these is in HP1's DLLs): Engine.dll `?SavePersistentActors@ULevel@@QAE_NABVFString@@@Z`
+  (thunk 0x10303445), `?LoadPersistentActors@ULevel@@QAE_NABVFString@@@Z` (0x103037D3),
+  `?SerializePersistence@AActor@@QAEXAAVFArchive@@@Z` (0x10304A43); imported from Core.dll
+  `?SerializeTaggedPersistentProperties@UStruct@@QAEXAAVFArchive@@PAEPAVUClass@@@Z`, `?LoadPersistentActorCache@@YAXXZ`,
+  `?SavePersistentActorCache@@YAXXZ`. The UTF-16 string `SAVEPACTORS` is referenced at 0x103A2BEF (an Exec).
+  `SerializePersistence` writes the class, then only the properties tagged persistent, so the cache may keep results
+  (beans spawned, items taken) rather than resume an actor mid-action; not read yet.
+- The HP2 Engine database looked misaligned when this was read: the thunks point 0x10 bytes before the bodies
+  (bodies at 0x103B9030, 0x103B9E40, 0x103811D0) and the decompiled names didn't fit. Check the database first.
+- Flipendo: nothing yet.
+
 ## Lumos surfaces
 
 HP2 marks BSP surfaces that Lumos makes disappear or appear, with combinations of existing poly flags
