@@ -133,6 +133,7 @@ switched on, and `--vanilla` switches all of them off.
 | Fast forward | on | hold Shift to play 2.5x as fast |
 | Discord status | on | friends on Discord see which level you're in and Gryffindor's house points; `--no-discord` turns it off |
 | 60 FPS cap | on | the game runs at most 60 frames a second, as the original was played (some of its movement goes wrong at high frame rates); `--fps=<n>` for another limit, `--fps=0` for none |
+| Map fixes | on | fixes broken paths in the original maps (Peeves now flies off after the Lev_Tut3b duel instead of drifting through the walls) |
 | Launch skips | off | `--skip-splash`, `--skip-intro` |
 
 **Coming:** an in-game *Extras* page to switch these on and off, FOV slider, smooth high frame rates (the game logic

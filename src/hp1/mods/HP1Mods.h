@@ -40,6 +40,9 @@ namespace HP1::Mods
 	// FrameLimit.cpp
 	void TickFrameLimit();
 
+	// PathFixes.cpp
+	void TickPathFixes();
+
 	// FastForward.cpp
 	float FastForwardTimeScale();
 }
