@@ -144,8 +144,9 @@ mod manager) are planned too. See [docs/modding.md](docs/modding.md) to write a 
 
 ## Legal
 
-Flipendo's own code is under the [PolyForm Noncommercial License 1.0.0](LICENSE.md): free to use, modify and
-share, not for commercial use. `src/engine/` is SurrealEngine (zlib licence). Flipendo is an independent project, **not
+Flipendo's own code is copyright 2026 the Flipendo authors and open source under the
+[GNU General Public License, version 3](LICENSE): free to use, modify and share, as long as what you share keeps its
+source open under the same licence. `src/engine/` is SurrealEngine (zlib licence). Flipendo is an independent project, **not
 affiliated with or endorsed by SurrealEngine, EA, Warner Bros. or KnowWonder**; please report problems here, not to
 SurrealEngine. It is a reimplementation written from studying how the original game behaves (its scripts, data and
 binaries), so that the game's own files run on a new engine. It contains no Epic, EA or KnowWonder code or data.

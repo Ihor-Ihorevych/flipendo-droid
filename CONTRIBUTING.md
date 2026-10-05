@@ -80,5 +80,5 @@ Much of this port is written with LLM assistance (Claude). SurrealEngine asks th
 ## Licence
 
 By contributing you agree that your contribution is licensed under the
-[PolyForm Noncommercial License 1.0.0](LICENSE.md), like the rest of Flipendo's own code (`src/knowwonder/`, `src/hp1/`,
+[GNU General Public License, version 3](LICENSE), like the rest of Flipendo's own code (`src/knowwonder/`, `src/hp1/`,
 `src/hp2/`, `src/surreal-patches/`, `tools/`, `docs/`).
