@@ -13,7 +13,7 @@ Details: [native_audit_hp1.md](native_audit_hp1.md), [native_audit_hp2.md](nativ
 | [Core](#core) | 840 KB | 904 KB | 2046 / 2070 | 6 | SurrealEngine |
 | [Engine](#engine) | 2072 KB | 2092 KB | 2722 / 2784 | 199 | SurrealEngine + **src/knowwonder/** |
 | [Fire](#fire) | 104 KB | 104 KB | 133 / 133 | 7 | SurrealEngine + src/knowwonder/ (IceTexture) |
-| [Render](#render) | 288 KB | 296 KB | 93 / 94 | 7 | SurrealEngine + src/knowwonder/ (particles) |
+| [Render](#render) | 288 KB | 296 KB | 93 / 94 | 8 | SurrealEngine + src/knowwonder/ (particles) |
 | [D3DDrv](#d3ddrv) | 216 KB | 216 KB | 392 / 392 | 0 | replaced (SurrealEngine render devices) |
 | [SoftDrv](#softdrv) | 384 KB | 384 KB | 74 / 74 | 0 | replaced (SurrealEngine render devices) |
 | [WinDrv](#windrv) | 164 KB | 220 KB | 87 / 87 | 0 | replaced (SurrealEngine window/input) |
@@ -297,17 +297,18 @@ The scene renderer above the graphics driver: walks the BSP, clips and sorts wha
 
 **Exported classes** (exports per class, largest first): URender (51), FSpanBuffer (13).
 
-**Reimplemented in Flipendo** (7):
+**Reimplemented in Flipendo** (8):
 
 | function | where | HP2 |
 |---|---|---|
 | `URender::DrawActorSprite` | `src/knowwonder/KWAttach.cpp:113` | ? |
-| `URender::DrawLodMesh` | `src/knowwonder/KWActorRender.cpp:96` | ? |
+| `URender::DrawFrame` | `src/knowwonder/KWActorRender.cpp:137` | ? |
+| `URender::DrawLodMesh` | `src/knowwonder/KWActorRender.cpp:101` | ? |
 | `URender::DrawLodMesh` | `src/knowwonder/KWAttach.cpp:114` | ? |
 | `URender::DrawLodMesh` | `src/knowwonder/Anim/KWSkeletal.cpp:740` | ? |
 | `URender::DrawParticleSystem` | `src/knowwonder/KWParticleRender.cpp:338` | ? |
 | `URender::GlobalLighting` | `src/knowwonder/KWMeshLight.cpp:153` | ? |
-| `URender::SetupDynamics` | `src/knowwonder/KWActorRender.cpp:29` | ? |
+| `URender::SetupDynamics` | `src/knowwonder/KWActorRender.cpp:34` | ? |
 
 ## D3DDrv
 

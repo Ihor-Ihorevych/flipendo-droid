@@ -1,6 +1,7 @@
 #include "Precomp.h"
 #include "KW.h"
 #include "KWActor.h"
+#include "KWCheck.h"
 #include "Render/VisibleFrame.h"
 #include "Packages/Engine/UViewport.h"
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
@@ -10,6 +11,10 @@
 #include "VM/ScriptCall.h"
 #include "Engine.h"
 #include "RenderDevice/RenderDevice.h"
+#include "Render/RenderSubsystem.h"
+#include "Packages/Engine/Actors/Info/ULevelInfo.h"
+#include "Packages/Engine/Resources/UPalette.h"
+#include <chrono>
 #include <cmath>
 #include <algorithm>
 
@@ -116,6 +121,143 @@ namespace KW
 			vertices[i].Fog.y *= opacity;
 			vertices[i].Fog.z *= opacity;
 			vertices[i].Alpha = opacity;
+		}
+	}
+
+	// Coronas. Each frame (main view only) the renderer gathers them only from the lights permeating the BSP leaf of
+	// the viewport's actor (its Region.iLeaf, not the camera's: in a cutscene that's where Harry stands), the map's
+	// Leaves[leaf].iPermeating list plus the leaf's dynamic lights: a light with bCorona, a Skin, not destroyed, and a
+	// clear line (TRACE_Movers | TRACE_Level) from the camera to it. SurrealEngine drew every visible bCorona actor,
+	// which put glows on Lev_Tut2's fountain arches and Lev_Tut1's stair lamps that the original doesn't show.
+	// A table of 32 coronas keeps a fade per light: every frame it drops by 3 * the real time passed, a light gathered
+	// again adds twice that (new ones start there), both capped at 1, and a faded-out entry is freed. Every live entry
+	// in front of the camera is drawn, occluded or not, with its Skin at the projected light location, DrawScale *
+	// FX * 0.8 wide, coloured by the light's hue and saturation (no brightness) times its fade.
+	// The leaf's dynamic lights (URender::LeafLights) aren't ported: SurrealEngine has no per-leaf dynamic light list.
+	// IDA Render.dll: ?DrawFrame@URender@@QAEXPAUFSceneNode@@@Z [HP1 Render 0x10B254F0] (the corona block at its end)
+	// IDA Render.dll: not exported: sub_10B26F10 [HP1 Render 0x10B26F10] (gathers one light; called from DrawFrame for
+	// the camera leaf's permeating lights and LeafLights)
+	void DrawCoronas(VisibleFrame* frame)
+	{
+		struct Corona { UActor* light = nullptr; float fade = 0.0f; };
+		static Corona table[32];
+		static ULevel* tableLevel = nullptr;
+		static auto last = std::chrono::steady_clock::now();
+
+		auto now = std::chrono::steady_clock::now();
+		float step = std::chrono::duration<float>(now - last).count() * 3.0f;
+		last = now;
+
+		if (tableLevel != engine->Level)
+		{
+			for (Corona& c : table)
+				c = Corona();
+			tableLevel = engine->Level;
+		}
+		if (!engine->Level)
+			return;
+
+		for (Corona& c : table)
+		{
+			if (c.light && (c.fade -= step) < 0.0f)
+				c = Corona();
+		}
+
+		UModel* model = engine->Level->Model;
+		vec3 eye = frame->ViewLocation.xyz();
+		UActor* viewActor = engine->viewport ? engine->viewport->Actor() : nullptr;
+		if (!viewActor || !viewActor->Region().Zone)
+			return;
+		int leaf = viewActor->Region().BspLeaf;
+		if (leaf >= 0 && leaf < (int)model->Leaves.size() && model->Leaves[leaf].Permeating >= 0)
+		{
+			for (int i = model->Leaves[leaf].Permeating; i < (int)model->Lights.size() && model->Lights[i]; i++)
+			{
+				UActor* light = model->Lights[i];
+				if (!light->bCorona() || !light->Skin() || light->bDeleteMe())
+					continue;
+				CheckResult hit;
+				if (!SingleLineCheck(hit, nullptr, light->Location(), eye, TRACE_Movers | TRACE_Level, vec3(0.0f)))
+					continue;
+				Corona* entry = nullptr;
+				for (Corona& c : table)
+				{
+					if (c.light == light)
+					{
+						entry = &c;
+						break;
+					}
+				}
+				if (entry)
+				{
+					entry->fade = std::min(entry->fade + step + step, 1.0f);
+					continue;
+				}
+				for (Corona& c : table)
+				{
+					if (!c.light)
+					{
+						c.light = light;
+						c.fade = std::min(step + step, 1.0f);
+						break;
+					}
+				}
+			}
+		}
+
+		for (Corona& c : table)
+		{
+			UActor* light = c.light;
+			if (!light || light->bDeleteMe() || !light->Skin())
+				continue;
+			vec4 pos = frame->Frame.WorldToView * frame->Frame.ObjectToWorld * vec4(light->Location(), 1.0f);
+			if (pos.z <= 1.0f)
+				continue;
+			vec4 clip = frame->Frame.Projection * pos;
+			float x = frame->Frame.FX2 + clip.x / clip.w * frame->Frame.FX2;
+			float y = frame->Frame.FY2 + clip.y / clip.w * frame->Frame.FY2;
+			float size = frame->Frame.FX * light->DrawScale() * 0.8f;
+
+			// FGetHSV's colour without its brightness curve.
+			uint8_t hue = light->LightHue();
+			float r, g, b;
+			if (hue < 86)
+			{
+				r = (85 - hue) * 0.011764706f;
+				g = hue * 0.011764706f;
+				b = 0.0f;
+			}
+			else if (hue < 171)
+			{
+				r = 0.0f;
+				g = (170 - hue) * 0.011764706f;
+				b = (hue - 85) * 0.011764706f;
+			}
+			else
+			{
+				r = (hue - 170) * 0.011764706f;
+				g = 0.0f;
+				b = (255 - hue) * 0.011904762f;
+			}
+			float sat = light->LightSaturation() * 0.0039215689f;
+			vec3 color = vec3((1.0f - r) * sat + r, (1.0f - g) * sat + g, (1.0f - b) * sat + b) * c.fade;
+
+			UTexture* texture = light->Skin()->GetAnimTexture();
+			engine->render->UpdateTexture(texture);
+			TextureInfo info;
+			info.CacheID = (uint64_t)(ptrdiff_t)light->Skin();
+			info.Texture = texture;
+			info.Format = texture->UsedFormat;
+			info.Mips = texture->UsedMipmaps.data();
+			info.NumMips = (int)texture->UsedMipmaps.size();
+			info.USize = texture->USize();
+			info.VSize = texture->VSize();
+			if (texture->Palette())
+				info.Palette = (TextureColor*)texture->Palette()->Colors.data();
+			float width = (float)texture->UsedMipmaps.front().Width;
+			float height = (float)texture->UsedMipmaps.front().Height;
+			frame->Device->DrawTile(&frame->Frame, info, x - size * 0.5f, y - size * 0.5f, size, size, 0.0f, 0.0f, width, height, 2.0f,
+				vec4(color, 1.0f), vec4(0.0f), PF_Translucent);
 		}
 	}
 }

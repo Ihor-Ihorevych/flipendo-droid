@@ -1,4 +1,4 @@
-flipendo: KnowWonder rendering (FOV, skeletal meshes, particles, translucency, vertex alpha, actor shadows, textures; loading screen; HP1 menu canvas)
+flipendo: KnowWonder rendering (FOV, skeletal meshes, particles, translucency, vertex alpha, actor shadows, textures; loading screen; HP1 menu canvas, coronas); BSP surfaces take the zone on the camera's side (any game)
 
 diff --git a/SurrealEngine/Light/LightSystem.h b/SurrealEngine/Light/LightSystem.h
 index e1e0062e..5fa8f0dd 100644
@@ -399,10 +399,10 @@ index 0f88fc9c..d66b5d5b 100644
  		int framesDrawn = 0;
  		uint64_t startFPSTime = 0;
 diff --git a/SurrealEngine/Render/VisibleActor.cpp b/SurrealEngine/Render/VisibleActor.cpp
-index 984fdbfc..9e0d6356 100644
+index 984fdbfc..41db5dfc 100644
 --- a/SurrealEngine/Render/VisibleActor.cpp
 +++ b/SurrealEngine/Render/VisibleActor.cpp
-@@ -9,6 +9,8 @@
+@@ -9,10 +9,13 @@
  #include "Packages/Engine/Actors/Pawn/UPawn.h"
  #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
  #include "Packages/Engine/Actors/Brush/UMover.h"
@@ -411,7 +411,13 @@ index 984fdbfc..9e0d6356 100644
  
  void VisibleActor::Process(VisibleFrame* frame, UActor* actor)
  {
-@@ -75,6 +77,12 @@ void VisibleActor::Process(VisibleFrame* frame, UActor* actor)
+-	if (actor->bCorona())
++	// HP1 gathers coronas from the lights around the camera instead (KW::DrawCoronas)
++	if (actor->bCorona() && !engine->LaunchInfo.IsKnowWonder())
+ 	{
+ 		if (engine->LaunchInfo.IsDeusEx())
+ 		{
+@@ -75,6 +78,12 @@ void VisibleActor::Process(VisibleFrame* frame, UActor* actor)
  		Actor = actor;
  		frame->Actors.push_back(*this);
  	}
@@ -424,7 +430,7 @@ index 984fdbfc..9e0d6356 100644
  }
  
  void VisibleActor::DrawOpaque(VisibleFrame* frame)
-@@ -103,6 +111,11 @@ void VisibleActor::DrawOpaque(VisibleFrame* frame)
+@@ -103,6 +112,11 @@ void VisibleActor::DrawOpaque(VisibleFrame* frame)
  			frame->Translucents.emplace_back(*this, dot(v, v));
  		}
  	}
@@ -436,7 +442,7 @@ index 984fdbfc..9e0d6356 100644
  }
  
  void VisibleActor::DrawTranslucent(VisibleFrame* frame)
-@@ -122,4 +135,8 @@ void VisibleActor::DrawTranslucent(VisibleFrame* frame)
+@@ -122,4 +136,8 @@ void VisibleActor::DrawTranslucent(VisibleFrame* frame)
  		VisibleBrush visbrush;
  		visbrush.Draw(frame, Actor, true);
  	}
@@ -493,7 +499,7 @@ index 74911e16..c4c3da96 100644
  	if (!engine->getEditorMode() && PolyFlags & PolyFlags::PF_Invisible)
  		return false;
 diff --git a/SurrealEngine/Render/VisibleFrame.cpp b/SurrealEngine/Render/VisibleFrame.cpp
-index 818aa65d..9f0effbe 100644
+index 818aa65d..77696e4c 100644
 --- a/SurrealEngine/Render/VisibleFrame.cpp
 +++ b/SurrealEngine/Render/VisibleFrame.cpp
 @@ -10,6 +10,8 @@
@@ -515,7 +521,19 @@ index 818aa65d..9f0effbe 100644
  	ProcessNode(&engine->Level->Model->Nodes[0]);
  }
  
-@@ -308,6 +313,13 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -191,7 +196,10 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+ 
+ 	VisibleNode info;
+ 	info.Node = node;
+-	info.Front = front;
++	// Whether the camera is in front of this node's own plane (a coplanar node can face the other way): the surface
++	// then takes the front zone (Zone1) for its ambient light and texture panning. ProcessNode's swapFrontAndBack is the
++	// opposite (true when the camera is behind its plane).
++	info.Front = dot(ViewLocation, vec4(node->PlaneX, node->PlaneY, node->PlaneZ, -node->PlaneW)) >= 0.0f;
+ 	info.PolyFlags = PolyFlags;
+ 
+ 	if (PortalDepth < 4)
+@@ -308,6 +316,13 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  
  void VisibleFrame::SortTranslucent()
  {
@@ -529,6 +547,19 @@ index 818aa65d..9f0effbe 100644
  	std::sort(Translucents.begin(), Translucents.end(), [](const VisibleTranslucent& a, const VisibleTranslucent& b) { return a.DistSqr < b.DistSqr; });
  }
  
+@@ -354,6 +369,12 @@ void VisibleFrame::DrawCoronas()
+ 	frame2d.WorldToView = mat4::identity();
+ 	Device->SetSceneNode(&frame2d);
+ 
++	if (engine->LaunchInfo.IsKnowWonder())
++	{
++		KW::DrawCoronas(this);
++		return;
++	}
++
+ 	for (VisibleCorona &corona : Coronas)
+ 		corona.Draw(this);
+ }
 diff --git a/SurrealEngine/Render/VisibleMesh.cpp b/SurrealEngine/Render/VisibleMesh.cpp
 index 7f5e8efb..73bc0a31 100644
 --- a/SurrealEngine/Render/VisibleMesh.cpp

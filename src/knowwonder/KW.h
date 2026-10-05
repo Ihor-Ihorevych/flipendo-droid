@@ -151,6 +151,9 @@ namespace KW
 	// VisibleFrame::Process, before the BSP walk: Shadow.Update for every drawn actor whose shadow area is on screen
 	// (URender::SetupDynamics, src/knowwonder/KWActorRender.cpp).
 	void UpdateActorShadows(VisibleFrame* frame);
+	// VisibleFrame::DrawCoronas (VisibleActor::Process no longer collects them): HP1's coronas, from the lights
+	// permeating the camera's BSP leaf, faded in and out (src/knowwonder/KWActorRender.cpp).
+	void DrawCoronas(VisibleFrame* frame);
 	// Mesh drawing (VisibleMesh, KW::DrawSkeletalMesh): Actor.Opacity < 1 alpha blends the mesh. MeshOpacity once per
 	// actor, ApplyOpacityFlags on each face's flags before the translucent-pass test, ApplyOpacityVertices before drawing.
 	float MeshOpacity(UActor* actor);

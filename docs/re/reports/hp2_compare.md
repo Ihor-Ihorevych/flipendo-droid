@@ -11,7 +11,7 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 
 ## Ported functions (`// IDA` tags in src/knowwonder/, src/hp1/ and src/hp2/)
 
-196 tagged exports: 30 identical, 34 offsets only, 114 changed, 2 missing in HP2, 4 HP2 only, 12 no fingerprint.
+197 tagged exports: 30 identical, 34 offsets only, 114 changed, 2 missing in HP2, 4 HP2 only, 13 no fingerprint.
 
 ### Changed (114)
 
@@ -148,7 +148,7 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 | Engine | `?execGetCurrentKeyState@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/hp2/HP2Natives.cpp:46` | HP2 0x10422C60 |
 | Engine | `?execIsSoftwareRendering@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/hp2/HP2Natives.cpp:38` | HP2 0x10422A50 |
 
-### No fingerprint (12)
+### No fingerprint (13)
 
 | DLL | function | port | note |
 |---|---|---|---|
@@ -160,10 +160,11 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 | Galaxy | `?StopSound@UGalaxyAudioSubsystem@@UAEHPAVAActor@@HPAVUSound@@@Z` | `src/knowwonder/KWSound.cpp:40` |  |
 | Galaxy | `?Update@UGalaxyAudioSubsystem@@UAEXUFPointRegion@@AAVFCoords@@@Z` | `src/knowwonder/KWSound.cpp:178` |  |
 | Render | `?DrawActorSprite@URender@@QAEXPAUFSceneNode@@PAUFDynamicSprite@@@Z` | `src/knowwonder/KWAttach.cpp:113` |  |
-| Render | `?DrawLodMesh@URender@@QAEXPAUFSceneNode@@PAUFDynamicSprite@@PAVAActor@@ABVFCoords@@K@Z` | `src/knowwonder/KWActorRender.cpp:96` |  |
+| Render | `?DrawFrame@URender@@QAEXPAUFSceneNode@@@Z` | `src/knowwonder/KWActorRender.cpp:137` |  |
+| Render | `?DrawLodMesh@URender@@QAEXPAUFSceneNode@@PAUFDynamicSprite@@PAVAActor@@ABVFCoords@@K@Z` | `src/knowwonder/KWActorRender.cpp:101` |  |
 | Render | `?DrawParticleSystem@URender@@QAEXPAUFSceneNode@@PAUFDynamicSprite@@@Z` | `src/knowwonder/KWParticleRender.cpp:338` |  |
 | Render | `?GlobalLighting@URender@@UAEXHPAVAActor@@AAMAAVFPlane@@@Z` | `src/knowwonder/KWMeshLight.cpp:153` |  |
-| Render | `?SetupDynamics@URender@@UAEXPAUFSceneNode@@PAVAActor@@@Z` | `src/knowwonder/KWActorRender.cpp:29` |  |
+| Render | `?SetupDynamics@URender@@UAEXPAUFSceneNode@@PAVAActor@@@Z` | `src/knowwonder/KWActorRender.cpp:34` |  |
 
 ### Offsets only (34)
 

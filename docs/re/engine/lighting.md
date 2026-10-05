@@ -109,6 +109,13 @@ the front zone with the back leaf, so actors often had leaf -1 (fixed for every 
   themselves: on Lev_Tut1b's slanted fan-vault panels (`Ceiling_lev1`, Flipendo challenge room) the lumels sat ~400
   units above the surface, out of reach of every light, and the vault was black instead of lit (fixed in
   `LightmapBuilder::CalcWorldLocations`, ungated: stock UE1 places lumels the same way).
+- **Which zone's ambient**: the light map builder (`sub_10B077F0`) takes the ambient from the zone in the renderer's
+  surface info (`FSurfaceInfo` +52; AmbientBrightness/Hue/Saturation at AZoneInfo +720/+721/+722), the zone on the
+  viewer's side of the surface: for a wall seen from the front that's the node's front zone, `iZone[1]`. SurrealEngine
+  passed the opposite side (its `Front` flag was true when the camera was behind the plane), so walls took the solid
+  side's zone 0 (LevelInfo, usually no ambient). Lev_Tut2's courtyard facades lost ZoneInfo0's blue ambient
+  (brightness 50) and were nearly black (fixed 2026-10-05, ungated, `Render/VisibleFrame.cpp`). The Lev_Tut1 intro
+  Before that fix the Lev_Tut1 intro calibration (below) had been measured with the wrong zone's ambient.
 - **Light map values** are 7 bits per channel, 127 = full. The ambient fill is `floor(FGetHSV(zone ambient) * 64)`
   (`0.25 * 256`), alpha 127. Each light adds `min(colour * L, 127)` per channel through a 256-entry palette (L = the
   lumel byte, 0..255; colour = `GlobalLighting` colour × brightness after LightType × `LevelInfo.Brightness`), with a
@@ -119,11 +126,18 @@ the front zone with the back leaf, so actors often had leaf -1 (fixed for every 
   `2b/255`. SurrealEngine's own builder adds `illum * colour` (half of KnowWonder's) and fills ambient with the full HSV colour.
 - **Measured against the original** (2026-10-04): the terms above made every level about 2x too bright. Same frame of
   the Lev_Tut1 intro (the wide staircase shot, 640x480, Brightness 0.4 in both), luminance percentiles 10/25/50/75/90
-  of the original 19/34/63/98/139, ours 37/67/120/180/217. Halving only the lights or only the ambient isn't enough;
-  halving both gives 19/35/64/97/136 and matches per channel (R/G/B quartiles within 3 levels). Keeping the cap at 127
-  (2x the texture) matters: with it lowered to 1x the top 10% stayed dark (121 vs 139). So the ambient fill and each
-  light's palette are half of what this reading says, somewhere a factor 2 is missed (the palette, the upload or the
-  blend); `src/knowwonder/KWLightmap.cpp` applies it as `MeasuredScale` until it is found in Render.dll / D3DDrv.dll.
+  of the original 19/34/63/98/139, ours 37/67/120/180/217; halving the lights and the ambient fill gave 19/35/64/97/136.
+  Keeping the cap at 127 (2x the texture) matters: with it lowered to 1x the top 10% stayed dark (121 vs 139).
+  **Remeasured 2026-10-05** after the zone fix, against frames of the original captured with `tools/orig_shots.ps1`
+  (windowed D3D, Brightness 0.4) and paired by content. Lev_Tut1's zones have almost no ambient (brightness 5), so its
+  frames hardly depend on it (whole frame ours/original 0.97 halved, 1.03 full). Lev_Tut2's courtyard is lit almost
+  only by ZoneInfo0's ambient (brightness 50): its shaded walls came out 0.67-0.85 of the original with the ambient
+  halved and 0.97-1.01 with it as reversed. So only the lights are halved (`MeasuredScale` in
+  `src/knowwonder/KWLightmap.cpp`, a factor 2 missed somewhere in the palette, the upload or the blend, not found in
+  Render.dll / D3DDrv.dll yet); the ambient fill is exactly the formula above. Results: Lev_Tut2 intro 8/22/38/64/93
+  vs the original's 9/23/38/64/95; Lev_Tut1 21/39/70/102/140 vs 19/35/63/97/139 (the original's own neighbouring
+  frames vary by ±5). The original also shows bright patches on the paving under Harry and Hooch in Lev_Tut2 (their
+  broom shadows; possibly how its D3DDrv draws on Windows 11, not checked).
 - **The lumel byte**, LE_None (`loc_10B037C0`; with a LightRadiusInner it runs `sub_10B0CA70`, the same plus a clamp):
   `L = shadow * min(k * table[m], 1)`, 0 outside the radius, where
   - `m = floor((d / R * 4095)² / 4096)` (d = lumel to light, R = `WorldLightRadius`), `table[m]` at

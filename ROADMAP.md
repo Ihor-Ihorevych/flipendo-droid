@@ -22,8 +22,10 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
    (walkReachable etc., unused by HP1's scripts). `FLIPENDO_SE_PHYSICS=1` switches back to compare.
 3. Broom / Quidditch levels now load and their paths fly (see phase 5). Lev4_Sneak runs: a `goto` to a missing label
    (gargoyle.lookaround's `lcloop`) now stops the state code like UE1 instead of a fatal error.
-4. **Dark levels**: HP1's light maps are ported (phase 5); the Quidditch pitch is lit like the original. Still to look
-   at: Lev_Tut2 and Lev5_FlyKeys (were nearly black).
+4. **Dark levels**: HP1's light maps are ported (phase 5); the Quidditch pitch is lit like the original. Lev_Tut2
+   matches the original's intro frames (`tools/orig_shots.ps1`) after two fixes (2026-10-05): walls took the zone
+   behind them for their ambient, and the ambient fill was halved along with the lights. Coronas follow HP1's rule
+   (only lights around the viewport actor, faded). Still to look at: Lev5_FlyKeys.
 5. **First prebuilt release** (see "Releases"): players can't try Flipendo without building it.
 
 Visual parity checks against the original, side by side, wait until the end (after gameplay works): mesh lighting
