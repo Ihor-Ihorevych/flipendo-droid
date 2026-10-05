@@ -82,6 +82,13 @@ at edges and corners.
   hull when it is wholly in front of any of its planes; else the hit is the shallowest penetration, pushed out 1.02
   times as far.
 - **FastLineCheck** (0x104291E0, `sub_10429300`): a line of sight; only NF_NotCsg (bit 0) makes a node non-solid here.
+- **A mover's frame.** The box sweep tests a brush's planes taken to world space (`sub_10427560` sets up the sweep
+  with the owner actor's coordinates; the hull's box planes are skipped when there is an owner). The planes have to
+  turn the same way as the drawn brush (location, rotation, MainScale, PrePivot, as `VisibleBrush` draws it). A brush
+  hull has only its own planes and no box, so a plane turned the wrong way stretches across open space. Seen in
+  Lev_Tut1: the Grand Hall doors (Mover0/1, BaseRot yaw 49152 / 16384, swinging 180 degrees about a corner PrePivot)
+  were solid where they had been before they opened, and the students of the opening scene stood at the open
+  doorway.
 
 ## Actor primitives and the level checks
 

@@ -37,7 +37,8 @@ Times are seconds since the first frame.
 | `@trigger <tag>` | trigger every actor with that Tag |
 | `@bump <actor> <other>` | raise `Bump(other)` on every actor whose name starts with `<actor>` (push a GridMover without aiming a spell: `@set GridMover0 bProjTarget False` first, so it takes the player as the bumper) |
 | `@polys <actor>` | log the brush polygons of every actor whose name starts with `<actor>`: normal, PolyFlags (0x1000 = mountable), texture |
-| `@sweep sx sy sz ex ey ez bx by bz` | KnowWonder's BSP line check from start to end with a box of half size b, and point checks at both ends (zone, leaf, push-out): debugging collision |
+| `@sweep sx sy sz ex ey ez bx by bz` | KnowWonder's BSP line check from start to end with a box of half size b, point checks at both ends (zone, leaf, push-out), and every actor the box sweep hits (MultiLineCheck): debugging collision |
+| `@hull <actor>` | log every collision leaf hull of the actor's brush: its planes in world space (node, flipped) and its local box: where a mover is solid |
 
 ## Crashes and the script debugger
 

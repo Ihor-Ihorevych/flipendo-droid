@@ -10,6 +10,11 @@
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
+#include "Packages/Engine/Actors/Pawn/UPawn.h"
+#include "Package/PackageManager.h"
+#include "Packages/Core/UClass.h"
+#include "Math/coords.h"
+#include <random>
 
 // The natives that move or trace actors, on KnowWonder's own movement and collision (KWMove.h, KWCheck.h), so script
 // and physics agree on what blocks what. Registered when KnowWonder's physics runs (KW::UseKWPhysics).
@@ -17,6 +22,12 @@
 namespace KW
 {
 	void OverrideNative(int index, void (*registerFunc)());
+
+	static vec3 SafeNormalVec(const vec3& v)
+	{
+		float len2 = dot(v, v);
+		return len2 == 0.0f ? vec3(0.0f) : v * (1.0f / std::sqrt(len2));
+	}
 
 	// IDA Engine.dll: ?execMove@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x1040C120]
 	static void NMove(UObject* Self, const vec3& Delta, BitfieldBool& ReturnValue)
@@ -139,10 +150,175 @@ namespace KW
 		Frame::CreatedIterator = std::make_unique<TraceActorsHitIterator>(std::move(hits), &Actor, &HitLoc, &HitNorm);
 	}
 
+	// Pawn.Visibility (a byte): how easily the pawn is seen
+	static int PawnVisibility(UPawn* pawn)
+	{
+		static PropertyDataOffset offset = engine->packages->FindClass("Engine.Pawn")->GetPropertyDataOffset("Visibility");
+		return pawn->Value<uint8_t>(offset);
+	}
+
+	// Sight, on the level's BSP only (FastLineCheck). The enemy is seen from the eyes or the feet (and remembered:
+	// LastSeeingPos/LastSeenPos); far (over 1000) only straight from the eyes, and a non-player misses half the time;
+	// near, the top of the target (0.8 of its height) from the eyes, or for a pawn within 500 two of the four corners of
+	// its cylinder. With bMaySkipChecks (CanSee) the target must also be within SightRadius (scaled by its Visibility)
+	// and in front: Stimulus from PeripheralVision, height counts less with Skill. bLOSflag alternates the expensive
+	// checks between calls.
+	// IDA Engine.dll: ?LineOfSightTo@APawn@@QAEHPAVAActor@@H@Z [HP1 0x103DA070]
+	static bool PawnLineOfSightTo(UPawn* pawn, UActor* other, bool bMaySkipChecks)
+	{
+		if (!other)
+			return false;
+		UModel* model = engine->Level->Model;
+		bool maySkip = bMaySkipChecks;
+		if (other == pawn->Enemy())
+			maySkip = bMaySkipChecks = false;
+		else if (bMaySkipChecks)
+			pawn->bLOSflag() = !pawn->bLOSflag();
+
+		vec3 loc = pawn->Location();
+		vec3 to = other->Location() - loc;
+		float dist2 = dot(to, to);
+		UPawn* otherPawn = UObject::TryCast<UPawn>(other);
+		float maxDist2;
+		if (maySkip)
+		{
+			if (otherPawn)
+			{
+				float r = std::min(PawnVisibility(otherPawn) * 0.0078125f, 1.0f) * pawn->SightRadius();
+				maxDist2 = std::min(r * r, pawn->bIsPlayer() ? 16000000.0f : 12000000.0f);
+			}
+			else
+			{
+				maxDist2 = pawn->SightRadius() * pawn->SightRadius();
+			}
+			if (dist2 > maxDist2)
+				return false;
+			vec3 x, y, z;
+			Coords::Rotation(pawn->Rotation()).GetAxes(x, y, z);
+			float v = dot(x, SafeNormalVec(to)) - pawn->PeripheralVision();
+			pawn->Stimulus() = (v > 0.0f ? v * 0.80000001f : v * 0.17f) + 0.2f;
+			if (pawn->Stimulus() <= 0.0f)
+				return false;
+			float height = std::abs(other->Location().z - loc.z) / std::max(pawn->Skill() + 1.0f, 1.0f);
+			dist2 = (height * height + dist2) / (pawn->Stimulus() * pawn->Stimulus());
+			if (dist2 > maxDist2)
+				return false;
+			pawn->Stimulus() = 1.0f;
+		}
+		else
+		{
+			if (pawn->bIsPlayer())
+			{
+				if (otherPawn)
+				{
+					float r = std::min((PawnVisibility(otherPawn) + 16) * 0.015f, 1.0f) * 5000.0f;
+					maxDist2 = std::min(r * r, 25000000.0f);
+				}
+				else
+				{
+					maxDist2 = 16000000.0f;
+				}
+			}
+			else if (otherPawn)
+			{
+				float r = std::min((PawnVisibility(otherPawn) + 16) * 0.015f, 1.0f) * 4000.0f;
+				maxDist2 = std::min(r * r, 16000000.0f);
+			}
+			else
+			{
+				maxDist2 = 9000000.0f;
+			}
+			if (dist2 > maxDist2)
+				return false;
+		}
+
+		vec3 eye = loc + vec3(0.0f, 0.0f, pawn->BaseEyeHeight());
+		if (other == pawn->Enemy())
+		{
+			if (ModelFastLineCheck(model, other->Location(), eye) || ModelFastLineCheck(model, other->Location(), loc))
+			{
+				pawn->LastSeeingPos() = loc;
+				pawn->LastSeenPos() = pawn->Enemy()->Location();
+				return true;
+			}
+			if (dist2 > 1000000.0f)
+				return false;
+		}
+		else if (dist2 > 1000000.0f)
+		{
+			if (otherPawn)
+			{
+				static std::mt19937 rng(4242);
+				if (!pawn->bLOSflag() && maxDist2 * 0.5f < dist2)
+					return false;
+				if (!pawn->bIsPlayer() && std::uniform_real_distribution<float>(0.0f, 1.0f)(rng) < 0.5f)
+					return false;
+			}
+			return ModelFastLineCheck(model, other->Location(), eye);
+		}
+
+		vec3 top = other->Location() + vec3(0.0f, 0.0f, other->CollisionHeight() * 0.80000001f);
+		if (!(bMaySkipChecks && pawn->bLOSflag()) && ModelFastLineCheck(model, top, eye))
+			return true;
+		if (dist2 > 250000.0f || !otherPawn)
+			return false;
+
+		// The corners of its cylinder, but not the nearest and furthest (as the original measures them: from the
+		// world origin)
+		float r = other->CollisionRadius();
+		vec3 p = other->Location();
+		vec3 corners[4] = { vec3(p.x - r, p.y + r, p.z), vec3(p.x + r, p.y + r, p.z), vec3(p.x - r, p.y - r, p.z), vec3(p.x + r, p.y - r, p.z) };
+		int nearest = 0, furthest = 0;
+		float nearDist = dot(corners[0], corners[0]), farDist = nearDist;
+		for (int i = 1; i < 4; i++)
+		{
+			float d = dot(corners[i], corners[i]);
+			if (d > farDist)
+			{
+				farDist = d;
+				furthest = i;
+			}
+			else if (d < nearDist)
+			{
+				nearDist = d;
+				nearest = i;
+			}
+		}
+		bool skip = pawn->bLOSflag();
+		for (int i = 0; i < 4; i++)
+		{
+			if (i == nearest || i == furthest)
+				continue;
+			if (skip && bMaySkipChecks)
+			{
+				skip = false;
+				continue;
+			}
+			skip = true;
+			if (ModelFastLineCheck(model, corners[i], eye))
+				return true;
+		}
+		return false;
+	}
+
+	// IDA Engine.dll: ?execLineOfSightTo@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D8510]
+	static void NLineOfSightTo(UObject* Self, UObject* Other, BitfieldBool& ReturnValue)
+	{
+		ReturnValue = PawnLineOfSightTo(UObject::Cast<UPawn>(Self), UObject::Cast<UActor>(Other), false);
+	}
+
+	// IDA Engine.dll: ?execCanSee@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D5DF0]
+	static void NCanSee(UObject* Self, UObject* Other, BitfieldBool& ReturnValue)
+	{
+		ReturnValue = PawnLineOfSightTo(UObject::Cast<UPawn>(Self), UObject::Cast<UActor>(Other), true);
+	}
+
 	void RegisterMoveNatives()
 	{
 		// TraceActors only needs KnowWonder's checks, not its physics (BaseCam pulls the camera to its hits)
 		OverrideNative(309, [] { RegisterVMNativeFunc_7("Actor", "TraceActors", &NTraceActors, 309); });
+		OverrideNative(514, [] { RegisterVMNativeFunc_2("Pawn", "LineOfSightTo", &NLineOfSightTo, 514); });
+		OverrideNative(533, [] { RegisterVMNativeFunc_2("Pawn", "CanSee", &NCanSee, 533); });
 		if (!UseKWPhysics())
 			return;
 		OverrideNative(266, [] { RegisterVMNativeFunc_2("Actor", "Move", &NMove, 266); });
