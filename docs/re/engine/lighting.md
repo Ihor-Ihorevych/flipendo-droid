@@ -1,8 +1,8 @@
 # Lighting
 
 How KnowWonder's renderer lights meshes (characters and props) and BSP light maps, reversed from HP1's Render.dll
-(addresses are HP1's). Mesh lighting is ported in `kw/KWMeshLight.cpp`, used by `KW::DrawSkeletalMesh`
-(`kw/Anim/KWSkeletal.cpp`); light maps in `kw/KWLightmap.cpp`, hooked into SurrealEngine's `LightmapBuilder` (see
+(addresses are HP1's). Mesh lighting is ported in `src/knowwonder/KWMeshLight.cpp`, used by `KW::DrawSkeletalMesh`
+(`src/knowwonder/Anim/KWSkeletal.cpp`); light maps in `src/knowwonder/KWLightmap.cpp`, hooked into SurrealEngine's `LightmapBuilder` (see
 "Light maps" at the end). KnowWonder added `Actor.LightSource` (`LD_Point`, `LD_Plane` = parallel light, `LD_Ambient` =
 all directions) and `LightRadiusInner` to UE1's light properties; outdoor maps light with them (HP1's Lev2_Quid1: two
 `LD_Plane` suns, brightness 80, radius 255, LightRadiusInner 255).
@@ -89,7 +89,7 @@ asks the level's brush tracker whether the surface belongs to a mover (`Surf.Act
   in front of the surface's plane and whose `bSpecialLit` (AActor+496 bit 0) matches the mover's, with no shadow; then
   the surface's dynamic lights and volumetric lights. Nothing if the mover's leaf is -1: when Lev_Tut1b's portcullis
   rises into the wall its pivot enters solid space and the bars go black on the way up (the original does the same). Ported in
-  `KW::DynamicMoverLights` (`kw/KWLightmap.cpp`). SurrealEngine instead used the lights with a clear line to the
+  `KW::DynamicMoverLights` (`src/knowwonder/KWLightmap.cpp`). SurrealEngine instead used the lights with a clear line to the
   mover's pivot, which for Lev_Tut1b's portcullis (`Mover15`, pivot inside the door frame) was none: dropped, it
   showed as black with a faint blue zone ambient.
 - **Any other surface**: the light map's own light list (`LightActors`, from the editor's light build, with its shadow
@@ -97,7 +97,7 @@ asks the level's brush tracker whether the surface belongs to a mover (`Surf.Act
 
 The leaf in `Region` comes from `UModel::PointRegion` (Engine.dll 0x1042C2A0): walking the BSP, a point in front of a
 node's plane takes `iLeaf[1]` and `iZone[1]`, behind it `iLeaf[0]` and `iZone[0]`. SurrealEngine's `FindRegion` paired
-the front zone with the back leaf, so actors often had leaf -1 (fixed for every game, `patches/0010-engine-fixes.patch`).
+the front zone with the back leaf, so actors often had leaf -1 (fixed for every game, `src/surreal-patches/0010-engine-fixes.patch`).
 
 - **Where the lumels are**: `sub_10B06920` takes `FCoords::Inverse` of the surface's map coords (origin `pBase`, X =
   TextureU, Y = TextureV, Z = normal) and uses its columns, times UScale/VScale, as the world step per lumel. Lumels
@@ -119,7 +119,7 @@ the front zone with the back leaf, so actors often had leaf -1 (fixed for every 
   halving both gives 19/35/64/97/136 and matches per channel (R/G/B quartiles within 3 levels). Keeping the cap at 127
   (2x the texture) matters: with it lowered to 1x the top 10% stayed dark (121 vs 139). So the ambient fill and each
   light's palette are half of what this reading says, somewhere a factor 2 is missed (the palette, the upload or the
-  blend); `kw/KWLightmap.cpp` applies it as `MeasuredScale` until it is found in Render.dll / D3DDrv.dll.
+  blend); `src/knowwonder/KWLightmap.cpp` applies it as `MeasuredScale` until it is found in Render.dll / D3DDrv.dll.
 - **The lumel byte**, LE_None (`loc_10B037C0`; with a LightRadiusInner it runs `sub_10B0CA70`, the same plus a clamp):
   `L = shadow * min(k * table[m], 1)`, 0 outside the radius, where
   - `m = floor((d / R * 4095)² / 4096)` (d = lumel to light, R = `WorldLightRadius`), `table[m]` at

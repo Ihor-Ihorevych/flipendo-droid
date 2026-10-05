@@ -1,9 +1,9 @@
 # Physics and movement
 
 KnowWonder's physics modes, pawn movement and latent moves where they differ from what SurrealEngine does. Ported in
-`kw/KWPawn.cpp`, `kw/KWMover.cpp`, `kw/KWInterpolation.cpp`, `kw/KWNavigation.cpp`, `kw/KWAttach.cpp`
-(`physTrailer`, [animation.md](animation.md#bones-and-attachments)), `kw/KWCollision.cpp` (`setPhysics`) and
-`kw/KWTouch.cpp` (Touch).
+`src/knowwonder/KWPawn.cpp`, `src/knowwonder/KWMover.cpp`, `src/knowwonder/KWInterpolation.cpp`, `src/knowwonder/KWNavigation.cpp`, `src/knowwonder/KWAttach.cpp`
+(`physTrailer`, [animation.md](animation.md#bones-and-attachments)), `src/knowwonder/KWCollision.cpp` (`setPhysics`) and
+`src/knowwonder/KWTouch.cpp` (Touch).
 Root motion is in [animation.md](animation.md#root-motion-banimmove). Addresses are HP1's.
 
 ## HP1 and HP2
@@ -45,7 +45,7 @@ actor stops dead. HP1's cutscenes depend on it ([cutscenes.md](../hp1/cutscenes.
   exported): walk the hit node's coplanar chain for the polygon containing the hit location.
   A mover's sides count too: its polygons go into the level's BSP with their flags, so Lev_Tut1b's pushable blocks
   (`GridMover`, `PF_SpecialPoly` on the four sides) can be grabbed. SurrealEngine keeps a mover's polygons in the brush's
-  own BSP, whose surfaces have no flags, so `kw/KWPawn.cpp` takes them from the polygon (`BspSurface.BrushPoly`).
+  own BSP, whose surfaces have no flags, so `src/knowwonder/KWPawn.cpp` takes them from the polygon (`BspSurface.BrushPoly`).
 - `execWaitForLanding` (0x103D6EB0) sets LatentFloat = 2.5 and is latent only while falling; the poll is done once the
   pawn stops falling and raises `LongFall` every tick after LatentFloat runs out.
 
@@ -92,7 +92,7 @@ the trigger was never told, so the symbol did nothing.
 
 `AActor::IsBlockedBy` [HP1 0x10352140] decides whether a moving actor stops at another one (`ULevel::MoveActor`
 raises `Bump` on both, then the physics mode handles the hit) or passes through it (Touch). Ported as
-`KW::IsBlockedBy` (`kw/KWCollision.cpp`), used by `TryMove`:
+`KW::IsBlockedBy` (`src/knowwonder/KWCollision.cpp`), used by `TryMove`:
 
 - Other is the level: `bCollideWorld`.
 - Other is a brush (a Mover): `bCollideWorld`, and Other's `bBlockPlayers` for a player (PlayerPawn whose dword at

@@ -20,7 +20,7 @@
 #include <unordered_map>
 
 // ParticleFX (native class in HP1 Engine.dll, UnParticleFX.cpp): simulation, emission and the script natives.
-// See docs/re/engine/particles.md for the reversed layouts. Rendering is in kw/KWParticleRender.cpp.
+// See docs/re/engine/particles.md for the reversed layouts. Rendering is in src/knowwonder/KWParticleRender.cpp.
 //
 // The original keeps the particles in a UParticleList object referenced by the ParticleList property. Here
 // they live in a side table keyed by the actor (ParticleList stays None; no HP1 script reads it).

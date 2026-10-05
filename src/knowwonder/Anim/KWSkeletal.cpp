@@ -792,7 +792,7 @@ namespace KW
 		if (actor->bUnlit()) polyFlags |= PF_Unlit;
 
 		UZoneInfo* zoneActor = engine->GetZoneActor(actor->Region().ZoneNumber);
-		VertexLight vertexLight; // fog only; the light is HP1's (kw/KWMeshLight.cpp)
+		VertexLight vertexLight; // fog only; the light is HP1's (src/knowwonder/KWMeshLight.cpp)
 		lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor);
 		MeshLighting lighting;
 		SetupMeshLighting(lighting, actor, lightLocationActor, zoneActor);

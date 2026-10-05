@@ -2,7 +2,7 @@
 
 How HP1's front end (the menu book) says what the player is doing, and where the game keeps its level titles. All
 from HP1's scripts (`HPMenu`: `FEBook`, `FESlotPage`, `HPConsole`) and `.int` files; HP2 not checked. Used by the
-Discord presence mod (`hp1/mods/DiscordPresence.cpp`).
+Discord presence mod (`src/hp1/mods/DiscordPresence.cpp`).
 
 ## The menu book (FEBook)
 

@@ -112,7 +112,7 @@ namespace KW
 	// The world point under screen position (S.X, S.Y) at depth S.Z: the offset in the view's frame
 	// ((2X - SizeX) and (2Y - SizeY) scaled to the depth by the field of view, S.Z) turned by the camera rotation
 	// that PlayerCalcView returns for this player and added to the camera location. No HP1 script calls it.
-	// Uses the Hor+ field of view the view is actually drawn with (kw/KWView.cpp); the original took FovAngle as is.
+	// Uses the Hor+ field of view the view is actually drawn with (src/knowwonder/KWView.cpp); the original took FovAngle as is.
 	// NOT verified in game: ported literally, including the original's axis order.
 	// IDA Engine.dll: ?execScreenToWorld@APlayerPawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D5AC0]
 	static void NScreenToWorld(UObject* self, const vec3& screen, vec3& returnValue)

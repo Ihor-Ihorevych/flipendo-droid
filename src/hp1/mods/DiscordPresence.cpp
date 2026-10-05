@@ -39,7 +39,7 @@
 //
 // Level names come from the game's own tables, as HPConsole.DrawLevelInfo (the loading screen) finds them:
 // Localize("text", "n_" $ map, "Dobby") gives the level's index, Localize("text", "level_name_" $ index, "HPMenu")
-// its title. The map is Level.LevelEnterText (the map the level was travelled to, also in a save: kw/KWSave.cpp).
+// its title. The map is Level.LevelEnterText (the map the level was travelled to, also in a save: src/knowwonder/KWSave.cpp).
 // Cutscenes: the HUD's bCutSceneMode + curCutScene (see CutsceneSkip.cpp); the menu: HPConsole.menuBook (FEBook);
 // points: baseHarry.numHousePointsGryffindor.
 

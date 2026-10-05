@@ -8,7 +8,7 @@ There's work for every skill level, and much of it needs no programming. Come sa
 - **Playtesters**: play a level, compare it with the original game, report what looks or behaves differently.
   Side-by-side screenshots or short clips help most. Attach the log (`--logfile=flipendo.log`).
 - **Owners of other game versions**: see [below](#other-game-versions).
-- **Modders**: build an extra in `hp1/mods/`, test community levels, or help design content-mod loading and the
+- **Modders**: build an extra in `src/hp1/mods/`, test community levels, or help design content-mod loading and the
   in-game modding tools ([docs/modding.md](docs/modding.md)).
 - **Reverse engineers**: the remaining work is KnowWonder's native code, in HP1's and HP2's DLLs.
   [docs/re/reports/dlls.md](docs/re/reports/dlls.md) shows what every DLL does and what's been reimplemented;
@@ -37,12 +37,12 @@ tools/build.sh                                                     # Release; bi
 build/Release/SurrealEngine.exe "C:/Games/Harry Potter"            # opens the launcher
 ```
 
-`tools/build.sh [Release|Debug|RelWithDebInfo] [target]` applies our patches to `engine/` and builds.
+`tools/build.sh [Release|Debug|RelWithDebInfo] [target]` applies our patches to `src/engine/` and builds.
 `tools/run_hp1.sh` launches straight into the game with a log ([docs/development.md](docs/development.md)).
 
 ### Linux / macOS
 
-See SurrealEngine's [`engine/Docs/Building.md`](engine/Docs/Building.md). Not tested with Flipendo yet; reports
+See SurrealEngine's [`src/engine/Docs/Building.md`](src/engine/Docs/Building.md). Not tested with Flipendo yet; reports
 are welcome.
 
 ### Developer flags
@@ -62,10 +62,10 @@ The debug environment variables (screenshots, actor dumps, fixed cameras, script
 1. **Never use Epic's UE1 source or headers** (or header sets derived from them) as a reference. Layouts and
    behaviour come from the games' own binaries and scripts, SurrealEngine, and observing the original games.
 2. **Never commit game data** or anything extracted from it.
-3. **Faithful port and additions stay apart.** Anything the original didn't have goes in `hp1/mods/` and is off
+3. **Faithful port and additions stay apart.** Anything the original didn't have goes in `src/hp1/mods/` and is off
    with `--vanilla`.
-4. **One implementation for both games**: KnowWonder's engine goes in `kw/`, only what one game lacks goes in `hp1/`
-   or `hp2/` ([docs/one-engine.md](docs/one-engine.md)).
+4. **One implementation for both games**: KnowWonder's engine goes in `src/knowwonder/`, only what one game lacks goes in `src/hp1/`
+   or `src/hp2/` ([docs/one-engine.md](docs/one-engine.md)).
 5. **Write down what you learn** in `docs/re/` in the same change.
 
 [docs/development.md](docs/development.md) explains these, and [`CLAUDE.md`](CLAUDE.md) is the full rule set.
@@ -73,12 +73,12 @@ The debug environment variables (screenshots, actor dumps, fixed cameras, script
 ## SurrealEngine and AI-assisted code
 
 Much of this port is written with LLM assistance (Claude). SurrealEngine asks that LLM-assisted changes are
-**not** sent to it as pull requests (`engine/NO-AI Code Rule.md`), so our engine changes stay here as
-`patches/*.patch`, applied by the build; each patch is headed as Flipendo's change, which marks the altered source as the zlib licence requires
+**not** sent to it as pull requests (`src/engine/NO-AI Code Rule.md`), so our engine changes stay here as
+`src/surreal-patches/*.patch`, applied by the build; each patch is headed as Flipendo's change, which marks the altered source as the zlib licence requires
 ([docs/engine-hooks.md](docs/engine-hooks.md)). Please don't report Flipendo problems to SurrealEngine.
 
 ## Licence
 
 By contributing you agree that your contribution is licensed under the
-[PolyForm Noncommercial License 1.0.0](LICENSE.md), like the rest of Flipendo's own code (`kw/`, `hp1/`,
-`hp2/`, `patches/`, `tools/`, `docs/`).
+[PolyForm Noncommercial License 1.0.0](LICENSE.md), like the rest of Flipendo's own code (`src/knowwonder/`, `src/hp1/`,
+`src/hp2/`, `src/surreal-patches/`, `tools/`, `docs/`).

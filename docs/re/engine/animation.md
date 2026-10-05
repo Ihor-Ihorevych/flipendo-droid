@@ -1,7 +1,7 @@
 # Skeletal animation
 
 KnowWonder's skeletal meshes and animation system, which both games use for every character: `UAnimation`,
-`USkeletalMesh`, animation channels, tweening as a blend weight, and root motion. Implementation: `kw/Anim/`.
+`USkeletalMesh`, animation channels, tweening as a blend weight, and root motion. Implementation: `src/knowwonder/Anim/`.
 
 Reversed from HP1's `Engine.dll` (`../ida/hp1/Engine.dll.i64`; layouts measured from `Serialize` and field accesses).
 Addresses below are HP1's.
@@ -19,7 +19,7 @@ Both games run the same system ([hp2_compare.md](../reports/hp2_compare.md)):
   ([scripting.md](scripting.md)), which isn't a behaviour change.
 - **Signature change:** HP2's `CreateAnimChannel` takes one more bool (`bNotReplaceable` in HP2's `Actor.uc`; export
   `...VFName@@_N3@Z` instead of HP1's `...VFName@@_N@Z`). Not reversed yet.
-- **HP2 only:** `Actor.BoneRot` (native 328, `hp2/HP2Natives.cpp`).
+- **HP2 only:** `Actor.BoneRot` (native 328, `src/hp2/HP2Natives.cpp`).
 
 ## Data: `UAnimation` (sizeof 156)
 

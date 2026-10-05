@@ -1,4 +1,4 @@
 {
-    // engine/ is a submodule with patches/ applied to its working tree; don't list it as its own repo
+    // src/engine/ is a submodule with src/surreal-patches/ applied to its working tree; don't list it as its own repo
     "git.detectSubmodules": false
 }

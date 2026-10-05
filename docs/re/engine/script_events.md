@@ -2,7 +2,7 @@
 
 Every `ENGINE_<Event>` FName in KnowWonder's Engine.dll and the native functions that raise it (inline `eventX`
 wrappers expanded to their callers; `UEngine::Init` only registers the names), compared with what SurrealEngine
-(`engine/` + `kw/`) raises (`CallEvent` with `EventName::X` or the name as a string).
+(`src/engine/` + `src/knowwonder/`) raises (`CallEvent` with `EventName::X` or the name as a string).
 A missing raise is the same kind of gap as `Mount` was: the script side exists, the engine never calls it.
 It only says the event is raised somewhere; each call site still has to be compared by hand.
 
@@ -27,9 +27,9 @@ there and compare before relying on this list for HP2. Decompiled bodies of ever
 | ShowUpgradeMenu | UGameEngine::SetProgress `0x10399350` |
 | UpdateCamera | AInterpolationManager::performPhysics `0x103F7BA0` |
 
-`Falling` is raised from walking and rolling (`kw/KWPawn.cpp` `StartFalling`); the physSpider/findNewFloor call sites
+`Falling` is raised from walking and rolling (`src/knowwonder/KWPawn.cpp` `StartFalling`); the physSpider/findNewFloor call sites
 aren't, since no HP1 script uses PHYS_Spider. FinishedInterpolation/UpdateCamera (and InterpolateEnd with the manager
-and bForward) are now raised by the InterpolationManager port (`kw/KWInterpolation.cpp`).
+and bForward) are now raised by the InterpolationManager port (`src/knowwonder/KWInterpolation.cpp`).
 
 ## Raised by both
 

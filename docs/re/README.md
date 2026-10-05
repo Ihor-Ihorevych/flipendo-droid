@@ -1,6 +1,6 @@
 # Reverse engineering notes
 
-What was learned from the games' binaries and scripts. Sorted the way the code is (`kw/`, `hp1/`, `hp2/`,
+What was learned from the games' binaries and scripts. Sorted the way the code is (`src/knowwonder/`, `src/hp1/`, `src/hp2/`,
 [one-engine.md](../one-engine.md)):
 
 - [`engine/`](engine/): **KnowWonder's engine**, what both games do. Most of it was reversed in HP1's DLLs; each note
@@ -55,7 +55,7 @@ Rerun the tool after changes:
 | [dlls.md](reports/dlls.md) | every DLL of HP1 and HP2: what it does, its exports and classes, who provides it in Flipendo, every function we reimplemented and whether HP2 has the same code, script native counts | `tools/dll_report.py` |
 | [hp2_compare.md](reports/hp2_compare.md) | HP1 vs HP2 code, export by export, and which ported functions carry over | `tools/hp2_compare.py` |
 | [native_audit_hp1.md](reports/native_audit_hp1.md) | every native HP1's scripts declare: OK / STUB / MISSING / INDEX | `tools/native_audit.py hp1` |
-| [native_audit_hp2.md](reports/native_audit_hp2.md) | the same for HP2; HP1_PORT = covered by a `kw/` port gated to HP1 | `tools/native_audit.py hp2` |
+| [native_audit_hp2.md](reports/native_audit_hp2.md) | the same for HP2; HP1_PORT = covered by a `src/knowwonder/` port gated to HP1 | `tools/native_audit.py hp2` |
 
 ## Adding a note
 

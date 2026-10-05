@@ -5,7 +5,7 @@
 
 class UTexture;
 
-// HP1's native ParticleFX class (kw/KWParticleFX.cpp simulates, kw/KWParticleRender.cpp draws).
+// HP1's native ParticleFX class (src/knowwonder/KWParticleFX.cpp simulates, src/knowwonder/KWParticleRender.cpp draws).
 namespace KW
 {
 	// UParticle (140 bytes in HP1 Engine.dll; see docs/re/engine/particles.md).
@@ -135,12 +135,12 @@ namespace KW
 	// AParticleFX::Update: simulate up to the system's Age (dt 0) and emit. False if the system is done.
 	bool UpdateParticleSystem(UActor* actor, float dt);
 
-	// AParticleFX::Tick (kw/KWParticleFX.cpp) and AWind::Tick (kw/KWWind.cpp).
+	// AParticleFX::Tick (src/knowwonder/KWParticleFX.cpp) and AWind::Tick (src/knowwonder/KWWind.cpp).
 	void TickParticleFX(UActor* actor, float elapsed);
 	void TickWind(UActor* actor, float elapsed);
-	// AWind::GetTotalWind: the sum of every Wind in the context actor's level at a location (kw/KWWind.cpp).
+	// AWind::GetTotalWind: the sum of every Wind in the context actor's level at a location (src/knowwonder/KWWind.cpp).
 	vec3 GetTotalWind(UActor* context, const vec3& location);
 
-	// Gesture.Points (kw/KWGesture.cpp); ParticleFX.Pattern emits along it.
+	// Gesture.Points (src/knowwonder/KWGesture.cpp); ParticleFX.Pattern emits along it.
 	TypedScriptArray<vec3> GesturePoints(UObject* gesture);
 }

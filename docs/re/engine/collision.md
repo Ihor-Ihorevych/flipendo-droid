@@ -3,7 +3,7 @@
 KnowWonder actors choose their collision primitive with `Actor.CollideType`, which stock UE1 doesn't have. CT_Box makes
 the actor's primitive a `UBox`: an oriented box centered on the actor, rotated with it. HP1's Lev_Tut1 uses it for the
 BlockAll walls along the Grand Hall stairs (250 x 10 x 200), BlockPlayers, Triggers and the CutScene trigger volumes.
-Flipendo's port is `kw/KWCollision.cpp` (hooks in SurrealEngine's TraceTest/OverlapTest/CollisionSystem, see
+Flipendo's port is `src/knowwonder/KWCollision.cpp` (hooks in SurrealEngine's TraceTest/OverlapTest/CollisionSystem, see
 [engine-hooks.md](../../engine-hooks.md)). Addresses are HP1's.
 
 ## HP1 and HP2

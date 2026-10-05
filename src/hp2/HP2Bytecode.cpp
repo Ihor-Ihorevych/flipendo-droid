@@ -10,7 +10,7 @@
 //   0x47-0x5A  same as stock (the shift ends in stock's unused 0x46)
 // Everything else, including HP1's DynArrayCount at 0x37 and StringToName at 0x5A, is the same.
 //
-// Planned hook (not applied yet): BytecodeStream::ReadToken/PeekToken in engine/SurrealEngine/VM/Bytecode.h, gated by
+// Planned hook (not applied yet): BytecodeStream::ReadToken/PeekToken in src/engine/SurrealEngine/VM/Bytecode.h, gated by
 // IsHarryPotter2(), skip DebugInfoSize() bytes while the next byte is a DebugInfo record and return
 // ToStockToken(byte). The rest of SurrealEngine's bytecode reader then works unchanged for both games.
 

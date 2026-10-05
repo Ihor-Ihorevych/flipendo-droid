@@ -48,6 +48,6 @@ Not read in HP2's code yet. Check each one in `../ida/hp2/` before relying on it
 
 ## HP2-only natives
 
-`Actor.BoneRot` (328), `IsSoftwareRendering` (329), `GetCurrentKeyState` (330) (`hp2/HP2Natives.cpp`), the OpenAL / Ogg Vorbis
+`Actor.BoneRot` (328), `IsSoftwareRendering` (329), `GetCurrentKeyState` (330) (`src/hp2/HP2Natives.cpp`), the OpenAL / Ogg Vorbis
 music natives (`PlayMusic`, `StopMusic`, `StopAllMusic`, not ported), and the changed signatures of `StopSound`
 (`FadeOutTime`) and `CreateAnimChannel` (`bNotReplaceable`). The full list: [native_audit_hp2.md](../reports/native_audit_hp2.md).

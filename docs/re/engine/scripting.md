@@ -8,7 +8,7 @@ or never runs.
 
 HP1's token table is stock UE1's. HP2's differs slightly: found in HP2's Core.dll (`../ida/hp2/Core.dll`) from the
 static registration stubs that call `GRegisterNative` / set `GNativeDuplicate` for each `UObject::exec*` opcode
-handler. Code: `hp2/HP2Bytecode.cpp`.
+handler. Code: `src/hp2/HP2Bytecode.cpp`.
 
 ### Token table differences
 

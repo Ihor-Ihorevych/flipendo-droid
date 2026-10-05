@@ -2,9 +2,9 @@
 
 Flipendo keeps a strict line between the **faithful port** and **additions**:
 
-- `kw/` (KnowWonder's engine, shared by the HP games), `hp1/` and `hp2/` reproduce what the original engines did.
+- `src/knowwonder/` (KnowWonder's engine, shared by the HP games), `src/hp1/` and `src/hp2/` reproduce what the original engines did.
   Every function carries an `// IDA` tag saying which original function it reimplements.
-- `hp1/mods/` holds features the original never had: quality-of-life changes, developer shortcuts, anything a player
+- `src/hp1/mods/` holds features the original never had: quality-of-life changes, developer shortcuts, anything a player
   of the 2001 release never saw. They never change vanilla behaviour unless switched on, and `--vanilla` switches off
   all the ones that are on by default. Mods are HP1's for now; HP2 gets the same once it runs.
 
@@ -19,9 +19,9 @@ Flipendo keeps a strict line between the **faithful port** and **additions**:
 
 ## Writing a mod
 
-A mod is a C++ file in `hp1/mods/`. The build picks up new files automatically (`hp1/hp1.cmake` globs `hp1/`). Mods are HP1's: they
+A mod is a C++ file in `src/hp1/mods/`. The build picks up new files automatically (`src/hp1/hp1.cmake` globs `src/hp1/`). Mods are HP1's: they
 read HP1's script classes (`HPBase`, `HPMenu`).
-Mods hook in only through three calls in `hp1/mods/HP1Mods.cpp`:
+Mods hook in only through three calls in `src/hp1/mods/HP1Mods.cpp`:
 
 | Hook | Called | Use it for |
 |---|---|---|
@@ -31,7 +31,7 @@ Mods hook in only through three calls in `hp1/mods/HP1Mods.cpp`:
 
 Steps:
 
-1. Add `hp1/mods/MyMod.cpp` with a tick function and, if it draws, a draw function.
+1. Add `src/hp1/mods/MyMod.cpp` with a tick function and, if it draws, a draw function.
 2. Declare them in `HP1Mods.h` and call them from `TickMods` / `PostRenderMods` in `HP1Mods.cpp`.
 3. Gate it: `Mods::Enabled()` for a mod that is on by default (off with `--vanilla`), or
    `Mods::HasFlag("--my-flag")` for an opt-in one.
@@ -88,4 +88,4 @@ Phase 6 of the [roadmap](../ROADMAP.md):
     navigation/collision view for level makers.
 
   Needs a renderer backend for SurrealEngine's render devices and an input hook in front of the game's own key
-  handling; both go through `hp1/` the way mods do, not new engine hooks of their own.
+  handling; both go through `src/hp1/` the way mods do, not new engine hooks of their own.

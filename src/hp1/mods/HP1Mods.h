@@ -15,7 +15,7 @@ namespace HP1::Mods
 	bool HasFlag(const char* flag);
 
 	// Script state helpers: a property of a script object by name, or nullptr if the object or property is missing.
-	using KW::ObjectProperty; // kw/KWActor.cpp
+	using KW::ObjectProperty; // src/knowwonder/KWActor.cpp
 	using KW::BoolProperty;
 
 	// Space went down since the last tick (from the window's key events, so it works in menus and in game).
