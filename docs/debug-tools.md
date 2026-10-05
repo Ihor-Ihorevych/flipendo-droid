@@ -32,7 +32,7 @@ Times are seconds since the first frame.
 | `@console SaveSelectedSlot` | save (slot 99 without a selected slot) |
 | `@set <actor prefix> <prop> <value>` | set a property on live actors, e.g. `@set CutScene3 bDebugScript True` |
 | `@get <actor prefix> <prop>` | log a property, e.g. `@get harry numBeans` |
-| `@teleport x y z` | move the player there (touches what is there, so it starts touch cutscenes) |
+| `@teleport x y z` | move the player there (touches what is there, so it starts touch cutscenes); the game camera comes along |
 | `@trigger <tag>` | trigger every actor with that Tag |
 
 ## Crashes and the script debugger
