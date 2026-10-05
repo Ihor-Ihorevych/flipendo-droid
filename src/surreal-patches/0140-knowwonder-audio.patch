@@ -1,7 +1,7 @@
 flipendo: KnowWonder sound and music
 
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
-index d5615c73..4ded9973 100644
+index d5615c73..644bfa88 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 +++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 @@ -12,6 +12,7 @@
@@ -73,6 +73,18 @@ index d5615c73..4ded9973 100644
  void USurrealAudioDevice::StopSound(size_t index)
  {
  	PlayingSound& Playing = PlayingSounds[index];
+@@ -494,6 +537,11 @@ void USurrealAudioDevice::StopSounds()
+ 	for (size_t i = 0; i < PlayingSounds.size(); i++)
+ 		StopSound(i);
+ 
++	// HP1's audio driver keeps the music playing through a level change or a loaded save (its LoadMap only stops the
++	// sounds); the next Transition decides what plays
++	if (engine->LaunchInfo.IsKnowWonder())
++		return;
++
+ 	m_Device->PlayMusic(nullptr);
+ 	m_Viewport = nullptr;
+ }
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h
 index 81534ba9..0f506047 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h

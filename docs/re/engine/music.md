@@ -65,11 +65,29 @@ second with `MTRAN_SlowFade`) and `MU12` twice keep the stream (fade, no restart
 switches; `MU7` (silence) fades and stops. Checked 2026-10-05: `MU3` ends after ~14 s with
 `Song = None`, `bSongFinished = True`; `JS_GreenCauldron_24` (~25 s, looping) still plays at 70 s.
 
+## Level changes and saves
+
+`UGameEngine::LoadMap` [HP1 0x1039C3D0] only calls `Audio->SetViewport(Audio->GetViewport())` (vtable +0x60, the same
+viewport: Galaxy then stops the sounds but not the music channel, and forces no song change). So the music goes on
+through a level change or a loaded save:
+
+- a new level: `GameInfo` login sets the level's Song (None in most HP1 maps) with `MTRAN_Fade`, so the old song
+  fades out over 1 s, unless a `MusicEvent` at the start sets another;
+- a loaded save: the saved PlayerPawn's `Transition` is `MTRAN_None` (Galaxy clears it before a save can happen), so
+  the song from before the load goes on, even when the save's `Song` is another one, until the next `MusicEvent`.
+  `UnregisterMusic` [HP1 Galaxy 0x10607110] (a `UMusic` destroyed) only clears Galaxy's current song pointer, it
+  doesn't stop an mp2 stream.
+
+Upstream's `StopSounds` (called by `LoadMap` and save loading) also stopped the music and cleared the audio viewport,
+whose next `SetViewport` forced `MTRAN_Instant`: the saved song started at once, and with `KW::UpdateMusic` a
+save whose song was the one playing loaded into silence (same song, so no restart). For KnowWonder `StopSounds` now
+stops the sounds only. Checked 2026-10-05 (Lev_Tut1b, `SaveGame 5` / `open save5.usa`): a load with the saved song
+playing keeps it; with Arg_SecretCauldron_loop playing that goes on until `MU12`; `open Lev_Tut2` fades the old song.
+
 ## Not ported / not checked
 
 - CD music and Galaxy's module (non-mp2) music path: HP1 has neither (`UseDigitalMusic=False`, every song is mp2).
 - The original's menu song has a long fade-in at its start; Galaxy has no fade-in, so it is in the mp2 itself (not
   checked by ear).
-- Loading a save: Galaxy doesn't force a song change (`LoadMap` calls `SetViewport` with the same viewport, which
-  doesn't touch the music), so the song playing before the load goes on until the next `Transition`. Not checked:
-  whether the old level's music objects being unloaded stops it (`UnregisterMusic`).
+- The menu's own songs (title page, storybook) and cutscenes (`CutScene` `TRIGGER` -> `BroadcastTrigger` of a
+  `MusicEvent` tag) are script only; no other script code sets music, and nothing restarts it after a save loads.
