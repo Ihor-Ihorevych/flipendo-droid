@@ -5,6 +5,7 @@
 #include "Utils/Logger.h"
 #include "Engine.h"
 #include "VM/ScriptCall.h"
+#include "VM/Frame.h"
 #include "Packages/Engine/UConsole.h"
 #include "KWActor.h"
 #include "KWCheck.h"
@@ -36,6 +37,7 @@
 //   HP1_MOUSE="60:0:-40:1"      from <sec>, for <dur> seconds, move the mouse by <dx>,<dy> raw counts every
 //                              frame (same path as real raw mouse input; dy>0 is towards the user)
 //   HP1_TRACE="Harry,gen_"     log every actor whose name starts with one of these, every 0.5 s
+//   HP1_TRACE_INTERVAL="0"     seconds between HP1_TRACE lines (0: every frame)
 //   HP1_CAMERA="x,y,z,p,y"     fixed camera location and rotation (pitch/yaw in Unreal units), from the first frame
 //   HP1_DUMP="5,70"            log every actor (class, name, state, location, Tag, Event) at these times
 //   HP1_GOTO="60:x,y;x,y"      from <sec>, steer the player to each waypoint in turn (turns the view, holds Up);
@@ -52,6 +54,7 @@
 //                              "@console.MenuBook OpenBook Slot" follows object properties and passes one string;
 //                              "@set CutScene bDebugScript True" sets a property on every actor whose name starts so; "@get harry numBeans" logs one
 //                              "@teleport x y z" moves the player; "@trigger <tag>" triggers every actor with that Tag;
+//                              "@state tut3peeves2 dieing" sends the matching actors to that script state;
 //                              "@bump GridMover0 harry0" raises Bump(harry0) on the actors whose name starts with GridMover0;
 //                              "@polys Mover17" logs the brush polygons (normal, PolyFlags, texture) of the matching movers;
 //                              "@sweep x y z x y z ex ey ez" runs KnowWonder's BSP line/point checks and the actor sweep with that box and logs them;
@@ -163,9 +166,12 @@ namespace KW
 		static bool parsed = false;
 		static Array<std::string> prefixes;
 		static float next = 0.0f;
+		static float interval = 0.5f;
 		if (!parsed)
 		{
 			parsed = true;
+			if (const char* s = getenv("HP1_TRACE_INTERVAL"))
+				interval = std::stof(s);
 			if (const char* s = getenv("HP1_TRACE"))
 			{
 				std::stringstream ss(s);
@@ -176,7 +182,7 @@ namespace KW
 		}
 		if (prefixes.empty() || now < next || !engine->Level)
 			return;
-		next = now + 0.5f;
+		next = now + interval;
 
 		for (UActor* a : engine->Level->Actors)
 		{
@@ -190,10 +196,12 @@ namespace KW
 				continue;
 
 			char buf[1000];
-			int n = snprintf(buf, sizeof(buf), "HP1 trace t=%.1f %s state=%s zone=%d loc=(%.0f,%.0f,%.0f) vel=(%.0f,%.0f,%.0f) acc=(%.0f,%.0f) phys=%d rot=%d pitch=%d drot=%d anim=%s rate=%.2f frame=%.2f tween=%.2f",
+			int n = snprintf(buf, sizeof(buf), "HP1 trace t=%.3f %s state=%s zone=%d loc=(%.1f,%.1f,%.1f) vel=(%.0f,%.0f,%.0f) acc=(%.0f,%.0f) phys=%d rot=%d pitch=%d drot=%d anim=%s rate=%.2f frame=%.2f tween=%.2f",
 				now, name.c_str(), a->GetStateName().ToString().c_str(), (int)a->Region().ZoneNumber, a->Location().x, a->Location().y, a->Location().z,
 				a->Velocity().x, a->Velocity().y, a->Velocity().z, a->Acceleration().x, a->Acceleration().y, (int)a->Physics(),
 				a->Rotation().Yaw & 0xffff, a->Rotation().Pitch & 0xffff, a->DesiredRotation().Yaw & 0xffff, a->AnimSequence().ToString().c_str(), a->AnimRate(), a->AnimFrame(), TweenAlpha(a));
+			if (a->StateFrame)
+				n += snprintf(buf + n, sizeof(buf) - n, " latent=%d", (int)a->StateFrame->LatentState);
 			if (UPawn* pawn = UObject::TryCast<UPawn>(a))
 				n += snprintf(buf + n, sizeof(buf) - n, " ground=%.0f desired=%.2f rrate=%d walking=%d",
 					pawn->GroundSpeed(), pawn->DesiredSpeed(), pawn->RotationRate().Yaw, (int)pawn->bIsWalking());
@@ -311,6 +319,27 @@ namespace KW
 				}
 			}
 			LogMessage("HP1 exec: triggered " + std::to_string(count) + " actors");
+			return;
+		}
+		if (text.rfind("@state ", 0) == 0)
+		{
+			// "@state <actor name prefix> <state>": GotoState on the matching actors (reach a script state without playing up to it).
+			std::string rest = text.substr(7);
+			size_t space = rest.find(' ');
+			if (space == std::string::npos)
+				return;
+			std::string prefix = rest.substr(0, space);
+			NameString state(rest.substr(space + 1));
+			int count = 0;
+			for (UActor* a : engine->Level->Actors)
+			{
+				if (a && a->Name.ToString().rfind(prefix, 0) == 0)
+				{
+					a->GotoState(state, {});
+					count++;
+				}
+			}
+			LogMessage("HP1 exec: " + std::to_string(count) + " actors to state " + state.ToString());
 			return;
 		}
 		if (text.rfind("@bump ", 0) == 0)

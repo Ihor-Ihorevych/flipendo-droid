@@ -16,6 +16,7 @@ Times are seconds since the first frame.
 | `HP1_MOUSE` | `"63:0:-30:4"` | move the mouse by dx,dy raw counts every frame for a duration (dy<0 looks up) |
 | `HP1_GOTO` | `"79:x,y;x,y,J;x,y,w3"` | steer the player through waypoints (`J` jump on arrival, `w3` wait 3 s, `\|` starts another run later) |
 | `HP1_TRACE` | `"harry0,gen_"` | log actors by name prefix every 0.5 s: state, zone, location, velocity, rotation, animation |
+| `HP1_TRACE_INTERVAL` | `"0"` | seconds between `HP1_TRACE` lines (default 0.5; 0 logs every frame, e.g. to see a camera shake) |
 | `HP1_DUMP` | `"5,80"` | log every actor (class, name, state, location, Tag, Event) at those times |
 | `HP1_CAMERA` | `"x,y,z,pitch,yaw"` | look from a fixed camera |
 | `HP1_HEIGHTMAP` | `"12:x0,y0,x1,y1,step,ztop"` | floor heights over a grid, for planning jumps and climbs |
@@ -35,6 +36,7 @@ Times are seconds since the first frame.
 | `@get <actor prefix> <prop>` | log a property, e.g. `@get harry numBeans` |
 | `@teleport x y z` | move the player there (touches what is there, so it starts touch cutscenes); the game camera comes along |
 | `@trigger <tag>` | trigger every actor with that Tag |
+| `@state <actor> <state>` | `GotoState(state)` on every actor whose name starts with `<actor>` (reach a script state without playing up to it, e.g. `@state tut3peeves2 dieing`) |
 | `@bump <actor> <other>` | raise `Bump(other)` on every actor whose name starts with `<actor>` (push a GridMover without aiming a spell: `@set GridMover0 bProjTarget False` first, so it takes the player as the bumper) |
 | `@polys <actor>` | log the brush polygons of every actor whose name starts with `<actor>`: normal, PolyFlags (0x1000 = mountable), texture |
 | `@sweep sx sy sz ex ey ez bx by bz` | KnowWonder's BSP line check from start to end with a box of half size b, point checks at both ends (zone, leaf, push-out), and every actor the box sweep hits (MultiLineCheck), and the hit node's coplanar polygons with their flags and vertices: debugging collision and ledge grabs |
