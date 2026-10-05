@@ -92,7 +92,8 @@ change, also HP1-only work: code written for HP1 today is the code HP2 runs tomo
   Sorted like the code: `docs/re/engine/` for KnowWonder's engine (what both games do; each note says which game was
   checked and has an "HP1 and HP2" part), `docs/re/hp1/` / `docs/re/hp2/` for what only one game has. Index:
   `docs/re/README.md`. Don't leave findings only in commit messages or the conversation.
-- **Flipendo is licensed PolyForm Noncommercial 1.0.0** (`LICENSE.md`); `src/engine/` stays zlib.
+- **Flipendo is licensed GPLv3** (`LICENSE`, the unmodified GNU text); `src/engine/` stays zlib. Until 2026-10-05
+  it was PolyForm Noncommercial 1.0.0 (commits before that keep it).
 - Don't push to `origin` without explicit permission. `origin` is the Gitea server; it mirrors to GitHub
   (`github.com/kroplabeskidu/flipendo`, the README's clone URL) automatically, so a push to `origin` is all it takes.
 - The repository is `hp_re/flipendo`. Never modify `../eagames/hp1/` or `../eagames/hp2/` (pristine retail copies of HP1 and HP2).
