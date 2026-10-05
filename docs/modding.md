@@ -17,6 +17,7 @@ Flipendo keeps a strict line between the **faithful port** and **additions**:
 | `DiscordPresence.cpp` | on (`--vanilla` or `--no-discord` disables) | Discord Rich Presence: the level (the game's own level titles), cutscene / paused, Gryffindor's points, play time. Uses Flipendo's Discord application (its name and App Icon); `--discord-app=<id>` uses another |
 | `FastForward.cpp` | on (`--vanilla` disables) | hold Shift to run the game 2.5 times as fast (Shift is unbound in HP1) |
 | `FrameLimit.cpp` | on at 60 fps (`--fps=<n>`; `--fps=0` or `--vanilla` disables) | waits at the end of each frame's tick so the game runs at most n frames a second: HP1's per-frame movement breaks at high frame rates ([original_bugs.md](re/hp1/original_bugs.md)) |
+| `PathFixes.cpp` | on (`--vanilla` disables) | adds reach specs the original maps are missing, so `Pawn.FindPath` finds the route the designers meant: Lev_Tut3b's HPath_F3 → baseStation1, Peeves' exit after the duel ([original_bugs.md](re/hp1/original_bugs.md)) |
 | `LaunchSkips.cpp` | off (`--skip-splash`, `--skip-intro`) | skip the logo/title splash screens; skip the New Game storybook |
 
 ## Writing a mod
