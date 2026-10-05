@@ -31,6 +31,7 @@ class BBox;
 class RenderDevice;
 class GameWindow;
 struct SceneNode;
+struct GouraudVertex;
 
 class Image;
 
@@ -113,6 +114,10 @@ namespace KW
 	float ViewFovAngle(float fovAngle, int width, int height);
 	// RenderSubsystem::DrawGame: the screen flash from HP1's FlashFog (its W replaces FlashScale).
 	void ViewFlashParams(UPlayerPawn* player, vec3& flashScale, vec3& flashFog);
+	// Engine::LoadMap / LoadFromSaveFile: HP1's loading screen. LoadMapFadeOut at the start (fade to black over
+	// Console.FadeoutTime), LoadMapLevelInfo once the new LevelInfo is loaded (Console.DrawLevelInfo) (src/knowwonder/KWView.cpp).
+	void LoadMapFadeOut();
+	void LoadMapLevelInfo(ULevelInfo* levelInfo);
 
 	// USurrealAudioDevice::Update, in place of UpdateMusic (src/knowwonder/KWSound.cpp): Galaxy's music update (song
 	// changes with fades, looping unless bDontLoopSong, bSongFinished). Returns the music volume (0-1) to set.
@@ -143,6 +148,14 @@ namespace KW
 	BBox GetParticleBoundingBox(UActor* actor);
 	// VisibleActor::DrawTranslucent for DrawType DT_Particles: URender::DrawParticleSystem (src/knowwonder/KWParticleRender.cpp).
 	void DrawParticleSystem(VisibleFrame* frame, UActor* actor);
+	// VisibleFrame::Process, before the BSP walk: Shadow.Update for every drawn actor whose shadow area is on screen
+	// (URender::SetupDynamics, src/knowwonder/KWActorRender.cpp).
+	void UpdateActorShadows(VisibleFrame* frame);
+	// Mesh drawing (VisibleMesh, KW::DrawSkeletalMesh): Actor.Opacity < 1 alpha blends the mesh. MeshOpacity once per
+	// actor, ApplyOpacityFlags on each face's flags before the translucent-pass test, ApplyOpacityVertices before drawing.
+	float MeshOpacity(UActor* actor);
+	void ApplyOpacityFlags(float opacity, uint32_t& polyFlags);
+	void ApplyOpacityVertices(float opacity, GouraudVertex* vertices, int count);
 
 	// UPawn::TickMoveTo: APawn::moveToward. Returns true when the latent move is done.
 	bool PawnMoveToward(UPawn* pawn, const vec3& dest);
@@ -150,6 +163,10 @@ namespace KW
 	// True when the latent action is done.
 	bool PawnPollMoveToward(UPawn* pawn);
 	bool PawnPollStrafeFacing(UPawn* pawn);
+	// UPawn::TickRotateTo: APawn::rotateToward (DesiredRotation; true when facing the focal point).
+	bool PawnRotateToward(UPawn* pawn, const vec3& focalPoint);
+	// UPawn::TurnTo / TurnToward and their latent polls: one step of the turn (flying acceleration + rotateToward).
+	bool PawnTurnStep(UPawn* pawn, const vec3& focus);
 	bool PawnPollWaitForLanding(UPawn* pawn, float elapsed);
 	// UActor::TickWalking / TickFalling on a wall hit: APawn::Mount (ledge grab). True if Pawn.Mount was raised.
 	bool PawnMount(UPawn* pawn, const vec3& delta, const CollisionHit& hit);

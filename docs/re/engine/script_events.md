@@ -11,6 +11,20 @@ addresses are HP1's. HP2's Engine.dll hasn't been dumped yet (`../ida/hp2/` has 
 there and compare before relying on this list for HP2. Decompiled bodies of every HP1 function:
 `../ida/hp1/decomp/<Dll>/<ADDR>_<name>.c`, index in `../ida/hp1/decomp/<Dll>_index.tsv`.
 
+## Missed by the generated lists
+
+The tables below come from Engine.dll's `ENGINE_<Event>` references, so they miss events raised from Render.dll and
+events whose FName the decompiler shows only as `` `string' ``:
+
+| Event | Raised (HP1) by | Flipendo |
+|---|---|---|
+| Update | `URender::SetupDynamics` [HP1 Render 0x10B2FB30], on `Actor.Shadow` ([rendering.md](rendering.md#actor-shadows-urendersetupdynamics-hp1-render-0x10b2fb30)) | `KW::UpdateActorShadows` |
+| DrawLevelInfo | `UGameEngine::LoadMap` `0x1039C3D0`, on the console ([rendering.md](rendering.md#the-loading-screen-ugameengineloadmap-hp1-0x1039c3d0)) | `KW::LoadMapLevelInfo` |
+| RenderOverlays | `URender::DrawWorld` [HP1 Render 0x10B27BA0] | SurrealEngine (`RenderSubsystem::RenderOverlays`) |
+| Generate | `URender::OccludeBsp` [HP1 Render 0x10B22480], on a WarpZoneInfo | not raised yet |
+
+So `Update` and `RenderOverlays` in "No native caller in HP1" below do have one.
+
 ## Not raised by SurrealEngine
 
 | Event | Raised (HP1 Engine.dll) by |

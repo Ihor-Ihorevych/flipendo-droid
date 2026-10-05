@@ -802,6 +802,7 @@ namespace KW
 			vertexLights[i] = lighting.Light(verts[i], normals[i]);
 
 		bool needTranslucentPass = false;
+		float opacity = MeshOpacity(actor);
 		GouraudVertex vertices[3];
 		for (const MeshFace& face : mesh->Faces)
 		{
@@ -812,6 +813,7 @@ namespace KW
 				continue;
 
 			uint32_t renderflags = material.PolyFlags | polyFlags;
+			ApplyOpacityFlags(opacity, renderflags);
 			UTexture* tex = (renderflags & PF_Environment) ? engine->render->Mesh.envmap : (material.TextureIndex < engine->render->Mesh.textures.size() ? engine->render->Mesh.textures[material.TextureIndex] : nullptr);
 			if (!tex)
 				continue;
@@ -879,6 +881,7 @@ namespace KW
 				vertices[i].Fog = vertexLight.GetVertexFog(vertices[i].Point);
 			}
 
+			ApplyOpacityVertices(opacity, vertices, 3);
 			frame->Device->DrawGouraudPolygon(&frame->Frame, texinfo, vertices, 3, renderflags | PF_RenderFog);
 		}
 		return needTranslucentPass;

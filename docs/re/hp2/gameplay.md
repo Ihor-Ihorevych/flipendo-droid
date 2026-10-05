@@ -6,6 +6,7 @@ source stripped, so these notes come from the scripts `tools/extract_scripts.sh 
 [`../engine/`](../engine/); the bytecode difference is in [scripting.md](../engine/scripting.md#bytecode-hp1-vs-hp2).
 
 First notes, not yet a full study. Each entry says what HP1 does instead.
+Engine-side HP2 features (GameState, Lumos surfaces, ...) are in [engine.md](engine.md).
 
 ## Cutscenes
 

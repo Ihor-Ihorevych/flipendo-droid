@@ -18,9 +18,10 @@ A note that says "HP2 not checked" means exactly that: don't assume HP2 is the s
 |---|---|
 | [animation.md](engine/animation.md) | skeletal meshes, the animation format, channels, tweening, root motion, bones and attachments |
 | [particles.md](engine/particles.md) | ParticleFX: parameters, emission, update, rendering; Wind |
+| [rendering.md](engine/rendering.md) | actor shadows (ActorShadow decals placed by the renderer), Actor.Opacity, the loading screen (fade-out, DrawLevelInfo) |
 | [lighting.md](engine/lighting.md) | mesh lighting (light picking, colours and effects, per-vertex light, back-face culling) and BSP light maps |
 | [collision.md](engine/collision.md) | CollideType (HP2 adds two), CT_Box's box checks, world bounding boxes |
-| [physics.md](engine/physics.md) | setPhysics, blocking and Bump, walking and ledges, ledge grabbing (Mount), auto jump, pawn rotation, latent moves, movers, InterpolationManager |
+| [physics.md](engine/physics.md) | setPhysics, blocking and Bump, walking and ledges, ledge grabbing (Mount), auto jump, pawn rotation, latent moves, turning (rotateToward), movers, InterpolationManager |
 | [scripting.md](engine/scripting.md) | the UnrealScript VM: HP2's bytecode tokens and DebugInfo, disable()/GotoState, latent calls on other actors |
 | [script_events.md](engine/script_events.md) | every script event the native code raises, and which ones SurrealEngine didn't |
 | [savegames.md](engine/savegames.md) | level saves, the save screen, GameSaveInfo, thumbnails, loading; HP1's and HP2's script flows |
@@ -45,6 +46,7 @@ A note that says "HP2 not checked" means exactly that: don't assume HP2 is the s
 | Note | Topic |
 |---|---|
 | [gameplay.md](hp2/gameplay.md) | HP2's `hgame` scripts against HP1's: cutscenes from files, queued saves, the new spell system, HP2-only natives; engine differences not checked yet |
+| [engine.md](hp2/engine.md) | HP2 engine work for later: GameState screening, Lumos surfaces, TurnTo, particle Opacity, ALAudio music and reverb |
 
 ## Generated reports (`reports/`)
 

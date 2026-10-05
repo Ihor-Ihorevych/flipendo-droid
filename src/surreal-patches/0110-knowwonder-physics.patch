@@ -143,7 +143,7 @@ index aef803f8..32618c4b 100644
  		if (t < tmax)
  		{
 diff --git a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
-index de07166c..969d26d4 100644
+index de07166c..c06800cf 100644
 --- a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
 @@ -7,10 +7,13 @@
@@ -184,6 +184,24 @@ index de07166c..969d26d4 100644
  		else if (StateFrame->LatentState == LatentRunState::StrafeFacing)
  		{
  			if (engine->LaunchInfo.ue1Version > 219 && FaceTarget())
+@@ -64,7 +77,7 @@ void UPawn::Tick(float elapsed)
+ 		}
+ 		else if (StateFrame->LatentState == LatentRunState::TurnTo)
+ 		{
+-			if (TickRotateTo(Focus()))
++			if (engine->LaunchInfo.IsKnowWonder() ? KW::PawnTurnStep(this, Focus()) : TickRotateTo(Focus()))
+ 				StateFrame->LatentState = LatentRunState::Continue;
+ 		}
+ 		else if (StateFrame->LatentState == LatentRunState::TurnToward)
+@@ -72,7 +85,7 @@ void UPawn::Tick(float elapsed)
+ 			if (engine->LaunchInfo.ue1Version > 219 && FaceTarget())
+ 			{
+ 				Focus() = FaceTarget()->Location();
+-				if (TickRotateTo(FaceTarget()->Location()))
++				if (engine->LaunchInfo.IsKnowWonder() ? KW::PawnTurnStep(this, Focus()) : TickRotateTo(FaceTarget()->Location()))
+ 					StateFrame->LatentState = LatentRunState::Continue;
+ 			}
+ 			else if (engine->LaunchInfo.ue1Version <= 219)
 @@ -86,6 +99,11 @@ void UPawn::Tick(float elapsed)
  				StateFrame->LatentState = LatentRunState::Continue;
  			}
@@ -209,7 +227,17 @@ index de07166c..969d26d4 100644
  	if (Physics() == PHYS_Spider)
  		return;
  
-@@ -236,6 +260,9 @@ bool UPawn::TickRotateTo(const vec3& target)
+@@ -220,6 +244,9 @@ void UPawn::TickRotating(float elapsed)
+ 
+ bool UPawn::TickRotateTo(const vec3& target)
+ {
++	if (engine->LaunchInfo.IsKnowWonder()) // APawn::rotateToward
++		return KW::PawnRotateToward(this, target);
++
+ 	if (Physics() == PHYS_Spider)
+ 		return true;
+ 
+@@ -236,6 +263,9 @@ bool UPawn::TickRotateTo(const vec3& target)
  
  bool UPawn::TickMoveTo(const vec3& target)
  {
@@ -219,11 +247,22 @@ index de07166c..969d26d4 100644
  	if (MoveTimer() < 0.0f)
  		return true;
  
-@@ -334,12 +361,23 @@ void UPawn::TurnToward(UActor* newTarget)
+@@ -322,6 +352,8 @@ void UPawn::TurnTo(const vec3& newFocus)
+ {
+ 	MoveTarget() = nullptr;
+ 	Focus() = newFocus;
++	if (engine->LaunchInfo.IsKnowWonder()) // execTurnTo starts turning at once
++		KW::PawnTurnStep(this, Focus());
+ 	if (StateFrame)
+ 		StateFrame->LatentState = LatentRunState::TurnTo;
+ }
+@@ -334,12 +366,25 @@ void UPawn::TurnToward(UActor* newTarget)
  	if (engine->LaunchInfo.ue1Version > 219)
  		FaceTarget() = newTarget;
  	Focus() = newTarget->Location();
 -	if (StateFrame)
++	if (engine->LaunchInfo.IsKnowWonder()) // execTurnToward starts turning at once
++		KW::PawnTurnStep(this, Focus());
 +	// a state frame without code (stopped, or a state with no labels) is never polled in UE1, so the latent
 +	// turn does nothing. HP1's spell lesson calls Teacher.TurnToward on Tut1Quirrell in his empty 'idle' state; resuming
 +	// that frame ran off the end ("Unexpected end of code statements").

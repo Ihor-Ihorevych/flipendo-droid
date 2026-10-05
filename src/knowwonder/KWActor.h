@@ -22,6 +22,10 @@ namespace KW
 		PropertyDataOffset LightRadiusInner;
 		PropertyDataOffset LightSource;
 		PropertyDataOffset bDarkLight;
+		PropertyDataOffset Shadow;
+		PropertyDataOffset Opacity;
+		PropertyDataOffset VisibilityRadius;
+		PropertyDataOffset VisibilityHeight;
 	};
 	const ActorProps& GetActorProps();
 
@@ -48,4 +52,8 @@ namespace KW
 	inline uint8_t& LightRadiusInner(UActor* a) { return a->Value<uint8_t>(GetActorProps().LightRadiusInner); }
 	inline uint8_t& LightSource(UActor* a) { return a->Value<uint8_t>(GetActorProps().LightSource); }
 	inline BitfieldBool bDarkLight(UActor* a) { return a->BoolValue(GetActorProps().bDarkLight); }
+	inline UActor*& Shadow(UActor* a) { return a->Value<UActor*>(GetActorProps().Shadow); }
+	inline float& Opacity(UActor* a) { return a->Value<float>(GetActorProps().Opacity); }
+	inline float& VisibilityRadius(UActor* a) { return a->Value<float>(GetActorProps().VisibilityRadius); }
+	inline float& VisibilityHeight(UActor* a) { return a->Value<float>(GetActorProps().VisibilityHeight); }
 }

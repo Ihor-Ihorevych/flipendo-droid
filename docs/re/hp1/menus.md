@@ -22,7 +22,8 @@ shown).
 
 ## Level titles
 
-The loading screen (`HPConsole.DrawLevelInfo`) turns a map name into a title and an objective in two steps:
+The loading screen (`HPConsole.DrawLevelInfo`, raised by LoadMap: [engine/rendering.md](../engine/rendering.md#the-loading-screen-ugameengineloadmap-hp1-0x1039c3d0))
+turns a map name into a title and an objective in two steps:
 
 1. `Localize("text", "n_" $ map, "Dobby")` gives the level's two-digit index (`Dobby.int`, e.g.
    `n_lev3_lumos=20`);
