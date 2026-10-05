@@ -10,7 +10,7 @@ basics are in [CONTRIBUTING.md](../CONTRIBUTING.md#building).
 | `kw/` | **KnowWonder's engine**, reimplemented: what the Harry Potter games' modified `Engine.dll` / `Fire.dll` / `Render.dll` do differently from stock Unreal (skeletal animation, ParticleFX, Wind, Gesture, physics and pawn movement, collision, interpolation, save games, IceTexture, natives) plus the debug tools. Namespace `KW`, files `KW*.cpp`. |
 | `hp1/` | **HP1 only**: the optional extras (`hp1/mods/`, [modding.md](modding.md)) and the widescreen canvas for HP1's menu classes (`HP1Canvas.cpp`). |
 | `hp2/` | **HP2 only**: HP2's own natives and bytecode differences, and adapters where HP2's script signatures differ. |
-| `flipendo.cmake` | Adds `kw/`, `hp1/` and `hp2/` to SurrealEngine's build (one `flipendo:` line in `engine/CMakeLists.txt`). |
+| `flipendo.cmake` | Adds `kw/`, `hp1/` and `hp2/` to SurrealEngine's build (one line in `engine/CMakeLists.txt`). |
 | `engine/` | [SurrealEngine](https://github.com/dpjudas/SurrealEngine), our engine dependency, as a git submodule. Never committed to. |
 | `patches/` | Our changes to SurrealEngine, applied to `engine/` by the build, split by topic ([engine-hooks.md](engine-hooks.md)). |
 | `tools/` | Build, run, extraction, audit and comparison scripts. |

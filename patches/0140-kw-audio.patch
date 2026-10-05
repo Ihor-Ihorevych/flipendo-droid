@@ -1,14 +1,14 @@
 flipendo: KnowWonder sound and music
 
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
-index d5615c73..5fe8e130 100644
+index d5615c73..89ab8e33 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 +++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 @@ -12,6 +12,7 @@
  #include "Packages/Engine/Resources/UMusic.h"
  #include "Packages/Engine/Resources/USound.h"
  #include "Packages/Engine/Resources/Level/ULevel.h"
-+#include "KW.h" // flipendo
++#include "KW.h"
  
  static float square(float x) { return x * x; }
  
@@ -17,7 +17,7 @@ index d5615c73..5fe8e130 100644
  		CurrentSection = m_Viewport->Actor()->SongSection();
  
 -		if (CurrentSong && UseDigitalMusic)
-+		// flipendo: HP1 ships UseDigitalMusic=False yet plays its mp2 music; its audio driver doesn't gate on the flag
++		// HP1 ships UseDigitalMusic=False yet plays its mp2 music; its audio driver doesn't gate on the flag
 +		if (CurrentSong && (UseDigitalMusic || engine->LaunchInfo.IsKnowWonder()))
  		{
  			int subsong = CurrentSection != 255 ? CurrentSection : 0;
@@ -26,7 +26,7 @@ index d5615c73..5fe8e130 100644
  			else
  				source = AudioSource::CreateMod(CurrentSong->Data, true, subsong);
  
-+			if (engine->LaunchInfo.IsKnowWonder()) // flipendo: HP1 loops the song unless bDontLoopSong
++			if (engine->LaunchInfo.IsKnowWonder()) // HP1 loops the song unless bDontLoopSong
 +				source = KW::MusicSource(m_Viewport->Actor(), CurrentSong, std::move(source));
 +
  			if (source)
@@ -36,7 +36,7 @@ index d5615c73..5fe8e130 100644
  		m_Viewport->Actor()->Transition() = MTRAN_None;
  	}
 +
-+	if (engine->LaunchInfo.IsKnowWonder() && m_Viewport && m_Viewport->Actor()) // flipendo: bSongFinished, end of a song played once
++	if (engine->LaunchInfo.IsKnowWonder() && m_Viewport && m_Viewport->Actor()) // bSongFinished, end of a song played once
 +		KW::TickMusic(m_Viewport->Actor(), CurrentSong);
  }
  
@@ -45,7 +45,7 @@ index d5615c73..5fe8e130 100644
  	}
  }
  
-+// flipendo: Galaxy.dll UGalaxyAudioSubsystem::ModifySound / StopSound (HP1's audio driver). Param 0 = volume,
++// Galaxy.dll UGalaxyAudioSubsystem::ModifySound / StopSound (HP1's audio driver). Param 0 = volume,
 +// 1 = radius, 2 = pitch. Volume gets the same normalization as PlaySound.
 +bool USurrealAudioDevice::ModifySoundHP1(int Id, USound* Sound, int Param, float Value)
 +{
@@ -82,14 +82,14 @@ index d5615c73..5fe8e130 100644
  {
  	PlayingSound& Playing = PlayingSounds[index];
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h
-index 81534ba9..80a076e6 100644
+index 81534ba9..0f506047 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h
 +++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h
 @@ -64,6 +64,9 @@ public:
  
  	bool PlaySound(UActor* Actor, int Id, USound* Sound, vec3 Location, float Volume, float Radius, float Pitch, bool isTalk);
  	void StopSound(UActor* Actor, int Id);
-+	// flipendo: HP1's ModifySound / StopSound(Sound, Slot): first sound whose Id matches (ignoring bit 0) and, if given, Sound
++	// HP1's ModifySound / StopSound(Sound, Slot): first sound whose Id matches (ignoring bit 0) and, if given, Sound
 +	bool ModifySoundHP1(int Id, USound* Sound, int Param, float Value);
 +	bool StopSoundHP1(int Id, USound* Sound);
  	void ActorDestroyed(UActor* Actor);

@@ -23,8 +23,9 @@ them, kept as patch files so a newer SurrealEngine rarely conflicts.
 0001-0009 plumbing, 0010-0099 game-independent fixes, 0100-0199 HP1, 0200-0299 free for HP2. Patches split by file,
 so a file has one owner.
 
-`tools/build.sh` applies them to the submodule's working tree (`tools/apply_patches.sh`). Every changed line is
-marked with a `flipendo:` comment, which SurrealEngine's zlib licence requires for altered source. Hooks into `kw/`
+`tools/build.sh` applies them to the submodule's working tree (`tools/apply_patches.sh`). Each patch starts with a
+`flipendo: ...` header line (from `patches/routes.txt`), which marks the altered source as SurrealEngine's zlib licence
+requires; the changed lines themselves carry no marker. Hooks into `kw/`
 are gated behind `engine->LaunchInfo.IsKnowWonder()` (HP1 for now, HP2 later), HP1-only hooks (mods, menu canvas)
 behind `IsHarryPotter1()`, so other UE1 games keep working. Fixes to SurrealEngine bugs that affect any game
 (`0010-engine-fixes.patch`) aren't gated.

@@ -1,14 +1,14 @@
 flipendo: KnowWonder actor tick, native actors (ParticleFX, Wind), animation
 
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor.cpp b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
-index 29c45a1c..be628774 100644
+index 29c45a1c..c3229269 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
 @@ -9,6 +9,7 @@
  #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
  #include "Packages/Engine/Resources/Level/ULevel.h"
  #include "Packages/Engine/Resources/Level/UModel.h"
-+#include "KW.h" // flipendo
++#include "KW.h"
  #include "Packages/Engine/Subsystems/USurrealAudioDevice.h"
  #include "Utils/Logger.h"
  #include "Engine.h"
@@ -16,7 +16,7 @@ index 29c45a1c..be628774 100644
  
  	bDeleteMe() = true;
  
-+	if (engine->LaunchInfo.IsKnowWonder()) // flipendo: free the ParticleFX particle list
++	if (engine->LaunchInfo.IsKnowWonder()) // free the ParticleFX particle list
 +		KW::ParticleFXDestroyed(this);
 +
  	//GotoState({}, {}); // What should happen to function calls after Destroy() has been called? Razor2 calls SetRoll afterwards!
@@ -26,7 +26,7 @@ index 29c45a1c..be628774 100644
  
  void UActor::Tick(float elapsed)
  {
-+	if (engine->LaunchInfo.IsKnowWonder()) // flipendo: AParticleFX::Tick, AWind::Tick
++	if (engine->LaunchInfo.IsKnowWonder()) // AParticleFX::Tick, AWind::Tick
 +	{
 +		KW::TickNativeActor(this, elapsed);
 +		if (bDeleteMe())
@@ -42,7 +42,7 @@ index 29c45a1c..be628774 100644
  		{
 -			SleepTimeLeft = std::max(SleepTimeLeft - elapsed, 0.0f);
 -			if (SleepTimeLeft == 0.0f)
-+			// flipendo: the time left lives in LatentFloat (saved with the actor); done once under half a tick
++			// the time left lives in LatentFloat (saved with the actor); done once under half a tick
 +			LatentFloat() -= elapsed;
 +			if (LatentFloat() < elapsed * 0.5f)
  				StateFrame->LatentState = LatentRunState::Continue;
@@ -53,7 +53,7 @@ index 29c45a1c..be628774 100644
  		}
  	}
 +
-+	if (engine->LaunchInfo.IsKnowWonder()) // flipendo: bAnimMove root motion (end of AActor::Tick)
++	if (engine->LaunchInfo.IsKnowWonder()) // bAnimMove root motion (end of AActor::Tick)
 +		KW::TickRootMotion(this);
  }
  
@@ -63,7 +63,7 @@ index 29c45a1c..be628774 100644
  	return 0.0f;
  }
 +
-+// flipendo: KnowWonder's AActor::WorldLightRadius is max(DrawScale, 1) * (LightRadius + 1) * 25 (the Quidditch suns,
++// KnowWonder's AActor::WorldLightRadius is max(DrawScale, 1) * (LightRadius + 1) * 25 (the Quidditch suns,
 +// DrawScale 5, reach 32000 units). docs/re/engine/lighting.md.
 +float UActor::WorldLightRadius()
 +{
@@ -73,7 +73,7 @@ index 29c45a1c..be628774 100644
 +	return radius;
 +}
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor.h b/SurrealEngine/Packages/Engine/Actors/UActor.h
-index 2bb8bdf4..a65b0cb9 100644
+index 2bb8bdf4..1e5f48b7 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor.h
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor.h
 @@ -576,7 +576,7 @@ public:
@@ -81,7 +81,7 @@ index 2bb8bdf4..a65b0cb9 100644
  	int LastDrawFrame = -1;
  
 -	float SleepTimeLeft = 0.0f;
-+	// flipendo: no SleepTimeLeft; Sleep's remaining time is LatentFloat(), saved with the actor
++	// no SleepTimeLeft; Sleep's remaining time is LatentFloat(), saved with the actor
  	vec3 gravityVector;
  
  	// Index in level Actors array
@@ -90,19 +90,19 @@ index 2bb8bdf4..a65b0cb9 100644
  	float WorldSoundRadius() { return ((int)SoundRadius() + 1) * 25.0f; }
  	float WorldVolumetricRadius() { return ((int)VolumeRadius() + 1) * 25.0f; }
 -	float WorldLightRadius() { return ((int)LightRadius() + 1) * 25.0f; }
-+	float WorldLightRadius(); // flipendo: KnowWonder scales it by DrawScale (UActor.cpp)
++	float WorldLightRadius(); // KnowWonder scales it by DrawScale (UActor.cpp)
  
  	vec3& Acceleration() { return Value<vec3>(PropOffsets_Actor.Acceleration); }
  	uint8_t& AmbientGlow() { return Value<uint8_t>(PropOffsets_Actor.AmbientGlow); }
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
-index aceba9af..236654d4 100644
+index aceba9af..5f2e5713 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
 @@ -6,6 +6,7 @@
  #include "VM/Frame.h"
  #include "Packages/Engine/Resources/Mesh/USkeletalMesh.h"
  #include "Engine.h"
-+#include "KW.h" // flipendo
++#include "KW.h"
  
  bool UActor::HasAnim(const NameString& sequence)
  {
@@ -110,7 +110,7 @@ index aceba9af..236654d4 100644
  
  void UActor::TickAnimation(float elapsed)
  {
-+	if (engine->LaunchInfo.IsKnowWonder()) // flipendo: HP1 anim channels/tweening (kw/Anim)
++	if (engine->LaunchInfo.IsKnowWonder()) // HP1 anim channels/tweening (kw/Anim)
 +	{
 +		KW::TickAnimation(this, elapsed);
 +		return;
@@ -120,21 +120,21 @@ index aceba9af..236654d4 100644
  	{
  		if (!IsAnimating() || AnimFrame() >= AnimLast())
 diff --git a/SurrealEngine/Packages/Engine/Resources/Mesh/UAnimation.cpp b/SurrealEngine/Packages/Engine/Resources/Mesh/UAnimation.cpp
-index 53982dc0..55e9818e 100644
+index 53982dc0..32167c9d 100644
 --- a/SurrealEngine/Packages/Engine/Resources/Mesh/UAnimation.cpp
 +++ b/SurrealEngine/Packages/Engine/Resources/Mesh/UAnimation.cpp
 @@ -2,12 +2,19 @@
  #include "Precomp.h"
  #include "UAnimation.h"
  #include "Engine.h"
-+#include "KW.h" // flipendo
++#include "KW.h"
  
  void UAnimation::Load(ObjectStream* stream)
  {
  	UObject::Load(stream);
  
 -	if (engine->LaunchInfo.IsHarryPotter1() || engine->LaunchInfo.IsHarryPotter2())
-+	if (engine->LaunchInfo.IsKnowWonder()) // flipendo: HP1 animation format (kw/Anim)
++	if (engine->LaunchInfo.IsKnowWonder()) // HP1 animation format (kw/Anim)
 +	{
 +		KW::LoadAnimation(this, stream);
 +		return;

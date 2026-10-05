@@ -74,8 +74,9 @@ change, also HP1-only work: code written for HP1 today is the code HP2 runs tomo
   `not exported: sub_XXXXXXXX [HP1 0xXXXXXXXX]` plus how to find it again (exported caller/callee, string,
   xref). If the code was not reversed (written from script comments or stock UE1 behaviour), say so in
   the tag ("NOT yet verified against ..."). Add the tag in the same change that adds the function.
-- **Mark every change under `engine/` with a `flipendo:` comment** (zlib licence requires altered
-  source to be marked). Gate hooks into `kw/` behind `engine->LaunchInfo.IsKnowWonder()` (HP1 only for now; HP2
+- **No `flipendo:` markers in engine code.** Our engine changes exist only as `patches/*.patch`, each headed
+  `flipendo: ...` (from `patches/routes.txt`); that marks the altered source as the zlib licence requires. Comments in
+  engine changes explain the code like any other comment. Gate hooks into `kw/` behind `engine->LaunchInfo.IsKnowWonder()` (HP1 only for now; HP2
   joins when its differences are handled, `docs/re/reports/hp2_compare.md`), HP1-only behaviour behind
   `IsHarryPotter1()` and HP2-only behaviour behind `IsHarryPotter2()`, so other UE1 games keep working. Fixes to SurrealEngine bugs that affect every game go
   ungated in `patches/0010-engine-fixes.patch` (`patches/routes.txt` assigns files to patches).
@@ -176,7 +177,7 @@ Each file has one job; keep them apart:
      `OverrideNative(index, [] { RegisterVMNativeFunc_<argc>("Class", "Name", &Fn, index); })`
      (SurrealEngine may already have a stub at that index);
    - HP-only Actor properties: accessors in `kw/KWActor.h` (offsets looked up by name);
-   - only if there's no other way, a gated `flipendo:` hook in an engine file, added to `docs/engine-hooks.md`;
+   - only if there's no other way, a gated hook in an engine file, added to `docs/engine-hooks.md`;
    - the `// IDA <dll>: <decorated name> [HP1 0x...]` tag above every reimplemented function (see Rules).
 5. Rebuild, `tools/run_hp1.sh 60`, check the `Unimplemented:` summary, rerun the audit (and `tools/dll_report.py`).
 

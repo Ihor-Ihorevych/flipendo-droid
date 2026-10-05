@@ -1,7 +1,7 @@
 flipendo: only recenter the mouse cursor, and only act on raw mouse/keyboard input, while the game window is the active (foreground) window
 
 diff --git a/SurrealWidgets/src/window/win32/win32_display_window.cpp b/SurrealWidgets/src/window/win32/win32_display_window.cpp
-index 03451a7d..4d5bff50 100644
+index 03451a7d..02a45be5 100644
 --- a/SurrealWidgets/src/window/win32/win32_display_window.cpp
 +++ b/SurrealWidgets/src/window/win32/win32_display_window.cpp
 @@ -723,7 +723,9 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
@@ -9,7 +9,7 @@ index 03451a7d..4d5bff50 100644
  	if (msg == WM_INPUT)
  	{
 -		bool hasFocus = GetFocus() == WindowHandle.hwnd;
-+		// flipendo: raw input is registered with RIDEV_INPUTSINK, so it also arrives while another application is in front;
++		// raw input is registered with RIDEV_INPUTSINK, so it also arrives while another application is in front;
 +		// only act on it while we are the foreground window (mouse moves turned the camera in the background)
 +		bool hasFocus = GetForegroundWindow() == WindowHandle.hwnd && GetFocus() == WindowHandle.hwnd;
  
@@ -20,7 +20,7 @@ index 03451a7d..4d5bff50 100644
  	else if (msg == WM_MOUSEMOVE)
  	{
 -		if (MouseLocked && GetFocus() != 0)
-+		// flipendo: only pull the cursor to the center while we are the active window
++		// only pull the cursor to the center while we are the active window
 +		if (MouseLocked && GetForegroundWindow() == WindowHandle.hwnd && GetFocus() == WindowHandle.hwnd)
  		{
  			RECT box = {};
