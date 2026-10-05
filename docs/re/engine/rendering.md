@@ -90,6 +90,10 @@ mirrored mover face that faces the view, drawn from the camera reflected in the 
 room behind the mover isn't reflected); the face then only fills the depth buffer. The reflection also leaves out
 actors wholly behind the mirror's plane: the clipper only culls BSP surfaces by it and the GPU doesn't clip, so the
 mirror's own mover (its back face nearest the reflected camera) covered the whole reflection with its stone texture.
+That cull keeps whatever crosses the plane, drawn whole: with Harry close to the mirror, the walls around it covered
+most of the reflection. The reflection's frame now gives the render device the mirror's plane as its clip plane
+(`NearClip`, which the D3D11 and Vulkan shaders already clip every vertex by), so only what is in front of the mirror
+is drawn. The OpenGL device has that clip commented out.
 
 ## HP1 and HP2
 
