@@ -26,6 +26,8 @@ the wand picks the spell from the target, `baseWand.ChooseSpell`):
 - **Quest items**: the flute (Lev2_fire1), dittany, moly and wiggentree bark (Lev3_Dungeon), flobberworm mucus
   (Lev3_DungeonB). No script reads them; saves carry them.
 - Health and life potions are a new game's (full).
+- **Save slot** 0, or `--slot=<0-5>`, selected as New Game does (`FESlotPage.SetSelectedSlot`), so the save books
+  write a slot the Load page lists. Without a slot every save goes to slot 99, which the page never shows.
 
 The counts come from the maps' actors (`tools/uelib_dump props`). A save made in the level before is still the way
 to test with an exact state.
@@ -34,8 +36,8 @@ to test with an exact state.
 |---|---|---|---|---|
 | 01 | `Lev_Tut1` | Hogwarts Main Entrance (also 02 Defence Against the Dark Arts Class) | yes | Loading a save here once logged `Tut1McGonagall4 fell out of the world` (2026-10-05, not looked into yet) |
 | 03 | `Lev_Tut1b` | Flipendo Challenge | yes | |
-| 04 | `Lev_Tut2` | Flying Lesson | yes | Played from `--url` (replay mode); the story version (`--level`) and its exit to Lev_Tut3 are untested. After Quit from the pause book the main menu seemed to show only Exit; not reproduced (pause book → main page shows all four buttons, 2026-10-05) |
-| 05 | `Lev_Tut3` | Wingardium Leviosa Lesson (also 06 Challenge) | no | |
+| 04 | `Lev_Tut2` | Flying Lesson | yes | Story version (`--level`) played by hand to the end (2026-10-05), exits to Lev_Tut3. Its intro crashed once Harry's broom loop faded below zero volume (fixed: Galaxy plays a negative volume silent). After Quit from the pause book the main menu seemed to show only Exit; not reproduced (pause book → main page shows all four buttons, 2026-10-05) |
+| 05 | `Lev_Tut3` | Wingardium Leviosa Lesson (also 06 Challenge) | in progress | Entered from Lev_Tut2 (2026-10-05). The save at the level start and the first save book both write slot 99 (`Save99.usa`, `GameSaveInfo99`; the slot page's Load restores Harry at the book). Savepoint ID -1 is the original's too: `savepoint.Touch` destroys the book before saving, so `FindNearestSavePointID` can't find it. The Alohomora room's mirror (a mover) drew dark (fixed, [re/engine/rendering.md](re/engine/rendering.md)). The students CutScene6 sends to class after the third Alohomora door hang on a 16-unit step until CutMovingTo's timeout teleports them (open) |
 | 07 | `Lev_Tut3b` | Second Floor Landing | no | |
 | 08 | `Lev2_HogFront` | Hogwarts Grounds | no | |
 | 09 | `Lev2_Inc_A` | Herbology Class | no | |

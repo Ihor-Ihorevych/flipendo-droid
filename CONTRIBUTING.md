@@ -51,7 +51,7 @@ are welcome.
 |---|---|
 | `--autolaunch` | boot the first detected game, no launcher and no modal error boxes |
 | `--logfile=<path>` | stream the log to a file (survives crashes) |
-| `--level=<map>` | start in a level as a player reaches it in the story: story flow, earlier cards, average beans and house points ([docs/playtest.md](docs/playtest.md)); use this for playtesting |
+| `--level=<map>` | start in a level as a player reaches it in the story: story flow, earlier cards, average beans and house points, save slot 0 (`--slot=<0-5>` for another) ([docs/playtest.md](docs/playtest.md)); use this for playtesting |
 | `--url=<map>` | only load a level, with a new game's state and outside the story flow (the flying lesson and the Quidditch matches then run as their menu versions) |
 | `--skip-splash`, `--skip-intro`, `--vanilla` | as in the [README](README.md#launch-options) |
 

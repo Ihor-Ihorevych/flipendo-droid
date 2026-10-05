@@ -7,6 +7,7 @@
 #include "Utils/CommandLine.h"
 #include "Utils/Logger.h"
 #include "VM/ScriptCall.h"
+#include "KW.h"
 #include "Engine.h"
 #include <algorithm>
 #include <cmath>
@@ -24,6 +25,9 @@
 //   (they pay 5, 10 or 20, and 5 to 20). The other houses are set by baseHarry.AddHousePoints' rule at its average;
 // - the quest items picked up earlier (no script reads them, but saves carry them).
 // Applied once, to the first level, before Possess (where BroomHarry tells the referee whether it is in the story).
+// It also picks a save slot as New Game does (FESlotPage.SetSelectedSlot): --slot=<0-5>, slot 0 by default. Without one
+// every save (the save books') goes to slot 99, the scratch slot the menu never lists. The menu book is only created on
+// the console's first tick, so the slot is set from LevelStartTick.
 
 namespace HP1
 {
@@ -75,6 +79,8 @@ namespace HP1
 			{ "Snapes_Office",   {},              0,   0, 0,  0, {} },
 		};
 
+		int PendingSlot = -1; // the save slot --level selects once the menu book exists
+
 		bool SameMap(std::string a, std::string b)
 		{
 			auto lower = [](std::string s) {
@@ -96,6 +102,17 @@ namespace HP1
 		{
 			if (obj->HasProperty(name))
 				*static_cast<int*>(obj->GetProperty(name)) = value;
+		}
+	}
+
+	void LevelStartTick()
+	{
+		if (PendingSlot < 0)
+			return;
+		if (UObject* slotPage = KW::ObjectProperty(KW::ObjectProperty(engine->console, "MenuBook"), "SlotPage"))
+		{
+			CallEvent(slotPage, NameString("SetSelectedSlot"), { ExpressionValue::IntValue(PendingSlot) });
+			PendingSlot = -1;
 		}
 	}
 
@@ -122,6 +139,9 @@ namespace HP1
 
 		if (engine->console && engine->console->HasProperty("bInHubFlow"))
 			SetBool(engine->console, "bInHubFlow", true);
+
+		int slot = std::clamp(std::atoi(commandline->GetArg("", "--slot", "0").c_str()), 0, 5); // FESlotPage.NUM_SAVE_SLOTS
+		PendingSlot = slot;
 
 		int beansFound = 0, points = 0, spent = 0, cards = 0;
 		for (int i = 0; i < level; i++)
@@ -152,7 +172,7 @@ namespace HP1
 			SetInt(pawn, "numHousePointsRavenclaw", (int)(points * 0.8f));
 		}
 
-		LogMessage("--level " + map + ": in the story flow, " + std::to_string(cards) + " wizard cards, " + std::to_string(beans) +
+		LogMessage("--level " + map + ": in the story flow, save slot " + std::to_string(slot) + ", " + std::to_string(cards) + " wizard cards, " + std::to_string(beans) +
 			" beans, " + std::to_string(points) + " house points");
 	}
 }
