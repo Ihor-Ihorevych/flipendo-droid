@@ -25,6 +25,7 @@ A note that says "HP2 not checked" means exactly that: don't assume HP2 is the s
 | [scripting.md](engine/scripting.md) | the UnrealScript VM: HP2's bytecode tokens and DebugInfo, disable()/GotoState, latent calls on other actors |
 | [script_events.md](engine/script_events.md) | every script event the native code raises, and which ones SurrealEngine didn't |
 | [savegames.md](engine/savegames.md) | level saves, the save screen, GameSaveInfo, thumbnails, loading; HP1's and HP2's script flows |
+| [sound.md](engine/sound.md) | sound effects: PlaySound, who hears a sound (range, BSP occlusion), Galaxy's channels, volume falloff, pan, Doppler |
 | [music.md](engine/music.md) | songs: looping (bDontLoopSong), bSongFinished, the end of a song played once |
 | [gestures.md](engine/gestures.md) | the Gesture natives that score a drawn spell shape |
 | [textures.md](engine/textures.md) | Fire.dll procedural textures (IceTexture) |

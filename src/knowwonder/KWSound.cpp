@@ -5,6 +5,11 @@
 #include "Packages/Engine/Resources/USound.h"
 #include "Packages/Engine/Resources/UMusic.h"
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
+#include "Packages/Engine/Actors/Info/ULevelInfo.h"
+#include "Packages/Engine/Resources/Level/ULevel.h"
+#include "Packages/Engine/UViewport.h"
+#include "KWActor.h"
+#include "KWCheck.h"
 #include "Packages/Core/UClass.h"
 #include "Package/PackageManager.h"
 #include "Audio/AudioSource.h"
@@ -15,6 +20,8 @@
 #include "VM/NativeFunc.h"
 #include "Engine.h"
 
+// Actor.PlaySound: the sound reaches the audio device only through the players that hear it (CheckHearSound,
+// ClientHearSound), each with its own distance and BSP occlusion test.
 // Actor.ModifySound / Actor.StopSound: change or stop a playing sound by slot (and optionally by sound).
 // BroomHarry.UpdateBroomSound fades the broom loop with ModifySound(SOUND_Volume, ...) every tick.
 
@@ -26,6 +33,85 @@ namespace KW
 	static int SoundId(UActor* actor, uint8_t slot)
 	{
 		return ((((int)(ptrdiff_t)actor) & 0xffffff) << 4) + (slot << 1);
+	}
+
+	// IDA Engine.dll: ?execClientHearSound@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x10407F30]
+	// Only a PlayerPawn with a local viewport plays it. Parameters = (Volume * 100, Radius, Pitch * 100), a zero
+	// radius plays at 1600. A sound of an actor being destroyed plays unattached (at SoundLocation).
+	static void ClientHearSound(UPawn* hearer, UActor* actor, int id, USound* sound, const vec3& soundLocation, const vec3& parameters)
+	{
+		UPlayerPawn* player = UObject::TryCast<UPlayerPawn>(hearer);
+		if (!player || !UObject::TryCast<UViewport>(player->Player()) || !engine->audiodev)
+			return;
+		if (actor && actor->bDeleteMe())
+			actor = nullptr;
+		float radius = parameters.y != 0.0f ? parameters.y : 1600.0f;
+		engine->audiodev->PlaySound(actor, id, sound, soundLocation, parameters.x * 0.01f, radius, parameters.z * 0.01f, (id & 14) == SLOT_Talk * 2);
+	}
+
+	static void NClientHearSound(UObject* Self, UObject* Actor, int Id, UObject* S, const vec3& SoundLocation, const vec3& Parameters)
+	{
+		ClientHearSound(UObject::Cast<UPawn>(Self), UObject::TryCast<UActor>(Actor), Id, UObject::TryCast<USound>(S), SoundLocation, Parameters);
+	}
+
+	// IDA Engine.dll: ?CheckHearSound@AActor@@QAEXPAVAPawn@@HPAVUSound@@VFVector@@M@Z [HP1 0x1040AB90]
+	// A player hears from its ViewTarget (Harry's camera) when it has one. Within 1/1.3 of the radius squared
+	// (0.877 radius) a sound with a clear BSP line plays as it is; through BSP it plays at 0.35 volume and only
+	// within 0.6 of that range squared (0.679 radius), unless the hearer is the sound's Instigator.
+	// The original raises the ClientHearSound event; Pawn.ClientHearSound is a native event no script overrides,
+	// so its body is called directly.
+	static void CheckHearSound(UActor* source, UPawn* hearer, int id, USound* sound, vec3 parameters, float radiusSquared)
+	{
+		UActor* listener = hearer;
+		if (UPlayerPawn* player = UObject::TryCast<UPlayerPawn>(hearer))
+		{
+			if (player->ViewTarget())
+				listener = player->ViewTarget();
+		}
+
+		float range = radiusSquared * 0.76923078f;
+		vec3 d = listener->Location() - source->Location();
+		float distSquared = dot(d, d);
+		if (distSquared >= range)
+			return;
+
+		if (!ModelFastLineCheck(source->XLevel()->Model, listener->Location(), source->Location()))
+		{
+			if (source->Instigator() != hearer)
+				range *= 0.6f;
+			parameters.x *= 0.35f;
+			if (distSquared > range)
+				return;
+		}
+		ClientHearSound(hearer, source, id, sound, source->Location(), parameters);
+	}
+
+	// IDA Engine.dll: ?execPlaySound@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x1040B000]
+	// IDA Engine.dll: ?execPlayOwnedSound@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x1040B890]
+	// Every bIsPlayer pawn may hear it (CheckHearSound). The original asks the viewports instead on a network
+	// client or from a simulated function, and PlayOwnedSound leaves out a remote owner; in a standalone game
+	// both come to the same player. DemoPlaySound (demo recording) is left out.
+	// The Id is SoundId (the original packs the actor's object index the same way) plus bNoOverride in bit 0.
+	// TODO HP2: PlaySound gained Disable3D and Loop (ALAudio.dll, not reversed yet); HP1 passes neither.
+	void PlaySound(UActor* actor, USound* sound, uint8_t slot, float volume, bool noOverride, float radius, float pitch, bool disable3D, bool loop)
+	{
+		if (!sound)
+			return;
+		int id = SoundId(actor, slot) + (noOverride ? 1 : 0);
+		float playRadius = radius != 0.0f ? radius : 1600.0f;
+		vec3 parameters(volume * 100.0f, radius, pitch * 100.0f);
+		for (UPawn* pawn = actor->Level()->PawnList(); pawn; pawn = pawn->nextPawn())
+		{
+			if (pawn->bIsPlayer())
+				CheckHearSound(actor, pawn, id, sound, parameters, playRadius * playRadius);
+		}
+	}
+
+	static void NPlaySound(UObject* Self, UObject* Sound, std::optional<uint8_t> Slot, std::optional<float> Volume, std::optional<bool> bNoOverride, std::optional<float> Radius, std::optional<float> Pitch)
+	{
+		UActor* actor = UObject::Cast<UActor>(Self);
+		PlaySound(actor, UObject::TryCast<USound>(Sound), Slot.value_or(SLOT_Misc), Volume.value_or(actor->TransientSoundVolume()), bNoOverride.value_or(false),
+			Radius.value_or(actor->TransientSoundRadius()), Pitch.value_or(TransientSoundPitch(actor) / 64.0f), false, false);
 	}
 
 	// IDA Engine.dll: ?execModifySound@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x1040BF20]
@@ -264,6 +350,9 @@ namespace KW
 
 	void RegisterSoundNatives()
 	{
+		OverrideNative(264, [] { RegisterVMNativeFunc_6("Actor", "PlaySound", &NPlaySound, 264); });
+		RegisterVMNativeFunc_6("Actor", "PlayOwnedSound", &NPlaySound, 0);
+		RegisterVMNativeFunc_5("Pawn", "ClientHearSound", &NClientHearSound, 0);
 		OverrideNative(567, [] { RegisterVMNativeFunc_5("Actor", "ModifySound", &NModifySound, 567); });
 		OverrideNative(568, [] { RegisterVMNativeFunc_2("Actor", "StopSound", &NStopSound, 568); });
 	}

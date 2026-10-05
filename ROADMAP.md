@@ -246,7 +246,8 @@ channels) and particle effects.
       camera's side, the zone ambient fill isn't halved (only lights are), coronas follow HP1's DrawFrame rule
 - [~] SurrealEngine's guesses replaced with HP1's code, in this order
       ([docs/surrealengine-coverage.md](docs/surrealengine-coverage.md); move each row there from "Guess" to "HP1"):
-  - [ ] Sound: `PlaySound` and the Galaxy device (volume, radius, attenuation, pitch, panning, slots, ambient sounds)
+  - [~] Sound: `PlaySound` and the Galaxy device: hearing test, volumes, falloff, slots done; Galaxy's pan law and
+        ambient Doppler left ([docs/re/engine/sound.md](docs/re/engine/sound.md))
   - [ ] Vertex mesh lighting (props, non-skeletal meshes)
   - [ ] Sprites and decals (spell sprites, actor shadows)
   - [ ] `Spawn` and `Destroy` (placement when blocked, event order)
@@ -263,7 +264,7 @@ channels) and particle effects.
 - [x] `ViewFlash` (UGameEngine::Tick) and the screen flash: HP1 has no FlashScale, FlashFog.W is the brightness
       (`src/knowwonder/KWView.cpp`). Cutscene FadeIn/FadeOut, damage flashes and the level fade-in now show
 - [~] Quidditch / broom levels: Lev_Tut2, Lev2_Quid1, Lev2_RemChase, Lev5_FlyKeys load and run their intros
-- [ ] Full game playthrough; per-level bug list
+- [ ] Full game playthrough; per-level bug list ([docs/playtest.md](docs/playtest.md): played up to Lev_Tut2)
 - [ ] `Actor.Fatness`: not ported; only matters if a map or script changes it from 128
       ([docs/re/engine/animation.md](docs/re/engine/animation.md))
 - [ ] US vs UK HP1: compare `HPBase.u` from both releases for a shifted token table

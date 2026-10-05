@@ -1,10 +1,63 @@
-flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files, packages, crash reports, music streaming, BSP regions
+flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files, packages, crash reports, music streaming (and an optional linear sound falloff, off unless a game asks), BSP regions
 
 diff --git a/SurrealEngine/Audio/AudioDevice.cpp b/SurrealEngine/Audio/AudioDevice.cpp
-index 03e82566..5ffb304d 100644
+index 03e82566..89c4363b 100644
 --- a/SurrealEngine/Audio/AudioDevice.cpp
 +++ b/SurrealEngine/Audio/AudioDevice.cpp
-@@ -508,8 +508,11 @@ public:
+@@ -88,7 +88,7 @@ public:
+ 		{
+ 			radius = newRadius;
+ 			alSourcef(id, AL_MAX_DISTANCE, radius);
+-			alSourcef(id, AL_REFERENCE_DISTANCE, 0.1f * radius);
++			alSourcef(id, AL_REFERENCE_DISTANCE, linearFalloff ? 0.0f : 0.1f * radius);
+ 		}
+ 	}
+ 
+@@ -131,7 +131,21 @@ public:
+ 		{
+ 			volume = newVolume;
+ 			alSourcef(id, AL_GAIN, volume * globalVolume);
+-			alSourcef(id, AL_MAX_GAIN, volume * globalVolume);
++			alSourcef(id, AL_MAX_GAIN, linearFalloff ? globalVolume : volume * globalVolume);
++		}
++	}
++
++	// Linear falloff: the volume falls in a straight line from the source to the radius, and the volume times
++	// the falloff is capped at full volume (a loud sound stays at full volume further out). Otherwise the
++	// sound plays at its volume within a tenth of the radius and fades out a little before the radius.
++	void SetLinearFalloff(bool enable)
++	{
++		if (linearFalloff != enable)
++		{
++			linearFalloff = enable;
++			alSourcef(id, AL_ROLLOFF_FACTOR, linearFalloff ? 1.0f : 1.1f);
++			radius = -1.0f; // applied again by the next SetRadius and SetVolume
++			volume = -1.0f;
+ 		}
+ 	}
+ 
+@@ -173,6 +187,7 @@ private:
+ 	float pitch = 0.0f;
+ 	float dopplerFactor = 0.0f;
+ 	bool bIs3d = false;
++	bool linearFalloff = false;
+ };
+ 
+ // TODO list:
+@@ -451,6 +466,12 @@ public:
+ 		alSourcef(alMusicSource, AL_GAIN, volume);
+ 	}
+ 
++	void SetLinearFalloff(bool enable) override
++	{
++		for (auto& soundSource : sources)
++			soundSource.SetLinearFalloff(enable);
++	}
++
+ 	void SetSoundVolume(float volume) override
+ 	{
+ 		globalSoundVolume = volume;
+@@ -508,8 +529,11 @@ public:
  				while (musicQueue.Size() < musicBufferCount)
  				{
  					// render a chunk of music
@@ -18,6 +71,17 @@ index 03e82566..5ffb304d 100644
  				}
  
  				if (!musicPlaying)
+diff --git a/SurrealEngine/Audio/AudioDevice.h b/SurrealEngine/Audio/AudioDevice.h
+index d201523d..1b395a9d 100644
+--- a/SurrealEngine/Audio/AudioDevice.h
++++ b/SurrealEngine/Audio/AudioDevice.h
+@@ -27,5 +27,6 @@ public:
+ 	virtual void StopSound(int channel) = 0;
+ 	virtual void SetMusicVolume(float volume) = 0;
+ 	virtual void SetSoundVolume(float volume) = 0;
++	virtual void SetLinearFalloff(bool enable) { } // see ALSoundSource::SetLinearFalloff
+ 	virtual void Update() = 0;
+ };
 diff --git a/SurrealEngine/Native/NObject.cpp b/SurrealEngine/Native/NObject.cpp
 index 1081c358..f866bb72 100644
 --- a/SurrealEngine/Native/NObject.cpp

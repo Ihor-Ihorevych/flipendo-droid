@@ -116,11 +116,12 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Packages/Engine/Resources/Textures/UIceTexture.cpp` | `HP1::UpdateIceTexture` (Fire.dll IceTexture) in `UpdateFrame` |
 | `UI/ErrorWindow/ErrorWindow.cpp` | the crash reporter also writes the exception and symbolized call stack to `<dump>.txt` |
 | `Packages/Engine/Actors/UActor_Phys.cpp` | an InterpolationManager runs `HP1::InterpolationManagerPhysics` instead of the physics modes |
-| `Packages/Engine/Subsystems/USurrealAudioDevice.cpp/.h` | `ModifySoundHP1` / `StopSoundHP1` (Galaxy.dll's slot + sound match) |
+| `Packages/Engine/Subsystems/USurrealAudioDevice.cpp/.h` | `ModifySoundHP1` / `StopSoundHP1` (Galaxy.dll's slot + sound match, volume stored as given); `InitDevice` turns on the device's linear falloff and `PlaySound` keeps volume and radius as given (Galaxy's; `KW::PlaySound` already made a zero radius 1600) |
 | `Packages/Core/Properties/UStructProperty.cpp` | struct members that are fixed arrays load/save every element |
 | `Packages/Engine/Actors/UActor_PhysTrailer.cpp` | `HP1::PhysTrailer` (AnimBone attachment, HP1's rotation rules) |
 | `Packages/Engine/Actors/UActor_Phys.cpp` (TryMove) | `KW::IsBlockedBy` decides blocked (Bump) vs touched (movers stop bCollideWorld actors: a spell bumps a GridMover) |
 | `Packages/Engine/Actors/UActor_PhysProjectile.cpp` | HitWall also for blocking actors (HP1 physProjectile), so a spell explodes on the mover it bumped |
+| `Audio/AudioDevice.cpp/.h` | `SetLinearFalloff` (off unless a game asks): volume `min(Volume * (1 - d/R), 1)`, OpenAL reference distance 0, rolloff 1, max gain full volume |
 | `Audio/AudioDevice.cpp` | ungated fix: the music thread fills the rest of a buffer with silence when the stream ends (it replayed a stale chunk, a stuck ~1 s loop) |
 | `Packages/Engine/Actors/UActor_Touch.cpp` | `KW::BeginTouch` in `Touch` (one side at a time, the trigger is told even when the spell destroyed itself) |
 | `Render/VisibleMesh.cpp` | weapon on a skeletal pawn: `HP1::PawnWeaponFrame` (WeaponLoc/WeaponRot) + `Begin/EndWeaponDraw` around the weapon draw |
