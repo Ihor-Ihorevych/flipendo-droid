@@ -427,7 +427,7 @@ namespace KW
 				{
 					vec3 cur = model->Points[model->Vertices[node.VertPool + i].Vertex];
 					vec3 edge = cur - prev;
-					vec3 edgeNormal(edge.y * planeNormal.z - edge.z * planeNormal.y, edge.z * planeNormal.x - edge.x * planeNormal.z, edge.x * planeNormal.y - edge.y * planeNormal.x);
+					vec3 edgeNormal = cross(planeNormal, edge); // not cross(edge, planeNormal): that rejects points inside
 					float len2 = dot(edgeNormal, edgeNormal);
 					if (len2 >= 0.0000000099999999f)
 						edgeNormal = edgeNormal * (1.0f / std::sqrt(len2));

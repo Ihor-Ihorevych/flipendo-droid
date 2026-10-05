@@ -10,17 +10,11 @@ The native-level checklist is [docs/re/reports/native_audit_hp1.md](docs/re/repo
 Legend: [x] done · [~] partly done / in progress · [ ] not started
 
 ## Next up (in order)
-1. **Lev_Tut1b, the Flipendo challenge**: the Flipendo lesson in Lev_Tut1 was played by hand (2026-10-04) through all
-   4 rounds (scored, house points), CutScene60 and the level change. In Lev_Tut1b the barrels, cauldrons and the wall
-   symbol react to Flipendo; the symbol did nothing until touch was ported (a spell destroyed in its own Touch still
-   touches the trigger, `src/knowwonder/KWTouch.cpp`). Played by hand 2026-10-05 up to the block puzzle; fixed there: the
-   block moves on Flipendo (movers block spells and get bumped), the blue save screen, music loops and ends like
-   the original (no stuck loop at a song's end). 2026-10-05, also fixed: the pushed block's sides can be grabbed (mover
-   polygons keep their mountable flag), the portcullis by Nick is lit and see-through; the bars in front of challenge
-   stars are see-through while they rise (a mover takes its texture's masked flag), the tall block in the optional room
-   drops into its hole (HP1's mover physics: blocks fall and collide with the world). The block puzzle fixes (Flipendo
-   pushing the block, grabbing its sides) are not played by hand yet. Next: play Lev_Tut1b by hand from the block
-   puzzle on.
+1. **Lev_Tut1b, the Flipendo challenge**: played by hand through to the end (2026-10-05): the block puzzle, the
+   optional room's tall block (it drops into its hole and Harry climbs from it to the challenge star) and the level
+   change to Lev_Tut2, the Quidditch lesson. Fixed on the way: wall symbol and barrels react to Flipendo, blocks move
+   on Flipendo, fall into holes and can be grabbed, the blue save screen, music loops, lit and see-through bars and
+   portcullis, ledge grabbing (a point-in-polygon sign error rejected walls Harry was facing). Next: Lev_Tut2 by hand.
 2. **HP1's physics, ported whole** (2026-10-05, in progress): collision (BSP box/ray/point checks, actor primitives,
    level checks), moving actors (MoveActor, FarMoveActor, FindSpot, encroachment, zones, touch) and the movement natives
    run HP1's code; so do walking, falling, flying, swimming, projectiles, rolling, landing, rotation and TraceActors.

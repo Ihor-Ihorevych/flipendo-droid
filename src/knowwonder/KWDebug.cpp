@@ -366,6 +366,24 @@ namespace KW
 				char buf[400];
 				snprintf(buf, sizeof(buf), "HP1 sweep line: %s time=%.4f loc=(%.2f,%.2f,%.2f) normal=(%.3f,%.3f,%.3f) item=%d", clear ? "clear" : "hit", hit.Time, hit.Location.x, hit.Location.y, hit.Location.z, hit.Normal.x, hit.Normal.y, hit.Normal.z, hit.Item);
 				LogMessage(buf);
+				// The hit node's coplanar chain: each polygon's surface flags (0x1000 = mountable)
+				UModel* model = engine->Level->Model;
+				for (int index = clear ? -1 : hit.Item, n = 0; index >= 0 && index < (int)model->Nodes.size() && n < 32; n++)
+				{
+					const BspNode& node = model->Nodes[index];
+					uint32_t flags = node.Surf >= 0 ? model->Surfaces[node.Surf].PolyFlags : 0;
+					snprintf(buf, sizeof(buf), "HP1 sweep node %d: verts=%d surf=%d flags=0x%08x plane=(%.3f,%.3f,%.3f,%.1f)", index, (int)node.NumVertices, node.Surf, flags, node.PlaneX, node.PlaneY, node.PlaneZ, node.PlaneW);
+					LogMessage(buf);
+					for (int i = 0; i < node.NumVertices; i++)
+					{
+						vec3 p = model->Points[model->Vertices[node.VertPool + i].Vertex];
+						snprintf(buf, sizeof(buf), "HP1 sweep node %d vertex %d: (%.1f,%.1f,%.1f)", index, i, p.x, p.y, p.z);
+						LogMessage(buf);
+					}
+					if (node.Plane == index)
+						break;
+					index = node.Plane;
+				}
 				for (const vec3& p : { start, end })
 				{
 					CheckResult ph;
