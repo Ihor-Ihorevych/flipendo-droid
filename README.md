@@ -128,6 +128,7 @@ switched on, and `--vanilla` switches all of them off.
 | Cutscene skip | on | "Press Space to skip" during cutscenes |
 | Storybook skip | on | "Press Space to skip" in storybooks (New Game intro, chapter interludes) |
 | Fast forward | on | hold Shift to play 2.5x as fast |
+| 60 FPS cap | on | the game runs at most 60 frames a second, as the original was played (some of its movement goes wrong at high frame rates); `--fps=<n>` for another limit, `--fps=0` for none |
 | Launch skips | off | `--skip-splash`, `--skip-intro` |
 
 **Coming:** an in-game *Extras* page to switch these on and off, FOV slider, uncapped framerate, controller support,

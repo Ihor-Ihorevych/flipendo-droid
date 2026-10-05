@@ -8,6 +8,7 @@ HP2's bugs will get their own list in `../hp2/` once HP2 runs.
 | Where | Bug | Workaround in the original | Fix |
 |---|---|---|---|
 | Lumos lesson (Lev3_Lumos, the octagonal room) | A platform can stay too low after breaking nearby vases, leaving a gap Harry can't jump. | Type `Harry debug mode on`, then `Harry super jump` to cross the gap. Players also report that capping the original at 60 FPS (or 60 Hz with VSync) avoids it. | not reproduced in Flipendo (see below) |
+| High frame rates, e.g. Lev_Tut3 (the students CutScene6 sends to class after the third Alohomora door) | Above ~110 fps the students stop at the foot of a ramp (-3400,-9740) until `CutMovingTo`'s timeout teleports them. `baseChar.CutMovingTo.Tick` moves them each frame by `MoveSmooth` up 15, `GroundSpeed * DeltaTime` forward, down 15; the drop lands on the slope and `moveSmooth` (HP1's, ported exactly) slides them back ~1.8 units, a fixed amount per frame, while the forward step shrinks with the frame time (200 u/s: 3.3 units at 60 fps). Every cutscene walk over a slope has it. | cap at 60 fps | `src/hp1/mods/FrameLimit.cpp`: 60 fps by default |
 | Every Flipendo hit (`baseSpell.SpawnHitEffects`) | `spellFlip` sets no `reactParticleEffectClass`, so the spawn returns None and the next two lines log `Accessed None`. Harmless: the hit effect plays and the spell lands. | none needed | none (log noise only) |
 
 ### Not checked

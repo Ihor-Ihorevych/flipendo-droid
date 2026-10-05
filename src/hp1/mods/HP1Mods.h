@@ -37,6 +37,9 @@ namespace HP1::Mods
 	// DiscordPresence.cpp
 	void TickDiscordPresence(float realElapsed);
 
+	// FrameLimit.cpp
+	void TickFrameLimit();
+
 	// FastForward.cpp
 	float FastForwardTimeScale();
 }
