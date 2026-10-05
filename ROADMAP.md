@@ -23,8 +23,9 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
    puzzle on.
 2. **HP1's physics, ported whole** (2026-10-05, in progress): collision (BSP box/ray/point checks, actor primitives,
    level checks), moving actors (MoveActor, FarMoveActor, FindSpot, encroachment, zones, touch) and the movement natives
-   run HP1's code; walking, falling, landing and rotation too. Still SurrealEngine's: flying, swimming, spider,
-   projectile, rolling, and AI reachability (walkReachable etc.). `FLIPENDO_SE_PHYSICS=1` switches back to compare.
+   run HP1's code; so do walking, falling, flying, swimming, projectiles, rolling, landing, rotation and TraceActors.
+   Still SurrealEngine's: spider physics (unused by HP1), sight (LineOfSightTo/CanSee) and AI reachability
+   (walkReachable etc., unused by HP1's scripts). `FLIPENDO_SE_PHYSICS=1` switches back to compare.
 3. Broom / Quidditch levels now load and their paths fly (see phase 5). Lev4_Sneak runs: a `goto` to a missing label
    (gargoyle.lookaround's `lcloop`) now stops the state code like UE1 instead of a fatal error.
 4. **Dark levels**: HP1's light maps are ported (phase 5); the Quidditch pitch is lit like the original. Still to look

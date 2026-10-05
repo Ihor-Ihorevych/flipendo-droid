@@ -23,8 +23,8 @@ SurrealEngine's back, to compare). Layers, each on the one below:
 - collision checks ([collision.md](collision.md#bsp-checks)): `KWBspCheck.cpp`, `KWLevelCheck.cpp`;
 - moving actors (below): `KWMove.cpp`, and the natives that move or trace (`KWMoveNatives.cpp`: Move, MoveSmooth,
   SetLocation, SetRotation, Trace, FastTrace, AutonomousPhysics, SetBase, IsOverlapping, SetPhysics);
-- physics modes: `KWPhysics.cpp`. Walking, falling, rotation, landing and hit-wall are ported; flying, swimming,
-  spider, projectile and rolling still run SurrealEngine's code for now.
+- physics modes: `KWPhysics.cpp`: walking, falling, flying, swimming, projectile, rolling, rotation, landing, hit-wall.
+  Spider physics keeps SurrealEngine's code: no HP1 script uses PHYS_Spider.
 
 `AActor::Tick` (0x103B3840) calls `performPhysics` once per tick with the whole frame time, after the script Tick,
 latent code, Timer and LifeSpan, and only when Physics isn't PHYS_None and Role isn't ROLE_AutonomousProxy. The modes
@@ -115,6 +115,25 @@ DesiredSpeed; a walking player slows towards 30% of it. ZoneVelocity x25 (a play
 The ledge grab (`APawn::Mount` 0x103EBFB0) finds the wall's surface from the hit's node (`Item`) along its coplanar chain
 (`sub_103FEBD0`: the polygon facing the hit that contains the hit point within the pawn's largest extent; a mover's hit
 taken into its brush's frame first).
+
+### Flying, swimming, projectiles, rolling
+
+- `physFlying` (0x103F13A0): only a flyer that collides with the world and isn't a player is destroyed outside it ("flew
+  out of the world"; Lev_Tut1's Peeves waits outside without bCollideWorld). calcVelocity with AirSpeed and fluid
+  friction, ZoneVelocity (a player only over 300), the move; a steep wall, or moving mostly up or down, slides along it
+  (HitWall, a second wall), anything else steps up.
+- `physSwimming` (0x103F20A0): a rise slows while the head is out of the water; calcVelocity with WaterSpeed, fluid
+  friction and buoyancy; `Swim` (0x103F1C10) moves and goes back to the water line (`findWaterLine` 0x103F1ED0 bisects
+  the zones along the move to a unit); out of the water: falling, with a hop (40 + 0.4 x horizontal speed).
+  `startSwimming` (0x103F0EA0): into the water back to the water line, the velocity averaged like falling (at most 4000),
+  a dive slowed to at least 80 down.
+- `physProjectile` (0x103F2AB0): up to 8 passes; velocity plus acceleration (water friction), capped at MaxSpeed,
+  moved by the **whole frame time**; a hit raises HitWall (the level's LevelInfo for the world); a bouncing projectile
+  goes on with the time left (twice). Destroyed outside the world.
+- `physRolling` (0x103F3040): walking without the AI: friction turns the velocity towards the acceleration, steps of
+  0.1 s, a probe 16 down for the floor (slopes slide it), losing it: Falling and physFalling.
+- `TraceActors` (0x1040DF50) lists every hit of MultiLineCheck by time, the level's LevelInfo included, **without a
+  class filter** (SurrealEngine filtered by BaseClass and left the level out); BaseCam, Target and Tut1Gnome use it.
 
 ### Pawn rotation (APawn::physicsRotation 0x103E5950)
 

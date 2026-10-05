@@ -303,6 +303,8 @@ namespace KW
 	void PhysWalking(UPawn* pawn, float deltaTime, int iterations);
 	void PhysFalling(UActor* actor, float deltaTime, int iterations);
 	static void StartSwimming(UPawn* pawn, const vec3& oldVelocity, float timeTick, float remainingTime, int iterations);
+	void PhysSwimming(UPawn* pawn, float deltaTime, int iterations);
+	static void StepUp(UPawn* pawn, const vec3& gravDir, const vec3& desiredDir, vec3 delta, CheckResult& hit);
 
 	// A decoration landing over an edge rolls off it (a ray below its centre finds nothing; four short cylinder traces
 	// under its corners pick the direction), at most 5 times in a row; a carcass on a slope slides now and then. A
@@ -1419,17 +1421,375 @@ namespace KW
 	}
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// Modes not ported yet: SurrealEngine's
+	// Flying, swimming, projectiles, rolling
 
-	void PhysFlying(UPawn* pawn, float deltaTime, int iterations)
+	static vec3 GravDir(UActor* actor)
 	{
-		pawn->TickFlying(deltaTime);
+		return vec3(0.0f, 0.0f, actor->Region().Zone->ZoneGravity().z > 0.0f ? 1.0f : -1.0f);
 	}
 
+	// A hit while flying or swimming: a steep wall, or moving mostly up or down, slides along it (HitWall, a second wall);
+	// otherwise it steps up like walking. Returns the time the slides used up (for swimming).
+	template<typename MoveFunc>
+	static void SlideOrStepUp(UPawn* pawn, const vec3& adjusted, CheckResult& hit, MoveFunc move)
+	{
+		vec3 gravDir = GravDir(pawn);
+		vec3 desiredDir = SafeNormal(adjusted);
+		float upDown = dot(gravDir, SafeNormal(pawn->Velocity()));
+		if (std::abs(hit.Normal.z) >= 0.2f || upDown >= 0.5f || upDown <= -0.2f)
+		{
+			ProcessHitWall(pawn, hit.Normal, hit.Actor);
+			if (pawn->bDeleteMe())
+				return;
+			vec3 oldHitNormal = hit.Normal;
+			vec3 delta = (adjusted - hit.Normal * dot(adjusted, hit.Normal)) * (1.0f - hit.Time);
+			if (dot(delta, adjusted) >= 0.0f)
+			{
+				move(delta);
+				if (hit.Time < 1.0f && !pawn->bDeleteMe())
+				{
+					ProcessHitWall(pawn, hit.Normal, hit.Actor);
+					if (pawn->bDeleteMe())
+						return;
+					TwoWallAdjust(desiredDir, delta, hit.Normal, oldHitNormal, hit.Time);
+					move(delta);
+				}
+			}
+		}
+		else
+		{
+			float z = pawn->Location().z;
+			StepUp(pawn, gravDir, desiredDir, adjusted * (1.0f - hit.Time), hit);
+			pawn->OldLocation().z += pawn->Location().z - z;
+		}
+	}
+
+	// calcVelocity with AirSpeed and fluid friction, ZoneVelocity (a player only over 300), the move; a hit slides or
+	// steps up. A flyer that collides with the world and isn't a player is destroyed outside it.
+	// IDA Engine.dll: ?physFlying@APawn@@QAEXMH@Z [HP1 0x103F13A0]
+	void PhysFlying(UPawn* pawn, float deltaTime, int iterations)
+	{
+		if (pawn->bCollideWorld() && pawn->Region().ZoneNumber == 0)
+		{
+			if (!pawn->bIsPlayer())
+			{
+				LogMessage(pawn->Name.ToString() + " flew out of the world!");
+				pawn->Destroy();
+			}
+			return;
+		}
+
+		vec3 accelDir = IsZero(pawn->Acceleration()) ? pawn->Acceleration() : SafeNormal(pawn->Acceleration());
+		CalcVelocity(pawn, accelDir, deltaTime, pawn->AirSpeed(), pawn->Region().Zone->ZoneFluidFriction(), true, false, false);
+		pawn->OldLocation() = pawn->Location();
+		pawn->bJustTeleported() = false;
+
+		UZoneInfo* zone = pawn->Region().Zone;
+		vec3 zoneVelocity = (IsPlayerPawn(pawn) && dot(zone->ZoneVelocity(), zone->ZoneVelocity()) <= 90000.0f) ? vec3(0.0f) : zone->ZoneVelocity();
+		vec3 adjusted = (pawn->Velocity() + zoneVelocity) * deltaTime;
+		CheckResult hit;
+		MoveBy(pawn, adjusted, hit);
+		if (pawn->bDeleteMe())
+			return;
+		if (hit.Time < 1.0f)
+			SlideOrStepUp(pawn, adjusted, hit, [&](const vec3& d) { MoveBy(pawn, d, hit); });
+		if (!pawn->bDeleteMe() && !pawn->bJustTeleported())
+			pawn->Velocity() = (pawn->Location() - pawn->OldLocation()) * (1.0f / deltaTime);
+	}
+
+	// The water line between start and end (bisected until they are within a unit): end moves to the last point
+	// on the same side (water or not) as the pawn's zone.
+	// IDA Engine.dll: ?findWaterLine@APawn@@QAEXVFVector@@AAV2@@Z [HP1 0x103F1ED0]
+	static void FindWaterLine(UPawn* pawn, vec3 start, vec3& end)
+	{
+		while (true)
+		{
+			vec3 d = start - end;
+			if (dot(d, d) < 1.0f)
+				return;
+			vec3 mid = (start + end) * 0.5f;
+			UZoneInfo* zone = engine->Level->Model->FindRegion(mid, engine->LevelInfo).Zone;
+			bool midWater = zone && zone->bWaterZone();
+			bool myWater = pawn->Region().Zone && pawn->Region().Zone->bWaterZone();
+			if (midWater == myWater)
+				end = mid;
+			else
+				start = mid;
+		}
+	}
+
+	// A swim move: out of the water, back to the water line. Returns the fraction of the move that was undone.
+	// IDA Engine.dll: ?Swim@APawn@@AAEMVFVector@@AAUFCheckResult@@@Z [HP1 0x103F1C10]
+	static float Swim(UPawn* pawn, const vec3& delta, CheckResult& hit)
+	{
+		vec3 start = pawn->Location();
+		float undone = 0.0f;
+		MoveBy(pawn, delta, hit);
+		if (pawn->bDeleteMe())
+			return 0.0f;
+		vec3 end = pawn->Location();
+		if (!pawn->Region().Zone->bWaterZone())
+		{
+			FindWaterLine(pawn, start, end);
+			if (end != pawn->Location())
+			{
+				undone = length(end - pawn->Location()) / length(delta);
+				MoveBy(pawn, end - pawn->Location(), hit);
+			}
+		}
+		return undone;
+	}
+
+	// The head out of the water slows a rise; calcVelocity with WaterSpeed, fluid friction and buoyancy; ZoneVelocity
+	// x25 (a player only over 300); Swim; a hit slides or steps up. Out of the water: falling, with a hop up.
+	// IDA Engine.dll: ?physSwimming@APawn@@QAEXMH@Z [HP1 0x103F20A0]
+	void PhysSwimming(UPawn* pawn, float deltaTime, int iterations)
+	{
+		UZoneInfo* head = pawn->HeadRegion().Zone;
+		if (head && !head->bWaterZone() && pawn->Velocity().z > 100.0f)
+			pawn->Velocity().z = (1.0f - deltaTime) * pawn->Velocity().z;
+		iterations++;
+		pawn->OldLocation() = pawn->Location();
+		pawn->bJustTeleported() = false;
+		vec3 accelDir = IsZero(pawn->Acceleration()) ? pawn->Acceleration() : SafeNormal(pawn->Acceleration());
+		CalcVelocity(pawn, accelDir, deltaTime, pawn->WaterSpeed(), pawn->Region().Zone->ZoneFluidFriction(), true, false, true);
+		float velocityZ = pawn->Velocity().z;
+
+		UZoneInfo* zone = pawn->Region().Zone;
+		vec3 zoneVelocity = (IsPlayerPawn(pawn) && dot(zone->ZoneVelocity(), zone->ZoneVelocity()) <= 90000.0f) ? vec3(0.0f) : zone->ZoneVelocity() * 25.0f * deltaTime;
+		vec3 adjusted = (pawn->Velocity() + zoneVelocity) * deltaTime;
+		CheckResult hit;
+		float remaining = Swim(pawn, adjusted, hit) * deltaTime;
+		if (pawn->bDeleteMe())
+			return;
+		if (hit.Time < 1.0f)
+		{
+			SlideOrStepUp(pawn, adjusted, hit, [&](const vec3& d)
+			{
+				float undone = Swim(pawn, d, hit);
+				remaining = (1.0f - hit.Time) * undone * remaining;
+			});
+		}
+		if (pawn->bDeleteMe())
+			return;
+
+		if (!pawn->bJustTeleported() && remaining < deltaTime)
+		{
+			bool keepZ = velocityZ != pawn->Velocity().z;
+			velocityZ = pawn->Velocity().z;
+			pawn->Velocity() = (pawn->Location() - pawn->OldLocation()) * (1.0f / (deltaTime - remaining));
+			if (keepZ)
+				pawn->Velocity().z = velocityZ;
+		}
+		if (!pawn->Region().Zone->bWaterZone())
+		{
+			if (pawn->Physics() == PHYS_Swimming)
+				SetPhysics(pawn, PHYS_Falling, nullptr);
+			if (pawn->Velocity().z < 160.0f && pawn->Velocity().z > 0.0f)
+			{
+				float speed2D = std::sqrt(pawn->Velocity().x * pawn->Velocity().x + pawn->Velocity().y * pawn->Velocity().y);
+				pawn->Velocity().z = speed2D * 0.40000001f + 40.0f;
+			}
+		}
+		if (remaining > 0.0099999998f)
+		{
+			if (pawn->Physics() == PHYS_Falling)
+				PhysFalling(pawn, remaining, iterations);
+			else if (pawn->Physics() == PHYS_Flying)
+				PhysFlying(pawn, remaining, iterations);
+		}
+	}
+
+	// Into the water: back to the water line on the way in, the velocity from the way in (averaged like falling, capped
+	// at 4000), a dive slowed to at least 80 down, then physSwimming with the time left.
+	// IDA Engine.dll: ?startSwimming@APawn@@QAEXVFVector@@MMH@Z [HP1 0x103F0EA0]
 	static void StartSwimming(UPawn* pawn, const vec3& oldVelocity, float timeTick, float remainingTime, int iterations)
 	{
+		vec3 end = pawn->Location();
+		FindWaterLine(pawn, pawn->OldLocation(), end);
+		float waterTime = 0.0f;
+		if (end != pawn->Location())
+		{
+			waterTime = length(end - pawn->Location()) * timeTick / length(pawn->Location() - pawn->OldLocation());
+			remainingTime += waterTime;
+			CheckResult hit;
+			MoveBy(pawn, end - pawn->Location(), hit);
+		}
+		if (!pawn->bBounce() && !pawn->bJustTeleported())
+		{
+			pawn->Velocity() = (pawn->Location() - pawn->OldLocation()) * (1.0f / (timeTick - waterTime));
+			pawn->Velocity() = pawn->Velocity() * 2.0f - oldVelocity;
+			if (dot(pawn->Velocity(), pawn->Velocity()) > 16000000.0f)
+				pawn->Velocity() = SafeNormal(pawn->Velocity()) * 4000.0f;
+		}
+		if (pawn->Velocity().z > -160.0f && pawn->Velocity().z < 0.0f)
+		{
+			float speed2D = std::sqrt(pawn->Velocity().x * pawn->Velocity().x + pawn->Velocity().y * pawn->Velocity().y);
+			pawn->Velocity().z = -80.0f - speed2D * 0.69999999f;
+		}
 		if (remainingTime > 0.0099999998f)
-			pawn->TickSwimming(remainingTime);
+			PhysSwimming(pawn, remainingTime, iterations);
+	}
+
+	// Velocity + acceleration (water friction), capped at MaxSpeed, moved with the whole frame time; a hit raises
+	// HitWall (with the level actor for the world); a bouncing projectile goes on with the time left (twice at most).
+	// Outside the world it is destroyed.
+	// IDA Engine.dll: ?physProjectile@AActor@@QAEXMH@Z [HP1 0x103F2AB0]
+	static void PhysProjectile(UActor* actor, float deltaTime, int iterations)
+	{
+		if (actor->Region().ZoneNumber == 0)
+		{
+			actor->Destroy();
+			return;
+		}
+		actor->OldLocation() = actor->Location();
+		actor->bJustTeleported() = false;
+		float remaining = deltaTime;
+		int bounces = 0;
+		while (remaining > 0.0f && iterations < 8)
+		{
+			iterations++;
+			UZoneInfo* zone = actor->Region().Zone;
+			if (zone->bWaterZone())
+				actor->Velocity() *= 1.0f - remaining * zone->ZoneFluidFriction() * 0.2f;
+			actor->Velocity() += actor->Acceleration() * remaining;
+			float step = remaining;
+			remaining = 0.0f;
+			if (UProjectile* projectile = UObject::TryCast<UProjectile>(actor))
+			{
+				float maxSpeed = projectile->MaxSpeed();
+				if (dot(actor->Velocity(), actor->Velocity()) > maxSpeed * maxSpeed)
+					actor->Velocity() = SafeNormal(actor->Velocity()) * maxSpeed;
+			}
+			CheckResult hit;
+			MoveBy(actor, actor->Velocity() * deltaTime, hit);
+			if (hit.Time < 1.0f && !actor->bDeleteMe() && !actor->bJustTeleported())
+			{
+				CallEvent(actor, EventName::HitWall, { ExpressionValue::VectorValue(hit.Normal), ExpressionValue::ObjectValue(hit.Actor) });
+				if (actor->bDeleteMe())
+					return;
+				if (actor->bBounce())
+				{
+					if (bounces < 2)
+						remaining = (1.0f - hit.Time) * step;
+					bounces++;
+					if (actor->Physics() == PHYS_Falling)
+						PhysFalling(actor, remaining, iterations);
+				}
+			}
+		}
+		if (!actor->bDeleteMe() && !actor->bBounce() && !actor->bJustTeleported())
+			actor->Velocity() = (actor->Location() - actor->OldLocation()) * (1.0f / deltaTime);
+	}
+
+	// Like walking without the AI: friction turns the velocity towards the acceleration, steps of at most 0.1 s, a
+	// probe 16 down for the floor (a slope slides it down); losing the floor: Falling, physFalling.
+	// IDA Engine.dll: ?physRolling@AActor@@QAEXMH@Z [HP1 0x103F3040]
+	static void PhysRolling(UActor* actor, float deltaTime, int iterations)
+	{
+		UZoneInfo* zone = actor->Region().Zone;
+		vec3& velocity = actor->Velocity();
+		float speed = length(velocity);
+		velocity -= (SafeNormal(velocity) - SafeNormal(actor->Acceleration())) * speed * deltaTime * zone->ZoneGroundFriction();
+		velocity = velocity * (1.0f - deltaTime * zone->ZoneFluidFriction()) + actor->Acceleration() * deltaTime;
+		vec3 desiredMove = velocity + zone->ZoneVelocity();
+		actor->OldLocation() = actor->Location();
+		actor->bJustTeleported() = false;
+		vec3 down = GravDir(actor) * 16.0f;
+		float remaining = deltaTime;
+		int bounces = 0;
+		CheckResult hit;
+		while (remaining > 0.0f && iterations < 8)
+		{
+			iterations++;
+			float timeTick = remaining <= 0.1f ? remaining : std::min(remaining * 0.5f, 0.1f);
+			remaining -= timeTick;
+			vec3 delta = desiredMove * timeTick;
+			vec3 stepStart = actor->Location();
+			if (std::abs(delta.x) >= 0.000099999997f || std::abs(delta.y) >= 0.000099999997f || std::abs(delta.z) >= 0.000099999997f)
+			{
+				MoveBy(actor, delta, hit);
+				if (actor->bDeleteMe())
+					return;
+				if (hit.Time < 1.0f)
+				{
+					CallEvent(actor, EventName::HitWall, { ExpressionValue::VectorValue(hit.Normal), ExpressionValue::ObjectValue(hit.Actor) });
+					if (actor->bDeleteMe())
+						return;
+					if (actor->bBounce())
+					{
+						if (bounces < 2)
+							remaining += (1.0f - hit.Time) * timeTick;
+						bounces++;
+					}
+					else
+					{
+						vec3 oldDelta = delta;
+						vec3 oldHitNormal = hit.Normal;
+						vec3 slide = (delta - hit.Normal * dot(delta, hit.Normal)) * (1.0f - hit.Time);
+						if (dot(slide, oldDelta) >= 0.0f)
+						{
+							MoveBy(actor, slide, hit);
+							if (hit.Time < 1.0f && !actor->bDeleteMe())
+							{
+								CallEvent(actor, EventName::HitWall, { ExpressionValue::VectorValue(hit.Normal), ExpressionValue::ObjectValue(hit.Actor) });
+								if (actor->bDeleteMe())
+									return;
+								TwoWallAdjust(SafeNormal(desiredMove), slide, hit.Normal, oldHitNormal, hit.Time);
+								MoveBy(actor, slide, hit);
+							}
+						}
+					}
+				}
+			}
+			if (actor->bDeleteMe())
+				return;
+
+			MoveBy(actor, down, hit);
+			float floorTime = hit.Time;
+			float floorZ = hit.Normal.z;
+			if (hit.Time < 1.0f && hit.Normal.z < 1.0f && hit.Normal.z * zone->ZoneGroundFriction() < 3.3f)
+			{
+				float friction = std::max(zone->ZoneGroundFriction(), 0.5f);
+				vec3 slide = zone->ZoneGravity() * deltaTime * (1.0f / (friction * 2.0f)) * deltaTime;
+				vec3 slideDelta = slide - hit.Normal * dot(slide, hit.Normal);
+				if (dot(slideDelta, slide) >= 0.0f)
+				{
+					MoveBy(actor, slideDelta, hit);
+					if (floorZ < hit.Normal.z)
+						floorZ = hit.Normal.z;
+				}
+			}
+			if (floorTime == 1.0f || floorZ < 0.69999999f)
+			{
+				MoveBy(actor, -down * floorTime, hit);
+				float len = length(delta);
+				vec3 moved = actor->Location() - stepStart;
+				float moved2D = std::sqrt(moved.x * moved.x + moved.y * moved.y);
+				remaining += (1.0f - std::min(moved2D / len, 1.0f)) * timeTick;
+				CallEvent(actor, EventName::Falling);
+				if (actor->bDeleteMe())
+					return;
+				if (actor->Physics() == PHYS_Rolling)
+					SetPhysics(actor, PHYS_Falling, nullptr);
+				if (actor->Physics() == PHYS_Falling)
+				{
+					if (!actor->bJustTeleported() && deltaTime > remaining)
+						actor->Velocity() = (actor->Location() - actor->OldLocation()) * (1.0f / (deltaTime - remaining));
+					actor->Velocity().z = 0.0f;
+					if (remaining > 0.0049999999f)
+						PhysFalling(actor, remaining, iterations);
+					return;
+				}
+				MoveBy(actor, desiredMove * remaining, hit);
+			}
+			else if (hit.Actor != actor->ActorBase())
+			{
+				actor->SetBase(hit.Actor, true);
+			}
+		}
+		if (!actor->bDeleteMe() && !actor->bJustTeleported())
+			actor->Velocity() = (actor->Location() - actor->OldLocation()) * (1.0f / deltaTime);
 	}
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1452,10 +1812,10 @@ namespace KW
 		{
 		case PHYS_Walking: if (pawn) PhysWalking(pawn, deltaTime, 0); break;
 		case PHYS_Falling: PhysFalling(actor, deltaTime, 0); break;
-		case PHYS_Swimming: if (pawn) actor->TickSwimming(deltaTime); break;
+		case PHYS_Swimming: if (pawn) PhysSwimming(pawn, deltaTime, 0); break;
 		case PHYS_Flying: if (pawn) PhysFlying(pawn, deltaTime, 0); break;
-		case PHYS_Projectile: actor->TickProjectile(deltaTime); break;
-		case PHYS_Rolling: actor->TickRolling(deltaTime); break;
+		case PHYS_Projectile: PhysProjectile(actor, deltaTime, 0); break;
+		case PHYS_Rolling: PhysRolling(actor, deltaTime, 0); break;
 		case PHYS_MovingBrush:
 			if (!pawn)
 			{

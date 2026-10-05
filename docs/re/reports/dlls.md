@@ -11,7 +11,7 @@ Details: [native_audit_hp1.md](native_audit_hp1.md), [native_audit_hp2.md](nativ
 | DLL | HP1 | HP2 | exports HP1 / HP2 | ported functions | provided by |
 |---|---|---|---|---|---|
 | [Core](#core) | 840 KB | 904 KB | 2046 / 2070 | 6 | SurrealEngine |
-| [Engine](#engine) | 2072 KB | 2092 KB | 2722 / 2784 | 182 | SurrealEngine + **src/knowwonder/** |
+| [Engine](#engine) | 2072 KB | 2092 KB | 2722 / 2784 | 190 | SurrealEngine + **src/knowwonder/** |
 | [Fire](#fire) | 104 KB | 104 KB | 133 / 133 | 7 | SurrealEngine + src/knowwonder/ (IceTexture) |
 | [Render](#render) | 288 KB | 296 KB | 93 / 94 | 5 | SurrealEngine + src/knowwonder/ (particles) |
 | [D3DDrv](#d3ddrv) | 216 KB | 216 KB | 392 / 392 | 0 | replaced (SurrealEngine render devices) |
@@ -65,7 +65,7 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 
 **HP2 script natives** (Engine.u): 102 OK, 24 HP1_PORT, 25 STUB, 3 MISSING, 1 INDEX, 4 OTHER_GAME.
 
-**Reimplemented in Flipendo** (182):
+**Reimplemented in Flipendo** (190):
 
 | function | where | HP2 |
 |---|---|---|
@@ -79,22 +79,22 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 | `AActor::IsBasedOn` | `src/knowwonder/KWMove.cpp:65` | offsets only |
 | `AActor::IsBlockedBy` | `src/knowwonder/KWCollision.cpp:437` | offsets only |
 | `AActor::IsOverlapping` | `src/knowwonder/KWMove.cpp:46` | missing |
-| `AActor::IsOverlapping` | `src/knowwonder/KWMoveNatives.cpp:88` | missing |
+| `AActor::IsOverlapping` | `src/knowwonder/KWMoveNatives.cpp:91` | missing |
 | `AActor::PlayAnim` | `src/knowwonder/Anim/KWAnimState.cpp:110` | changed |
 | `AActor::SetCollisionSize` | `src/knowwonder/KWCollision.cpp:245` | offsets only |
-| `AActor::Tick` | `src/knowwonder/KWPhysics.cpp:1509` | changed |
+| `AActor::Tick` | `src/knowwonder/KWPhysics.cpp:1869` | changed |
 | `AActor::Tick` | `src/knowwonder/Anim/KWAnimState.cpp:258` | changed |
 | `AActor::Tick` | `src/knowwonder/Anim/KWSkeletal.cpp:428` | changed |
 | `AActor::ToLocal` | `src/knowwonder/KWCollision.cpp:38` | offsets only |
 | `AActor::TwoWallAdjust` | `src/knowwonder/KWMove.cpp:468` | ? |
-| `AActor::execAutonomousPhysics` | `src/knowwonder/KWMoveNatives.cpp:72` | changed |
+| `AActor::execAutonomousPhysics` | `src/knowwonder/KWMoveNatives.cpp:75` | changed |
 | `AActor::execBoneName` | `src/knowwonder/Anim/KWAnimState.cpp:428` | changed |
 | `AActor::execBoneNumber` | `src/knowwonder/Anim/KWAnimState.cpp:421` | changed |
 | `AActor::execBonePos` | `src/knowwonder/KWAttach.cpp:23` | changed |
 | `AActor::execBoneRot` | `src/hp2/HP2Natives.cpp:24` | ? |
 | `AActor::execCreateAnimChannel` | `src/knowwonder/Anim/KWAnimState.cpp:396` | changed |
 | `AActor::execCreateTextureFromBMP` | `src/knowwonder/KWSave.cpp:289` | changed |
-| `AActor::execFastTrace` | `src/knowwonder/KWMoveNatives.cpp:64` | changed |
+| `AActor::execFastTrace` | `src/knowwonder/KWMoveNatives.cpp:67` | changed |
 | `AActor::execFinishAnim` | `src/knowwonder/Anim/KWAnimState.cpp:226` | changed |
 | `AActor::execFinishAnim` | `src/knowwonder/Anim/KWAnimState.cpp:390` | changed |
 | `AActor::execGetAnimGroup` | `src/knowwonder/Anim/KWAnimState.cpp:408` | changed |
@@ -108,35 +108,38 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 | `AActor::execLoadGameSaveInfo` | `src/knowwonder/KWSave.cpp:177` | changed |
 | `AActor::execLoopAnim` | `src/knowwonder/Anim/KWAnimState.cpp:372` | changed |
 | `AActor::execModifySound` | `src/knowwonder/KWSound.cpp:31` | changed |
-| `AActor::execMove` | `src/knowwonder/KWMoveNatives.cpp:18` | changed |
-| `AActor::execMoveSmooth` | `src/knowwonder/KWMoveNatives.cpp:26` | changed |
+| `AActor::execMove` | `src/knowwonder/KWMoveNatives.cpp:21` | changed |
+| `AActor::execMoveSmooth` | `src/knowwonder/KWMoveNatives.cpp:29` | changed |
 | `AActor::execPlayAnim` | `src/knowwonder/Anim/KWAnimState.cpp:366` | changed |
 | `AActor::execPollFinishAnim` | `src/knowwonder/Anim/KWAnimState.cpp:227` | identical |
 | `AActor::execSaveGameExists` | `src/knowwonder/KWSave.cpp:216` | changed |
 | `AActor::execSaveGameSaveInfo` | `src/knowwonder/KWSave.cpp:150` | changed |
-| `AActor::execSetBase` | `src/knowwonder/KWMoveNatives.cpp:82` | changed |
+| `AActor::execSetBase` | `src/knowwonder/KWMoveNatives.cpp:85` | changed |
 | `AActor::execSetCollisionSize` | `src/knowwonder/KWCollision.cpp:244` | changed |
-| `AActor::execSetLocation` | `src/knowwonder/KWMoveNatives.cpp:34` | changed |
+| `AActor::execSetLocation` | `src/knowwonder/KWMoveNatives.cpp:37` | changed |
 | `AActor::execSetPhysics` | `src/knowwonder/KWCollision.cpp:416` | changed |
-| `AActor::execSetPhysics` | `src/knowwonder/KWMoveNatives.cpp:95` | changed |
-| `AActor::execSetRotation` | `src/knowwonder/KWMoveNatives.cpp:40` | changed |
+| `AActor::execSetPhysics` | `src/knowwonder/KWMoveNatives.cpp:98` | changed |
+| `AActor::execSetRotation` | `src/knowwonder/KWMoveNatives.cpp:43` | changed |
 | `AActor::execStopSound` | `src/knowwonder/KWSound.cpp:49` | changed |
 | `AActor::execStopSound` | `src/hp2/HP2Natives.cpp:55` | changed |
-| `AActor::execTrace` | `src/knowwonder/KWMoveNatives.cpp:50` | changed |
+| `AActor::execTrace` | `src/knowwonder/KWMoveNatives.cpp:53` | changed |
+| `AActor::execTraceActors` | `src/knowwonder/KWMoveNatives.cpp:107` | changed |
 | `AActor::execTraceActors` | `src/knowwonder/KWTraceTexture.cpp:77` | changed |
 | `AActor::execTraceTexture` | `src/knowwonder/KWTraceTexture.cpp:25` | changed |
 | `AActor::execTweenAnim` | `src/knowwonder/Anim/KWAnimState.cpp:378` | changed |
 | `AActor::fixedTurn` | `src/knowwonder/KWPhysics.cpp:123` | offsets only |
 | `AActor::moveSmooth` | `src/knowwonder/KWMove.cpp:487` | changed |
-| `AActor::performPhysics` | `src/knowwonder/KWPhysics.cpp:1438` | changed |
-| `AActor::physFalling` | `src/knowwonder/KWPhysics.cpp:526` | changed |
+| `AActor::performPhysics` | `src/knowwonder/KWPhysics.cpp:1798` | changed |
+| `AActor::physFalling` | `src/knowwonder/KWPhysics.cpp:528` | changed |
 | `AActor::physMovingBrush` | `src/knowwonder/KWMover.cpp:58` | changed |
+| `AActor::physProjectile` | `src/knowwonder/KWPhysics.cpp:1637` | changed |
 | `AActor::physRolling` | `src/knowwonder/KWPawn.cpp:35` | changed |
 | `AActor::physRolling` | `src/knowwonder/KWPawn.cpp:45` | changed |
+| `AActor::physRolling` | `src/knowwonder/KWPhysics.cpp:1687` | changed |
 | `AActor::physTrailer` | `src/knowwonder/KWAttach.cpp:53` | changed |
 | `AActor::physicsRotation` | `src/knowwonder/KWPhysics.cpp:165` | offsets only |
 | `AActor::processHitWall` | `src/knowwonder/KWPhysics.cpp:271` | changed |
-| `AActor::processLanded` | `src/knowwonder/KWPhysics.cpp:310` | changed |
+| `AActor::processLanded` | `src/knowwonder/KWPhysics.cpp:312` | changed |
 | `AActor::setPhysics` | `src/knowwonder/KWCollision.cpp:417` | offsets only |
 | `AActor::setPhysics` | `src/knowwonder/KWPhysics.cpp:92` | offsets only |
 | `ABrush::GetPrimitive` | `src/knowwonder/KWCollision.cpp:338` | offsets only |
@@ -161,8 +164,9 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 | `AParticleFX::execRecomputeDeltas` | `src/knowwonder/KWParticleFX.cpp:998` | changed |
 | `AParticleFX::execSetParticleParams` | `src/knowwonder/KWParticleFX.cpp:973` | changed |
 | `APawn::Mount` | `src/knowwonder/KWPawn.cpp:389` | changed |
-| `APawn::Mount` | `src/knowwonder/KWPhysics.cpp:475` | changed |
-| `APawn::calcVelocity` | `src/knowwonder/KWPhysics.cpp:742` | changed |
+| `APawn::Mount` | `src/knowwonder/KWPhysics.cpp:477` | changed |
+| `APawn::Swim` | `src/knowwonder/KWPhysics.cpp:1522` | offsets only |
+| `APawn::calcVelocity` | `src/knowwonder/KWPhysics.cpp:744` | changed |
 | `APawn::execFindPath` | `src/knowwonder/KWNavigation.cpp:94` | changed |
 | `APawn::execFindStairRotation` | `src/knowwonder/KWPlayerNatives.cpp:30` | changed |
 | `APawn::execPollMoveTo` | `src/knowwonder/KWPawn.cpp:133` | offsets only |
@@ -171,20 +175,24 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 | `APawn::execPollWaitForLanding` | `src/knowwonder/KWPawn.cpp:273` | offsets only |
 | `APawn::execWaitForLanding` | `src/knowwonder/KWPawn.cpp:274` | changed |
 | `APawn::findPath` | `src/knowwonder/KWNavigation.cpp:23` | offsets only |
+| `APawn::findWaterLine` | `src/knowwonder/KWPhysics.cpp:1502` | ? |
 | `APawn::moveToward` | `src/knowwonder/KWPawn.cpp:132` | changed |
 | `APawn::performPhysics` | `src/knowwonder/KWPawn.cpp:89` | changed |
 | `APawn::performPhysics` | `src/knowwonder/KWPawn.cpp:102` | changed |
-| `APawn::performPhysics` | `src/knowwonder/KWPhysics.cpp:1439` | changed |
+| `APawn::performPhysics` | `src/knowwonder/KWPhysics.cpp:1799` | changed |
 | `APawn::physFlying` | `src/knowwonder/KWPawn.cpp:33` | changed |
+| `APawn::physFlying` | `src/knowwonder/KWPhysics.cpp:1469` | changed |
 | `APawn::physSwimming` | `src/knowwonder/KWPawn.cpp:34` | changed |
+| `APawn::physSwimming` | `src/knowwonder/KWPhysics.cpp:1545` | changed |
 | `APawn::physWalking` | `src/knowwonder/KWPawn.cpp:32` | changed |
 | `APawn::physWalking` | `src/knowwonder/KWPawn.cpp:44` | changed |
 | `APawn::physWalking` | `src/knowwonder/KWPawn.cpp:62` | changed |
 | `APawn::physWalking` | `src/knowwonder/KWPawn.cpp:516` | changed |
-| `APawn::physWalking` | `src/knowwonder/KWPhysics.cpp:914` | changed |
+| `APawn::physWalking` | `src/knowwonder/KWPhysics.cpp:916` | changed |
 | `APawn::physicsRotation` | `src/knowwonder/KWPawn.cpp:101` | changed |
 | `APawn::physicsRotation` | `src/knowwonder/KWPhysics.cpp:198` | changed |
-| `APawn::stepUp` | `src/knowwonder/KWPhysics.cpp:806` | changed |
+| `APawn::startSwimming` | `src/knowwonder/KWPhysics.cpp:1605` | changed |
+| `APawn::stepUp` | `src/knowwonder/KWPhysics.cpp:808` | changed |
 | `APlayerPawn::execScreenToWorld` | `src/knowwonder/KWPlayerNatives.cpp:117` | changed |
 | `AWind::FlucPeriod` | `src/knowwonder/KWWind.cpp:191` | offsets only |
 | `AWind::GetTotalWind` | `src/knowwonder/KWWind.cpp:178` | identical |
@@ -223,7 +231,7 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 | `ULevel::SetActorZone` | `src/knowwonder/KWMove.cpp:83` | changed |
 | `ULevel::SingleLineCheck` | `src/knowwonder/KWLevelCheck.cpp:412` | offsets only |
 | `ULevel::SinglePointCheck` | `src/knowwonder/KWLevelCheck.cpp:468` | identical |
-| `ULevel::SpawnActor` | `src/knowwonder/KWPhysics.cpp:1519` | offsets only |
+| `ULevel::SpawnActor` | `src/knowwonder/KWPhysics.cpp:1879` | offsets only |
 | `ULodMesh::GetNumTris` | `src/knowwonder/KWParticleFX.cpp:555` | identical |
 | `UMesh::GetCollisionBoundingBox` | `src/knowwonder/KWCollision.cpp:291` | changed |
 | `UModel::FastLineCheck` | `src/knowwonder/KWBspCheck.cpp:611` | identical |
