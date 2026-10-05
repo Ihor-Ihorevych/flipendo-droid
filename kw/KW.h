@@ -33,8 +33,13 @@ class RenderDevice;
 class GameWindow;
 struct SceneNode;
 
+class Image;
+
 namespace KW
 {
+	// Engine::OpenWindow: the game's own icon from the player's folder (System/<exe>.ico, kw/KWIcon.cpp); empty if missing.
+	std::vector<std::shared_ptr<Image>> GameIcons(const std::string& gameRootFolder, const std::string& exeName);
+
 	// Script property helpers: an object reference / bool property by name (nullptr / false if absent).
 	UObject* ObjectProperty(UObject* obj, const char* name);
 	bool BoolProperty(UObject* obj, const char* name);

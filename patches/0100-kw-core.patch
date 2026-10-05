@@ -15,7 +15,7 @@ index 799eca23..f047e52c 100644
  set_target_properties(SurrealCommon PROPERTIES CXX_STANDARD 20)
  target_precompile_headers(SurrealCommon PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/SurrealEngine/Precomp.h>)
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 34ee5181..e978a1b8 100644
+index 34ee5181..635d0c80 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,8 @@
@@ -214,7 +214,23 @@ index 34ee5181..e978a1b8 100644
  				}
  			}
  		}
-@@ -1559,6 +1627,8 @@ void Engine::OpenWindow()
+@@ -1547,7 +1615,15 @@ void Engine::UpdateInput(float timeElapsed)
+ void Engine::OpenWindow()
+ {
+ 	if (!window)
++	{
+ 		window = GameWindow::Create(this);
++		if (LaunchInfo.IsKnowWonder()) // the game's own icon (System/<exe>.ico) instead of SurrealEngine's, when it has one
++		{
++			auto icons = KW::GameIcons(LaunchInfo.gameRootFolder, LaunchInfo.gameExecutableName);
++			if (!icons.empty())
++				window->SetWindowIcon(icons);
++		}
++	}
+ 
+ 	int width = client->StartupFullscreen ? client->FullscreenViewportX : client->WindowedViewportX;
+ 	int height = client->StartupFullscreen ? client->FullscreenViewportY : client->WindowedViewportY;
+@@ -1559,6 +1635,8 @@ void Engine::OpenWindow()
  	window->SetFrameGeometry(Rect::xywh(0.0, 0.0, width, height));
  	viewport->SetViewportRect(0, 0, width, height);
  
@@ -223,7 +239,7 @@ index 34ee5181..e978a1b8 100644
  	if (fullscreen)
  		window->ShowFullscreen();
  	else
-@@ -1616,6 +1686,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
+@@ -1616,6 +1694,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
  	{
  		viewport->WindowsMouseX() = (float)(pos.x * window->GetDpiScale());
  		viewport->WindowsMouseY() = (float)(pos.y * window->GetDpiScale());
@@ -232,7 +248,7 @@ index 34ee5181..e978a1b8 100644
  	}
  }
  
-@@ -1689,6 +1761,9 @@ void Engine::OnWindowKeyChar(std::string chars)
+@@ -1689,6 +1769,9 @@ void Engine::OnWindowKeyChar(std::string chars)
  
  void Engine::OnWindowKeyDown(EInputKey key)
  {
@@ -242,7 +258,7 @@ index 34ee5181..e978a1b8 100644
  	if (playingAvi)
  	{
  		if (key == EInputKey::IK_Escape)
-@@ -1783,7 +1858,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
+@@ -1783,7 +1866,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
  
  			for (const std::string& command : GetSubcommands(keybindings[keynames[key]]))
  			{
