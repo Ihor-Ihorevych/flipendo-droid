@@ -1,14 +1,14 @@
 flipendo: recognise the HP1 retail (SafeDisc) and No-CD HP.exe builds, say why a folder isn't a game
 
 diff --git a/SurrealEngine/GameFolder.cpp b/SurrealEngine/GameFolder.cpp
-index 473146a7..639fff8a 100644
+index 473146a7..bf256223 100644
 --- a/SurrealEngine/GameFolder.cpp
 +++ b/SurrealEngine/GameFolder.cpp
 @@ -9,16 +9,21 @@
  #include <filesystem>
  
  Array<GameLaunchInfo> GameFolderSelection::Games;
-+Array<std::string> GameFolderSelection::Problems; // flipendo
++Array<std::string> GameFolderSelection::Problems;
  
  void GameFolderSelection::UpdateList()
  {
@@ -18,7 +18,7 @@ index 473146a7..639fff8a 100644
  	for (const std::string& folder : commandline->GetItems())
  	{
 -		GameLaunchInfo game = ExamineFolder(folder);
-+		std::string problem; // flipendo
++		std::string problem;
 +		GameLaunchInfo game = ExamineFolder(folder, &problem);
  		if (!game.gameName.empty())
  			Games.push_back(game);
@@ -45,14 +45,14 @@ index 473146a7..639fff8a 100644
  	if (ue1_game.first != KnownUE1Games::UE1_GAME_NOT_FOUND)
  	{
 diff --git a/SurrealEngine/GameFolder.h b/SurrealEngine/GameFolder.h
-index 1a03615b..32008c0b 100644
+index 1a03615b..8254ce72 100644
 --- a/SurrealEngine/GameFolder.h
 +++ b/SurrealEngine/GameFolder.h
 @@ -24,6 +24,9 @@ struct GameLaunchInfo
  	bool IsRune() const { return gameExecutableName == "Rune"; }
  	bool IsHarryPotter1() const { return gameExecutableName == "HP"; }
  	bool IsHarryPotter2() const { return gameExecutableName == "Game"; }
-+	// flipendo: games running KnowWonder's modified engine, reimplemented in ../kw. HP2 joins once its
++	// games running KnowWonder's modified engine, reimplemented in ../kw. HP2 joins once its
 +	// differences from HP1 are handled (docs/re/reports/hp2_compare.md).
 +	bool IsKnowWonder() const { return IsHarryPotter1(); }
  	bool IsNerfArenaBlast() const { return gameExecutableName == "nerf" || gameExecutableName == "Nerf"; }
@@ -62,7 +62,7 @@ index 1a03615b..32008c0b 100644
  	static GameLaunchInfo GetLaunchInfo(int selectedGame);
  
  	static Array<GameLaunchInfo> Games;
-+	// flipendo: why each folder given on the command line wasn't recognised
++	// why each folder given on the command line wasn't recognised
 +	static Array<std::string> Problems;
  
  private:
@@ -72,7 +72,7 @@ index 1a03615b..32008c0b 100644
  	static std::string GetExePath();
  };
 diff --git a/SurrealEngine/UE1GameDatabase.cpp b/SurrealEngine/UE1GameDatabase.cpp
-index bf6912eb..3afeb79e 100644
+index bf6912eb..39dc0382 100644
 --- a/SurrealEngine/UE1GameDatabase.cpp
 +++ b/SurrealEngine/UE1GameDatabase.cpp
 @@ -4,13 +4,20 @@
@@ -82,7 +82,7 @@ index bf6912eb..3afeb79e 100644
 -std::pair<KnownUE1Games, std::string> FindUE1GameInPath(const std::string& ue1_game_root_folder_path)
 +std::pair<KnownUE1Games, std::string> FindUE1GameInPath(const std::string& ue1_game_root_folder_path, std::string* problem)
  {
-+	// flipendo: report why a folder isn't recognised instead of skipping it silently
++	// report why a folder isn't recognised instead of skipping it silently
 +	auto notFound = [&](const std::string& why) {
 +		if (problem)
 +			*problem = why;
@@ -114,7 +114,7 @@ index bf6912eb..3afeb79e 100644
  
  	// We got nothing here
 -	return std::make_pair(KnownUE1Games::UE1_GAME_NOT_FOUND, "");
-+	// flipendo: a common mistake is pointing at the System folder itself instead of the game folder
++	// a common mistake is pointing at the System folder itself instead of the game folder
 +	if (fs::path(ue1_game_root_folder_path).filename() == "System" || fs::exists(fs::path(ue1_game_root_folder_path) / "Core.u"))
 +		return notFound(ue1_game_root_folder_path + " looks like the game's System folder; use the folder above it (the one that contains System, Maps, Textures)");
 +	return notFound(ue1_game_root_folder_path + ": no known game executable in its System folder (for Harry Potter: System/HP.exe). "
@@ -122,17 +122,17 @@ index bf6912eb..3afeb79e 100644
  }
 \ No newline at end of file
 diff --git a/SurrealEngine/UE1GameDatabase.h b/SurrealEngine/UE1GameDatabase.h
-index 18ca9c13..4063dc70 100644
+index 18ca9c13..bbe3a6b1 100644
 --- a/SurrealEngine/UE1GameDatabase.h
 +++ b/SurrealEngine/UE1GameDatabase.h
 @@ -197,6 +197,12 @@ static const std::map<std::string, KnownUE1Games> SHA1Database = {
  	// Harry Potter 1 (UK), post-patched, archive.org cracked exe
  	{"7e675aa863f55049f3cf530dfea0b241b112d03a", KnownUE1Games::HARRYPOTTER1_433},
  
-+	// flipendo: Harry Potter 1 (EN), unpatched retail 1.0, SafeDisc-wrapped exe
++	// Harry Potter 1 (EN), unpatched retail 1.0, SafeDisc-wrapped exe
 +	{"f7abfd7d56a6792e119964aa40af2190b8fe4ec4", KnownUE1Games::HARRYPOTTER1_433},
 +
-+	// flipendo: Harry Potter 1 (EN), unpatched retail 1.0, community No-CD exe
++	// Harry Potter 1 (EN), unpatched retail 1.0, community No-CD exe
 +	{"9aad58812940d27c7cd96d2920c726cc2d2fdde9", KnownUE1Games::HARRYPOTTER1_433},
 +
  	// Harry Potter 2 (UK)
@@ -143,5 +143,5 @@ index 18ca9c13..4063dc70 100644
  
  // Returns a pair of UE1-Game type and executable name
 -std::pair<KnownUE1Games, std::string> FindUE1GameInPath(const std::string& ue1_game_root_folder_path);
-+// flipendo: problem (if given) says why nothing was found: missing folder, no known executable, unknown exe hash
++// problem (if given) says why nothing was found: missing folder, no known executable, unknown exe hash
 +std::pair<KnownUE1Games, std::string> FindUE1GameInPath(const std::string& ue1_game_root_folder_path, std::string* problem = nullptr);

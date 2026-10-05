@@ -74,7 +74,7 @@ The debug environment variables (screenshots, actor dumps, fixed cameras, script
 
 Much of this port is written with LLM assistance (Claude). SurrealEngine asks that LLM-assisted changes are
 **not** sent to it as pull requests (`engine/NO-AI Code Rule.md`), so our engine changes stay here as
-`patches/*.patch`, applied by the build, with altered lines marked `flipendo:` as the zlib licence requires
+`patches/*.patch`, applied by the build; each patch is headed as Flipendo's change, which marks the altered source as the zlib licence requires
 ([docs/engine-hooks.md](docs/engine-hooks.md)). Please don't report Flipendo problems to SurrealEngine.
 
 ## Licence

@@ -1,7 +1,7 @@
 flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files, packages, crash reports, music streaming, BSP regions
 
 diff --git a/SurrealEngine/Audio/AudioDevice.cpp b/SurrealEngine/Audio/AudioDevice.cpp
-index 03e82566..c56da0d5 100644
+index 03e82566..5ffb304d 100644
 --- a/SurrealEngine/Audio/AudioDevice.cpp
 +++ b/SurrealEngine/Audio/AudioDevice.cpp
 @@ -508,8 +508,11 @@ public:
@@ -10,7 +10,7 @@ index 03e82566..c56da0d5 100644
  					// render a chunk of music
 -					currentMusic->ReadSamples(musicQueue.GetNextFree(), musicBufferSize);
 -					musicQueue.Push(musicQueue.GetNextFree());
-+					// flipendo: silence after the end of the stream (the buffer still holds an older chunk)
++					// silence after the end of the stream (the buffer still holds an older chunk)
 +					float* chunk = musicQueue.GetNextFree();
 +					size_t samplesRead = currentMusic->ReadSamples(chunk, musicBufferSize);
 +					std::fill(chunk + samplesRead, chunk + musicBufferSize, 0.0f);
@@ -19,14 +19,14 @@ index 03e82566..c56da0d5 100644
  
  				if (!musicPlaying)
 diff --git a/SurrealEngine/Native/NObject.cpp b/SurrealEngine/Native/NObject.cpp
-index 1081c358..8bf87781 100644
+index 1081c358..f866bb72 100644
 --- a/SurrealEngine/Native/NObject.cpp
 +++ b/SurrealEngine/Native/NObject.cpp
 @@ -12,6 +12,7 @@
  #include "Packages/Core/UClass.h"
  #include "Packages/Core/UEnum.h"
  #include <cmath>
-+#include <set> // flipendo
++#include <set>
  
  #ifdef _MSC_VER
  #pragma warning(disable: 4244) // warning C4244: '/=': conversion from 'float' to 'int', possible loss of data
@@ -34,7 +34,7 @@ index 1081c358..8bf87781 100644
  void NObject::DynamicLoadObject(const std::string& ObjectName, UObject* ObjectClass, std::optional<bool> MayFail, UObject*& ReturnValue)
  {
  	ReturnValue = nullptr;
-+	std::string reason; // flipendo
++	std::string reason;
  
  	if (!ObjectName.empty())
  	{
@@ -42,12 +42,12 @@ index 1081c358..8bf87781 100644
  		{
  			std::string packageName = ObjectName.substr(0, dotpos);
  			std::string objectName = ObjectName.substr(dotpos + 1);
-+			// flipendo: "Package.Group.Name" - look the object up by its name (HP1's storybook loads
++			// "Package.Group.Name" - look the object up by its name (HP1's storybook loads
 +			// "StoryBookTest.default.3_1_001"); the group is ignored like for "Package.Name".
 +			if (objectName.rfind('.') != std::string::npos)
 +				objectName = objectName.substr(objectName.rfind('.') + 1);
  
-+			// flipendo: keep why it failed (missing package and where it was looked for, or missing object)
++			// keep why it failed (missing package and where it was looked for, or missing object)
  			try
  			{
  				ReturnValue = engine->packages->GetPackage(packageName)->GetUObject(ObjectClass->Name, objectName);
@@ -71,14 +71,14 @@ index 1081c358..8bf87781 100644
  	if (!ReturnValue && (!MayFail || *MayFail == false))
  	{
 -		LogMessage("Object.DynamicLoadObject: could not load '" + ObjectName + "'");
-+		LogMessage("Object.DynamicLoadObject: could not load '" + ObjectName + "'" + (reason.empty() ? "" : ": " + reason)); // flipendo: reason
++		LogMessage("Object.DynamicLoadObject: could not load '" + ObjectName + "'" + (reason.empty() ? "" : ": " + reason)); // reason
  	}
  }
  
  void NObject::DynamicLoadObject_219(const std::string& ObjectName, UObject* ObjectClass, UObject*& ReturnValue)
  {
  	ReturnValue = nullptr;
-+	std::string reason; // flipendo
++	std::string reason;
  
  	if (!ObjectName.empty())
  	{
@@ -86,12 +86,12 @@ index 1081c358..8bf87781 100644
  		{
  			std::string packageName = ObjectName.substr(0, dotpos);
  			std::string objectName = ObjectName.substr(dotpos + 1);
-+			// flipendo: "Package.Group.Name" - look the object up by its name (HP1's storybook loads
++			// "Package.Group.Name" - look the object up by its name (HP1's storybook loads
 +			// "StoryBookTest.default.3_1_001"); the group is ignored like for "Package.Name".
 +			if (objectName.rfind('.') != std::string::npos)
 +				objectName = objectName.substr(objectName.rfind('.') + 1);
  
-+			// flipendo: keep why it failed (missing package and where it was looked for, or missing object)
++			// keep why it failed (missing package and where it was looked for, or missing object)
  			try
  			{
  				ReturnValue = engine->packages->GetPackage(packageName)->GetUObject(ObjectClass->Name, objectName);
@@ -115,12 +115,12 @@ index 1081c358..8bf87781 100644
  	if (!ReturnValue)
  	{
 -		LogMessage("Object.DynamicLoadObject: could not load '" + ObjectName + "'");
-+		LogMessage("Object.DynamicLoadObject: could not load '" + ObjectName + "'" + (reason.empty() ? "" : ": " + reason)); // flipendo: reason
++		LogMessage("Object.DynamicLoadObject: could not load '" + ObjectName + "'" + (reason.empty() ? "" : ": " + reason)); // reason
  	}
  }
  
 diff --git a/SurrealEngine/Package/IniFile.cpp b/SurrealEngine/Package/IniFile.cpp
-index 6aab46e1..12052c1a 100644
+index 6aab46e1..3450a8ef 100644
 --- a/SurrealEngine/Package/IniFile.cpp
 +++ b/SurrealEngine/Package/IniFile.cpp
 @@ -303,18 +303,11 @@ void IniFile::UpdateFile(const std::string& filename)
@@ -130,7 +130,7 @@ index 6aab46e1..12052c1a 100644
 -				size_t left_bracket_pos = key.find('['),
 -					   right_bracket_pos = key.find(']');
 -
-+				// flipendo: the loader keeps "Aliases[0]" as a literal key name (its index parsing is disabled), so compare the
++				// the loader keeps "Aliases[0]" as a literal key name (its index parsing is disabled), so compare the
 +				// key literally too. Splitting off the index threw in stoi, and once that was fixed looked up "Aliases"
 +				// (no such key) and blanked every indexed line.
  				int bracket_index = 0;
@@ -146,15 +146,15 @@ index 6aab46e1..12052c1a 100644
  				// If we did, then get the next index from it, else add the key we found to the database
  				int found_index = 0;
 diff --git a/SurrealEngine/Package/Package.cpp b/SurrealEngine/Package/Package.cpp
-index 78b0a27d..262b8d22 100644
+index 78b0a27d..c96a6e5b 100644
 --- a/SurrealEngine/Package/Package.cpp
 +++ b/SurrealEngine/Package/Package.cpp
 @@ -5,6 +5,8 @@
  #include "PackageStream.h"
  #include "PackageManager.h"
  #include "Utils/File.h"
-+#include "Utils/Logger.h" // flipendo: missing import messages
-+#include <set> // flipendo
++#include "Utils/Logger.h" // missing import messages
++#include <set>
  #include "Packages/Core/UObject.h"
  #include "Packages/Core/UClass.h"
  
@@ -163,7 +163,7 @@ index 78b0a27d..262b8d22 100644
  		NameString packageName = GetName(outerEntry->ObjName);
  
 -		UObject* obj = Packages->GetPackage(packageName)->GetUObject(className, objectName, group);
-+		// flipendo: pass our name so a missing package says who imports it; log imports the package lacks
++		// pass our name so a missing package says who imports it; log imports the package lacks
 +		UObject* obj = Packages->GetPackage(packageName, Name)->GetUObject(className, objectName, group);
  		if (!obj && packageName == "UnrealI")
  			obj = Packages->GetPackage("UnrealShare")->GetUObject(className, objectName, group);
@@ -180,7 +180,7 @@ index 78b0a27d..262b8d22 100644
  	}
  	else
 diff --git a/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp b/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp
-index 2f91f141..94c234e9 100644
+index 2f91f141..e390734e 100644
 --- a/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp
 +++ b/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp
 @@ -49,8 +49,12 @@ void UStructProperty::LoadStructMemberValue(void* data, ObjectStream* stream)
@@ -189,7 +189,7 @@ index 2f91f141..94c234e9 100644
  	{
 -		void* fielddata = (uint8_t*)data + fieldprop->DataOffset.DataOffset;
 -		fieldprop->LoadStructMemberValue(fielddata, stream);
-+		// flipendo: a fixed array member (HP1's QuidCommentator: CommentInfo Variant[8]) is serialized element by element
++		// a fixed array member (HP1's QuidCommentator: CommentInfo Variant[8]) is serialized element by element
 +		for (int i = 0; i < fieldprop->ArrayDimension; i++)
 +		{
 +			void* fielddata = (uint8_t*)data + fieldprop->DataOffset.DataOffset + i * fieldprop->ElementPitch();
@@ -204,7 +204,7 @@ index 2f91f141..94c234e9 100644
  	{
 -		void* fielddata = (uint8_t*)data + fieldprop->DataOffset.DataOffset;
 -		fieldprop->SaveStructMemberValue(fielddata, stream);
-+		// flipendo: a fixed array member (HP1's QuidCommentator: CommentInfo Variant[8]) is serialized element by element
++		// a fixed array member (HP1's QuidCommentator: CommentInfo Variant[8]) is serialized element by element
 +		for (int i = 0; i < fieldprop->ArrayDimension; i++)
 +		{
 +			void* fielddata = (uint8_t*)data + fieldprop->DataOffset.DataOffset + i * fieldprop->ElementPitch();
@@ -214,14 +214,14 @@ index 2f91f141..94c234e9 100644
  }
  
 diff --git a/SurrealEngine/Packages/Core/UObject.cpp b/SurrealEngine/Packages/Core/UObject.cpp
-index 2b855f33..f26b8410 100644
+index 2b855f33..7e6bc3ff 100644
 --- a/SurrealEngine/Packages/Core/UObject.cpp
 +++ b/SurrealEngine/Packages/Core/UObject.cpp
 @@ -532,6 +532,11 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
  	if (oldState != newState)
  		StateFrame->SetState(newState);
  
-+	// flipendo: UE1 rebuilds the state frame's probe mask on every GotoState (also into the same state), so a
++	// UE1 rebuilds the state frame's probe mask on every GotoState (also into the same state), so a
 +	// Disable('Tick') only lasts until the next state change. Keeping it per state name hung HP1's spell lesson:
 +	// SpellLearnTrigger's Judge state disables Tick and waits for it to set bCountedUp, forever on the second round.
 +	DisabledEvents.clear();
@@ -234,7 +234,7 @@ index 2b855f33..f26b8410 100644
  }
  
 -ScriptArray::ScriptArray(const ScriptArray& other)
-+// flipendo: both copies keep the element type; without it Reserve() dereferenced a null Type (HP1's spell lesson
++// both copies keep the element type; without it Reserve() dereferenced a null Type (HP1's spell lesson
 +// crashed on int(Gesture.Points), which copies the array).
 +ScriptArray::ScriptArray(const ScriptArray& other) : Type(other.Type)
  {
@@ -245,12 +245,12 @@ index 2b855f33..f26b8410 100644
  }
  
 -ScriptArray::ScriptArray(ScriptArray&& other)
-+ScriptArray::ScriptArray(ScriptArray&& other) : Type(other.Type) // flipendo
++ScriptArray::ScriptArray(ScriptArray&& other) : Type(other.Type)
  {
  	Data = other.Data;
  	Size = other.Size;
 diff --git a/SurrealEngine/Packages/Engine/Resources/Level/UModel.cpp b/SurrealEngine/Packages/Engine/Resources/Level/UModel.cpp
-index 79b40d31..804d5229 100644
+index 79b40d31..53de1d53 100644
 --- a/SurrealEngine/Packages/Engine/Resources/Level/UModel.cpp
 +++ b/SurrealEngine/Packages/Engine/Resources/Level/UModel.cpp
 @@ -479,7 +479,7 @@ PointRegion UModel::FindRegion(const vec3& point, UZoneInfo* levelZoneInfo)
@@ -258,19 +258,19 @@ index 79b40d31..804d5229 100644
  		{
  			region.ZoneNumber = side >= 0.0f ? node->Zone1 : node->Zone0;
 -			region.BspLeaf = side >= 0.0f ? node->Leaf0 : node->Leaf1;
-+			region.BspLeaf = side >= 0.0f ? node->Leaf1 : node->Leaf0; // flipendo: the leaf on the point's side, like the zone (was swapped)
++			region.BspLeaf = side >= 0.0f ? node->Leaf1 : node->Leaf0; // the leaf on the point's side, like the zone (was swapped)
  			break;
  		}
  	}
 diff --git a/SurrealEngine/UI/ErrorWindow/ErrorWindow.cpp b/SurrealEngine/UI/ErrorWindow/ErrorWindow.cpp
-index 218f7552..a9391d52 100644
+index 218f7552..68fcd29f 100644
 --- a/SurrealEngine/UI/ErrorWindow/ErrorWindow.cpp
 +++ b/SurrealEngine/UI/ErrorWindow/ErrorWindow.cpp
 @@ -10,6 +10,7 @@
  #include <surrealwidgets/widgets/scrollbar/scrollbar.h>
  #include <surrealwidgets/systemdialogs/save_file_dialog.h>
  #include <miniz.h>
-+#include <fstream> // flipendo
++#include <fstream>
  
  bool ErrorWindow::CheckCrashReporter()
  {
@@ -278,7 +278,7 @@ index 218f7552..a9391d52 100644
  		try
  		{
  			CrashDumpInfo dumpInfo = CrashReporter::GetCrashDumpInfo(dumpFilename);
-+			// flipendo: also keep the exception and symbolized call stack as <dump>.txt, so crashes can be read without the window.
++			// also keep the exception and symbolized call stack as <dump>.txt, so crashes can be read without the window.
 +			{
 +				std::ofstream txt(dumpFilename + ".txt");
 +				txt << dumpInfo.exception << std::endl << dumpInfo.callstack;
@@ -287,21 +287,21 @@ index 218f7552..a9391d52 100644
  
  			LogMessageLine line;
 diff --git a/SurrealEngine/VM/Bytecode.h b/SurrealEngine/VM/Bytecode.h
-index 66408992..51ad5846 100644
+index 66408992..d251aff8 100644
 --- a/SurrealEngine/VM/Bytecode.h
 +++ b/SurrealEngine/VM/Bytecode.h
 @@ -31,6 +31,9 @@ public:
  
  	int FindLabelIndex(const NameString& label)
  	{
-+		// flipendo: a state without code (HP1's Tut1Quirrell 'state idle {}') has no statements; back() was undefined.
++		// a state without code (HP1's Tut1Quirrell 'state idle {}') has no statements; back() was undefined.
 +		if (Statements.empty())
 +			return -1;
  		LabelTableExpression* labels = dynamic_cast<LabelTableExpression*>(Statements.back());
  		if (labels)
  		{
 diff --git a/SurrealEngine/VM/Frame.cpp b/SurrealEngine/VM/Frame.cpp
-index 2b0b45c8..034004af 100644
+index 2b0b45c8..77d28b57 100644
 --- a/SurrealEngine/VM/Frame.cpp
 +++ b/SurrealEngine/VM/Frame.cpp
 @@ -553,7 +553,14 @@ ExpressionEvalResult Frame::Run()
@@ -310,7 +310,7 @@ index 2b0b45c8..034004af 100644
  					if (!found)
 -						ThrowException("Could not find label: " + result.Label.ToString());
 +					{
-+						// flipendo: UE1's UObject::GotoLabel isn't fatal: it logs "Label not found" and the state code
++						// UE1's UObject::GotoLabel isn't fatal: it logs "Label not found" and the state code
 +						// stops (StateFrame->Code = null). HP1's gargoyle.lookaround jumps to a label that doesn't exist.
 +						LogMessage(Object->Class->Name.ToString() + "." + Func->Name.ToString() + ": GotoLabel (" + result.Label.ToString() + "): Label not found");
 +						LatentState = LatentRunState::Stop;

@@ -1,7 +1,7 @@
 flipendo: KnowWonder rendering (FOV, skeletal meshes, particles, translucency, textures; HP1 menu canvas)
 
 diff --git a/SurrealEngine/Light/LightSystem.h b/SurrealEngine/Light/LightSystem.h
-index e1e0062e..c6f242f5 100644
+index e1e0062e..5fa8f0dd 100644
 --- a/SurrealEngine/Light/LightSystem.h
 +++ b/SurrealEngine/Light/LightSystem.h
 @@ -200,7 +200,7 @@ public:
@@ -9,19 +9,19 @@ index e1e0062e..c6f242f5 100644
  
  private:
 -	TextureInfo GetLightmap(UModel* model, int lightmapIndex, const Coords& coords, UZoneInfo* zoneActor, const vec3& worldLocation, float radius, UMover* mover, bool specialLit);
-+	TextureInfo GetLightmap(UModel* model, int lightmapIndex, const Coords& coords, UZoneInfo* zoneActor, const vec3& worldLocation, float radius, UMover* mover, bool specialLit, const std::vector<UActor*>* moverLights = nullptr); // flipendo: moverLights (KnowWonder)
++	TextureInfo GetLightmap(UModel* model, int lightmapIndex, const Coords& coords, UZoneInfo* zoneActor, const vec3& worldLocation, float radius, UMover* mover, bool specialLit, const std::vector<UActor*>* moverLights = nullptr); // moverLights (KnowWonder)
  	TextureInfo GetFogmap(UModel* model, int lightmapIndex, const Coords& coords, UZoneInfo* zoneActor);
  	void CheckLight(UActor* light);
  	void UpdateFogmapTexture(uint32_t* texels, UModel* model, const Coords& mapCoords, int lightMap, UZoneInfo* zoneActor);
 diff --git a/SurrealEngine/Light/LightSystem_Light.cpp b/SurrealEngine/Light/LightSystem_Light.cpp
-index 2c1f7f54..ce670b53 100644
+index 2c1f7f54..8929a174 100644
 --- a/SurrealEngine/Light/LightSystem_Light.cpp
 +++ b/SurrealEngine/Light/LightSystem_Light.cpp
 @@ -9,6 +9,7 @@
  #include "Packages/Engine/Actors/Info/UZoneInfo.h"
  #include "Packages/Engine/Resources/Level/UPolys.h"
  #include "Packages/Engine/Resources/Level/UModel.h"
-+#include "KW.h" // flipendo
++#include "KW.h"
  
  TextureInfo LightSystem::GetMoverLightmap(UMover* mover, const Poly& poly, UZoneInfo* zoneActor, UModel* model)
  {
@@ -29,7 +29,7 @@ index 2c1f7f54..ce670b53 100644
  		mover->Light.Radius = radius;
  	}
  
-+	// flipendo: KnowWonder lights a bDynamicLightMover's surface by the lights permeating the mover's leaf in front of
++	// KnowWonder lights a bDynamicLightMover's surface by the lights permeating the mover's leaf in front of
 +	// the surface (kw/KWLightmap.cpp), not by the lights that see the mover's pivot
 +	static std::vector<UActor*> kwMoverLights;
 +	bool kwDynamic = mover->bDynamicLightMover() && engine->LaunchInfo.IsKnowWonder();
@@ -64,7 +64,7 @@ index 2c1f7f54..ce670b53 100644
  		// To do: ideally we only want to do this if the mover moved
  		lastDynamicUpdate = FrameCounter;
  
-+		if (moverLights) // flipendo: KnowWonder's lights, plus the dynamic lights near the surface
++		if (moverLights) // KnowWonder's lights, plus the dynamic lights near the surface
 +		{
 +			for (UActor* light : *moverLights)
 +			{
@@ -87,7 +87,7 @@ index 2c1f7f54..ce670b53 100644
  		{
  			CheckLight(light);
 diff --git a/SurrealEngine/Light/LightmapBuilder.cpp b/SurrealEngine/Light/LightmapBuilder.cpp
-index e4c8f7d2..3040f64d 100644
+index e4c8f7d2..b5d0f446 100644
 --- a/SurrealEngine/Light/LightmapBuilder.cpp
 +++ b/SurrealEngine/Light/LightmapBuilder.cpp
 @@ -8,6 +8,8 @@
@@ -95,7 +95,7 @@ index e4c8f7d2..3040f64d 100644
  #include "RenderDevice/RenderDevice.h"
  #include "Math/hsb.h"
 +#include "Engine.h"
-+#include "KW.h" // flipendo
++#include "KW.h"
  #include <cstring>
  
  #ifdef USE_SSE2
@@ -103,7 +103,7 @@ index e4c8f7d2..3040f64d 100644
  	// Initialize lightmap with the ambient color
  
  	vec3 ambientColor = hsbtorgb(zoneActor->AmbientHue(), zoneActor->AmbientSaturation(), zoneActor->AmbientBrightness()); // To do: is this the correct scale?
-+	if (engine->LaunchInfo.IsKnowWonder()) // flipendo: HP1's ambient fill (kw/KWLightmap.cpp)
++	if (engine->LaunchInfo.IsKnowWonder()) // HP1's ambient fill (kw/KWLightmap.cpp)
 +		ambientColor = KW::LightmapAmbient(zoneActor);
  	// To do: is there more ambient light than just from the zone?
  
@@ -113,7 +113,7 @@ index e4c8f7d2..3040f64d 100644
  			{
  				Shadow.Load(model, lightMap, lightindex);
 -				Effect.Run(light, width, height, WorldLocations(), base, WorldNormal(), Shadow.Pixels(), illuminationmap.data());
-+				// flipendo: HP1's falloff, LightSource and LightRadiusInner (kw/KWLightmap.cpp)
++				// HP1's falloff, LightSource and LightRadiusInner (kw/KWLightmap.cpp)
 +				if (!engine->LaunchInfo.IsKnowWonder() || !KW::LightmapIllumination(light, width * height, WorldLocations(), base, WorldNormal(), Shadow.Pixels(), illuminationmap.data()))
 +					Effect.Run(light, width, height, WorldLocations(), base, WorldNormal(), Shadow.Pixels(), illuminationmap.data());
  				AddLightContribution(light);
@@ -124,7 +124,7 @@ index e4c8f7d2..3040f64d 100644
  		if (light->LightType() != LT_None && light->LightBrightness() > 0)
  		{
 -			Effect.Run(light, width, height, WorldLocations(), base, WorldNormal(), Shadow.Pixels(), illuminationmap.data());
-+			// flipendo: HP1's falloff, LightSource and LightRadiusInner (kw/KWLightmap.cpp)
++			// HP1's falloff, LightSource and LightRadiusInner (kw/KWLightmap.cpp)
 +			if (!engine->LaunchInfo.IsKnowWonder() || !KW::LightmapIllumination(light, width * height, WorldLocations(), base, WorldNormal(), Shadow.Pixels(), illuminationmap.data()))
 +				Effect.Run(light, width, height, WorldLocations(), base, WorldNormal(), Shadow.Pixels(), illuminationmap.data());
  			AddLightContribution(light);
@@ -134,7 +134,7 @@ index e4c8f7d2..3040f64d 100644
  
  void LightmapBuilder::AddLightContribution(UActor* light)
  {
-+	if (engine->LaunchInfo.IsKnowWonder()) // flipendo: HP1's light colour and 7-bit clamps (kw/KWLightmap.cpp)
++	if (engine->LaunchInfo.IsKnowWonder()) // HP1's light colour and 7-bit clamps (kw/KWLightmap.cpp)
 +	{
 +		KW::AddLightmapLight(light, illuminationmap.data(), lightcolors.data(), width * height);
 +		return;
@@ -147,7 +147,7 @@ index e4c8f7d2..3040f64d 100644
  	float LMUMult = 1.0f / lmindex.UScale;
  	float LMVMult = 1.0f / lmindex.VScale;
  
-+	// flipendo: lumels lie on the surface plane. One step in U or V is a column of the inverse of the (U, V, Normal)
++	// lumels lie on the surface plane. One step in U or V is a column of the inverse of the (U, V, Normal)
 +	// frame (HP1 Render.dll sub_10B06920: FCoords::Inverse of the map coords); stepping along U and V themselves left
 +	// the plane when the texture is projected (U/V not in the plane): HP1 Lev_Tut1b's slanted vault panels got lumels
 +	// 400 units above them and stayed unlit.
@@ -170,15 +170,15 @@ index e4c8f7d2..3040f64d 100644
  
  	vec2 uv[3];
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp
-index a457b9a0..6eec9733 100644
+index a457b9a0..f7253c71 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp
 @@ -6,6 +6,8 @@
  #include "Packages/Engine/Resources/Level/UModel.h"
  #include "Packages/Engine/Resources/Mesh/USkeletalMesh.h"
  #include "Packages/Engine/Resources/Textures/UTexture.h"
-+#include "Engine.h" // flipendo
-+#include "KW.h" // flipendo
++#include "Engine.h"
++#include "KW.h"
  
  void UActor::UpdateBspInfo()
  {
@@ -186,7 +186,7 @@ index a457b9a0..6eec9733 100644
  		mat4 objectToWorld = mat4::translate(Location() + PrePivot()) * Coords::Rotation(Rotation()).ToMatrix() * mat4::scale(DrawScale());
  		mat4 meshToWorld = objectToWorld * mesh->meshToObject;
  		bbox = mesh->BoundingBox.transform(meshToWorld);
-+		if (engine->LaunchInfo.IsKnowWonder()) // flipendo: HP1 skeletal render box (kw/Anim)
++		if (engine->LaunchInfo.IsKnowWonder()) // HP1 skeletal render box (kw/Anim)
 +			if (auto skel = UObject::TryCast<USkeletalMesh>(mesh))
 +				bbox = KW::GetRenderBoundingBox(this, skel);
  	}
@@ -196,7 +196,7 @@ index a457b9a0..6eec9733 100644
  		bbox.min = location - extents;
  		bbox.max = location + extents;
  	}
-+	else if (dt == 8 && engine->LaunchInfo.IsKnowWonder()) // flipendo: DT_Particles (ParticleFX)
++	else if (dt == 8 && engine->LaunchInfo.IsKnowWonder()) // DT_Particles (ParticleFX)
 +	{
 +		bbox = KW::GetParticleBoundingBox(this);
 +	}
@@ -204,19 +204,19 @@ index a457b9a0..6eec9733 100644
  	{
  		UModel* brush = Brush();
 diff --git a/SurrealEngine/Packages/Engine/Resources/Textures/UIceTexture.cpp b/SurrealEngine/Packages/Engine/Resources/Textures/UIceTexture.cpp
-index 07a06c4e..a874a61c 100644
+index 07a06c4e..4dd72f19 100644
 --- a/SurrealEngine/Packages/Engine/Resources/Textures/UIceTexture.cpp
 +++ b/SurrealEngine/Packages/Engine/Resources/Textures/UIceTexture.cpp
 @@ -1,9 +1,16 @@
  
  #include "Precomp.h"
  #include "UIceTexture.h"
-+#include "Engine.h" // flipendo
-+#include "KW.h" // flipendo
++#include "Engine.h"
++#include "KW.h"
  
  void UIceTexture::UpdateFrame()
  {
-+	if (engine->LaunchInfo.IsKnowWonder()) // flipendo: Fire.dll's refraction and panning (kw/KWIceTexture.cpp)
++	if (engine->LaunchInfo.IsKnowWonder()) // Fire.dll's refraction and panning (kw/KWIceTexture.cpp)
 +	{
 +		KW::UpdateIceTexture(this, 1.0f / (MaxFrameRate() > 0.0f ? MaxFrameRate() : 25.0f));
 +		return;
@@ -225,15 +225,15 @@ index 07a06c4e..a874a61c 100644
  	{
  		UnrealMipmap& mipmap = UsedMipmaps.front();
 diff --git a/SurrealEngine/Render/RenderCanvas.cpp b/SurrealEngine/Render/RenderCanvas.cpp
-index 4b2aa5c5..b246f541 100644
+index 4b2aa5c5..2daa6398 100644
 --- a/SurrealEngine/Render/RenderCanvas.cpp
 +++ b/SurrealEngine/Render/RenderCanvas.cpp
 @@ -14,6 +14,8 @@
  #include "GameWindow.h"
  #include "VM/ScriptCall.h"
  #include "Engine.h"
-+#include "KW.h" // flipendo
-+#include "HP1.h" // flipendo
++#include "KW.h"
++#include "HP1.h"
  
  void RenderSubsystem::ResetCanvas()
  {
@@ -241,7 +241,7 @@ index 4b2aa5c5..b246f541 100644
  	// Assume 1280x960 for UT and newer.
  	int vertResolution = engine->LaunchInfo.ue1Version < 400 ? 768 : 960;
  	Canvas.uiscale = std::max((engine->viewport->ViewportHeight() + vertResolution / 2) / vertResolution, 1);
-+	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: fractional UI scale (hp1/HP1Canvas.cpp)
++	if (engine->LaunchInfo.IsHarryPotter1()) // fractional UI scale (hp1/HP1Canvas.cpp)
 +		Canvas.uiscale = HP1::CanvasUIScale(engine->viewport->ViewportHeight());
  
  	SceneNode frame;
@@ -255,7 +255,7 @@ index 4b2aa5c5..b246f541 100644
 -		engine->canvas->ClipX() = (float)sizeY * (4.0f / 3.0f);
 -		engine->canvas->SizeX() = (int)std::round(sizeY * (4.0f / 3.0f));
 -	}
-+	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: full-width HUD canvas; menus get a 4:3 area in PostRender (hp1/HP1Canvas.cpp)
++	if (engine->LaunchInfo.IsHarryPotter1()) // full-width HUD canvas; menus get a 4:3 area in PostRender (hp1/HP1Canvas.cpp)
 +		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, false);
  
  	//engine->viewport->bShowWindowsMouse() = true; // bShowWindowsMouse is set to true by WindowConsole if mouse cursor should be visible
@@ -267,7 +267,7 @@ index 4b2aa5c5..b246f541 100644
 -		if (engine->LaunchInfo.ue1Version > 219)
 +		if (engine->LaunchInfo.IsHarryPotter1())
 +		{
-+			// flipendo: URender::DrawWorld only raises RenderOverlays without bBehindView, on the ViewTarget if any.
++			// URender::DrawWorld only raises RenderOverlays without bBehindView, on the ViewTarget if any.
 +			// (Weapon.RenderOverlays draws the first person weapon with Canvas.DrawActor, which leaves it bHidden:
 +			// in third person that hid Harry's wand for good.)
 +			UPlayerPawn* player = engine->viewport->Actor();
@@ -282,13 +282,13 @@ index 4b2aa5c5..b246f541 100644
  	Device->SetSceneNode(&Canvas.Frame);
  	if (engine->viewport->Actor())
  		CallEvent(engine->viewport->Actor(), EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
-+	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo: console/menus in a centred 4:3 area (hp1/HP1Canvas.cpp)
++	if (engine->LaunchInfo.IsHarryPotter1()) // console/menus in a centred 4:3 area (hp1/HP1Canvas.cpp)
 +	{
 +		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, true);
 +		Device->SetSceneNode(&Canvas.Frame);
 +	}
  	CallEvent(engine->console, EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
-+	if (engine->LaunchInfo.IsHarryPotter1()) // flipendo
++	if (engine->LaunchInfo.IsHarryPotter1())
 +	{
 +		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, false);
 +		Device->SetSceneNode(&Canvas.Frame);
@@ -305,7 +305,7 @@ index 4b2aa5c5..b246f541 100644
 -	frame.YB = YB * Canvas.uiscale;
 -	frame.X = X * Canvas.uiscale;
 -	frame.Y = Y * Canvas.uiscale;
-+	frame.XB = Canvas.Frame.XB + (int)(XB * Canvas.uiscale); // flipendo: relative to the canvas area, float uiscale
++	frame.XB = Canvas.Frame.XB + (int)(XB * Canvas.uiscale); // relative to the canvas area, float uiscale
 +	frame.YB = (int)(YB * Canvas.uiscale);
 +	frame.X = (int)(X * Canvas.uiscale);
 +	frame.Y = (int)(Y * Canvas.uiscale);
@@ -313,14 +313,14 @@ index 4b2aa5c5..b246f541 100644
  	frame.FY = (float)Y * Canvas.uiscale;
  	frame.FX2 = frame.FX * 0.5f;
 diff --git a/SurrealEngine/Render/RenderSubsystem.cpp b/SurrealEngine/Render/RenderSubsystem.cpp
-index f3fcef6d..326fbd73 100644
+index f3fcef6d..fd253c8c 100644
 --- a/SurrealEngine/Render/RenderSubsystem.cpp
 +++ b/SurrealEngine/Render/RenderSubsystem.cpp
 @@ -12,6 +12,7 @@
  #include "Packages/Engine/Resources/Level/UPolys.h"
  #include "VM/ScriptCall.h"
  #include "Engine.h"
-+#include "KW.h" // flipendo
++#include "KW.h"
  
  RenderSubsystem::RenderSubsystem(RenderDevice* renderdevice) : Device(renderdevice)
  {
@@ -329,7 +329,7 @@ index f3fcef6d..326fbd73 100644
  
  	UPlayerPawn* player = UObject::TryCast<UPlayerPawn>(engine->CameraActor);
 -	if (player)
-+	if (engine->LaunchInfo.IsKnowWonder()) // flipendo: HP1 has no FlashScale; FlashFog.W is the brightness
++	if (engine->LaunchInfo.IsKnowWonder()) // HP1 has no FlashScale; FlashFog.W is the brightness
 +	{
 +		// The flash is the viewport's player's, not the view target's (HP1 views through a camera actor)
 +		if (engine->viewport && engine->viewport->Actor())
@@ -343,14 +343,14 @@ index f3fcef6d..326fbd73 100644
  
  	PostRender();
  
-+	if (engine->LaunchInfo.IsKnowWonder()) // flipendo: HP1_SHOTS debug screenshots
++	if (engine->LaunchInfo.IsKnowWonder()) // HP1_SHOTS debug screenshots
 +		KW::OnFrameRendered(Device);
 +
  	Device->Unlock(true);
  }
  
 diff --git a/SurrealEngine/Render/RenderSubsystem.h b/SurrealEngine/Render/RenderSubsystem.h
-index 0f88fc9c..e56917b9 100644
+index 0f88fc9c..bb90a969 100644
 --- a/SurrealEngine/Render/RenderSubsystem.h
 +++ b/SurrealEngine/Render/RenderSubsystem.h
 @@ -105,7 +105,7 @@ private:
@@ -358,20 +358,20 @@ index 0f88fc9c..e56917b9 100644
  	struct
  	{
 -		int uiscale = 1;
-+		float uiscale = 1.0f; // flipendo: float, HP1 uses a fractional UI scale
++		float uiscale = 1.0f; // float, HP1 uses a fractional UI scale
  		int fps = 0;
  		int framesDrawn = 0;
  		uint64_t startFPSTime = 0;
 diff --git a/SurrealEngine/Render/VisibleActor.cpp b/SurrealEngine/Render/VisibleActor.cpp
-index 984fdbfc..02b279da 100644
+index 984fdbfc..9e0d6356 100644
 --- a/SurrealEngine/Render/VisibleActor.cpp
 +++ b/SurrealEngine/Render/VisibleActor.cpp
 @@ -9,6 +9,8 @@
  #include "Packages/Engine/Actors/Pawn/UPawn.h"
  #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
  #include "Packages/Engine/Actors/Brush/UMover.h"
-+#include "Engine.h" // flipendo
-+#include "KW.h" // flipendo
++#include "Engine.h"
++#include "KW.h"
  
  void VisibleActor::Process(VisibleFrame* frame, UActor* actor)
  {
@@ -379,7 +379,7 @@ index 984fdbfc..02b279da 100644
  		Actor = actor;
  		frame->Actors.push_back(*this);
  	}
-+	else if (dt == 8 && engine->LaunchInfo.IsKnowWonder()) // flipendo: DT_Particles (ParticleFX)
++	else if (dt == 8 && engine->LaunchInfo.IsKnowWonder()) // DT_Particles (ParticleFX)
 +	{
 +		Type = dt;
 +		Actor = actor;
@@ -392,7 +392,7 @@ index 984fdbfc..02b279da 100644
  			frame->Translucents.emplace_back(*this, dot(v, v));
  		}
  	}
-+	else if (Type == 8) // flipendo: DT_Particles are drawn in the translucent pass
++	else if (Type == 8) // DT_Particles are drawn in the translucent pass
 +	{
 +		vec3 v = Actor->Location() - frame->ViewLocation.xyz();
 +		frame->Translucents.emplace_back(*this, dot(v, v));
@@ -404,20 +404,20 @@ index 984fdbfc..02b279da 100644
  		VisibleBrush visbrush;
  		visbrush.Draw(frame, Actor, true);
  	}
-+	else if (Type == 8) // flipendo: DT_Particles (ParticleFX)
++	else if (Type == 8) // DT_Particles (ParticleFX)
 +	{
 +		KW::DrawParticleSystem(frame, Actor);
 +	}
  }
 diff --git a/SurrealEngine/Render/VisibleFrame.cpp b/SurrealEngine/Render/VisibleFrame.cpp
-index 818aa65d..b2ba5ecd 100644
+index 818aa65d..5ef18732 100644
 --- a/SurrealEngine/Render/VisibleFrame.cpp
 +++ b/SurrealEngine/Render/VisibleFrame.cpp
 @@ -308,6 +308,13 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  
  void VisibleFrame::SortTranslucent()
  {
-+	// flipendo: HP1 draws translucents back to front, so a modulated sprite behind a translucent particle system doesn't
++	// HP1 draws translucents back to front, so a modulated sprite behind a translucent particle system doesn't
 +	// darken it (the spell lesson's SpellBlackboard turned the template spiral red).
 +	if (engine->LaunchInfo.IsKnowWonder())
 +	{
@@ -428,14 +428,14 @@ index 818aa65d..b2ba5ecd 100644
  }
  
 diff --git a/SurrealEngine/Render/VisibleMesh.cpp b/SurrealEngine/Render/VisibleMesh.cpp
-index 7f5e8efb..1dcdb1d8 100644
+index 7f5e8efb..4ad4d83d 100644
 --- a/SurrealEngine/Render/VisibleMesh.cpp
 +++ b/SurrealEngine/Render/VisibleMesh.cpp
 @@ -12,6 +12,7 @@
  #include "Packages/Engine/Actors/NavigationPoint/UNavigationPoint.h"
  #include "Packages/Engine/Resources/Mesh/USkeletalMesh.h"
  #include "Packages/Engine/Resources/Level/UModel.h"
-+#include "KW.h" // flipendo
++#include "KW.h"
  
  bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, bool wireframe, bool translucentPass)
  {
@@ -445,7 +445,7 @@ index 7f5e8efb..1dcdb1d8 100644
  		UMesh* weaponMesh = weapon ? weapon->ThirdPersonMesh() : nullptr;
 -		if (weaponMesh && pawnLodMesh && attachmentTris.size() >= 3)
 +		mat4 hp1WeaponFrame;
-+		if (engine->LaunchInfo.IsKnowWonder() && KW::PawnWeaponFrame(pawn, hp1WeaponFrame)) // flipendo: weapon on a bone (WeaponBoneIndex/WeaponAdjust)
++		if (engine->LaunchInfo.IsKnowWonder() && KW::PawnWeaponFrame(pawn, hp1WeaponFrame)) // weapon on a bone (WeaponBoneIndex/WeaponAdjust)
 +		{
 +			if (weaponMesh && !weapon->bHidden())
 +			{
@@ -464,7 +464,7 @@ index 7f5e8efb..1dcdb1d8 100644
  
  bool VisibleMesh::DrawSkeletalMesh(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, USkeletalMesh* mesh, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, bool translucentPass)
  {
-+	if (engine->LaunchInfo.IsKnowWonder()) // flipendo: HP1 skeletal pose + skinning (kw/Anim)
++	if (engine->LaunchInfo.IsKnowWonder()) // HP1 skeletal pose + skinning (kw/Anim)
 +	{
 +		SetupLodMeshTextures(actor, mesh);
 +		return KW::DrawSkeletalMesh(frame, actor, lightLocationActor, mesh, translucentPass);
