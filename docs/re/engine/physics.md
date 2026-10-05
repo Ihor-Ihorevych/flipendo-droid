@@ -187,7 +187,11 @@ actor stops dead. HP1's cutscenes depend on it ([cutscenes.md](../hp1/cutscenes.
   up (a KnowWonder property; HP1's Harry: 96.5) just behind the wall, checks the way up and over is clear, sets the base
   and raises `Pawn.Mount(ledge - Location)`; the script's mounting states do the climb (HP1:
   [animation.md](animation.md#root-motion-banimmove)). The surface hit is found by `sub_103FF1B0` / `sub_103FEBD0` (not
-  exported): walk the hit node's coplanar chain for the polygon containing the hit location.
+  exported): walk the hit node's coplanar chain for the polygon containing the hit location. Each edge's normal is
+  `cross(planeNormal, edge)`; a point fails an edge when it lies more than the tolerance (the pawn's largest extent)
+  on the negative side times `side`, and failing the first edge only flips `side` (the winding). Getting the cross
+  product backwards (Lev_Tut1b, 2026-10-05) rejects a hit inside the polygon whenever it is within the tolerance of
+  the first edge: Harry couldn't grab the 64-unit step up to the optional room's challenge star.
   A mover's sides count too: its polygons go into the level's BSP with their flags, so Lev_Tut1b's pushable blocks
   (`GridMover`, `PF_SpecialPoly` on the four sides) can be grabbed. SurrealEngine keeps a mover's polygons in the brush's
   own BSP, whose surfaces have no flags, so `src/knowwonder/KWPawn.cpp` takes them from the polygon (`BspSurface.BrushPoly`).
