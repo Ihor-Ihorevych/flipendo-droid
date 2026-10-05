@@ -7,10 +7,10 @@
 #include <memory>
 #include <vector>
 
-// KnowWonder's engine (kw/): what Flipendo reimplements of the modified Engine.dll / Fire.dll that the Harry Potter
-// games share. These are the entry points called from our hooks inside engine/, each gated by
+// KnowWonder's engine (src/knowwonder/): what Flipendo reimplements of the modified Engine.dll / Fire.dll that the Harry Potter
+// games share. These are the entry points called from our hooks inside src/engine/, each gated by
 // engine->LaunchInfo.IsKnowWonder() (HP1 for now; HP2 joins once its differences are handled, docs/re/reports/hp2_compare.md).
-// Game-specific code (HP1's mods and menu canvas) is in hp1/HP1.h.
+// Game-specific code (HP1's mods and menu canvas) is in src/hp1/HP1.h.
 
 class UObject;
 class UActor;
@@ -37,7 +37,7 @@ class Image;
 
 namespace KW
 {
-	// Engine::OpenWindow: the game's own icon from the player's folder (System/<exe>.ico, kw/KWIcon.cpp); empty if missing.
+	// Engine::OpenWindow: the game's own icon from the player's folder (System/<exe>.ico, src/knowwonder/KWIcon.cpp); empty if missing.
 	std::vector<std::shared_ptr<Image>> GameIcons(const std::string& gameRootFolder, const std::string& exeName);
 
 	// Script property helpers: an object reference / bool property by name (nullptr / false if absent).
@@ -52,10 +52,10 @@ namespace KW
 
 	// UActor::TickAnimation.
 	void TickAnimation(UActor* actor, float elapsed);
-	// UActor::Touch: AActor::BeginTouch, Actor (the one moving) touches Other (kw/KWTouch.cpp).
+	// UActor::Touch: AActor::BeginTouch, Actor (the one moving) touches Other (src/knowwonder/KWTouch.cpp).
 	void BeginTouch(UActor* actor, UActor* other);
 
-	// UActor::Tick, at the end: bAnimMove root motion moves the actor (kw/Anim/KWSkeletal.cpp).
+	// UActor::Tick, at the end: bAnimMove root motion moves the actor (src/knowwonder/Anim/KWSkeletal.cpp).
 	void TickRootMotion(UActor* actor);
 
 	// VisibleMesh::DrawSkeletalMesh, after the mesh textures are set up: pose, skin and draw.
@@ -65,16 +65,16 @@ namespace KW
 	void MoverPhysicsBegin(UActor* mover);
 	void MoverPhysicsEnd(UActor* mover);
 
-	// RenderSubsystem::DrawGame, before presenting: HP1_SHOTS debug screenshots (kw/KWDebug.cpp).
+	// RenderSubsystem::DrawGame, before presenting: HP1_SHOTS debug screenshots (src/knowwonder/KWDebug.cpp).
 	void OnFrameRendered(RenderDevice* device);
-	// Engine::Tick, after PlayerCalcView: HP1_CAMERA="x,y,z,pitch,yaw" replaces the view (kw/KWDebug.cpp).
+	// Engine::Tick, after PlayerCalcView: HP1_CAMERA="x,y,z,pitch,yaw" replaces the view (src/knowwonder/KWDebug.cpp).
 	void DebugCamera(vec3& location, Rotator& rotation);
 	// Engine::OpenWindow: HP1_BACKGROUND=1 shows the window windowed, behind the others and without taking focus
-	// (kw/KWDebug.cpp). Returns false (window shown as usual) when it isn't set.
+	// (src/knowwonder/KWDebug.cpp). Returns false (window shown as usual) when it isn't set.
 	bool ShowWindowInBackground(GameWindow* window, int width, int height);
 
 	// Engine::ConsoleCommand "open": FESlotPage loads a slot with "open saveN.usa". Returns "?load=N" when the map names
-	// an existing save file in the Save folder, else empty (kw/KWSave.cpp).
+	// an existing save file in the Save folder, else empty (src/knowwonder/KWSave.cpp).
 	// Engine::ConsoleCommand "SaveGame N": UGameEngine::SaveGame (LevelAction, the progress frame, then the save).
 	void SaveGame(int slot, const std::string& description);
 	std::string SaveGameLoadURL(const std::string& map);
@@ -89,10 +89,10 @@ namespace KW
 
 	// UActor::UpdateBspInfo: world space render box of a skeletal mesh actor (culling, BSP placement).
 	BBox GetRenderBoundingBox(UActor* actor, USkeletalMesh* mesh);
-	// Actor.GetWorldCollisionBox for a skeletal mesh: the mesh's bounding box through GetMeshCoords (kw/Anim).
+	// Actor.GetWorldCollisionBox for a skeletal mesh: the mesh's bounding box through GetMeshCoords (src/knowwonder/Anim).
 	BBox GetSkeletalCollisionBox(UActor* actor, USkeletalMesh* mesh);
 
-	// LightmapBuilder (BSP light maps, kw/KWLightmap.cpp). SetAmbientLight: the zone ambient a light map starts with.
+	// LightmapBuilder (BSP light maps, src/knowwonder/KWLightmap.cpp). SetAmbientLight: the zone ambient a light map starts with.
 	vec3 LightmapAmbient(UZoneInfo* zone);
 	// AddStaticLights/AddDynamicLights, instead of LightEffect::Run: a light's reach per lumel (0..1, shadow included)
 	// with LightSource and LightRadiusInner. Returns false for the light effects left to SurrealEngine.
@@ -108,12 +108,12 @@ namespace KW
 	// RenderSubsystem::DrawGame: the screen flash from HP1's FlashFog (its W replaces FlashScale).
 	void ViewFlashParams(UPlayerPawn* player, vec3& flashScale, vec3& flashFog);
 
-	// USurrealAudioDevice::UpdateMusic (kw/KWSound.cpp): MusicSource wraps a new song's stream (loops unless
+	// USurrealAudioDevice::UpdateMusic (src/knowwonder/KWSound.cpp): MusicSource wraps a new song's stream (loops unless
 	// bDontLoopSong, silence after the end); TickMusic, every update, sets bSongFinished and clears an ended Song.
 	std::unique_ptr<AudioSource> MusicSource(UPlayerPawn* player, UMusic* song, std::unique_ptr<AudioSource> source);
 	void TickMusic(UPlayerPawn* player, UMusic* currentSong);
 
-	// Collision (kw/KWCollision.cpp): actors with CollideType CT_Box are oriented boxes, not cylinders.
+	// Collision (src/knowwonder/KWCollision.cpp): actors with CollideType CT_Box are oriented boxes, not cylinders.
 	bool IsBoxCollider(UActor* actor);
 	// UActor::TryMove: whether the moving actor is stopped by (and bumps) another one, or touches it.
 	bool IsBlockedBy(UActor* self, UActor* other);
@@ -125,18 +125,18 @@ namespace KW
 	// CollisionSystem::AddToCollision: half extents of the box's world AABB for the collision hash.
 	vec3 BoxCollisionExtents(UActor* actor);
 
-	// UPawn::Tick: APawn::performPhysics' AvgPhysicsTime running average (kw/KWPawn.cpp).
+	// UPawn::Tick: APawn::performPhysics' AvgPhysicsTime running average (src/knowwonder/KWPawn.cpp).
 	void PawnPhysicsTime(UPawn* pawn, float elapsed);
 	// UPawn::TickRotating / UPlayerPawn::TickRotating: APawn::physicsRotation.
 	void PawnPhysicsRotation(UPawn* pawn, float elapsed);
 	// UActor::Tick, first: the Tick overrides of HP1's native actor classes. AParticleFX::Tick ages the system and
-	// destroys it when done (kw/KWParticleFX.cpp); AWind::Tick moves the wind's fluctuation (kw/KWWind.cpp).
+	// destroys it when done (src/knowwonder/KWParticleFX.cpp); AWind::Tick moves the wind's fluctuation (src/knowwonder/KWWind.cpp).
 	void TickNativeActor(UActor* actor, float elapsed);
 	// UActor::Destroy: frees the particle list.
 	void ParticleFXDestroyed(UActor* actor);
 	// UActor::UpdateBspInfo for DrawType DT_Particles.
 	BBox GetParticleBoundingBox(UActor* actor);
-	// VisibleActor::DrawTranslucent for DrawType DT_Particles: URender::DrawParticleSystem (kw/KWParticleRender.cpp).
+	// VisibleActor::DrawTranslucent for DrawType DT_Particles: URender::DrawParticleSystem (src/knowwonder/KWParticleRender.cpp).
 	void DrawParticleSystem(VisibleFrame* frame, UActor* actor);
 
 	// UPawn::TickMoveTo: APawn::moveToward. Returns true when the latent move is done.
@@ -157,14 +157,14 @@ namespace KW
 	bool PawnWalkOffLedge(UPawn* pawn);
 
 	// UActor::TickPhysics for PHYS_Interpolating: an InterpolationManager runs its native performPhysics (moves its
-	// Owner along the InterpolationPoint path) instead of upstream's TickInterpolating (kw/KWInterpolation.cpp).
+	// Owner along the InterpolationPoint path) instead of upstream's TickInterpolating (src/knowwonder/KWInterpolation.cpp).
 	bool IsInterpolationManager(UActor* actor);
 	void InterpolationManagerPhysics(UActor* manager, float elapsed);
 
-	// FCoords::OrthoRotation (Core.dll): the rotator of an orthonormal frame (kw/KWInterpolation.cpp).
+	// FCoords::OrthoRotation (Core.dll): the rotator of an orthonormal frame (src/knowwonder/KWInterpolation.cpp).
 	Rotator OrthoRotation(const vec3& x, const vec3& y, const vec3& z);
 
-	// Bones (kw/Anim/KWSkeletal.cpp, kw/KWAttach.cpp).
+	// Bones (src/knowwonder/Anim/KWSkeletal.cpp, src/knowwonder/KWAttach.cpp).
 	// USkeletalMesh::GetBoneCoords: world origin and axes of a bone of the actor's current pose.
 	bool GetBoneCoords(UActor* actor, USkeletalMesh* mesh, int bone, vec3& origin, vec3& x, vec3& y, vec3& z);
 	// The weapon frame (WeaponBoneIndex + WeaponAdjust) of a skeletal mesh, in world space.

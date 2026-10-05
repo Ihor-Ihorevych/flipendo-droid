@@ -3,7 +3,7 @@
 
 Writes docs/re/reports/dlls.md from
   - the DLLs themselves (../eagames/hp1/System, ../eagames/hp2/System): size, exports, the C++ classes they export;
-  - the "// IDA <Dll>.dll: <decorated name>" tags in kw/, hp1/ and hp2/: the functions Flipendo reimplements;
+  - the "// IDA <Dll>.dll: <decorated name>" tags in src/knowwonder/, src/hp1/ and src/hp2/: the functions Flipendo reimplements;
   - ../ida/fingerprints/ (tools/ida_fingerprint.py): whether each of those is the same code in HP2;
   - tools/native_audit.py: the state of the script natives each DLL implements (Core.u -> Core.dll, ...).
 The "what it is" text below is written by hand; keep it to what the exports and our own work show.
@@ -31,36 +31,36 @@ DLLS = [
              "saving), the UnrealScript virtual machine and its intrinsic natives (Object.uc), memory, math "
              "(vectors, rotators, quaternions), config/ini files, logging.",
      "SurrealEngine's own Core (`Package/`, `VM/`, `Math/`). Flipendo only adds the few KnowWonder math helpers "
-     "the ported engine code calls (`kw/`)."),
+     "the ported engine code calls (`src/knowwonder/`)."),
     ("Engine", "The game engine proper: actors, levels, physics (walking, falling, flying, movers), collision, "
                "navigation, players and input, the HUD/canvas, sound and music interfaces, save games, and the "
                "script natives of Engine.u. KnowWonder modified it heavily: skeletal animation with animation "
                "channels (AnimChannel), particle systems (ParticleFX), wind, spell gestures (Gesture), "
                "InterpolationManager, CT_Box collision, ledge grabbing (APawn::Mount), save-slot info "
                "(GameSaveInfo) and more.",
-     "SurrealEngine's own engine for stock UE1 behaviour; **Flipendo's `kw/` reimplements KnowWonder's "
-     "additions and changes** (the bulk of the port), hooked in through `patches/`."),
+     "SurrealEngine's own engine for stock UE1 behaviour; **Flipendo's `src/knowwonder/` reimplements KnowWonder's "
+     "additions and changes** (the bulk of the port), hooked in through `src/surreal-patches/`."),
     ("Fire", "Procedural (\"algorithmic\") textures computed every frame instead of loaded as pictures: "
              "FireTexture (fire, sparks), WaterTexture with its WaveTexture and WetTexture kinds (rippling water), "
              "IceTexture (one texture refracted through another, used e.g. behind the spell-lesson template), "
              "FractalTexture (their common base).",
      "SurrealEngine implements Fire/Water/Wave/Wet textures; IceTexture was a stub and is now "
-     "`kw/KWIceTexture.cpp`."),
+     "`src/knowwonder/KWIceTexture.cpp`."),
     ("Render", "The scene renderer above the graphics driver: walks the BSP, clips and sorts what's visible, "
                "lighting and fog, draws the level, meshes, sprites and (KnowWonder) particle systems, and passes "
                "polygons to a render device (D3DDrv, SoftDrv).",
      "SurrealEngine's renderer (`Render/`). Flipendo ports KnowWonder's particle drawing "
-     "(`kw/KWParticleRender.cpp`) and hooks skeletal mesh drawing."),
+     "(`src/knowwonder/KWParticleRender.cpp`) and hooks skeletal mesh drawing."),
     ("D3DDrv", "Direct3D 7 render device: turns Render's polygons into Direct3D calls.",
      "Replaced: SurrealEngine's Vulkan / Direct3D 11-12 / OpenGL render devices."),
     ("SoftDrv", "Software rasterizer render device (no 3D card).", "Replaced by SurrealEngine's render devices."),
     ("WinDrv", "Windows client: the game window (viewport), mouse/keyboard input (DirectInput), resolution switching.",
      "Replaced: SurrealEngine's window and input (SurrealWidgets), patched for focus handling "
-     "(`patches/0003-cursor-focus.patch`)."),
+     "(`src/surreal-patches/0003-cursor-focus.patch`)."),
     ("Window", "Win32 user-interface framework (dialogs, controls) used by the launcher's setup screens and the "
                "editor.", "Not needed: SurrealEngine has its own launcher; the game's menus are UnrealScript."),
     ("Galaxy", "HP1's audio subsystem (Galaxy): sound effects, 3D positioning and music playback through "
-               "DirectSound.", "Replaced: SurrealEngine's audio device, with HP1 fixes (`patches/0140-kw-audio.patch`)."),
+               "DirectSound.", "Replaced: SurrealEngine's audio device, with HP1 fixes (`src/surreal-patches/0140-knowwonder-audio.patch`)."),
     ("IpDrv", "TCP/IP networking (internet links, server queries). Unused by the single-player game.",
      "Not needed."),
     ("UWeb", "Built-in web server (remote server administration). Unused by the single-player game.", "Not needed."),
@@ -78,7 +78,7 @@ DLLS = [
     ("DrvMgt", "SafeDisc copy protection (HP1 has `drvmgt.dll` and `secdrv.sys` in the game folder).",
      "Not needed: Flipendo never runs the SafeDisc-wrapped exe."),
 ]
-SHORT = {'Core': 'SurrealEngine', 'Engine': 'SurrealEngine + **kw/**', 'Fire': 'SurrealEngine + kw/ (IceTexture)', 'Render': 'SurrealEngine + kw/ (particles)', 'D3DDrv': 'replaced (SurrealEngine render devices)', 'SoftDrv': 'replaced (SurrealEngine render devices)', 'WinDrv': 'replaced (SurrealEngine window/input)', 'Window': 'not needed', 'Galaxy': 'replaced (SurrealEngine audio)', 'IpDrv': 'not needed', 'UWeb': 'not needed', 'Editor': 'not needed', 'ALAudio': 'HP2: not looked at', 'OpenAL32': 'HP2: third-party', 'ogg': 'HP2: third-party', 'vorbis': 'HP2: third-party', 'vorbisfile': 'HP2: third-party', 'WinKeyHook': 'not needed', 'DrvMgt': 'not needed (SafeDisc)'}
+SHORT = {'Core': 'SurrealEngine', 'Engine': 'SurrealEngine + **src/knowwonder/**', 'Fire': 'SurrealEngine + src/knowwonder/ (IceTexture)', 'Render': 'SurrealEngine + src/knowwonder/ (particles)', 'D3DDrv': 'replaced (SurrealEngine render devices)', 'SoftDrv': 'replaced (SurrealEngine render devices)', 'WinDrv': 'replaced (SurrealEngine window/input)', 'Window': 'not needed', 'Galaxy': 'replaced (SurrealEngine audio)', 'IpDrv': 'not needed', 'UWeb': 'not needed', 'Editor': 'not needed', 'ALAudio': 'HP2: not looked at', 'OpenAL32': 'HP2: third-party', 'ogg': 'HP2: third-party', 'vorbis': 'HP2: third-party', 'vorbisfile': 'HP2: third-party', 'WinKeyHook': 'not needed', 'DrvMgt': 'not needed (SafeDisc)'}
 # Script packages whose natives live in a DLL of the same name.
 NATIVE_PACKAGES = {"Core": "Core", "Engine": "Engine", "Fire": "Fire", "IpDrv": "IpDrv", "UWeb": "UWeb", "Editor": "Editor"}
 
@@ -132,8 +132,8 @@ def classes_of(names):
 
 def ported_tags():
     tags = collections.defaultdict(list)
-    for d in ("kw", "hp1", "hp2"):
-        for path in glob.glob(os.path.join(ROOT, d, "**", "*.*"), recursive=True):
+    for d in ("knowwonder", "hp1", "hp2"):
+        for path in glob.glob(os.path.join(ROOT, "src", d, "**", "*.*"), recursive=True):
             if not path.endswith((".cpp", ".h")):
                 continue
             for n, line in enumerate(open(path, encoding="utf-8", errors="replace"), 1):
@@ -183,7 +183,7 @@ def main():
     L = ["# The game's DLLs", "",
          "Generated by `tools/dll_report.py`; the descriptions are hand-written in that script. What each DLL of the",
          "HP1 and HP2 installs does, what it exports, and where Flipendo stands: who provides it now (SurrealEngine,",
-         "Flipendo's `kw/`, or nothing because it isn't needed), which functions we reimplemented (`// IDA` tags) and",
+         "Flipendo's `src/knowwonder/`, or nothing because it isn't needed), which functions we reimplemented (`// IDA` tags) and",
          "whether HP2 has the same code, and the state of the script natives it implements.", "",
          "Details: [native_audit_hp1.md](native_audit_hp1.md), [native_audit_hp2.md](native_audit_hp2.md) (every native),",
          "[hp2_compare.md](hp2_compare.md) (every export, HP1 vs HP2).", "",

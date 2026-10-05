@@ -1,21 +1,21 @@
-flipendo: build (kw/, hp1/), natives, engine loop (input, console, saves, view), missing data messages
+flipendo: build (src/knowwonder/, src/hp1/), natives, engine loop (input, console, saves, view), missing data messages
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 799eca23..f047e52c 100644
+index 799eca23..799b7b61 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -1142,6 +1142,9 @@ target_include_directories(SurrealVideo PRIVATE SurrealVideo)
  set_target_properties(SurrealVideo PROPERTIES CXX_STANDARD 20)
  set_target_properties(SurrealVideo PROPERTIES C_STANDARD 17)
  
-+# Flipendo's code (kw/, hp1/) lives outside this subtree
++# Flipendo's code (src/knowwonder/, src/hp1/) lives outside this subtree
 +include(${CMAKE_CURRENT_SOURCE_DIR}/../flipendo.cmake OPTIONAL)
 +
  add_library(SurrealCommon STATIC ${SURREALCOMMON_SOURCES} ${THIRDPARTY_SOURCES})
  set_target_properties(SurrealCommon PROPERTIES CXX_STANDARD 20)
  target_precompile_headers(SurrealCommon PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/SurrealEngine/Precomp.h>)
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 34ee5181..635d0c80 100644
+index 34ee5181..8fd1bd35 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,8 @@
@@ -31,7 +31,7 @@ index 34ee5181..635d0c80 100644
  
  		// Do NOT pause this Tick event otherwise some messages will stay on screen forever.
  		CallEvent(console, EventName::Tick, { ExpressionValue::FloatValue(levelElapsed) });
-+		if (LaunchInfo.IsHarryPotter1()) // hp1/mods (cutscene skip, launch skips)
++		if (LaunchInfo.IsHarryPotter1()) // src/hp1/mods (cutscene skip, launch skips)
 +			HP1::TickMods(realTimeElapsed);
  
  		// To do: set these to true if the frame rate is too low
@@ -61,7 +61,7 @@ index 34ee5181..635d0c80 100644
  		{
  			UnrealURL url(ClientTravelInfo.URL);
  			LoadFromSaveFile(url);
-+			if (LaunchInfo.IsKnowWonder()) // saves from before the FindRegion fix hold wrong BSP leaves (kw/KWSave.cpp)
++			if (LaunchInfo.IsKnowWonder()) // saves from before the FindRegion fix hold wrong BSP leaves (src/knowwonder/KWSave.cpp)
 +				KW::SaveGameLoaded();
  			PossessSavedPlayer();
  		}
@@ -70,7 +70,7 @@ index 34ee5181..635d0c80 100644
  
  	GetLevelInfoObject();
  
-+	if (LaunchInfo.IsKnowWonder()) // an empty LevelEnterText becomes the URL's map (kw/KWSave.cpp)
++	if (LaunchInfo.IsKnowWonder()) // an empty LevelEnterText becomes the URL's map (src/knowwonder/KWSave.cpp)
 +		KW::LevelInfoLoaded(LevelInfo, url.Map);
 +
  	LevelInfo->ComputerName() = "MyComputer";
@@ -82,7 +82,7 @@ index 34ee5181..635d0c80 100644
  	{
 -		if (LaunchInfo.IsHarryPotter1()) // FEOptionsPage.IsSupportedResolution is so sad :)
 -			return "1024x768";
-+		if (LaunchInfo.IsHarryPotter1()) // real modes, FEOptionsPage cap lifted (hp1/HP1Canvas.cpp)
++		if (LaunchInfo.IsHarryPotter1()) // real modes, FEOptionsPage cap lifted (src/hp1/HP1Canvas.cpp)
 +			return HP1::AvailableResolutions(window.get());
  		return window->GetAvailableResolutions();
  	}
@@ -95,7 +95,7 @@ index 34ee5181..635d0c80 100644
 +			}
 +		}
 +
-+		if (LaunchInfo.IsKnowWonder()) // "open saveN.usa" loads a save slot (kw/KWSave.cpp)
++		if (LaunchInfo.IsKnowWonder()) // "open saveN.usa" loads a save slot (src/knowwonder/KWSave.cpp)
 +		{
 +			std::string loadURL = KW::SaveGameLoadURL(url.Map);
 +			if (!loadURL.empty())
@@ -174,7 +174,7 @@ index 34ee5181..635d0c80 100644
  	}
  	else
  	{
-+		if (LaunchInfo.IsKnowWonder() && KW::ViewportCommand(args)) // KnowWonder's UViewport::Exec commands (kw/KWSave.cpp)
++		if (LaunchInfo.IsKnowWonder() && KW::ViewportCommand(args)) // KnowWonder's UViewport::Exec commands (src/knowwonder/KWSave.cpp)
 +			return {};
  		if (!ExecCommand(args))
  		{
@@ -243,7 +243,7 @@ index 34ee5181..635d0c80 100644
  	{
  		viewport->WindowsMouseX() = (float)(pos.x * window->GetDpiScale());
  		viewport->WindowsMouseY() = (float)(pos.y * window->GetDpiScale());
-+		if (LaunchInfo.IsHarryPotter1()) // into the menu canvas (hp1/HP1Canvas.cpp)
++		if (LaunchInfo.IsHarryPotter1()) // into the menu canvas (src/hp1/HP1Canvas.cpp)
 +			HP1::MenuMousePosition(viewport->WindowsMouseX(), viewport->WindowsMouseY());
  	}
  }
@@ -252,7 +252,7 @@ index 34ee5181..635d0c80 100644
  
  void Engine::OnWindowKeyDown(EInputKey key)
  {
-+	if (LaunchInfo.IsHarryPotter1()) // hp1/mods see key presses (skip prompts)
++	if (LaunchInfo.IsHarryPotter1()) // src/hp1/mods see key presses (skip prompts)
 +		HP1::ModsKeyDown((int)key);
 +
  	if (playingAvi)
@@ -309,7 +309,7 @@ index 287956c1..27898722 100644
  }
  
 diff --git a/SurrealEngine/Package/PackageManager.cpp b/SurrealEngine/Package/PackageManager.cpp
-index cdb045bf..c67b9033 100644
+index cdb045bf..31cb0f17 100644
 --- a/SurrealEngine/Package/PackageManager.cpp
 +++ b/SurrealEngine/Package/PackageManager.cpp
 @@ -6,6 +6,7 @@
@@ -404,7 +404,7 @@ index cdb045bf..c67b9033 100644
  		NRMusicPlayer::RegisterFunctions();
  	}
 +
-+	if (launchInfo.IsKnowWonder()) // HP1 natives (hp1/), overriding upstream stubs
++	if (launchInfo.IsKnowWonder()) // HP1 natives (src/hp1/), overriding upstream stubs
 +		KW::RegisterNatives();
  }
  

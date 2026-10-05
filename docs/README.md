@@ -22,7 +22,7 @@ Secrets) is being ported onto the same engine. The documents below say when some
 | Document | What's in it |
 |---|---|
 | [development.md](development.md) | code layout, ground rules, reference material, porting a native, comparing with HP2 |
-| [one-engine.md](one-engine.md) | how code is split between `kw/` (both games), `hp1/` and `hp2/` so that no behaviour exists twice |
+| [one-engine.md](one-engine.md) | how code is split between `src/knowwonder/` (both games), `src/hp1/` and `src/hp2/` so that no behaviour exists twice |
 | [engine-hooks.md](engine-hooks.md) | how Flipendo patches SurrealEngine, the patch set, every hook by file, updating SurrealEngine |
 
 ## How the games work

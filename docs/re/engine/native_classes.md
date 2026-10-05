@@ -33,8 +33,8 @@ SoundContainer objects.
 
 | Native | Index | Script callers | Flipendo |
 |---|---|---|---|
-| `Pawn.FindStairRotation` | 524 | PlayerPawn.PlayerWalking's PlayerMove, only with `bLookUpStairs` (the `StairLook` exec, off by default). Harry has his own PlayerWalking that never calls it | ported, `kw/KWPlayerNatives.cpp` |
-| `PlayerPawn.ScreenToWorld` | 542 | none | ported, `kw/KWPlayerNatives.cpp` |
+| `Pawn.FindStairRotation` | 524 | PlayerPawn.PlayerWalking's PlayerMove, only with `bLookUpStairs` (the `StairLook` exec, off by default). Harry has his own PlayerWalking that never calls it | ported, `src/knowwonder/KWPlayerNatives.cpp` |
+| `PlayerPawn.ScreenToWorld` | 542 | none | ported, `src/knowwonder/KWPlayerNatives.cpp` |
 | `Console.CreateNativeFont` | name | HPConsole, for the Asian languages (SIM, CHI, TRA, KOR, THA, JAP; fonts named in SAPFont.int) | returns None (see below) |
 | `PlayerPawn.ResetKeyboard` | 544 | none | SurrealEngine's stub |
 | `Pawn.actorReachable` | 520 | none | SurrealEngine's version |

@@ -28,7 +28,7 @@ checked with the community before relying on it):
 ## What Flipendo can add
 
 What a closed exe can't do: Flipendo owns the engine, so tools can read and change any actor directly, without memory
-scanning. Everything here is a practice and research tool, a mod in `hp1/mods/` (off with `--vanilla`), and must never
+scanning. Everything here is a practice and research tool, a mod in `src/hp1/mods/` (off with `--vanilla`), and must never
 change the game's own rules: practice only helps if the game behaves like the original.
 
 - **Practice beyond Level Select**: save and restore the exact state anywhere (not only at save points), warp to a

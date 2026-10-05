@@ -311,7 +311,7 @@ index 6ccfaa27..f5b23aba 100644
 +		Velocity().z = 0.0f;
  }
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp
-index 22b4b664..6cf2f0af 100644
+index 22b4b664..21c9aa28 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp
 @@ -9,6 +9,7 @@
@@ -326,7 +326,7 @@ index 22b4b664..6cf2f0af 100644
  	UMover* mover = UObject::TryCast<UMover>(this);
  	if (mover)
  	{
-+		if (engine->LaunchInfo.IsKnowWonder()) // HP1 Mover shadows PhysAlpha/PhysRate (kw/KWMover.cpp)
++		if (engine->LaunchInfo.IsKnowWonder()) // HP1 Mover shadows PhysAlpha/PhysRate (src/knowwonder/KWMover.cpp)
 +			KW::MoverPhysicsBegin(this);
 +
  		float timeLeft = elapsed;

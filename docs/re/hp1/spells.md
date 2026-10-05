@@ -2,7 +2,7 @@
 
 How HP1 picks a spell target, aims a cast and teaches a spell. All of it is HP1's UnrealScript (`HarryPotter.Harry`,
 `HPBase.Target`, `HPBase.baseWand`, `HPBase.baseSpell`, `HPBase.SpellLearnTrigger`) on top of shared engine natives:
-`Actor.TraceActors` (309, `kw/KWTraceTexture.cpp`), `Actor.Trace`, `Actor.GetWorldCollisionBox` (286,
+`Actor.TraceActors` (309, `src/knowwonder/KWTraceTexture.cpp`), `Actor.Trace`, `Actor.GetWorldCollisionBox` (286,
 [collision.md](../engine/collision.md#world-bounding-boxes-actorgetworldcollisionboxoptional-bool-bvisual-0x1040a950)),
 the Gesture natives ([gestures.md](../engine/gestures.md)) and ParticleFX ([particles.md](../engine/particles.md)).
 

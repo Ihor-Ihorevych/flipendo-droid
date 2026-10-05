@@ -2,7 +2,7 @@
 
 For contributors and modders: drive the game from the command line, look inside it, and see what the scripts do.
 Use them with `tools/run_hp1.sh` ([development.md](development.md)). The variables are named `HP1_*` because HP1 is the
-game that runs today; the code behind them is in the shared `kw/KWDebug.cpp`.
+game that runs today; the code behind them is in the shared `src/knowwonder/KWDebug.cpp`.
 
 ## Environment variables
 

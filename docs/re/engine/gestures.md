@@ -1,7 +1,7 @@
 # Gestures (spell shapes)
 
 `Engine.Gesture` is KnowWonder's native class for a spell shape drawn with the mouse. `Points` is the template polyline
-in 0..1 screen space (Z unused); `Segments` is unused by the natives. Ported in `kw/KWGesture.cpp`. Addresses are HP1's.
+in 0..1 screen space (Z unused); `Segments` is unused by the natives. Ported in `src/knowwonder/KWGesture.cpp`. Addresses are HP1's.
 
 **HP1 and HP2.** Both games' `Gesture.uc` declare `CompareGesture` (426) and `CompareGesturePoint` (427), and both
 DLLs have them (changed by about the size of HP2's DebugInfo check, +52 and +29 bytes;

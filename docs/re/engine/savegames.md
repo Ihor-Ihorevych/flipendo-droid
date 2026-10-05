@@ -2,7 +2,7 @@
 
 How the games save and load. Both keep a level save (the level package written as `Save<N>.usa`, stock UE1) plus
 KnowWonder's `GameSaveInfo` file for the slot page; the script side around them differs per game. Implemented in
-`kw/KWSave.cpp` plus three `Engine.cpp` hooks ([engine-hooks.md](../../engine-hooks.md)). Addresses are HP1's.
+`src/knowwonder/KWSave.cpp` plus three `Engine.cpp` hooks ([engine-hooks.md](../../engine-hooks.md)). Addresses are HP1's.
 
 ## HP1's flow (HPMenu scripts)
 
@@ -103,7 +103,7 @@ offset both ways (`FindOffset` / `FindStatementIndex`, `Packages/Core/UObject.cp
   LatentFloat comes back at the saved value and the next event fires when it runs out.
 - **The IDs** (`FFrame.LatentAction`, written to the save): HP1 writes 384 for Sleep, 385 FinishAnim, 302
   FinishInterpolation, 501 MoveTo, 503 MoveToward, 505 StrafeTo, 507 StrafeFacing, 509 TurnTo, 511 TurnToward, 528
-  WaitForLanding (the exec functions; HP2 checked for 384 and 385 only, same). SurrealEngine registers Sleep as 257 and FinishAnim as 262, so `kw/KWSave.cpp`
+  WaitForLanding (the exec functions; HP2 checked for 384 and 385 only, same). SurrealEngine registers Sleep as 257 and FinishAnim as 262, so `src/knowwonder/KWSave.cpp`
   registers 384/385 for them: a save from the original game resumes a Sleep / FinishAnim instead of continuing at once,
   and our saves use the original's IDs. Saves made before that (257/262) still load.
 
@@ -112,7 +112,7 @@ offset both ways (`FindOffset` / `FindStatementIndex`, `Packages/Core/UObject.cp
 - `CreateTextureFromScreenShot`, `SaveObjectAsFile`, `LoadObjectAsFile`: no script calls them.
 - `Snap 3` (FEBook.OpenBook, HPConsole): UViewport::Exec copies the frame, shrunk by 2^N, into the viewport's snapshot
   buffer for SaveSnap / CreateTextureFromScreenShot. Nothing in HP1 reads the buffer, so Flipendo accepts the command and
-  does nothing (`KW::ViewportCommand`, `kw/KWSave.cpp`).
+  does nothing (`KW::ViewportCommand`, `src/knowwonder/KWSave.cpp`).
 - SaveGame's mover-position bookkeeping.
 - **Regions.** Every actor's `Region` (zone, BSP leaf) is in the save and the original trusts it. Flipendo's saves from
   before the `FindRegion` leaf fix (2026-10-05) hold wrong leaves, so `KW::SaveGameLoaded` recomputes every actor's leaf

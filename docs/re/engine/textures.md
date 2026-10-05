@@ -3,7 +3,7 @@
 KnowWonder-specific behaviour of the Fire.dll procedural textures. HP2's Fire.dll is 100% identical code to HP1's
 ([hp2_compare.md](../reports/hp2_compare.md)), so everything here holds for both games. Addresses are HP1's.
 
-## IceTexture (`kw/KWIceTexture.cpp`)
+## IceTexture (`src/knowwonder/KWIceTexture.cpp`)
 
 The source texture refracted through a "glass" texture. Each output pixel is a source pixel from the same row, shifted
 sideways by the glass value under it; one of the two layers pans (U/VPosition) according to PanningStyle:

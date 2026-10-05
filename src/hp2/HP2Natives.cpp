@@ -11,7 +11,7 @@
 
 // HP2's natives: the ones HP1 doesn't have (BoneRot, IsSoftwareRendering, GetCurrentKeyState; music still to do), and
 // adapters for natives whose script signature grew in HP2. Adapters only unpack the HP2 arguments and call the shared
-// body in kw/, so the behaviour exists once (docs/one-engine.md).
+// body in src/knowwonder/, so the behaviour exists once (docs/one-engine.md).
 
 namespace KW
 {
@@ -22,7 +22,7 @@ namespace KW
 namespace HP2
 {
 	// IDA Engine.dll: ?execBoneRot@AActor@@QAEXAAUFFrame@@QAX@Z [HP2 0x10418350]
-	// Actor.BoneRot(name Bone): HP1's BonePos (kw/KWAttach.cpp) giving the bone frame's rotation instead of its
+	// Actor.BoneRot(name Bone): HP1's BonePos (src/knowwonder/KWAttach.cpp) giving the bone frame's rotation instead of its
 	// origin (GetBoneCoords, vtable +156, then FCoords::OrthoRotation). Only for skeletal meshes, otherwise Rotation.
 	static void NBoneRot(UObject* Self, const NameString& Bone, Rotator& ReturnValue)
 	{
@@ -55,7 +55,7 @@ namespace HP2
 	// IDA Engine.dll: ?execStopSound@AActor@@QAEXAAUFFrame@@QAX@Z [HP2 0x1041A550]
 	// HP2 added `optional float FadeOutTime` (HP1: StopSound(Sound, Slot)); Slot still defaults to SLOT_Misc. The
 	// original passes it to the audio subsystem (vtable +116, ALAudio.dll) with a slot id built from the actor's
-	// object index instead of HP1's pointer; the shared body in kw/KWSound.cpp keeps one id scheme for both games.
+	// object index instead of HP1's pointer; the shared body in src/knowwonder/KWSound.cpp keeps one id scheme for both games.
 	static void NStopSound(UObject* Self, std::optional<UObject*> Sound, std::optional<uint8_t> Slot, std::optional<float> FadeOutTime)
 	{
 		KW::StopSound(UObject::Cast<UActor>(Self), Sound ? UObject::Cast<USound>(*Sound) : nullptr, Slot.value_or(SLOT_Misc), FadeOutTime.value_or(0.0f));

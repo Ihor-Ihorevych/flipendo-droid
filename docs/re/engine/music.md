@@ -1,7 +1,7 @@
 # Music
 
 How HP1 plays its songs, from Galaxy.dll (`UGalaxyAudioSubsystem::Update` [HP1 Galaxy 0x106081F0]; addresses are
-HP1's Galaxy.dll). Ported in `kw/KWSound.cpp` (`KW::MusicSource`, `KW::TickMusic`), hooked into SurrealEngine's
+HP1's Galaxy.dll). Ported in `src/knowwonder/KWSound.cpp` (`KW::MusicSource`, `KW::TickMusic`), hooked into SurrealEngine's
 `USurrealAudioDevice::UpdateMusic` ([engine-hooks.md](../../engine-hooks.md)).
 
 **HP1 and HP2.** HP2 replaces Galaxy with OpenAL (`ALAudio.dll`) and Ogg Vorbis, not read yet. Its `PlayerPawn.uc` still

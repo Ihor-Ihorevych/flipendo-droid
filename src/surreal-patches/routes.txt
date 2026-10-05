@@ -1,13 +1,13 @@
-# Which patch each changed engine/ file belongs to. tools/refresh_patches.sh reads this.
+# Which patch each changed src/engine/ file belongs to. tools/refresh_patches.sh reads this.
 #
 #   [patch-name.patch] description (becomes the patch's first line)
-#   glob                (path relative to engine/, * matches within a folder, ** across folders)
+#   glob                (path relative to src/engine/, * matches within a folder, ** across folders)
 #
 # The first matching glob wins. A changed file that matches nothing stops the refresh: add it here first.
 # Patches apply in file name order. Ranges:
 #   0001-0009  build and launcher plumbing, any game
 #   0010-0099  fixes to SurrealEngine bugs that aren't specific to one game
-#   0100-0199  KnowWonder engine (calls into kw/, gated by IsKnowWonder(); HP1-only bits by IsHarryPotter1())
+#   0100-0199  KnowWonder engine (calls into src/knowwonder/, gated by IsKnowWonder(); HP1-only bits by IsHarryPotter1())
 #   0200-0299  free for game-specific additions (HP2)
 # Patches split by file, so a file has exactly one owner.
 
@@ -31,29 +31,29 @@ SurrealEngine/UI/**
 SurrealEngine/Audio/**
 SurrealEngine/Packages/Engine/Resources/Level/UModel.cpp
 
-[0100-kw-core.patch] flipendo: build (kw/, hp1/), natives, engine loop (input, console, saves, view), missing data messages
+[0100-knowwonder-core.patch] flipendo: build (src/knowwonder/, src/hp1/), natives, engine loop (input, console, saves, view), missing data messages
 CMakeLists.txt
 SurrealEngine/Package/PackageManager.*
 SurrealEngine/Engine.*
 SurrealEngine/Native/**
 
-[0110-kw-physics.patch] flipendo: KnowWonder physics, pawn movement and collision
+[0110-knowwonder-physics.patch] flipendo: KnowWonder physics, pawn movement and collision
 SurrealEngine/Collision/**
 SurrealEngine/Packages/Engine/Actors/UActor_Phys*
 SurrealEngine/Packages/Engine/Actors/Pawn/**
 SurrealEngine/Packages/Engine/Actors/UActor_Touch.cpp
 
-[0120-kw-actors.patch] flipendo: KnowWonder actor tick, native actors (ParticleFX, Wind), animation
+[0120-knowwonder-actors.patch] flipendo: KnowWonder actor tick, native actors (ParticleFX, Wind), animation
 SurrealEngine/Packages/Engine/Actors/UActor.cpp
 SurrealEngine/Packages/Engine/Actors/UActor.h
 SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
 SurrealEngine/Packages/Engine/Resources/Mesh/**
 
-[0130-kw-render.patch] flipendo: KnowWonder rendering (FOV, skeletal meshes, particles, translucency, textures; HP1 menu canvas)
+[0130-knowwonder-render.patch] flipendo: KnowWonder rendering (FOV, skeletal meshes, particles, translucency, textures; HP1 menu canvas)
 SurrealEngine/Render/**
 SurrealEngine/Light/**
 SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp
 SurrealEngine/Packages/Engine/Resources/Textures/**
 
-[0140-kw-audio.patch] flipendo: KnowWonder sound and music
+[0140-knowwonder-audio.patch] flipendo: KnowWonder sound and music
 SurrealEngine/Packages/Engine/Subsystems/**

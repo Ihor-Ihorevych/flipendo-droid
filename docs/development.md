@@ -7,12 +7,12 @@ basics are in [CONTRIBUTING.md](../CONTRIBUTING.md#building).
 
 | Path | What |
 |---|---|
-| `kw/` | **KnowWonder's engine**, reimplemented: what the Harry Potter games' modified `Engine.dll` / `Fire.dll` / `Render.dll` do differently from stock Unreal (skeletal animation, ParticleFX, Wind, Gesture, physics and pawn movement, collision, interpolation, save games, IceTexture, natives) plus the debug tools. Namespace `KW`, files `KW*.cpp`. |
-| `hp1/` | **HP1 only**: the optional extras (`hp1/mods/`, [modding.md](modding.md)) and the widescreen canvas for HP1's menu classes (`HP1Canvas.cpp`). |
-| `hp2/` | **HP2 only**: HP2's own natives and bytecode differences, and adapters where HP2's script signatures differ. |
-| `flipendo.cmake` | Adds `kw/`, `hp1/` and `hp2/` to SurrealEngine's build (one line in `engine/CMakeLists.txt`). |
-| `engine/` | [SurrealEngine](https://github.com/dpjudas/SurrealEngine), our engine dependency, as a git submodule. Never committed to. |
-| `patches/` | Our changes to SurrealEngine, applied to `engine/` by the build, split by topic ([engine-hooks.md](engine-hooks.md)). |
+| `src/knowwonder/` | **KnowWonder's engine**, reimplemented: what the Harry Potter games' modified `Engine.dll` / `Fire.dll` / `Render.dll` do differently from stock Unreal (skeletal animation, ParticleFX, Wind, Gesture, physics and pawn movement, collision, interpolation, save games, IceTexture, natives) plus the debug tools. Namespace `KW`, files `KW*.cpp`. |
+| `src/hp1/` | **HP1 only**: the optional extras (`src/hp1/mods/`, [modding.md](modding.md)) and the widescreen canvas for HP1's menu classes (`HP1Canvas.cpp`). |
+| `src/hp2/` | **HP2 only**: HP2's own natives and bytecode differences, and adapters where HP2's script signatures differ. |
+| `src/flipendo.cmake` | Adds `src/knowwonder/`, `src/hp1/` and `src/hp2/` to SurrealEngine's build (one line in `src/engine/CMakeLists.txt`). |
+| `src/engine/` | [SurrealEngine](https://github.com/dpjudas/SurrealEngine), our engine dependency, as a git submodule. Never committed to. |
+| `src/surreal-patches/` | Our changes to SurrealEngine, applied to `src/engine/` by the build, split by topic ([engine-hooks.md](engine-hooks.md)). |
 | `tools/` | Build, run, extraction, audit and comparison scripts. |
 | `docs/` | This documentation ([index](README.md)); [`docs/re/`](re/) holds the reverse-engineering notes and reports. |
 | `images/` | Logos (`images/branding/`) and the README screenshots (`images/screenshots/`). |
@@ -21,10 +21,10 @@ basics are in [CONTRIBUTING.md](../CONTRIBUTING.md#building).
 Next to the repository (not in it): `../eagames/hp1` and `../eagames/hp2` are the retail game folders (never modified),
 `../eagames/hp1-work` the disposable copy runs use (made by `tools/run_hp1.sh`), and `../ida/` the IDA databases (`hp1/` and `hp2/`, never mixed: `../ida/README.md`).
 
-How code is split between `kw/`, `hp1/` and `hp2/` so that each behaviour exists once: [one-engine.md](one-engine.md).
+How code is split between `src/knowwonder/`, `src/hp1/` and `src/hp2/` so that each behaviour exists once: [one-engine.md](one-engine.md).
 
-**Engine hooks** call into `kw/` (`kw/KW.h`) gated by `engine->LaunchInfo.IsKnowWonder()`, which is HP1 only for
-now; HP1-only hooks (mods, menu canvas) call `hp1/HP1.h` gated by `IsHarryPotter1()`. HP2 joins `IsKnowWonder()`
+**Engine hooks** call into `src/knowwonder/` (`src/knowwonder/KW.h`) gated by `engine->LaunchInfo.IsKnowWonder()`, which is HP1 only for
+now; HP1-only hooks (mods, menu canvas) call `src/hp1/HP1.h` gated by `IsHarryPotter1()`. HP2 joins `IsKnowWonder()`
 once its differences are handled ([re/reports/hp2_compare.md](re/reports/hp2_compare.md)).
 
 ## Ground rules
@@ -33,7 +33,7 @@ once its differences are handled ([re/reports/hp2_compare.md](re/reports/hp2_com
   behaviour come from the games' own binaries and scripts, SurrealEngine, and observing the original games.
 - **Never commit game data** or anything extracted from it (`*.u *.unr *.utx *.uax *.umx`, exes, DLLs,
   `reference/`, decompiled code).
-- **Our code goes in `kw/` (both games), `hp1/` or `hp2/` (one game only)** ([one-engine.md](one-engine.md));
+- **Our code goes in `src/knowwonder/` (both games), `src/hp1/` or `src/hp2/` (one game only)** ([one-engine.md](one-engine.md));
   SurrealEngine files only get small hooks ([engine-hooks.md](engine-hooks.md)).
 - **Every reimplemented function carries an IDA tag** directly above it, one line per original function:
   ```cpp
@@ -66,7 +66,7 @@ python tools/dll_report.py              # -> docs/re/reports/dlls.md
   HP2 status. The native code is in KnowWonder's `Engine.dll` (plus bits of `Core.dll`, `Fire.dll`, `Render.dll`); they aren't
   SafeDisc-wrapped and export decorated C++ names, so functions can be found by name in IDA or Ghidra.
 - **The native audits.** [re/reports/native_audit_hp1.md](re/reports/native_audit_hp1.md) compares the natives the
-  scripts declare with what SurrealEngine, `kw/`, `hp1/` and `hp2/` implement (MISSING / STUB / INDEX / OK); the HP2
+  scripts declare with what SurrealEngine, `src/knowwonder/`, `src/hp1/` and `src/hp2/` implement (MISSING / STUB / INDEX / OK); the HP2
   one ([native_audit_hp2.md](re/reports/native_audit_hp2.md)) adds HP1_PORT.
 - **Reverse-engineering notes** in [`re/`](re/) ([index](re/README.md)).
 - Harry Potter modding community resources:
@@ -81,8 +81,8 @@ python tools/dll_report.py              # -> docs/re/reports/dlls.md
 3. Reverse the original in `Engine.dll` by its decorated name (e.g. `?execPlayAnim@AActor@@QAEXAAUFFrame@@QAX@Z`).
    A script state that never gets entered is usually an event the engine doesn't raise: check
    [script_events.md](re/engine/script_events.md) first.
-4. Check HP2 ([hp2_compare.md](re/reports/hp2_compare.md)), then implement it in `kw/` (or `hp1/` / `hp2/` when the
-   other game lacks it, [one-engine.md](one-engine.md)): register it from `KW::RegisterNatives()` (`kw/KWNatives.cpp`)
+4. Check HP2 ([hp2_compare.md](re/reports/hp2_compare.md)), then implement it in `src/knowwonder/` (or `src/hp1/` / `src/hp2/` when the
+   other game lacks it, [one-engine.md](one-engine.md)): register it from `KW::RegisterNatives()` (`src/knowwonder/KWNatives.cpp`)
    with `OverrideNative(index, ...)`, and add the IDA tag.
 5. Rebuild, run `tools/run_hp1.sh 60`, check the `Unimplemented:` summary, rerun the audit, and note what you
    learned in `docs/re/`.

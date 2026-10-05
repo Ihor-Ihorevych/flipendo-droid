@@ -1,42 +1,42 @@
 # Engine hooks
 
-Flipendo uses [SurrealEngine](https://github.com/dpjudas/SurrealEngine) as a dependency: `engine/` is a git
-submodule pinned to a SurrealEngine commit, and nothing is ever committed inside it. Our code lives in `kw/` (KnowWonder's
-engine, shared by the HP games) and `hp1/` (HP1 only). SurrealEngine's files only get small hooks that call into
+Flipendo uses [SurrealEngine](https://github.com/dpjudas/SurrealEngine) as a dependency: `src/engine/` is a git
+submodule pinned to a SurrealEngine commit, and nothing is ever committed inside it. Our code lives in `src/knowwonder/` (KnowWonder's
+engine, shared by the HP games) and `src/hp1/` (HP1 only). SurrealEngine's files only get small hooks that call into
 them, kept as patch files so a newer SurrealEngine rarely conflicts.
 
 ## The patch set
 
 | Patch | What |
 |---|---|
-| `patches/0001-game-detection.patch` | HP1 `System/HP.exe` hashes (UK 1.1, EN retail SafeDisc, community No-CD); why a folder isn't a game |
-| `patches/0002-launcher-flags.patch` | `--autolaunch`, `--logfile`, the flags the HP1 code reads |
-| `patches/0003-cursor-focus.patch` | cursor recentering and raw input only while the game window has focus; window icons the right way up |
-| `patches/0010-engine-fixes.patch` | fixes to SurrealEngine bugs that aren't specific to one game (VM, properties, ini, packages, crash reports) |
-| `patches/0100-kw-core.patch` | build (`flipendo.cmake`), natives registration, engine loop (input, console, saves, view), missing data messages |
-| `patches/0110-kw-physics.patch` | KnowWonder physics, pawn movement, collision |
-| `patches/0120-kw-actors.patch` | KnowWonder actor tick, native actors, animation |
-| `patches/0130-kw-render.patch` | KnowWonder rendering; HP1's menu canvas |
-| `patches/0140-kw-audio.patch` | KnowWonder sound and music |
+| `src/surreal-patches/0001-game-detection.patch` | HP1 `System/HP.exe` hashes (UK 1.1, EN retail SafeDisc, community No-CD); why a folder isn't a game |
+| `src/surreal-patches/0002-launcher-flags.patch` | `--autolaunch`, `--logfile`, the flags the HP1 code reads |
+| `src/surreal-patches/0003-cursor-focus.patch` | cursor recentering and raw input only while the game window has focus; window icons the right way up |
+| `src/surreal-patches/0010-engine-fixes.patch` | fixes to SurrealEngine bugs that aren't specific to one game (VM, properties, ini, packages, crash reports) |
+| `src/surreal-patches/0100-knowwonder-core.patch` | build (`src/flipendo.cmake`), natives registration, engine loop (input, console, saves, view), missing data messages |
+| `src/surreal-patches/0110-knowwonder-physics.patch` | KnowWonder physics, pawn movement, collision |
+| `src/surreal-patches/0120-knowwonder-actors.patch` | KnowWonder actor tick, native actors, animation |
+| `src/surreal-patches/0130-knowwonder-render.patch` | KnowWonder rendering; HP1's menu canvas |
+| `src/surreal-patches/0140-knowwonder-audio.patch` | KnowWonder sound and music |
 
-`patches/routes.txt` maps engine files to these patches (globs, first match wins) and documents the number ranges:
+`src/surreal-patches/routes.txt` maps engine files to these patches (globs, first match wins) and documents the number ranges:
 0001-0009 plumbing, 0010-0099 game-independent fixes, 0100-0199 HP1, 0200-0299 free for HP2. Patches split by file,
 so a file has one owner.
 
 `tools/build.sh` applies them to the submodule's working tree (`tools/apply_patches.sh`). Each patch starts with a
-`flipendo: ...` header line (from `patches/routes.txt`), which marks the altered source as SurrealEngine's zlib licence
-requires; the changed lines themselves carry no marker. Hooks into `kw/`
+`flipendo: ...` header line (from `src/surreal-patches/routes.txt`), which marks the altered source as SurrealEngine's zlib licence
+requires; the changed lines themselves carry no marker. Hooks into `src/knowwonder/`
 are gated behind `engine->LaunchInfo.IsKnowWonder()` (HP1 for now, HP2 later), HP1-only hooks (mods, menu canvas)
 behind `IsHarryPotter1()`, so other UE1 games keep working. Fixes to SurrealEngine bugs that affect any game
 (`0010-engine-fixes.patch`) aren't gated.
 
 ### Changing a hook
 
-1. Edit the patched file under `engine/` (the patches are already applied after a build).
-2. `tools/refresh_patches.sh` regenerates `patches/` from the working tree. `patches/routes.txt` decides which patch
+1. Edit the patched file under `src/engine/` (the patches are already applied after a build).
+2. `tools/refresh_patches.sh` regenerates `src/surreal-patches/` from the working tree. `src/surreal-patches/routes.txt` decides which patch
    a file goes to; a newly touched file with no route stops the refresh until you add one. New source files belong in
-   `kw/` or `hp1/`, not `engine/`.
-3. Rebuild, then commit `patches/` (never `engine/` itself) and add the hook to the table below.
+   `src/knowwonder/` or `src/hp1/`, not `src/engine/`.
+3. Rebuild, then commit `src/surreal-patches/` (never `src/engine/` itself) and add the hook to the table below.
 
 Until you refresh, `tools/build.sh` reports `CONFLICT` for the patches: the working tree has changes they don't
 contain yet. Temporary debug edits must be reverted (`tools/apply_patches.sh --reset`) before refreshing.
@@ -45,20 +45,20 @@ contain yet. Temporary debug edits must be reverted (`tools/apply_patches.sh --r
 
 ```sh
 tools/update_engine.sh --check   # new SurrealEngine commits + which patched files they touch
-tools/update_engine.sh           # move engine/ to SurrealEngine master and re-apply patches/
+tools/update_engine.sh           # move src/engine/ to SurrealEngine master and re-apply src/surreal-patches/
 tools/update_engine.sh <sha>     # or a specific commit
 ```
 
-If a patch no longer applies, `apply_patches.sh` reports `CONFLICT`: redo that hook by hand in `engine/`, run
-`tools/refresh_patches.sh`, rebuild, and commit `patches/` together with the new `engine` submodule pointer.
+If a patch no longer applies, `apply_patches.sh` reports `CONFLICT`: redo that hook by hand in `src/engine/`, run
+`tools/refresh_patches.sh`, rebuild, and commit `src/surreal-patches/` together with the new `engine` submodule pointer.
 
 ## Hooks by file
 
-Paths are relative to `engine/SurrealEngine/` unless they start with `engine/`.
+Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/engine/`.
 
 | File | Hook |
 |---|---|
-| `engine/CMakeLists.txt` | includes `flipendo.cmake` (`kw/kw.cmake`, `hp1/hp1.cmake`) |
+| `src/engine/CMakeLists.txt` | includes `src/flipendo.cmake` (`src/knowwonder/knowwonder.cmake`, `src/hp1/hp1.cmake`) |
 | `Engine.cpp` (OpenWindow) | window icon `KW::GameIcons`: the game's own `System/<exe>.ico` from the player's folder (HP1 `hp.ico`, grey background made transparent), else SurrealEngine's |
 | `Package/PackageManager.cpp` | `HP1::RegisterNatives()` after SurrealEngine natives |
 | `Packages/Engine/Resources/Mesh/UAnimation.cpp` | `HP1::LoadAnimation` |

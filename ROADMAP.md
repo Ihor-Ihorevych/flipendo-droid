@@ -13,7 +13,7 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
 1. **Lev_Tut1b, the Flipendo challenge**: the Flipendo lesson in Lev_Tut1 was played by hand (2026-10-04) through all
    4 rounds (scored, house points), CutScene60 and the level change. In Lev_Tut1b the barrels, cauldrons and the wall
    symbol react to Flipendo; the symbol did nothing until touch was ported (a spell destroyed in its own Touch still
-   touches the trigger, `kw/KWTouch.cpp`). Played by hand 2026-10-05 up to the block puzzle; fixed there: the
+   touches the trigger, `src/knowwonder/KWTouch.cpp`). Played by hand 2026-10-05 up to the block puzzle; fixed there: the
    block moves on Flipendo (movers block spells and get bumped), the blue save screen, music loops and ends like
    the original (no stuck loop at a song's end). 2026-10-05, also fixed: the pushed block's sides can be grabbed (mover
    polygons keep their mountable flag), the portcullis by Nick is lit and see-through, gnomes knock beans out. Next:
@@ -29,7 +29,7 @@ Visual parity checks against the original, side by side, wait until the end (aft
 channels) and particle effects.
 
 ## 0. Groundwork
-- [x] SurrealEngine as a git submodule (`engine/`, SurrealEngine) + our changes as `patches/`;
+- [x] SurrealEngine as a git submodule (`src/engine/`, SurrealEngine) + our changes as `src/surreal-patches/`;
       `tools/update_engine.sh` to move to newer SurrealEngine
 - [x] HP1 retail exe detection (SafeDisc + No-CD hashes), `--autolaunch`, `--logfile`
 - [x] Native audit vs our disc's scripts (`tools/native_audit.py` → `docs/re/reports/native_audit_hp1.md`)
@@ -38,16 +38,16 @@ channels) and particle effects.
       submodule, our extractor `tools/uelib_dump/`).
       `uelib_dump props <package>` dumps every export of a package (maps: all actors with properties)
 - [x] IDA database of `Engine.dll`: `../ida/hp1/Engine.dll.i64`
-- [x] HP1 code lives in `hp1/`, engine changes are small `flipendo:` hooks in `patches/`
+- [x] HP1 code lives in `src/hp1/`, engine changes are small `flipendo:` hooks in `src/surreal-patches/`
 - [x] Debug env vars: `HP1_HEIGHTMAP` floor heights over a grid (route planning), `HP1_SHOTS`/`HP1_SHOT_DIR` screenshots, `HP1_KEYS` scripted key presses,
       `HP1_MOUSE` scripted raw mouse moves, `HP1_TRACE` actor state log (now with zone, pitch, view rotation), `HP1_CAMERA` fixed camera,
-      `HP1_DUMP` actor list (class, state, location, Tag, Event), `HP1_GOTO` waypoint autopilot with jump/wait steps (`kw/KWDebug.cpp`)
+      `HP1_DUMP` actor list (class, state, location, Tag, Event), `HP1_GOTO` waypoint autopilot with jump/wait steps (`src/knowwonder/KWDebug.cpp`)
 - [x] Decompiled dump of Engine/Core/Render.dll (3714/2318/237 functions) in `../ida/hp1/decomp/` with an index per DLL
       (`tools/ida_dump.py`; not in the repo)
 - [x] Script events raised by HP1's natives vs SurrealEngine (`docs/re/engine/script_events.md`): 77 raised, 18 never raised
       by SurrealEngine (8 of them net/stat-log only)
-- [x] `tools/native_audit.py` also reads our `hp1/` overrides (they win for HP1)
-- [x] `hp1/mods/`: additions the original doesn't have, kept apart from the port (`--vanilla` turns the
+- [x] `tools/native_audit.py` also reads our `src/hp1/` overrides (they win for HP1)
+- [x] `src/hp1/mods/`: additions the original doesn't have, kept apart from the port (`--vanilla` turns the
       default-on ones off). Cutscene and storybook skip ("Press Space to skip"), `--skip-splash`, `--skip-intro`
 - [x] `DynamicLoadObject("Package.Group.Name")` finds the object (patch 0003, NObject.cpp): the New Game
       storybook pictures (StoryBookTest.utx) were missing, only the subtitles showed
@@ -61,46 +61,46 @@ channels) and particle effects.
       DynamicLoadObject calls and imports a package lacks are logged
 - [x] Documentation split: README (players: screenshots, status, how to play, extras, Discord), CONTRIBUTING.md
       (ways to help, building, developer flags, ground rules), ROADMAP (status), `docs/` (how things work)
-- [x] Docs sorted for both games: every document in `docs/` (modding, debug tools, the kw/hp1/hp2 split), images in
+- [x] Docs sorted for both games: every document in `docs/` (modding, debug tools, the src/knowwonder/hp1/hp2 split), images in
       `images/`; reverse-engineering notes split into `docs/re/engine/` (KnowWonder's engine, each note with its
       HP1/HP2 differences), `docs/re/hp1/`, `docs/re/hp2/` and generated `docs/re/reports/`
 - [x] README screenshot gallery and social preview (`images/screenshots/`, taken with `HP1_SHOTS`, no official logos)
 
 ## 1. Characters move (skeletal animation) ← current
-- [x] `UAnimation` HP1 format loader (`kw/Anim/KWAnimation.cpp`)
+- [x] `UAnimation` HP1 format loader (`src/knowwonder/Anim/KWAnimation.cpp`)
 - [x] Anim state natives: PlayAnim, LoopAnim, TweenAnim, IsAnimating, FinishAnim, CreateAnimChannel,
       HasAnim, GetAnimGroup, LinkSkelAnim, BoneNumber, BoneName
 - [x] Anim tick: TweenAlpha blend, notifies, AnimEnd, aux channels
-- [x] Skeletal pose + skinning: characters render (`kw/Anim/KWSkeletal.cpp`: ApplyAnim, GetFrame,
+- [x] Skeletal pose + skinning: characters render (`src/knowwonder/Anim/KWSkeletal.cpp`: ApplyAnim, GetFrame,
       GetMeshCoords incl. the Y mirror, Wideness, bAlignBottom)
 - [~] Channel blending in the pose (AuxAnims per bone subtree) — implemented, not yet verified in game
 - [ ] Verify animations visually against the original (walk/run/breathe, tween blends)
 - [x] Root motion (`bAnimMove`: banked in ApplyAnim, GetRootMovement / AdjustRootMovement, applied at the end of
-      AActor::Tick; `kw/Anim/KWSkeletal.cpp`, `docs/re/engine/animation.md`). Harry climbs the bookcase in Fred & George's
+      AActor::Tick; `src/knowwonder/Anim/KWSkeletal.cpp`, `docs/re/engine/animation.md`). Harry climbs the bookcase in Fred & George's
       room (climb96start/end) and the 32-unit ledge after it (climb32). ApplyAnim also got the original's "unchanged
       frame" early-out (the tween blend ran once per draw call before). AnimCycleMovement has no caller (not ported)
 - [x] BonePos, GetBoneCoords, weapon/wand attachment (WeaponBoneIndex, WeaponAdjust), AttachToOwner
-      (`kw/Anim/KWSkeletal.cpp`, `kw/KWAttach.cpp`, `docs/re/engine/animation.md`): Harry holds his wand. The weapon frame is
+      (`src/knowwonder/Anim/KWSkeletal.cpp`, `src/knowwonder/KWAttach.cpp`, `docs/re/engine/animation.md`): Harry holds his wand. The weapon frame is
       GetFrame's (WeaponAdjust in the weapon bone, orthonormalized, Y negated), it sets Pawn.WeaponLoc/WeaponRot and the
       weapon's ThirdPersonMesh is drawn in it. `physTrailer` follows the owner's bone AnimBone-1 (broom trail at
       'BroomTail'). The wand was also invisible because SurrealEngine raised RenderOverlays in third person:
       Weapon.RenderOverlays → Canvas.DrawActor leaves the weapon bHidden (HP1 only raises it without bBehindView)
-- [x] GetRenderExtent, GetWorldCollisionBox (`kw/KWCollision.cpp`, `docs/re/hp1/spells.md`)
+- [x] GetRenderExtent, GetWorldCollisionBox (`src/knowwonder/KWCollision.cpp`, `docs/re/hp1/spells.md`)
 - [x] Transient channel cleanup (done in ApplyAnim, like the original)
 
 ## 2. Playable tutorial (Lev_Tut1)
 - [x] TraceTexture at HP1's native index 285 (footsteps); decals not traced yet
-- [x] Doors (Movers) move: HP1's Mover shadows PhysAlpha/PhysRate (`kw/KWMover.cpp`). This also fixed
+- [x] Doors (Movers) move: HP1's Mover shadows PhysAlpha/PhysRate (`src/knowwonder/KWMover.cpp`). This also fixed
       cutscene walks (MoveSmooth + timeout teleport) popping characters through closed doors
 - [x] Skeletal render box for culling/BSP placement (`USkeletalMesh::GetRenderBoundingBox`)
 - [x] Intro cutscene (CutScene4): doors open, kids run through and up the stairs, Harry runs out,
       Dumbledore walks down and greets him. Fixed by:
-  - [x] Hor+ field of view (`kw/KWView.cpp`): shots are framed for 4:3; at 16:9 Dumbledore sat under
+  - [x] Hor+ field of view (`src/knowwonder/KWView.cpp`): shots are framed for 4:3; at 16:9 Dumbledore sat under
         the letterbox bar
-  - [x] `CollideType` CT_Box collision (`kw/KWCollision.cpp`): BlockAll walls along the stairs were
+  - [x] `CollideType` CT_Box collision (`src/knowwonder/KWCollision.cpp`): BlockAll walls along the stairs were
         250-radius cylinders that closed the staircase (kids froze; Dumbledore got stuck and was
         teleported by the cutscene timeout = the "pop-in"). Also affects Triggers/CutScene volumes
-  - [x] `APawn::moveToward` port (`kw/KWPawn.cpp`): 16-unit arrival, steering damping, speed reduction,
+  - [x] `APawn::moveToward` port (`src/knowwonder/KWPawn.cpp`): 16-unit arrival, steering damping, speed reduction,
         AvgPhysicsTime; kids no longer circle patrol points or wedge against the open door
 - [x] Player input: HP1 binds `Up=MoveForward | Button bBroomPitchUp`; SurrealEngine didn't trim `|`
       subcommands, so the alias was never found and Harry couldn't move (`Engine::GetSubcommands`)
@@ -126,11 +126,11 @@ channels) and particle effects.
 - [x] Flying pawns keep their vertical velocity (SurrealEngine TickFlying zeroed it; HP1's physFlying doesn't). Peeves
       pitched up towards his higher nav point but couldn't climb and orbited it forever; now he flies his patrol,
       waitforTrigger2, attackCamera, Taunt and obspatrol
-- [x] Ledge grabbing: `APawn::Mount` (`kw/KWPawn.cpp`), called from walking (stepUp) and falling wall hits. Only
+- [x] Ledge grabbing: `APawn::Mount` (`src/knowwonder/KWPawn.cpp`), called from walking (stepUp) and falling wall hits. Only
       BSP surfaces with PolyFlags 0x1000 (PF_SpecialPoly = HP1's "mountable") qualify. SurrealEngine's cylinder collision
       can report the node of a neighbouring plane, so the face is re-found with a zero-extent ray
 - [x] `Actor.SetCollisionSize` has HP1's optional third parameter NewWidth (MountFinish passes three values)
-- [x] Gameplay events SurrealEngine never raised (`docs/re/engine/script_events.md`, `kw/KWPawn.cpp`):
+- [x] Gameplay events SurrealEngine never raised (`docs/re/engine/script_events.md`, `src/knowwonder/KWPawn.cpp`):
   - [x] `Falling` when walking or rolling off a ledge, before PHYS_Falling (Pawn.Falling → PlayInAir: Harry's fall
         animation; the boulder stops its rolling sound). Not from physSpider/findNewFloor (PHYS_Spider is unused)
   - [x] physWalking's ledge rule: MayFall once, then a pawn without bCanJump or with bIsWalking stops at the edge
@@ -145,13 +145,13 @@ channels) and particle effects.
 - [x] Spell lesson no longer hangs on its second round: `GotoState` re-enables events turned off with `Disable`, like
       Core.dll ([docs/re/hp1/spells.md](docs/re/hp1/spells.md))
 - [x] Flipendo lesson played by hand through all 4 rounds into Lev_Tut1b
-- [x] Touch like `AActor::BeginTouch` (`kw/KWTouch.cpp`, [docs/re/engine/physics.md](docs/re/engine/physics.md#touch)): a
+- [x] Touch like `AActor::BeginTouch` (`src/knowwonder/KWTouch.cpp`, [docs/re/engine/physics.md](docs/re/engine/physics.md#touch)): a
       spell that explodes in its own Touch still triggers the `spellTrigger` it hit (Lev_Tut1b's Flipendo wall symbol)
 - [x] `Pawn.FindPath` (553, KnowWonder's station pathing; tut1Peeves crashed the game without it,
-      `kw/KWNavigation.cpp`)
-- [x] ModifySound(567), StopSound(568) (`kw/KWSound.cpp`; Galaxy.dll's match: first sound with the slot's Id and,
+      `src/knowwonder/KWNavigation.cpp`)
+- [x] ModifySound(567), StopSound(568) (`src/knowwonder/KWSound.cpp`; Galaxy.dll's match: first sound with the slot's Id and,
       if given, the same Sound). BroomHarry crashed on the first tick without it
-- [x] Missing natives ([docs/re/engine/native_classes.md](docs/re/engine/native_classes.md), `kw/KWPlayerNatives.cpp`): ScreenToWorld
+- [x] Missing natives ([docs/re/engine/native_classes.md](docs/re/engine/native_classes.md), `src/knowwonder/KWPlayerNatives.cpp`): ScreenToWorld
       and FindStairRotation ported (no HP1 script reaches either). Console.CreateNativeFont returns None: the Asian
       languages need WinDrv.dll's system-font rasterizer, not reversed yet
 - [x] Console command `Snap` (FEBook.OpenBook `Snap 3`) accepted: its snapshot buffer is never read in HP1
@@ -159,29 +159,29 @@ channels) and particle effects.
 - [x] `FellOutOfWorld` on the first tick: HP1 only checks zone 0 in physWalking/physFalling, not flying/swimming/rolling
       (`HP1::PhysicsChecksLeftWorld`), so the flying `tut1Peeves0` waiting outside the BSP now survives. `Tut1McGonagall4`
       still dies: she is placed in zone 0 and falling, which kills her in the original too (leftover actor)
-- [x] Widescreen / high-res 2D (`hp1/HP1Canvas.cpp`): HUD and cutscene letterbox bars use the full window width,
+- [x] Widescreen / high-res 2D (`src/hp1/HP1Canvas.cpp`): HUD and cutscene letterbox bars use the full window width,
       menus (FEBook, story book, message boxes) are drawn in a centred 4:3 area, UI scale is fractional (canvas
       768 units tall, like 1024x768), and the options page lists the display's real resolutions
       (`FEOptionsPage.IsSupportedResolution` replaced by a native)
 - [x] Camera flew off towards the world origin when looking up (mouse up): `Actor.TraceActors` (309) overridden
-      (`kw/KWTraceTexture.cpp`, from execTraceActors/MultiLineCheck). SurrealEngine's iterator returned HitLocation
+      (`src/knowwonder/KWTraceTexture.cpp`, from execTraceActors/MultiLineCheck). SurrealEngine's iterator returned HitLocation
       (0,0,0), traced End->Start and never reported BSP hits as LevelInfo, which `BaseCam.CheckPosition` relies on
 - [ ] Windowed mode: menu mouse mapping (`WindowsMouseX/Y` into the 4:3 area) not yet tested in game
 
 ## 3. Spells
-- [x] `Gesture` spell-drawing recognition (CompareGesture, CompareGesturePoint) (`kw/KWGesture.cpp`)
-- [x] `ParticleFX` simulation, emission and natives (`kw/KWParticleFX.cpp`, `docs/re/engine/particles.md`): Tick/Update,
+- [x] `Gesture` spell-drawing recognition (CompareGesture, CompareGesturePoint) (`src/knowwonder/KWGesture.cpp`)
+- [x] `ParticleFX` simulation, emission and natives (`src/knowwonder/KWParticleFX.cpp`, `docs/re/engine/particles.md`): Tick/Update,
       UParticle::Update (gravity, damping, attraction, chaos, drip, colour palettes, elasticity bounce), all
       distributions incl. owner mesh and gesture patterns, ParentBlend. Lev_Tut1's torch fires burn
-- [x] ParticleFX billboard rendering (`kw/KWParticleRender.cpp`, from Render.dll `URender::DrawParticleSystem`)
-- [x] ParticleFX render passes (`kw/KWParticleRender.cpp`, `docs/re/engine/particles.md` "Rendering"): Line ribbon, Shard
+- [x] ParticleFX billboard rendering (`src/knowwonder/KWParticleRender.cpp`, from Render.dll `URender::DrawParticleSystem`)
+- [x] ParticleFX render passes (`src/knowwonder/KWParticleRender.cpp`, `docs/re/engine/particles.md` "Rendering"): Line ribbon, Shard
       triangle, Liquid (hanging drop / falling streak: water drips, fountains), Billboard, bShellOnly screen-space pass,
       stacked per RenderPrimitive like the original. TriTube isn't drawn (the original fails an assert after it).
       The shipped content only uses Billboard and Liquid
 - [x] ParticleFX lighting for bUnlit=False systems (LightColor from SurrealEngine's vertex light; no shipped system is lit),
       the billboard overdraw budget (PriorityTag-weighted screen area fades particles), Mover hits for Elasticity (the
       original's FastLineCheck + SingleLineCheck rule). LodParticleDensity/Lod/LodParticles are dead code in HP1
-- [x] Wind (`kw/KWWind.cpp`): AWind::Tick fluctuation, GetWind (point/directional, noise, falloff), GetTotalWind for
+- [x] Wind (`src/knowwonder/KWWind.cpp`): AWind::Tick fluctuation, GetWind (point/directional, noise, falloff), GetTotalWind for
       ParticleFX, Wind.GetWind (425)
 - [ ] Verify particle effects against the original side by side (spell trails, fires). Checked in ours only: Lev_Tut1 torch
       fires, the Lev2_HogFront fountain (liquid streaks), Lev2_fire1 water drips (hanging drops), a spell cast's puff
@@ -191,7 +191,7 @@ channels) and particle effects.
       hit reactions, which need the Flipendo lesson
 
 ## 4. Save games and front end
-- [x] Saving and loading (`kw/KWSave.cpp`, [docs/re/engine/savegames.md](docs/re/engine/savegames.md)): `SaveGame N` writes
+- [x] Saving and loading (`src/knowwonder/KWSave.cpp`, [docs/re/engine/savegames.md](docs/re/engine/savegames.md)): `SaveGame N` writes
       `Save/SaveN.usa` at once (SurrealEngine deferred it to the end of the frame, after doLevelSave had restored
       Level.Pauser), `open saveN.usa` (FESlotPage) loads it through SurrealEngine's `?load=N`. Tested in Lev_Tut1:
       Harry, level time and scripts come back where they were saved, the next cutscene triggers
@@ -209,19 +209,19 @@ channels) and particle effects.
       ([docs/re/engine/savegames.md](docs/re/engine/savegames.md))
 
 ## 5. Remaining native classes and polish
-- [x] InterpolationManager (`kw/KWInterpolation.cpp`): performPhysics flies the Owner along InterpolationPoint Bezier
+- [x] InterpolationManager (`src/knowwonder/KWInterpolation.cpp`): performPhysics flies the Owner along InterpolationPoint Bezier
       segments (DesiredSpeed/IPSpeed, bConstantSpeed correction, pauses, view targets, bFaceMoveDirection, rotation
       smoothing, Catmull-Rom bNewRotationSmoothing) and raises UpdateCamera, InterpolateEnd(manager, bForward) and
       FinishedInterpolation. Quidditch Bludgers/Snitch/Quaffle fly their paths at ~300 u/s
 - [x] Struct defaults with fixed array members (QuidCommentator's `CommentInfo Variant[8]`) loaded only element 0, which
       desynced every Quidditch/broom map on load ("Property value does not match property type!")
-- [x] Mesh lighting (`kw/KWMeshLight.cpp`, [docs/re/engine/lighting.md](docs/re/engine/lighting.md)): HP1's light picking (3 static
+- [x] Mesh lighting (`src/knowwonder/KWMeshLight.cpp`, [docs/re/engine/lighting.md](docs/re/engine/lighting.md)): HP1's light picking (3 static
       lights, line of sight, fades), light colours and LightType effects, linear falloff with LightRadiusInner, diffuse +
       specular per vertex, and back-face culling of skeletal meshes. Fixes the classroom blackboards' diagonal split
       (front and back quads z-fought). Not yet compared side by side with the original
 - [x] Skeletal mesh back-face cull and vertex normals had the winding backwards (the original tests in view space, a
       reflection of world space): every character was drawn inside out and lit from behind ([docs/re/engine/lighting.md](docs/re/engine/lighting.md))
-- [x] BSP light maps (`kw/KWLightmap.cpp`, [docs/re/engine/lighting.md](docs/re/engine/lighting.md) "Light maps"): HP1's `LightSource`
+- [x] BSP light maps (`src/knowwonder/KWLightmap.cpp`, [docs/re/engine/lighting.md](docs/re/engine/lighting.md) "Light maps"): HP1's `LightSource`
       (`LD_Plane` parallel, `LD_Ambient`), `LightRadiusInner`, its smoothstep falloff, the 2x colour scale with 7-bit
       clamps, bDarkLight, the zone ambient, and `WorldLightRadius` scaled by DrawScale. The Quidditch pitch is lit like the original.
       Waver flicker and the rarer light effects (~60 lights) still use SurrealEngine's
@@ -233,7 +233,7 @@ channels) and particle effects.
       their script classes are enough ([docs/re/engine/native_classes.md](docs/re/engine/native_classes.md))
 - [ ] Console.CreateNativeFont for the Asian languages (WinDrv.dll's GDI font rasterizer)
 - [x] `ViewFlash` (UGameEngine::Tick) and the screen flash: HP1 has no FlashScale, FlashFog.W is the brightness
-      (`kw/KWView.cpp`). Cutscene FadeIn/FadeOut, damage flashes and the level fade-in now show
+      (`src/knowwonder/KWView.cpp`). Cutscene FadeIn/FadeOut, damage flashes and the level fade-in now show
 - [~] Quidditch / broom levels: Lev_Tut2, Lev2_Quid1, Lev2_RemChase, Lev5_FlyKeys load and run their intros
 - [ ] Full game playthrough; per-level bug list
 - [ ] `Actor.Fatness`: not ported; only matters if a map or script changes it from 128
@@ -245,8 +245,8 @@ channels) and particle effects.
       4:3 `GetRes`) is already in our submodule; drop any of our patches that it now duplicates
 - [ ] Editor-only natives (BrushBuilders) — low priority
 
-## 6. Modding (`hp1/mods/` and beyond)
-- [x] `hp1/mods/` with `--vanilla`: cutscene skip, storybook skip, `--skip-splash`, `--skip-intro`
+## 6. Modding (`src/hp1/mods/` and beyond)
+- [x] `src/hp1/mods/` with `--vanilla`: cutscene skip, storybook skip, `--skip-splash`, `--skip-intro`
 - [x] Discord Rich Presence: level title, cutscene / paused, house points, play time (`--no-discord`)
 - [ ] Per-mod on/off and settings in an ini section (`[Flipendo.Mods]`), not only command-line flags; an *Extras*
       page in the options book (FEBook) to toggle them in game
@@ -286,7 +286,7 @@ Ground rules:
   mods keep working.
 - Same editor for HP1 and HP2, gated like the rest (`IsKnowWonder()`), and it runs on Linux too.
 - First check what SurrealEngine's own `SurrealEditor` (builds alongside the game) already has: package loading,
-  viewports, anything reusable. Building on it means less of our code in `engine/`.
+  viewports, anything reusable. Building on it means less of our code in `src/engine/`.
 
 1. Core
    - [ ] Object tree: every actor in the level, filterable (class, tag, event, name, gamestate) and sortable, click to
@@ -317,7 +317,7 @@ Ground rules:
    - [ ] Sound browser with preview, dialogue and lipsync editor, localization strings
 5. HP tools
    - [ ] Spell editor: draw new gesture shapes for the recognizer (`Gesture`) and attach effects
-   - [ ] ParticleFX editor with live preview (`kw/KWParticleFX.cpp`)
+   - [ ] ParticleFX editor with live preview (`src/knowwonder/KWParticleFX.cpp`)
    - [ ] Lighting: rebuild lightmaps, per-surface light scale preview
    - [ ] Path-node building and visualization for AI navigation
 6. Sharing
@@ -326,7 +326,7 @@ Ground rules:
 
 ## Speedrun practice and research tools
 What runners already have for the original and why these add to it: [docs/speedrunning.md](docs/speedrunning.md).
-All of it is mods (`hp1/mods/`, off with `--vanilla`) that never change the game's rules; worth showing to the HP1 PC
+All of it is mods (`src/hp1/mods/`, off with `--vanilla`) that never change the game's rules; worth showing to the HP1 PC
 community once the levels they run play like the original.
 
 1. Practice
@@ -357,8 +357,8 @@ community once the levels they run play like the original.
 
 ## Later: the other KnowWonder games
 - [~] HP2 (Chamber of Secrets, UE1 build 433): groundwork done, port after HP1.
-  - [x] Shared engine layer: `kw/` (KnowWonder engine) vs `hp1/` (HP1 only), hooks gated by `IsKnowWonder()`
-  - [x] `hp2/` (HP2 only) and the no-duplication rules ([docs/one-engine.md](docs/one-engine.md)): HP2-only natives `BoneRot`,
+  - [x] Shared engine layer: `src/knowwonder/` (KnowWonder engine) vs `src/hp1/` (HP1 only), hooks gated by `IsKnowWonder()`
+  - [x] `src/hp2/` (HP2 only) and the no-duplication rules ([docs/one-engine.md](docs/one-engine.md)): HP2-only natives `BoneRot`,
         `IsSoftwareRendering`, `GetCurrentKeyState`, the `StopSound` adapter (HP2 added `FadeOutTime`), `KW::IsHP2()`
   - [x] Comparison with HP1 ([docs/re/reports/hp2_compare.md](docs/re/reports/hp2_compare.md)): Fire.dll identical, Core 82%, Engine 62%
         identical (+14% offsets only); of our 120 tagged ports 23 identical, 17 offsets only, 74 changed
@@ -366,7 +366,7 @@ community once the levels they run play like the original.
         ([docs/re/reports/native_audit_hp2.md](docs/re/reports/native_audit_hp2.md)): 151 OK, 22 covered by HP1 ports, 21 missing, 28 stubs
   - [x] The ~29 extra bytes in most "changed" exec* wrappers: HP2 checks for a new DebugInfo bytecode token after
         every native call; HP2's token table shifts GlobalFunction..FloatToBool by one
-        ([docs/re/engine/scripting.md](docs/re/engine/scripting.md), `hp2/HP2Bytecode.cpp`)
+        ([docs/re/engine/scripting.md](docs/re/engine/scripting.md), `src/hp2/HP2Bytecode.cpp`)
   - [ ] Hook HP2's token table into SurrealEngine's `BytecodeStream` (skip DebugInfo, `HP2::ToStockToken`)
   - [ ] Check the remaining "changed" ports for real behaviour differences (beyond the DebugInfo check)
   - [ ] HP2 music natives: `PlayMusic` / `StopMusic` / `StopAllMusic` (ALAudio.dll), `StopSound` fade-out

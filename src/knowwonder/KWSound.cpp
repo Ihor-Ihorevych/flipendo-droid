@@ -35,7 +35,7 @@ namespace KW
 	}
 
 	// IDA Galaxy.dll: ?StopSound@UGalaxyAudioSubsystem@@UAEHPAVAActor@@HPAVUSound@@@Z [HP1 Galaxy 0x10607BA0]
-	// Shared by HP1 (NStopSound below) and HP2 (hp2/HP2Natives.cpp, which adds FadeOutTime).
+	// Shared by HP1 (NStopSound below) and HP2 (src/hp2/HP2Natives.cpp, which adds FadeOutTime).
 	// TODO HP2: fadeOutTime (ALAudio.dll's StopSound, not reversed yet); HP1 always passes 0.
 	void StopSound(UActor* actor, USound* sound, uint8_t slot, float fadeOutTime)
 	{

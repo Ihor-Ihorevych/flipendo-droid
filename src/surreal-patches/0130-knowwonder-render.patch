@@ -14,7 +14,7 @@ index e1e0062e..5fa8f0dd 100644
  	void CheckLight(UActor* light);
  	void UpdateFogmapTexture(uint32_t* texels, UModel* model, const Coords& mapCoords, int lightMap, UZoneInfo* zoneActor);
 diff --git a/SurrealEngine/Light/LightSystem_Light.cpp b/SurrealEngine/Light/LightSystem_Light.cpp
-index 2c1f7f54..8929a174 100644
+index 2c1f7f54..2155ca7a 100644
 --- a/SurrealEngine/Light/LightSystem_Light.cpp
 +++ b/SurrealEngine/Light/LightSystem_Light.cpp
 @@ -9,6 +9,7 @@
@@ -30,7 +30,7 @@ index 2c1f7f54..8929a174 100644
  	}
  
 +	// KnowWonder lights a bDynamicLightMover's surface by the lights permeating the mover's leaf in front of
-+	// the surface (kw/KWLightmap.cpp), not by the lights that see the mover's pivot
++	// the surface (src/knowwonder/KWLightmap.cpp), not by the lights that see the mover's pivot
 +	static std::vector<UActor*> kwMoverLights;
 +	bool kwDynamic = mover->bDynamicLightMover() && engine->LaunchInfo.IsKnowWonder();
 +	if (kwDynamic)
@@ -87,7 +87,7 @@ index 2c1f7f54..8929a174 100644
  		{
  			CheckLight(light);
 diff --git a/SurrealEngine/Light/LightmapBuilder.cpp b/SurrealEngine/Light/LightmapBuilder.cpp
-index e4c8f7d2..b5d0f446 100644
+index e4c8f7d2..75e0eb92 100644
 --- a/SurrealEngine/Light/LightmapBuilder.cpp
 +++ b/SurrealEngine/Light/LightmapBuilder.cpp
 @@ -8,6 +8,8 @@
@@ -103,7 +103,7 @@ index e4c8f7d2..b5d0f446 100644
  	// Initialize lightmap with the ambient color
  
  	vec3 ambientColor = hsbtorgb(zoneActor->AmbientHue(), zoneActor->AmbientSaturation(), zoneActor->AmbientBrightness()); // To do: is this the correct scale?
-+	if (engine->LaunchInfo.IsKnowWonder()) // HP1's ambient fill (kw/KWLightmap.cpp)
++	if (engine->LaunchInfo.IsKnowWonder()) // HP1's ambient fill (src/knowwonder/KWLightmap.cpp)
 +		ambientColor = KW::LightmapAmbient(zoneActor);
  	// To do: is there more ambient light than just from the zone?
  
@@ -113,7 +113,7 @@ index e4c8f7d2..b5d0f446 100644
  			{
  				Shadow.Load(model, lightMap, lightindex);
 -				Effect.Run(light, width, height, WorldLocations(), base, WorldNormal(), Shadow.Pixels(), illuminationmap.data());
-+				// HP1's falloff, LightSource and LightRadiusInner (kw/KWLightmap.cpp)
++				// HP1's falloff, LightSource and LightRadiusInner (src/knowwonder/KWLightmap.cpp)
 +				if (!engine->LaunchInfo.IsKnowWonder() || !KW::LightmapIllumination(light, width * height, WorldLocations(), base, WorldNormal(), Shadow.Pixels(), illuminationmap.data()))
 +					Effect.Run(light, width, height, WorldLocations(), base, WorldNormal(), Shadow.Pixels(), illuminationmap.data());
  				AddLightContribution(light);
@@ -124,7 +124,7 @@ index e4c8f7d2..b5d0f446 100644
  		if (light->LightType() != LT_None && light->LightBrightness() > 0)
  		{
 -			Effect.Run(light, width, height, WorldLocations(), base, WorldNormal(), Shadow.Pixels(), illuminationmap.data());
-+			// HP1's falloff, LightSource and LightRadiusInner (kw/KWLightmap.cpp)
++			// HP1's falloff, LightSource and LightRadiusInner (src/knowwonder/KWLightmap.cpp)
 +			if (!engine->LaunchInfo.IsKnowWonder() || !KW::LightmapIllumination(light, width * height, WorldLocations(), base, WorldNormal(), Shadow.Pixels(), illuminationmap.data()))
 +				Effect.Run(light, width, height, WorldLocations(), base, WorldNormal(), Shadow.Pixels(), illuminationmap.data());
  			AddLightContribution(light);
@@ -134,7 +134,7 @@ index e4c8f7d2..b5d0f446 100644
  
  void LightmapBuilder::AddLightContribution(UActor* light)
  {
-+	if (engine->LaunchInfo.IsKnowWonder()) // HP1's light colour and 7-bit clamps (kw/KWLightmap.cpp)
++	if (engine->LaunchInfo.IsKnowWonder()) // HP1's light colour and 7-bit clamps (src/knowwonder/KWLightmap.cpp)
 +	{
 +		KW::AddLightmapLight(light, illuminationmap.data(), lightcolors.data(), width * height);
 +		return;
@@ -170,7 +170,7 @@ index e4c8f7d2..b5d0f446 100644
  
  	vec2 uv[3];
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp
-index a457b9a0..f7253c71 100644
+index a457b9a0..254714c9 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp
 @@ -6,6 +6,8 @@
@@ -186,7 +186,7 @@ index a457b9a0..f7253c71 100644
  		mat4 objectToWorld = mat4::translate(Location() + PrePivot()) * Coords::Rotation(Rotation()).ToMatrix() * mat4::scale(DrawScale());
  		mat4 meshToWorld = objectToWorld * mesh->meshToObject;
  		bbox = mesh->BoundingBox.transform(meshToWorld);
-+		if (engine->LaunchInfo.IsKnowWonder()) // HP1 skeletal render box (kw/Anim)
++		if (engine->LaunchInfo.IsKnowWonder()) // HP1 skeletal render box (src/knowwonder/Anim)
 +			if (auto skel = UObject::TryCast<USkeletalMesh>(mesh))
 +				bbox = KW::GetRenderBoundingBox(this, skel);
  	}
@@ -204,7 +204,7 @@ index a457b9a0..f7253c71 100644
  	{
  		UModel* brush = Brush();
 diff --git a/SurrealEngine/Packages/Engine/Resources/Textures/UIceTexture.cpp b/SurrealEngine/Packages/Engine/Resources/Textures/UIceTexture.cpp
-index 07a06c4e..4dd72f19 100644
+index 07a06c4e..23cfa38c 100644
 --- a/SurrealEngine/Packages/Engine/Resources/Textures/UIceTexture.cpp
 +++ b/SurrealEngine/Packages/Engine/Resources/Textures/UIceTexture.cpp
 @@ -1,9 +1,16 @@
@@ -216,7 +216,7 @@ index 07a06c4e..4dd72f19 100644
  
  void UIceTexture::UpdateFrame()
  {
-+	if (engine->LaunchInfo.IsKnowWonder()) // Fire.dll's refraction and panning (kw/KWIceTexture.cpp)
++	if (engine->LaunchInfo.IsKnowWonder()) // Fire.dll's refraction and panning (src/knowwonder/KWIceTexture.cpp)
 +	{
 +		KW::UpdateIceTexture(this, 1.0f / (MaxFrameRate() > 0.0f ? MaxFrameRate() : 25.0f));
 +		return;
@@ -225,7 +225,7 @@ index 07a06c4e..4dd72f19 100644
  	{
  		UnrealMipmap& mipmap = UsedMipmaps.front();
 diff --git a/SurrealEngine/Render/RenderCanvas.cpp b/SurrealEngine/Render/RenderCanvas.cpp
-index 4b2aa5c5..2daa6398 100644
+index 4b2aa5c5..206d7b0a 100644
 --- a/SurrealEngine/Render/RenderCanvas.cpp
 +++ b/SurrealEngine/Render/RenderCanvas.cpp
 @@ -14,6 +14,8 @@
@@ -241,7 +241,7 @@ index 4b2aa5c5..2daa6398 100644
  	// Assume 1280x960 for UT and newer.
  	int vertResolution = engine->LaunchInfo.ue1Version < 400 ? 768 : 960;
  	Canvas.uiscale = std::max((engine->viewport->ViewportHeight() + vertResolution / 2) / vertResolution, 1);
-+	if (engine->LaunchInfo.IsHarryPotter1()) // fractional UI scale (hp1/HP1Canvas.cpp)
++	if (engine->LaunchInfo.IsHarryPotter1()) // fractional UI scale (src/hp1/HP1Canvas.cpp)
 +		Canvas.uiscale = HP1::CanvasUIScale(engine->viewport->ViewportHeight());
  
  	SceneNode frame;
@@ -255,7 +255,7 @@ index 4b2aa5c5..2daa6398 100644
 -		engine->canvas->ClipX() = (float)sizeY * (4.0f / 3.0f);
 -		engine->canvas->SizeX() = (int)std::round(sizeY * (4.0f / 3.0f));
 -	}
-+	if (engine->LaunchInfo.IsHarryPotter1()) // full-width HUD canvas; menus get a 4:3 area in PostRender (hp1/HP1Canvas.cpp)
++	if (engine->LaunchInfo.IsHarryPotter1()) // full-width HUD canvas; menus get a 4:3 area in PostRender (src/hp1/HP1Canvas.cpp)
 +		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, false);
  
  	//engine->viewport->bShowWindowsMouse() = true; // bShowWindowsMouse is set to true by WindowConsole if mouse cursor should be visible
@@ -282,7 +282,7 @@ index 4b2aa5c5..2daa6398 100644
  	Device->SetSceneNode(&Canvas.Frame);
  	if (engine->viewport->Actor())
  		CallEvent(engine->viewport->Actor(), EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
-+	if (engine->LaunchInfo.IsHarryPotter1()) // console/menus in a centred 4:3 area (hp1/HP1Canvas.cpp)
++	if (engine->LaunchInfo.IsHarryPotter1()) // console/menus in a centred 4:3 area (src/hp1/HP1Canvas.cpp)
 +	{
 +		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, true);
 +		Device->SetSceneNode(&Canvas.Frame);
@@ -292,7 +292,7 @@ index 4b2aa5c5..2daa6398 100644
 +	{
 +		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, false);
 +		Device->SetSceneNode(&Canvas.Frame);
-+		HP1::PostRenderMods(engine->canvas); // hp1/mods overlays (skip prompts), on top of HUD and menus
++		HP1::PostRenderMods(engine->canvas); // src/hp1/mods overlays (skip prompts), on top of HUD and menus
 +	}
  	DrawTimedemoStats();
  	
@@ -462,7 +462,7 @@ index 818aa65d..5ef18732 100644
  }
  
 diff --git a/SurrealEngine/Render/VisibleMesh.cpp b/SurrealEngine/Render/VisibleMesh.cpp
-index 7f5e8efb..4ad4d83d 100644
+index 7f5e8efb..1f3da353 100644
 --- a/SurrealEngine/Render/VisibleMesh.cpp
 +++ b/SurrealEngine/Render/VisibleMesh.cpp
 @@ -12,6 +12,7 @@
@@ -498,7 +498,7 @@ index 7f5e8efb..4ad4d83d 100644
  
  bool VisibleMesh::DrawSkeletalMesh(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, USkeletalMesh* mesh, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, bool translucentPass)
  {
-+	if (engine->LaunchInfo.IsKnowWonder()) // HP1 skeletal pose + skinning (kw/Anim)
++	if (engine->LaunchInfo.IsKnowWonder()) // HP1 skeletal pose + skinning (src/knowwonder/Anim)
 +	{
 +		SetupLodMeshTextures(actor, mesh);
 +		return KW::DrawSkeletalMesh(frame, actor, lightLocationActor, mesh, translucentPass);

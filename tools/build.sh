@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CONFIG="${1:-Release}"
 TARGET="${2:-}"
 
-# engine/ is a submodule of SurrealEngine; our hooks are applied from patches/.
+# src/engine/ is a submodule of SurrealEngine; our hooks are applied from src/surreal-patches/.
 "$ROOT/tools/apply_patches.sh"
 
 CMAKE="${CMAKE:-}"
@@ -21,7 +21,7 @@ fi
 [ -n "$CMAKE" ] || { echo "cmake not found; set CMAKE=/path/to/cmake" >&2; exit 1; }
 
 if [ ! -f "$ROOT/build/CMakeCache.txt" ]; then
-	"$CMAKE" -S "$ROOT/engine" -B "$ROOT/build" -G "Visual Studio 18 2026" -A x64
+	"$CMAKE" -S "$ROOT/src/engine" -B "$ROOT/build" -G "Visual Studio 18 2026" -A x64
 fi
 
 "$CMAKE" --build "$ROOT/build" --config "$CONFIG" --parallel ${TARGET:+--target "$TARGET"}

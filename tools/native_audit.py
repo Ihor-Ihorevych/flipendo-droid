@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Audit a game's native functions against what SurrealEngine (and Flipendo's hp1/) implements.
+"""Audit a game's native functions against what SurrealEngine (and Flipendo's src/hp1/) implements.
 
 Usage: python tools/native_audit.py [hp1|hp2]   (default hp1; writes docs/re/reports/native_audit_<game>.md)
-For HP2 a kw/ override is reported as HP1_PORT: the native exists for HP1 (gated to it) and may carry over
-(see docs/re/reports/hp2_compare.md). HP2's own registrations in hp2/ (HP2::RegisterNatives) count as HP2's implementation.
+For HP2 a src/knowwonder/ override is reported as HP1_PORT: the native exists for HP1 (gated to it) and may carry over
+(see docs/re/reports/hp2_compare.md). HP2's own registrations in src/hp2/ (HP2::RegisterNatives) count as HP2's implementation.
 
 
 Reads every `native` function/event declared in our disc's scripts (reference/<game>/ScriptSource, from
 tools/extract_scripts.sh) and every RegisterVMNativeFunc_N(...) call in
-engine/SurrealEngine/Native, plus our overrides in kw/ and hp1/ (which win for HP1), then classifies each native:
+src/engine/SurrealEngine/Native, plus our overrides in src/knowwonder/ and src/hp1/ (which win for HP1), then classifies each native:
 
   MISSING     declared in HP1 script, never registered by the engine
   OTHER_GAME  registered, but only inside a branch for some other game
@@ -29,9 +29,9 @@ GAME = sys.argv[1] if len(sys.argv) > 1 else "hp1"
 if GAME not in ("hp1", "hp2"):
     sys.exit("usage: native_audit.py [hp1|hp2]")
 SCRIPTS = os.path.join(ROOT, "reference", GAME, "ScriptSource")
-ENGINE = os.path.join(ROOT, "engine", "SurrealEngine")
-PORT_DIRS = [os.path.join(ROOT, "kw"), os.path.join(ROOT, "hp1")]  # our overrides: shared engine code, HP1-only
-HP2_DIR = os.path.join(ROOT, "hp2")  # HP2-only natives and HP2-signature adapters
+ENGINE = os.path.join(ROOT, "src", "engine", "SurrealEngine")
+PORT_DIRS = [os.path.join(ROOT, "src", "knowwonder"), os.path.join(ROOT, "src", "hp1")]  # our overrides: shared engine code, HP1-only
+HP2_DIR = os.path.join(ROOT, "src", "hp2")  # HP2-only natives and HP2-signature adapters
 OUT = os.path.join(ROOT, "docs", "re", "reports", "native_audit_%s.md" % GAME)
 
 # Conditions in SurrealEngine's RegisterFunctions() that are true for HP1.
@@ -129,7 +129,7 @@ def read_hp1_sources(dirs=PORT_DIRS):
 
 
 def parse_hp1_registrations(files):
-    """hp1/ registers HP1-only natives (OverrideNative) as RegisterVMNativeFunc_N("Class", "Fn", &Handler, idx)
+    """src/hp1/ registers HP1-only natives (OverrideNative) as RegisterVMNativeFunc_N("Class", "Fn", &Handler, idx)
     or NativeFunctions::RegisterHandler("Class", "Fn", idx, &Handler). -> dict (cls, name) -> registration"""
     regs = {}
     vm_re = re.compile(r'RegisterVMNativeFunc_\d+\(\s*"(\w+)"\s*,\s*"(\w+)"\s*,\s*&(\w+)\s*,\s*(\d+)\s*\)')

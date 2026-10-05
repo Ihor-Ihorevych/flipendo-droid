@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Regenerate patches/*.patch from the engine/ submodule's working-tree changes.
-# Workflow for changing an engine hook: tools/apply_patches.sh, edit the file under engine/, run this,
-# commit patches/. Never commit inside engine/ (it's a mirror of SurrealEngine).
-# Which patch a changed file goes to is decided by patches/routes.txt (first matching glob wins); a changed file
+# Regenerate src/surreal-patches/*.patch from the src/engine/ submodule's working-tree changes.
+# Workflow for changing an engine hook: tools/apply_patches.sh, edit the file under src/engine/, run this,
+# commit src/surreal-patches/. Never commit inside src/engine/ (it's a mirror of SurrealEngine).
+# Which patch a changed file goes to is decided by src/surreal-patches/routes.txt (first matching glob wins); a changed file
 # that no route matches stops the refresh. Patch files that routes.txt doesn't list, or that end up empty, are removed.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-ENGINE="$ROOT/engine"
+ENGINE="$ROOT/src/engine"
 cd "$ROOT"
 
-python - "$ENGINE" "$ROOT/patches" <<'PY'
+python - "$ENGINE" "$ROOT/src/surreal-patches" <<'PY'
 import os, re, subprocess, sys
 engine, pdir = sys.argv[1], sys.argv[2]
 
@@ -45,7 +45,7 @@ for line in open(os.path.join(pdir, 'routes.txt'), encoding='utf-8'):
 changed = subprocess.run(['git', '-C', engine, 'diff', '--name-only'], capture_output=True, text=True, check=True).stdout.split()
 untracked = subprocess.run(['git', '-C', engine, 'ls-files', '--others', '--exclude-standard'], capture_output=True, text=True, check=True).stdout.split()
 if untracked:
-    sys.exit('untracked files in engine/ (put new code in hp1/ instead): ' + ' '.join(untracked))
+    sys.exit('untracked files in src/engine/ (put new code in src/hp1/ instead): ' + ' '.join(untracked))
 
 files = {p: [] for p in order}
 unrouted = []
@@ -56,7 +56,7 @@ for f in changed:
     else:
         unrouted.append(f)
 if unrouted:
-    sys.exit('no route in patches/routes.txt for: ' + ' '.join(unrouted))
+    sys.exit('no route in src/surreal-patches/routes.txt for: ' + ' '.join(unrouted))
 
 for p in sorted(f for f in os.listdir(pdir) if f.endswith('.patch')):
     if p not in files:
