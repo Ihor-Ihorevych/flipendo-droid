@@ -114,8 +114,28 @@ bumps it again when `BumpMove` re-enables Bump. Checked 2026-10-05: each cast mo
 
 `Mover.uc` re-declares `PhysAlpha` and `PhysRate`, shadowing Actor's. Mover script (InterpolateTo etc.) and
 `AActor::physMovingBrush` (0x104061F0) use the Mover copies; SurrealEngine's TickMovingBrush used Actor's, which stay
-0, so doors were triggered but never moved. `physMovingBrush` also has KnowWonder additions such as a gravity term,
-not reversed ([original_bugs.md](../hp1/original_bugs.md#lumos-lesson-platform)).
+0, so doors were triggered but never moved. Ported whole in `KW::PhysMovingBrush` (`src/knowwonder/KWMover.cpp`).
+Checked in HP1. While `bInterpolating`, each step:
+
+- **Falling** (KnowWonder's addition, [original_bugs.md](../hp1/original_bugs.md#lumos-lesson-platform)): a mover
+  with `bCollideWorld` (AActor+476 bit 1; bit 0 is `bCollideActors`) in a zone first moves by its velocity along
+  `ZoneGravity` times dt plus ½·g·dt², and adds g·dt to Velocity. What it actually moved is added to the current key
+  (`KeyPos[KeyNum]`, AMover+788) and to `OldPos` (+992), so the rest of the move happens at the new height; that step
+  skips the end-of-move check below. If it couldn't move at all it calls `FindBase` (not ported).
+- **The key move**: alpha = PhysAlpha + PhysRate·dt (any time past 1 is left for the next pass), smoothstepped for
+  `MV_GlideByTime`, then `MoveActor` to OldPos + (BasePos + KeyPos[KeyNum] − OldPos)·alpha (BasePos +980) with the
+  rotation the same way. PhysAlpha advances by the fraction moved. Moved all the way to alpha 1: `bInterpolating` off and
+  `KeyFrameReached` (Mover's calls `InterpolateEnd(self)`). **Blocked part way: `bInterpolating` off, no event**;
+  GridMover's `Tick` notices (`bDoingInterpolation && !bInterpolating`) and goes to `DoneMoving`. SurrealEngine
+  instead retried the blocked move every tick.
+
+`ULevel::MoveActor` (0x103AA3A0) sweeps the world collision box of any actor with `bCollideActors` or `bCollideWorld`,
+brushes included (for a brush the primitive's world bounding box, shrunk by 0.51 on each side), and checks the level
+when `bCollideWorld` is set. Only GridMover sets `bCollideWorld` among HP1's movers (Mover leaves it off), so the
+Flipendo blocks stop at walls and drop into holes. SurrealEngine's TryMove never traces brushes against the world.
+Lev_Tut1b's optional room: `GridMover0` (MoveIncrement 96), pushed west twice from the moving pads, goes over a hole
+96 deep at x −3184 and drops into it (z 1104 → 1008), low enough to climb from it to the ledge (checked 2026-10-05
+with `@bump`).
 
 ## InterpolationManager
 

@@ -10,6 +10,8 @@
 #include "Packages/Engine/Actors/UHUD.h"
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
+#include "Packages/Engine/Resources/Level/UModel.h"
+#include "Packages/Engine/Resources/Level/UPolys.h"
 #include "Packages/Core/UClass.h"
 #include "Package/PackageManager.h"
 #include "Collision/TopLevel/CollisionSystem.h"
@@ -47,7 +49,9 @@
 //                              "@console Fn" calls the console's script function Fn() instead (e.g. SaveSelectedSlot);
 //                              "@console.MenuBook OpenBook Slot" follows object properties and passes one string;
 //                              "@set CutScene bDebugScript True" sets a property on every actor whose name starts so; "@get harry numBeans" logs one
-//                              "@teleport x y z" moves the player; "@trigger <tag>" triggers every actor with that Tag
+//                              "@teleport x y z" moves the player; "@trigger <tag>" triggers every actor with that Tag;
+//                              "@bump GridMover0 harry0" raises Bump(harry0) on the actors whose name starts with GridMover0;
+//                              "@polys Mover17" logs the brush polygons (normal, PolyFlags, texture) of the matching movers
 
 namespace KW
 {
@@ -303,6 +307,47 @@ namespace KW
 				}
 			}
 			LogMessage("HP1 exec: triggered " + std::to_string(count) + " actors");
+			return;
+		}
+		if (text.rfind("@bump ", 0) == 0)
+		{
+			// "@bump <actor name prefix> <other actor name>": raise Bump(other) on every matching actor (push a mover).
+			std::stringstream parts(text.substr(6));
+			std::string prefix, otherName;
+			parts >> prefix >> otherName;
+			UActor* other = nullptr;
+			for (UActor* a : engine->Level->Actors)
+				if (a && a->Name.ToString() == otherName)
+					other = a;
+			int count = 0;
+			for (UActor* a : engine->Level->Actors)
+			{
+				if (other && a && a->Name.ToString().compare(0, prefix.size(), prefix) == 0)
+				{
+					CallEvent(a, EventName::Bump, { ExpressionValue::ObjectValue(other) });
+					count++;
+				}
+			}
+			LogMessage("HP1 exec: bumped " + std::to_string(count) + " actors");
+			return;
+		}
+		if (text.rfind("@polys ", 0) == 0)
+		{
+			// "@polys <actor name prefix>": log every brush polygon of the matching actors (which sides are mountable).
+			std::string prefix = text.substr(7);
+			for (UActor* a : engine->Level->Actors)
+			{
+				if (!a || a->Name.ToString().compare(0, prefix.size(), prefix) != 0 || !a->Brush() || !a->Brush()->Polys)
+					continue;
+				int i = 0;
+				for (const Poly& poly : a->Brush()->Polys->Polys)
+				{
+					char buf[256];
+					snprintf(buf, sizeof(buf), "HP1 polys %s %d: normal=(%.2f,%.2f,%.2f) flags=0x%08x tex=%s", a->Name.ToString().c_str(), i++,
+						poly.Normal.x, poly.Normal.y, poly.Normal.z, poly.PolyFlags, poly.Texture ? poly.Texture->Name.ToString().c_str() : "None");
+					LogMessage(buf);
+				}
+			}
 			return;
 		}
 		if (text.rfind("@get ", 0) == 0)

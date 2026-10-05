@@ -34,6 +34,8 @@ Times are seconds since the first frame.
 | `@get <actor prefix> <prop>` | log a property, e.g. `@get harry numBeans` |
 | `@teleport x y z` | move the player there (touches what is there, so it starts touch cutscenes); the game camera comes along |
 | `@trigger <tag>` | trigger every actor with that Tag |
+| `@bump <actor> <other>` | raise `Bump(other)` on every actor whose name starts with `<actor>` (push a GridMover without aiming a spell: `@set GridMover0 bProjTarget False` first, so it takes the player as the bumper) |
+| `@polys <actor>` | log the brush polygons of every actor whose name starts with `<actor>`: normal, PolyFlags (0x1000 = mountable), texture |
 
 ## Crashes and the script debugger
 

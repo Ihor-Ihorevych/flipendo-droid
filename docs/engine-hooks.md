@@ -67,7 +67,7 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Packages/Engine/Actors/UActor.h`, `UActor.cpp` | `WorldLightRadius` scaled by `max(DrawScale, 1)` for KnowWonder (moved out of line) |
 | `Light/LightmapBuilder.cpp` | BSP light maps: `KW::LightmapAmbient` (SetAmbientLight), `KW::LightmapIllumination` instead of `LightEffect::Run` (falloff, LightSource, LightRadiusInner), `KW::AddLightmapLight` (AddLightContribution: colour scale, 7-bit clamps, bDarkLight); ungated fix: `CalcWorldLocations` puts lumels on the surface plane (inverse of the U/V/normal frame) |
 | `Packages/Engine/Actors/UActor_Render.cpp` | `HP1::GetRenderBoundingBox` in `UpdateBspInfo` |
-| `Packages/Engine/Actors/UActor_PhysMovingBrush.cpp` | `HP1::MoverPhysicsBegin/End` (Mover's shadowed PhysAlpha/PhysRate) |
+| `Packages/Engine/Actors/UActor_PhysMovingBrush.cpp` | `KW::PhysMovingBrush` in place of upstream's mover loop: the Mover's own (shadowing) PhysAlpha/PhysRate, KeyFrameReached instead of InterpolateEnd(None), a blocked move stops the interpolation, bCollideWorld movers (GridMover) collide with the world by their bounding box and fall with the zone's gravity |
 | `Render/RenderSubsystem.cpp` | `HP1::OnFrameRendered` (`HP1_SHOTS` debug screenshots) |
 | `Render/RenderCanvas.cpp`, `RenderSubsystem.h` | `HP1::CanvasUIScale` (float `uiscale`), `HP1::SetCanvasArea` (full-width HUD, 4:3 console/menus); `DrawClippedActor` relative to the canvas area |
 | `Engine.cpp` | `HP1::ViewFovAngle` after PlayerCalcView (Hor+ FOV); trim `\|` input subcommands; `SET Input` takes the rest of the line (multi-word aliases; no alias unbinds); `getres` → `HP1::AvailableResolutions`; `HP1::MenuMousePosition` in `OnWindowMouseMove` |
@@ -88,7 +88,6 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Packages/Engine/Actors/UActor.cpp` (Tick end) | `HP1::TickRootMotion` (bAnimMove root motion) |
 | `Packages/Engine/Actors/UActor_PhysWalking.cpp`, `UActor_PhysRolling.cpp` | `HP1::PawnWalkOffLedge` / `HP1::StartFalling` (MayFall, ledge rule, auto-jump, Falling) |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `HP1::PawnPollMoveToward`, `PawnPollStrafeFacing`, `PawnPollWaitForLanding`; WaitForLanding sets LatentFloat |
-| `Packages/Engine/Actors/UActor_PhysMovingBrush.cpp` | KeyFrameReached instead of InterpolateEnd(None) |
 | `Engine.cpp` | save games ([re/engine/savegames.md](re/engine/savegames.md)): `SaveGame` → `KW::SaveGame` at once (not at the end of the frame): LevelAction saving, the blue progress frame (`PaintProgress`), the save; `open saveN.usa` → `HP1::SaveGameLoadURL` (`?load=N`); `KW::SaveGameLoaded` after LoadFromSaveFile (BSP leaves found again); `HP1::LevelInfoLoaded` in LoadMap (empty LevelEnterText = URL map); `KW::ViewportCommand` before the exec functions (`Snap`) |
 | `Native/NPlayerPawn.cpp` | ClientTravel raises PreClientTravel |
 | `Engine.cpp` (after the level tick), `Render/RenderSubsystem.cpp` | ViewFlash event; `HP1::ViewFlashParams` for the screen flash, from the viewport's player (not the camera actor the view goes through) |
@@ -101,7 +100,7 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `VM/Frame.cpp` | `goto` to a label that doesn't exist logs "GotoLabel (x): Label not found" and stops the state code (UE1's UObject::GotoLabel) instead of a fatal error; HP1's `gargoyle.lookaround` does it (Lev4_Sneak, Lev3_Lumos) |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `TurnToward` on a pawn whose state frame has no code does nothing (UE1 never polls it) |
 | `Packages/Engine/Resources/Level/UModel.cpp` | ungated: `FindRegion` takes the leaf on the point's side of the node, like the zone (it took the other side's, often -1) |
-| `Render/VisibleBrush.cpp` | ungated: mover polygons are one-sided like BSP surfaces (drawn only from in front, unless PF_TwoSided); the portcullis's plank back face filled its masked gate |
+| `Render/VisibleBrush.cpp` | ungated: mover polygons are one-sided like BSP surfaces (drawn only from in front, unless PF_TwoSided); the portcullis's plank back face filled its masked gate. Their texture's PolyFlags count like the polygon's, as for BSP surfaces (a masked bar drew its holes black) |
 | `Light/LightSystem.h`, `LightSystem_Light.cpp` | `GetMoverLightmap`: a bDynamicLightMover is lit by `KW::DynamicMoverLights` (the lights permeating its leaf, in front of the surface) plus nearby dynamic lights, instead of the lights that see its pivot ([re/engine/lighting.md](re/engine/lighting.md)) |
 | `Native/NActor.cpp`, `Native/NPawn.cpp`, `Packages/Engine/Actors/UActor.h`, `UActor.cpp` | ungated: `Sleep` keeps its remaining time in `Actor.LatentFloat` (saved with the actor) instead of a C++ field, done once under half a tick; `StopWaiting` ends only a Sleep (LatentFloat -1). A Sleep now survives save/load ([re/engine/savegames.md](re/engine/savegames.md)) |
 | `Render/VisibleFrame.cpp` | HP1 translucents are sorted back to front (a modulated sprite behind a particle system darkened it) |

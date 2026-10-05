@@ -311,10 +311,10 @@ index 6ccfaa27..f5b23aba 100644
 +		Velocity().z = 0.0f;
  }
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp
-index 22b4b664..21c9aa28 100644
+index 22b4b664..1c5c15a1 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp
-@@ -9,6 +9,7 @@
+@@ -9,13 +9,18 @@
  #include "Packages/Engine/Resources/Level/ULevel.h"
  #include "Packages/Engine/Resources/Level/UModel.h"
  #include "Engine.h"
@@ -322,34 +322,18 @@ index 22b4b664..21c9aa28 100644
  
  void UActor::TickMovingBrush(float elapsed)
  {
-@@ -17,6 +18,9 @@ void UActor::TickMovingBrush(float elapsed)
+ 	OldLocation() = Location();
+ 
  	UMover* mover = UObject::TryCast<UMover>(this);
- 	if (mover)
+-	if (mover)
++	if (mover && engine->LaunchInfo.IsKnowWonder()) // KnowWonder's own mover physics (src/knowwonder/KWMover.cpp)
++	{
++		KW::PhysMovingBrush(this, elapsed);
++	}
++	else if (mover)
  	{
-+		if (engine->LaunchInfo.IsKnowWonder()) // HP1 Mover shadows PhysAlpha/PhysRate (src/knowwonder/KWMover.cpp)
-+			KW::MoverPhysicsBegin(this);
-+
  		float timeLeft = elapsed;
  		while (timeLeft > 0.0f)
- 		{
-@@ -67,10 +71,16 @@ void UActor::TickMovingBrush(float elapsed)
- 				if (physAlpha == 1.0f)
- 				{
- 					bInterpolating() = false;
--					CallEvent(this, EventName::InterpolateEnd, { ExpressionValue::ObjectValue(nullptr) });
-+					if (engine->LaunchInfo.IsKnowWonder()) // physMovingBrush raises KeyFrameReached (Mover's calls InterpolateEnd(self))
-+						CallEvent(this, NameString("KeyFrameReached"));
-+					else
-+						CallEvent(this, EventName::InterpolateEnd, { ExpressionValue::ObjectValue(nullptr) });
- 				}
- 			}
- 		}
-+
-+		if (engine->LaunchInfo.IsKnowWonder())
-+			KW::MoverPhysicsEnd(this);
- 	}
- 
- 	if (elapsed > 0.0f)
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysProjectile.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysProjectile.cpp
 index b7d5a857..5043922f 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysProjectile.cpp
