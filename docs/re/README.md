@@ -36,6 +36,8 @@ A note that says "HP2 not checked" means exactly that: don't assume HP2 is the s
 | [spells.md](hp1/spells.md) | spell targeting and casting, the spell lesson and its rendering |
 | [cutscenes.md](hp1/cutscenes.md) | CutScene command lists, how cutscenes move Harry, Lev_Tut1's scenes and merchants |
 | [menus.md](hp1/menus.md) | the menu book (title menu, pause, storybook: bIsOpen, bGamePlaying), level titles from Dobby.int / HPMenu.int |
+| [collectibles.md](hp1/collectibles.md) | wizard cards (IDs, where each of the 24 is), chests and their contents, beans |
+| [cut_content.md](hp1/cut_content.md) | what the retail files contain but the game never uses: cut spells, classes, dialogue, commentary |
 | [original_bugs.md](hp1/original_bugs.md) | bugs in the original game that Flipendo fixes instead of reproducing |
 
 ## Harry Potter 2 (`hp2/`)
