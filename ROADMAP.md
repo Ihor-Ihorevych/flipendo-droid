@@ -14,12 +14,15 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
    optional room's tall block (it drops into its hole and Harry climbs from it to the challenge star) and the level
    change to Lev_Tut2, the Quidditch lesson. Fixed on the way: wall symbol and barrels react to Flipendo, blocks move
    on Flipendo, fall into holes and can be grabbed, the blue save screen, music loops, lit and see-through bars and
-   portcullis, ledge grabbing (a point-in-polygon sign error rejected walls Harry was facing). Next: Lev_Tut2 by hand.
+   portcullis, ledge grabbing (a point-in-polygon sign error rejected walls Harry was facing). Lev_Tut2, the flying
+   lesson, played in the story flow (`--level`) through to Lev_Tut3 (2026-10-05; a negative broom volume crashed its
+   intro); saving and loading at Lev_Tut3's save book checked. Next: Lev_Tut3, the Wingardium Leviosa lesson.
 2. **HP1's physics, ported whole** (2026-10-05, in progress): collision (BSP box/ray/point checks, actor primitives,
    level checks), moving actors (MoveActor, FarMoveActor, FindSpot, encroachment, zones, touch) and the movement natives
    run HP1's code; so do walking, falling, flying, swimming, projectiles, rolling, landing, rotation and TraceActors.
-   Still SurrealEngine's: spider physics (unused by HP1), sight (LineOfSightTo/CanSee) and AI reachability
-   (walkReachable etc., unused by HP1's scripts). `FLIPENDO_SE_PHYSICS=1` switches back to compare.
+   Sight (LineOfSightTo/CanSee) is HP1's. Still SurrealEngine's: spider physics (unused by HP1), AI reachability
+   (walkReachable etc., unused by HP1's scripts) and the sight and hearing events (SeePlayer, EnemyNotVisible,
+   HearNoise). `FLIPENDO_SE_PHYSICS=1` switches back to compare.
 3. Broom / Quidditch levels now load and their paths fly (see phase 5). Lev4_Sneak runs: a `goto` to a missing label
    (gargoyle.lookaround's `lcloop`) now stops the state code like UE1 instead of a fatal error.
 4. **Dark levels**: HP1's light maps are ported (phase 5); the Quidditch pitch is lit like the original. Lev_Tut2
@@ -28,7 +31,8 @@ Legend: [x] done · [~] partly done / in progress · [ ] not started
    (only lights around the viewport actor, faded). Still to look at: Lev5_FlyKeys.
 5. **SurrealEngine's guesses, reversed in order** ([docs/surrealengine-coverage.md](docs/surrealengine-coverage.md)): HP1
    still runs SurrealEngine's own behaviour for sound (PlaySound), vertex mesh lighting, sprites and decals, Spawn and
-   Destroy, BSP drawing rules, canvas text and level travel. Next: PlaySound and the Galaxy device.
+   Destroy, BSP drawing rules, canvas text and level travel. PlaySound and Galaxy's volumes are ported; next: Galaxy's
+   pan law and ambient Doppler (reversed, [docs/re/engine/sound.md](docs/re/engine/sound.md)), then vertex mesh lighting.
 6. **First prebuilt release** (see "Releases"): players can't try Flipendo without building it.
 
 Visual parity checks against the original, side by side, wait until the end (after gameplay works): mesh lighting

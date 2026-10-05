@@ -1,7 +1,7 @@
 flipendo: KnowWonder sound and music
 
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
-index d5615c73..91c9fd2d 100644
+index d5615c73..f1059b3a 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 +++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 @@ -12,6 +12,7 @@
@@ -43,7 +43,7 @@ index d5615c73..91c9fd2d 100644
  	m_Device->SetSoundVolume(SoundVolume / 255.0f * 0.5f);
  	m_Device->Update();
  }
-@@ -380,10 +393,15 @@ void USurrealAudioDevice::UpdateMusic()
+@@ -380,10 +393,17 @@ void USurrealAudioDevice::UpdateMusic()
  
  bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 Location, float Volume, float Radius, float Pitch, bool isTalk)
  {
@@ -55,13 +55,15 @@ index d5615c73..91c9fd2d 100644
 -	if (isTalk && engine->LaunchInfo.IsDeusEx())
 +	if (engine->LaunchInfo.IsKnowWonder())
 +	{
-+		// Galaxy keeps the volume as given; the linear falloff caps volume times falloff at full volume
++		// Galaxy keeps the volume as given; the linear falloff caps volume times falloff at full volume and a
++		// negative volume plays silent
++		Volume = std::max(Volume, 0.0f);
 +	}
 +	else if (isTalk && engine->LaunchInfo.IsDeusEx())
  	{
  		// Should this still be directional?
  		Volume *= 2.0f;
-@@ -475,6 +493,39 @@ void USurrealAudioDevice::StopSound(UActor* Actor, int Id)
+@@ -475,6 +495,39 @@ void USurrealAudioDevice::StopSound(UActor* Actor, int Id)
  	}
  }
  
@@ -74,7 +76,7 @@ index d5615c73..91c9fd2d 100644
 +		if (Playing.Id != 0 && ((Playing.Id ^ Id) & ~1) == 0 && (!Sound || Playing.Sound == Sound))
 +		{
 +			if (Param == 0)
-+				Playing.Volume = Value;
++				Playing.Volume = std::max(Value, 0.0f); // Galaxy plays a negative volume silent (BroomHarry's fade-out goes below 0)
 +			else if (Param == 1)
 +				Playing.Radius = Value;
 +			else if (Param == 2)
@@ -101,7 +103,7 @@ index d5615c73..91c9fd2d 100644
  void USurrealAudioDevice::StopSound(size_t index)
  {
  	PlayingSound& Playing = PlayingSounds[index];
-@@ -494,6 +545,11 @@ void USurrealAudioDevice::StopSounds()
+@@ -494,6 +547,11 @@ void USurrealAudioDevice::StopSounds()
  	for (size_t i = 0; i < PlayingSounds.size(); i++)
  		StopSound(i);
  
