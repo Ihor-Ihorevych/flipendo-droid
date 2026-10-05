@@ -11,9 +11,9 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 
 ## Ported functions (`// IDA` tags in src/knowwonder/, src/hp1/ and src/hp2/)
 
-187 tagged exports: 30 identical, 32 offsets only, 109 changed, 2 missing in HP2, 4 HP2 only, 10 no fingerprint.
+190 tagged exports: 30 identical, 32 offsets only, 111 changed, 2 missing in HP2, 4 HP2 only, 11 no fingerprint.
 
-### Changed (109)
+### Changed (111)
 
 | DLL | function | port | note |
 |---|---|---|---|
@@ -45,7 +45,7 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 | Engine | `?GetRootMovement@USkeletalMesh@@UAE?AVFVector@@PAVAActor@@@Z` | `src/knowwonder/Anim/KWSkeletal.cpp:401` | 355 -> 334 bytes, HP2 0x1042D830 |
 | Engine | `?GetSysParams@AParticleFX@@QBEPBV1@PAD@Z` | `src/knowwonder/KWParticleFX.cpp:179` | 3306 -> 3292 bytes, HP2 0x103D1730 |
 | Engine | `?GetWind@AWind@@QAE?AVFVector@@ABV2@@Z` | `src/knowwonder/KWWind.cpp:115` | 1089 -> 931 bytes, HP2 0x1043F500 |
-| Engine | `?LineCheck@UModel@@UAEHAAUFCheckResult@@PAVAActor@@VFVector@@22K@Z` | `src/knowwonder/KWBspCheck.cpp:377` | 1624 -> 1483 bytes, HP2 0x10438320 |
+| Engine | `?LineCheck@UModel@@UAEHAAUFCheckResult@@PAVAActor@@VFVector@@22K@Z` | `src/knowwonder/KWBspCheck.cpp:380` | 1624 -> 1483 bytes, HP2 0x10438320 |
 | Engine | `?LineCheck@UOrientedCylinder@@UAEHAAUFCheckResult@@PAVAActor@@VFVector@@22K@Z` | `src/knowwonder/KWLevelCheck.cpp:197` | 1113 -> 1088 bytes, HP2 0x10407E90 |
 | Engine | `?LineCheck@UPrimitive@@UAEHAAUFCheckResult@@PAVAActor@@VFVector@@22K@Z` | `src/knowwonder/KWLevelCheck.cpp:41` | 1670 -> 1656 bytes, HP2 0x10406A60 |
 | Engine | `?LoadMap@UGameEngine@@UAEPAVULevel@@ABVFURL@@PAVUPendingLevel@@PBV?$TMap@VFString@@V1@@@AAVFString@@@Z` | `src/knowwonder/KWSave.cpp:396` | 11053 -> 11045 bytes, HP2 0x103A5430 |
@@ -53,7 +53,7 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 | Engine | `?MoveActor@ULevel@@UAEHPAVAActor@@VFVector@@VFRotator@@AAUFCheckResult@@HHHH@Z` | `src/knowwonder/KWMove.cpp:135` | 3729 -> 3770 bytes, HP2 0x103B3E80 |
 | Engine | `?MultiLineCheck@ULevel@@UAEPAUFCheckResult@@AAVFMemStack@@VFVector@@11HPAVALevelInfo@@E@Z` | `src/knowwonder/KWLevelCheck.cpp:350` | 1555 -> 1538 bytes, HP2 0x103B67A0 |
 | Engine | `?PlayAnim@AActor@@QAEHVFName@@_NMMMW4EAnimType@@0@Z` | `src/knowwonder/Anim/KWAnimState.cpp:110` | 3277 -> 3482 bytes, HP2 0x10416830 |
-| Engine | `?PointCheck@UModel@@UAEHAAUFCheckResult@@PAVAActor@@VFVector@@2K@Z` | `src/knowwonder/KWBspCheck.cpp:532` | 706 -> 673 bytes, HP2 0x10435AF0 |
+| Engine | `?PointCheck@UModel@@UAEHAAUFCheckResult@@PAVAActor@@VFVector@@2K@Z` | `src/knowwonder/KWBspCheck.cpp:535` | 706 -> 673 bytes, HP2 0x10435AF0 |
 | Engine | `?PointCheck@UOrientedCylinder@@UAEHAAUFCheckResult@@PAVAActor@@VFVector@@2K@Z` | `src/knowwonder/KWLevelCheck.cpp:208` | 954 -> 879 bytes, HP2 0x10407A40 |
 | Engine | `?PointCheck@UPrimitive@@UAEHAAUFCheckResult@@PAVAActor@@VFVector@@2K@Z` | `src/knowwonder/KWLevelCheck.cpp:139` | 656 -> 621 bytes, HP2 0x10406750 |
 | Engine | `?SaveGame@UGameEngine@@UAEXH@Z` | `src/knowwonder/KWSave.cpp:364` | 1154 -> 1380 bytes, HP2 0x103AB430 |
@@ -64,16 +64,17 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 | Engine | `?UpdateParticles@AParticleFX@@QAEXM@Z` | `src/knowwonder/KWParticleFX.cpp:404` | 821 -> 806 bytes, HP2 0x103CF220 |
 | Engine | `?calcVelocity@APawn@@AAEXVFVector@@MMMHHH@Z` | `src/knowwonder/KWPhysics.cpp:744` | 2415 -> 2146 bytes, HP2 0x103F8400 |
 | Engine | `?execAddParticle@AParticleFX@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWParticleFX.cpp:918` | 280 -> 308 bytes, HP2 0x103D3CE0 |
-| Engine | `?execAutonomousPhysics@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWMoveNatives.cpp:75` | 187 -> 220 bytes, HP2 0x103F1FD0 |
+| Engine | `?execAutonomousPhysics@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWMoveNatives.cpp:86` | 187 -> 220 bytes, HP2 0x103F1FD0 |
 | Engine | `?execBoneName@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/Anim/KWAnimState.cpp:428` | 142 -> 171 bytes, HP2 0x10418150 |
 | Engine | `?execBoneNumber@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/Anim/KWAnimState.cpp:421` | 135 -> 164 bytes, HP2 0x10418070 |
 | Engine | `?execBonePos@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWAttach.cpp:23` | 194 -> 223 bytes, HP2 0x10418230 |
+| Engine | `?execCanSee@APawn@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWMoveNatives.cpp:310` | 78 -> 107 bytes, HP2 0x103E3340 |
 | Engine | `?execCompareGesture@UGesture@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWGesture.cpp:128` | 897 -> 949 bytes, HP2 0x103AD990 |
 | Engine | `?execCompareGesturePoint@UGesture@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWGesture.cpp:145` | 514 -> 543 bytes, HP2 0x103AD6E0 |
 | Engine | `?execCreateAnimChannel@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/Anim/KWAnimState.cpp:396` | 361 -> 502 bytes, HP2 0x104165B0 |
 | Engine | `?execCreateNativeFont@UConsole@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWPlayerNatives.cpp:152` | 398 -> 365 bytes, HP2 0x10393C90 |
 | Engine | `?execCreateTextureFromBMP@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWSave.cpp:289` | 506 -> 534 bytes, HP2 0x10421D70 |
-| Engine | `?execFastTrace@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWMoveNatives.cpp:67` | 191 -> 220 bytes, HP2 0x1041AF80 |
+| Engine | `?execFastTrace@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWMoveNatives.cpp:78` | 191 -> 220 bytes, HP2 0x1041AF80 |
 | Engine | `?execFindPath@APawn@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWNavigation.cpp:94` | 138 -> 167 bytes, HP2 0x103E54B0 |
 | Engine | `?execFindStairRotation@APawn@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWPlayerNatives.cpp:30` | 1772 -> 1573 bytes, HP2 0x103E46A0 |
 | Engine | `?execFinishAnim@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/Anim/KWAnimState.cpp:226` | 261 -> 299 bytes, HP2 0x10415AC0 |
@@ -84,27 +85,28 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 | Engine | `?execGetWorldCollisionBox@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWCollision.cpp:364` | 140 -> 169 bytes, HP2 0x10418730 |
 | Engine | `?execHasAnim@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/Anim/KWAnimState.cpp:402` | 116 -> 145 bytes, HP2 0x10417FA0 |
 | Engine | `?execIsAnimating@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/Anim/KWAnimState.cpp:384` | 277 -> 312 bytes, HP2 0x10417CF0 |
+| Engine | `?execLineOfSightTo@APawn@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWMoveNatives.cpp:304` | 78 -> 107 bytes, HP2 0x103E5BD0 |
 | Engine | `?execLinkSkelAnim@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/Anim/KWAnimState.cpp:415` | 82 -> 111 bytes, HP2 0x10418480 |
 | Engine | `?execLoadGameSaveInfo@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWSave.cpp:177` | 500 -> 525 bytes, HP2 0x10422760 |
 | Engine | `?execLoopAnim@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/Anim/KWAnimState.cpp:372` | 281 -> 310 bytes, HP2 0x10417A90 |
 | Engine | `?execModifySound@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWSound.cpp:31` | 247 -> 275 bytes, HP2 0x1041A3E0 |
-| Engine | `?execMove@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWMoveNatives.cpp:21` | 192 -> 244 bytes, HP2 0x1041A670 |
-| Engine | `?execMoveSmooth@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWMoveNatives.cpp:29` | 107 -> 136 bytes, HP2 0x103F1E80 |
+| Engine | `?execMove@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWMoveNatives.cpp:32` | 192 -> 244 bytes, HP2 0x1041A670 |
+| Engine | `?execMoveSmooth@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWMoveNatives.cpp:40` | 107 -> 136 bytes, HP2 0x103F1E80 |
 | Engine | `?execNumParticles@AParticleFX@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWParticleFX.cpp:911` | 212 -> 240 bytes, HP2 0x103D3BB0 |
 | Engine | `?execPlayAnim@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/Anim/KWAnimState.cpp:366` | 242 -> 271 bytes, HP2 0x10417930 |
 | Engine | `?execRecomputeDeltas@AParticleFX@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWParticleFX.cpp:998` | 81 -> 110 bytes, HP2 0x103D4440 |
 | Engine | `?execSaveGameExists@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWSave.cpp:216` | 462 -> 431 bytes, HP2 0x1041AA70 |
 | Engine | `?execSaveGameSaveInfo@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWSave.cpp:150` | 469 -> 498 bytes, HP2 0x104224E0 |
 | Engine | `?execScreenToWorld@APlayerPawn@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWPlayerNatives.cpp:117` | 585 -> 615 bytes, HP2 0x103E2FC0 |
-| Engine | `?execSetBase@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWMoveNatives.cpp:85` | 72 -> 101 bytes, HP2 0x10418940 |
+| Engine | `?execSetBase@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWMoveNatives.cpp:96` | 72 -> 101 bytes, HP2 0x10418940 |
 | Engine | `?execSetCollisionSize@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWCollision.cpp:244` | 173 -> 202 bytes, HP2 0x10418620 |
-| Engine | `?execSetLocation@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWMoveNatives.cpp:37` | 104 -> 133 bytes, HP2 0x1041A7B0 |
+| Engine | `?execSetLocation@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWMoveNatives.cpp:48` | 104 -> 133 bytes, HP2 0x1041A7B0 |
 | Engine | `?execSetParticleParams@AParticleFX@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWParticleFX.cpp:973` | 506 -> 529 bytes, HP2 0x103D4190 |
 | Engine | `?execSetPhysics@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWCollision.cpp:416` | 69 -> 98 bytes, HP2 0x103F1F40 |
-| Engine | `?execSetRotation@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWMoveNatives.cpp:43` | 200 -> 279 bytes, HP2 0x1041A870 |
+| Engine | `?execSetRotation@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWMoveNatives.cpp:54` | 200 -> 279 bytes, HP2 0x1041A870 |
 | Engine | `?execStopSound@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWSound.cpp:49` | 140 -> 211 bytes, HP2 0x1041A550 |
-| Engine | `?execTrace@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWMoveNatives.cpp:53` | 559 -> 578 bytes, HP2 0x1041AC90 |
-| Engine | `?execTraceActors@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWMoveNatives.cpp:107` | 805 -> 789 bytes, HP2 0x1041C6D0 |
+| Engine | `?execTrace@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWMoveNatives.cpp:64` | 559 -> 578 bytes, HP2 0x1041AC90 |
+| Engine | `?execTraceActors@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWMoveNatives.cpp:118` | 805 -> 789 bytes, HP2 0x1041C6D0 |
 | Engine | `?execTraceTexture@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWTraceTexture.cpp:25` | 1019 -> 993 bytes, HP2 0x10381850 |
 | Engine | `?execTweenAnim@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/Anim/KWAnimState.cpp:378` | 128 -> 157 bytes, HP2 0x10417C20 |
 | Engine | `?execWaitForLanding@APawn@@QAEXAAUFFrame@@QAX@Z` | `src/knowwonder/KWPawn.cpp:274` | 41 -> 71 bytes, HP2 0x103E44F0 |
@@ -143,10 +145,11 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 | Engine | `?execGetCurrentKeyState@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/hp2/HP2Natives.cpp:46` | HP2 0x10422C60 |
 | Engine | `?execIsSoftwareRendering@AActor@@QAEXAAUFFrame@@QAX@Z` | `src/hp2/HP2Natives.cpp:38` | HP2 0x10422A50 |
 
-### No fingerprint (10)
+### No fingerprint (11)
 
 | DLL | function | port | note |
 |---|---|---|---|
+| Engine | `?LineOfSightTo@APawn@@QAEHPAVAActor@@H@Z` | `src/knowwonder/KWMoveNatives.cpp:166` | not in HP1 exports |
 | Engine | `?TwoWallAdjust@AActor@@QAEXAAVFVector@@0000M@Z` | `src/knowwonder/KWMove.cpp:468` | not in HP1 exports |
 | Engine | `?findWaterLine@APawn@@QAEXVFVector@@AAV2@@Z` | `src/knowwonder/KWPhysics.cpp:1502` | not in HP1 exports |
 | Galaxy | `?ModifySound@UGalaxyAudioSubsystem@@UAEHPAVAActor@@HPAVUSound@@EM@Z` | `src/knowwonder/KWSound.cpp:32` |  |
@@ -209,7 +212,7 @@ HP2 retail 1.0. *Identical* = same normalized code (relocations aside), so a por
 | Engine | `?BoneName@USkeletalMesh@@QBE?AVFName@@H@Z` | `src/knowwonder/Anim/KWAnimState.cpp:429` |  |
 | Engine | `?CreateNativeFont@UViewport@@UAEPAVUFont@@PBGH@Z` | `src/knowwonder/KWPlayerNatives.cpp:153` |  |
 | Engine | `?FGetHSV@@YA?AVFPlane@@EEE@Z` | `src/knowwonder/KWMeshLight.cpp:125` |  |
-| Engine | `?FastLineCheck@UModel@@QAEEVFVector@@0@Z` | `src/knowwonder/KWBspCheck.cpp:611` |  |
+| Engine | `?FastLineCheck@UModel@@QAEEVFVector@@0@Z` | `src/knowwonder/KWBspCheck.cpp:614` |  |
 | Engine | `?GetAnimSeq@UAnimation@@UAEPAUFMeshAnimSeq@@VFName@@@Z` | `src/knowwonder/Anim/KWAnimation.cpp:23` |  |
 | Engine | `?GetCollisionBoundingBox@UBoxPrim@@UBE?AVFBox@@PBVAActor@@_N@Z` | `src/knowwonder/KWCollision.cpp:290` |  |
 | Engine | `?GetFrame@USkeletalMesh@@UAEXPAVFVector@@HVFCoords@@PAVAActor@@@Z` | `src/knowwonder/Anim/KWSkeletal.cpp:516` |  |

@@ -144,6 +144,20 @@ time. The new rotation goes through MoveActor, so what stands on the pawn turns 
 (`AActor::physicsRotation` 0x103E5FB0) turn with bRotateToDesired / bFixedRotationDir and raise EndedRotation on
 arrival.
 
+### Sight (APawn::LineOfSightTo 0x103DA070)
+
+The `LineOfSightTo` native (514) asks with bMaySkipChecks off, `CanSee` (533) with it on; both only trace the level
+(FastLineCheck), never actors. The pawn's Enemy is seen from the eyes (Location + BaseEyeHeight) or the feet, and then
+LastSeeingPos / LastSeenPos are set. Range: with bMaySkipChecks, SightRadius (for a pawn scaled by its Visibility / 128,
+capped at 4000 for a player pawn, ~3464 otherwise), and the target must be in front: Stimulus = (forward . direction -
+PeripheralVision) times 0.8 when positive, else times 0.17, plus 0.2 (no sight at 0 or less); height counts less with
+Skill (|dz| / (Skill + 1)), and the distance is divided by Stimulus. Without it: 5000 (player) or 4000 times
+min((Visibility + 16) * 0.015, 1) for a pawn, 4000 / 3000 for anything else. Over 1000 away only the eye-to-centre line
+counts, and a far pawn may be skipped: when bLOSflag is clear and it is beyond half the range, or for a non-player half
+the time at random. Near, the eyes look at 0.8 of the target's height, and a pawn within 500 also at two of the four
+corners of its cylinder (the two that are neither nearest to nor furthest from the world origin, as HP1 measures them).
+bLOSflag flips on every CanSee call (not for the Enemy) and alternates the expensive checks.
+
 ## setPhysics
 
 `AActor::setPhysics` (0x103E5140): switching to PHYS_None or PHYS_Rotating zeroes Velocity and Acceleration, so the

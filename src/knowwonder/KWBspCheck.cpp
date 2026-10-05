@@ -28,8 +28,11 @@ namespace KW
 		frame.Transformed = true;
 		UBrush* brush = UObject::TryCast<UBrush>(owner);
 		vec3 scale = brush ? brush->MainScale().Scale : vec3(1.0f);
-		frame.LocalToWorld = mat4::translate(owner->Location()) * Coords::Rotation(owner->Rotation()).ToMatrix() * mat4::scale(scale) * mat4::translate(-owner->PrePivot());
-		frame.WorldToLocal = mat4::translate(owner->PrePivot()) * mat4::scale(1.0f / scale.x, 1.0f / scale.y, 1.0f / scale.z) * Coords::InverseRotation(owner->Rotation()).ToMatrix() * mat4::translate(-owner->Location());
+		// The renderer's brush transform (VisibleBrush), and its exact inverse: the transpose of the rotation matrix
+		// (Coords::InverseRotation turns the other way round, which put opened doors back in their doorways)
+		mat4 rotation = Coords::Rotation(owner->Rotation()).ToMatrix();
+		frame.LocalToWorld = mat4::translate(owner->Location()) * rotation * mat4::scale(scale) * mat4::translate(-owner->PrePivot());
+		frame.WorldToLocal = mat4::translate(owner->PrePivot()) * mat4::scale(1.0f / scale.x, 1.0f / scale.y, 1.0f / scale.z) * mat4::transpose(rotation) * mat4::translate(-owner->Location());
 		return frame;
 	}
 

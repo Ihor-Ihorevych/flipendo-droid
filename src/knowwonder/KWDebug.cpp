@@ -54,7 +54,8 @@
 //                              "@teleport x y z" moves the player; "@trigger <tag>" triggers every actor with that Tag;
 //                              "@bump GridMover0 harry0" raises Bump(harry0) on the actors whose name starts with GridMover0;
 //                              "@polys Mover17" logs the brush polygons (normal, PolyFlags, texture) of the matching movers;
-//                              "@sweep x y z x y z ex ey ez" runs KnowWonder's BSP line/point checks with that box and logs them
+//                              "@sweep x y z x y z ex ey ez" runs KnowWonder's BSP line/point checks and the actor sweep with that box and logs them;
+//                              "@hull Mover0" logs the brush's collision hulls (planes in world space)
 
 namespace KW
 {
@@ -371,6 +372,46 @@ namespace KW
 					bool free = ModelPointCheck(ph, ModelFrame::Level(engine->Level->Model), p, extent, 0);
 					PointRegion region = engine->Level->Model->FindRegion(p, engine->LevelInfo);
 					snprintf(buf, sizeof(buf), "HP1 sweep point (%.2f,%.2f,%.2f): %s zone=%d leaf=%d push=(%.2f,%.2f,%.2f) normal=(%.3f,%.3f,%.3f)", p.x, p.y, p.z, free ? "free" : "blocked", region.ZoneNumber, region.BspLeaf, ph.Location.x, ph.Location.y, ph.Location.z, ph.Normal.x, ph.Normal.y, ph.Normal.z);
+					LogMessage(buf);
+				}
+				for (const CheckResult& h : MultiLineCheck(end, start, extent, true, engine->LevelInfo, 0))
+				{
+					snprintf(buf, sizeof(buf), "HP1 sweep actor %s time=%.4f loc=(%.2f,%.2f,%.2f) normal=(%.3f,%.3f,%.3f)", h.Actor ? h.Actor->Name.ToString().c_str() : "none", h.Time, h.Location.x, h.Location.y, h.Location.z, h.Normal.x, h.Normal.y, h.Normal.z);
+					LogMessage(buf);
+				}
+			}
+			return;
+		}
+		if (text.rfind("@hull ", 0) == 0)
+		{
+			// "@hull <brush actor>": every collision leaf hull of the brush, its planes in world space and its box
+			std::string name = text.substr(6);
+			for (UActor* a : engine->Level->Actors)
+			{
+				if (!a || a->Name.ToString() != name || !a->Brush())
+					continue;
+				ModelFrame frame = ModelFrame::Brush(a);
+				UModel* model = a->Brush();
+				char buf[400];
+				for (int node = 0; node < (int)model->Nodes.size(); node++)
+				{
+					int bound = model->Nodes[node].CollisionBound;
+					if (bound == -1)
+						continue;
+					const int32_t* list = &model->LeafHulls[bound];
+					int count = 0;
+					for (; list[count] != -1; count++)
+					{
+						int index = list[count];
+						const BspNode& n = model->Nodes[index & ~0x40000000];
+						vec4 w = frame.WorldPlane(vec4(n.PlaneX, n.PlaneY, n.PlaneZ, n.PlaneW));
+						if (index & 0x40000000)
+							w = vec4(-w.x, -w.y, -w.z, -w.w);
+						snprintf(buf, sizeof(buf), "HP1 hull %s node=%d plane %d (node %d%s): (%.3f,%.3f,%.3f,%.2f)", a->Name.ToString().c_str(), node, count, index & ~0x40000000, (index & 0x40000000) ? " flipped" : "", w.x, w.y, w.z, w.w);
+						LogMessage(buf);
+					}
+					const float* box = (const float*)&list[count + 1];
+					snprintf(buf, sizeof(buf), "HP1 hull %s node=%d box (%.1f,%.1f,%.1f)-(%.1f,%.1f,%.1f)", a->Name.ToString().c_str(), node, box[0], box[1], box[2], box[3], box[4], box[5]);
 					LogMessage(buf);
 				}
 			}
