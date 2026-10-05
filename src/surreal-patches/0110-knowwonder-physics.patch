@@ -155,7 +155,7 @@ index 32736319..573aeef7 100644
  
  	void InitActorZone() override;
 diff --git a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
-index de07166c..bf898f87 100644
+index de07166c..53d9d17e 100644
 --- a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
 @@ -7,11 +7,10 @@
@@ -226,7 +226,7 @@ index de07166c..bf898f87 100644
  		else if (StateFrame->LatentState == LatentRunState::WaitForLanding)
  		{
  			if (Physics() != PHYS_Falling)
-@@ -98,6 +112,19 @@ void UPawn::Tick(float elapsed)
+@@ -98,6 +112,22 @@ void UPawn::Tick(float elapsed)
  			}
  		}
  	}
@@ -234,8 +234,11 @@ index de07166c..bf898f87 100644
 +
 +void UPawn::Tick(float elapsed)
 +{
-+	MoveTimer() -= elapsed;
-+	if (engine->LaunchInfo.IsKnowWonder()) // AvgPhysicsTime for moveToward
++	// KnowWonder's performPhysics (KW::PerformPhysics) counts MoveTimer down and keeps AvgPhysicsTime itself; doing it
++	// here as well ran every latent move's timer at double speed (gnomes gave up halfway to their hide spot)
++	if (!engine->LaunchInfo.IsKnowWonder() || !KW::UseKWPhysics())
++		MoveTimer() -= elapsed;
++	if (engine->LaunchInfo.IsKnowWonder() && !KW::UseKWPhysics()) // AvgPhysicsTime for moveToward
 +		KW::PawnPhysicsTime(this, elapsed);
 +
 +	// HP1 polls the latent action in ProcessState, after the Tick event (AActor::Tick): a latent move or turn sees
@@ -246,7 +249,7 @@ index de07166c..bf898f87 100644
  
  	UActor::Tick(elapsed);
  
-@@ -179,6 +206,12 @@ void UPawn::Tick(float elapsed)
+@@ -179,6 +209,12 @@ void UPawn::Tick(float elapsed)
  
  void UPawn::TickRotating(float elapsed)
  {
@@ -259,7 +262,7 @@ index de07166c..bf898f87 100644
  	if (Physics() == PHYS_Spider)
  		return;
  
-@@ -220,6 +253,9 @@ void UPawn::TickRotating(float elapsed)
+@@ -220,6 +256,9 @@ void UPawn::TickRotating(float elapsed)
  
  bool UPawn::TickRotateTo(const vec3& target)
  {
@@ -269,7 +272,7 @@ index de07166c..bf898f87 100644
  	if (Physics() == PHYS_Spider)
  		return true;
  
-@@ -236,6 +272,9 @@ bool UPawn::TickRotateTo(const vec3& target)
+@@ -236,6 +275,9 @@ bool UPawn::TickRotateTo(const vec3& target)
  
  bool UPawn::TickMoveTo(const vec3& target)
  {
@@ -279,7 +282,7 @@ index de07166c..bf898f87 100644
  	if (MoveTimer() < 0.0f)
  		return true;
  
-@@ -322,6 +361,8 @@ void UPawn::TurnTo(const vec3& newFocus)
+@@ -322,6 +364,8 @@ void UPawn::TurnTo(const vec3& newFocus)
  {
  	MoveTarget() = nullptr;
  	Focus() = newFocus;
@@ -288,7 +291,7 @@ index de07166c..bf898f87 100644
  	if (StateFrame)
  		StateFrame->LatentState = LatentRunState::TurnTo;
  }
-@@ -334,12 +375,25 @@ void UPawn::TurnToward(UActor* newTarget)
+@@ -334,12 +378,25 @@ void UPawn::TurnToward(UActor* newTarget)
  	if (engine->LaunchInfo.ue1Version > 219)
  		FaceTarget() = newTarget;
  	Focus() = newTarget->Location();

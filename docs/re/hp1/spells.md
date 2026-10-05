@@ -19,6 +19,11 @@ HP2 rewrote this layer: its spells are cast through a `SpellCursor` (a ParticleF
    plain `Trace`. A `bProjTarget` candidate becomes `victim`: `LockOn` reads `GetWorldCollisionBox(true)`, puts the
    target FX at the box centre + `CentreOffset` (sized by `SizeModifier`) and calls
    `baseWand.ChooseSpell(victim.eVulnerableToSpell)`, which selects the spell class (SPELL_Flipendo -> spellFlipendo, ...).
+   It also draws the spell symbol on the target (`DrawSpellFX`: the spell's `GestureParticleEffectClass` spawned by the
+   victim, with `Pattern` = the spell's gesture). A `baseChar` with `bGestureOnTargeting` false (doxies, gnomes, Peeves,
+   the potion bottle) gets no symbol while aimed at: `Target.seeking.EndState` draws it when the cast destroys the
+   `Target` (`ParticlesMax` 200), which relies on the engine calling `EndState` from `ULevel::DestroyActor`
+   ([script_events.md](../engine/script_events.md)).
 3. Releasing the button casts: `baseWand.CastSpell(target)` spends mana, fires the `curSpell` projectile
    (`ProjectileFire`) with `target` set, and plays the incantation. Without a learned spell `curSpell` is `spellnone`
    (a fizzle that explodes after ~0.25 s).
