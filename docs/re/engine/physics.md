@@ -46,7 +46,10 @@ so the yaw moved only every other frame (+220, 0, +220) and the view shook left 
 PHYS_Walking or PHYS_Interpolating doesn't move by itself (an InterpolationManager moves its owner).
 `APawn::performPhysics` (0x103E5520) adds walking, swimming, flying, spider, then turns the pawn (below) unless it is a
 player already at its DesiredRotation with no roll to ease, counts MoveTimer down and averages AvgPhysicsTime. Both raise
-PostTouch.
+PostTouch. Nothing else counts MoveTimer down, and a pawn without physics never does. SurrealEngine's `UPawn::Tick` did it as
+well, so with this port every latent move's timer ran out at half its time: gnomes (`Tut1Gnome.hide`) gave up their
+`MoveTo` halfway, short of the 100 units the state waits for, and ran on the spot; ones that got close glided past with
+the move's acceleration still set (fixed 2026-10-05).
 
 ### Moving actors
 
