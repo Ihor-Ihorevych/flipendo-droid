@@ -290,8 +290,15 @@ channels) and particle effects.
 - [ ] Script mods: replace a game class with a mod subclass at spawn time (e.g. `HarryPotter.harry` → `MyMod.MyHarry`),
       configured in the ini, without touching the original packages
 - [ ] Run custom levels made by the HP1 modding community (collect a few test maps, list what breaks)
-- [ ] More built-in extras: FOV slider, frame limiter / uncapped framerate, controller support,
-      free camera
+- [x] 60 FPS cap (`FrameLimit.cpp`, on by default, `--fps=<n>`): HP1's per-frame movement breaks at high frame rates
+      (Lev_Tut3's students stopped at a ramp above ~110 fps, [docs/re/hp1/original_bugs.md](docs/re/hp1/original_bugs.md))
+- [ ] Fixed 60 Hz game logic, drawing at any frame rate: the game ticks (scripts, physics, cutscenes) at a fixed
+      1/60 s, zero or more ticks per drawn frame, so every frame-rate bug of the original behaves as at 60 fps, found
+      or not; drawing runs at the monitor's rate (or uncapped) and interpolates between the last two ticks: actor
+      locations and rotations, animation frames and tweens, the camera, particles. Needs a main-loop hook
+      (`Engine::Run`: tick and render split) and the interpolation in the renderer. An option, the 60 FPS cap stays
+      the default until it is tested level by level
+- [ ] More built-in extras: FOV slider, controller support, free camera
 - [ ] In-game modding tools: Dear ImGui overlay with actor list, live property inspector, console and mod manager,
       built from the `HP1_DUMP`/`HP1_TRACE`/`HP1_EXEC` debug tools ([docs/modding.md](docs/modding.md))
 - [ ] Twitch chaos mod (opt-in, `--chaos`): stream viewers vote in chat on effects every N seconds (low gravity,
@@ -379,7 +386,7 @@ community once the levels they run play like the original.
    - [ ] Splits from engine events: level change, cutscene start/end, lesson passed, save point (the community's
          autosplitter only splits on map entry)
    - [ ] LiveSplit Server link, so runners keep their splits
-   - [ ] 60 FPS cap with a visible FPS counter, like the community's required mod
+   - [~] 60 FPS cap with a visible FPS counter, like the community's required mod (the cap is in, §6; no counter yet)
 
 ## Releases
 - [ ] Prebuilt Windows download on the release page (zip with `SurrealEngine.exe` and its DLLs; no game data), with a
