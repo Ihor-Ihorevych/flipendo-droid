@@ -46,7 +46,7 @@ DLL exports we ported (Engine 199, Render 8, Fire 7, Core 6). Every SurrealEngin
 | `Render/` actors | Guess | shadows (placement), Opacity, particles, coronas, weapon on a bone | **sprites** (`VisibleSprite`), **decals** (`VisibleDecal`, draws the shadows), mesh draw flags, environment maps |
 | `Render/RenderCanvas.cpp` (HUD, menus, text) | Guess | widescreen canvas (`HP1Canvas`), view flash | `Canvas.DrawText`/`DrawTile`/`StrLen`/`TextSize`, font rendering |
 | `RenderDevice/` | Format | vertex alpha | the GPU backends (replace D3DDrv; its blend modes are a guess worth one check) |
-| `Audio/`, `USurrealAudioDevice` (sound) | Guess | music changes (`KW::UpdateMusic`), ModifySound/StopSound | **`PlaySound`** (232 calls): volume, radius, attenuation, pitch, panning, slots; ambient sounds; `GetSoundDuration` |
+| `Audio/`, `USurrealAudioDevice` (sound) | HP1 / Guess | music changes (`KW::UpdateMusic`), ModifySound/StopSound, `PlaySound` with its hearing test (range, BSP occlusion), Galaxy's volumes and linear falloff ([sound.md](re/engine/sound.md)) | panning (OpenAL's, not Galaxy's pan law), Doppler on ambient sounds, ambient sounds out of range; `GetSoundDuration` |
 | Input, console, `GameWindow` | Format / Guess | HP1's `SET Input`, aliases | key handling (should be format; HP1's input classes are script) |
 | `Packages/Engine/Network/`, IpDrv, UWeb natives | Unused | | HP1 is single player |
 
@@ -59,7 +59,7 @@ HPPuzzle, HPDialog, Tut*, Hub*, Hog*, DProps, Engine), most used first. Math, st
 | Native | Calls | Kind | Why it matters |
 |---|---|---|---|
 | `Object.GotoState`, `Disable`, `Enable`, `IsInState` | 889, 97, 93, 107 | Format (fixed once) | state changes drive every script; Core.dll's GotoState already compared |
-| `Actor.PlaySound` | 232 | **Guess** | every sound: how loud, how far, which slot it replaces |
+| `Actor.PlaySound` | 232 | HP1 (pan law still OpenAL's) | every sound: how loud, how far, which slot it replaces |
 | `Actor.Destroy` | 201 | Guess | Destroyed/touch/base events and their order |
 | `Actor.AllActors` (and the other iterators) | 130 | Format | order of actors could matter, likely the level's actor list |
 | `Actor.Spawn` | 100 | **Guess** | where a spawned actor ends up when the spot is blocked, which events run |
@@ -79,8 +79,8 @@ HPPuzzle, HPDialog, Tut*, Hub*, Hog*, DProps, Engine), most used first. Math, st
 
 Ordered by how much of the game it touches and how visible a mismatch is.
 
-1. **Sound: `PlaySound` and the Galaxy device** (Engine.dll `AActor::execPlaySound`, Galaxy.dll's 3D/attenuation).
-   Every footstep, spell and line of dialogue goes through it.
+1. **Sound: `PlaySound` and the Galaxy device**: done except Galaxy's pan law and ambient Doppler
+   ([sound.md](re/engine/sound.md)).
 2. **Vertex mesh lighting** (Render.dll's mesh lighting for non-skeletal meshes): props and many decorations.
    The skeletal path is already HP1's (`KWMeshLight`); check whether Render.dll uses the same function for both.
 3. **Sprites and decals** (Render.dll `DrawActorSprite`, the decal pass): spell effects drawn as sprites, every actor

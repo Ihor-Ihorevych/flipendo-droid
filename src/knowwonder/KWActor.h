@@ -26,6 +26,7 @@ namespace KW
 		PropertyDataOffset Opacity;
 		PropertyDataOffset VisibilityRadius;
 		PropertyDataOffset VisibilityHeight;
+		PropertyDataOffset TransientSoundPitch;
 	};
 	const ActorProps& GetActorProps();
 
@@ -56,4 +57,5 @@ namespace KW
 	inline float& Opacity(UActor* a) { return a->Value<float>(GetActorProps().Opacity); }
 	inline float& VisibilityRadius(UActor* a) { return a->Value<float>(GetActorProps().VisibilityRadius); }
 	inline float& VisibilityHeight(UActor* a) { return a->Value<float>(GetActorProps().VisibilityHeight); }
+	inline float& TransientSoundPitch(UActor* a) { return a->Value<float>(GetActorProps().TransientSoundPitch); }
 }

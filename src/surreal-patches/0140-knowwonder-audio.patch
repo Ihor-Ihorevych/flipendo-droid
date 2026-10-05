@@ -1,7 +1,7 @@
 flipendo: KnowWonder sound and music
 
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
-index d5615c73..644bfa88 100644
+index d5615c73..91c9fd2d 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 +++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 @@ -12,6 +12,7 @@
@@ -12,7 +12,17 @@ index d5615c73..644bfa88 100644
  
  static float square(float x) { return x * x; }
  
-@@ -182,9 +183,18 @@ void USurrealAudioDevice::Update(const mat4& listener)
+@@ -150,6 +151,9 @@ void USurrealAudioDevice::InitDevice()
+ 	// TODO: Add option for music buffer size
+ 	// m_Device = AudioDevice::Create(48000, 256, 16, 256);
+ 	m_Device = AudioDevice::Create(OutputRate.frequency, 256, 16, 256);
++	// HP1's Galaxy driver: volume = clamp(1 - distance / radius) * Volume, at most full volume
++	if (engine->LaunchInfo.IsKnowWonder())
++		m_Device->SetLinearFalloff(true);
+ 	LogMessage("Audio device initialized");
+ }
+ 
+@@ -182,9 +186,18 @@ void USurrealAudioDevice::Update(const mat4& listener)
  	StartAmbience();
  	UpdateAmbience();
  	UpdateSounds(listener);
@@ -33,12 +43,30 @@ index d5615c73..644bfa88 100644
  	m_Device->SetSoundVolume(SoundVolume / 255.0f * 0.5f);
  	m_Device->Update();
  }
-@@ -475,6 +485,39 @@ void USurrealAudioDevice::StopSound(UActor* Actor, int Id)
+@@ -380,10 +393,15 @@ void USurrealAudioDevice::UpdateMusic()
+ 
+ bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 Location, float Volume, float Radius, float Pitch, bool isTalk)
+ {
+-	if (Radius <= 0.0) // Seems we have zero radius values. Lovely.
++	// HP1's Galaxy driver asserts a radius (Actor.PlaySound already made a zero radius 1600, KW::PlaySound)
++	if (Radius <= 0.0 && !engine->LaunchInfo.IsKnowWonder()) // Seems we have zero radius values. Lovely.
+ 		Radius = 1500.0f;
+ 
+-	if (isTalk && engine->LaunchInfo.IsDeusEx())
++	if (engine->LaunchInfo.IsKnowWonder())
++	{
++		// Galaxy keeps the volume as given; the linear falloff caps volume times falloff at full volume
++	}
++	else if (isTalk && engine->LaunchInfo.IsDeusEx())
+ 	{
+ 		// Should this still be directional?
+ 		Volume *= 2.0f;
+@@ -475,6 +493,39 @@ void USurrealAudioDevice::StopSound(UActor* Actor, int Id)
  	}
  }
  
 +// Galaxy.dll UGalaxyAudioSubsystem::ModifySound / StopSound (HP1's audio driver). Param 0 = volume,
-+// 1 = radius, 2 = pitch. Volume gets the same normalization as PlaySound.
++// 1 = radius, 2 = pitch, stored as given.
 +bool USurrealAudioDevice::ModifySoundHP1(int Id, USound* Sound, int Param, float Value)
 +{
 +	for (PlayingSound& Playing : PlayingSounds)
@@ -46,7 +74,7 @@ index d5615c73..644bfa88 100644
 +		if (Playing.Id != 0 && ((Playing.Id ^ Id) & ~1) == 0 && (!Sound || Playing.Sound == Sound))
 +		{
 +			if (Param == 0)
-+				Playing.Volume = (Value - 1.0f) * 0.25f + 1.0f;
++				Playing.Volume = Value;
 +			else if (Param == 1)
 +				Playing.Radius = Value;
 +			else if (Param == 2)
@@ -73,7 +101,7 @@ index d5615c73..644bfa88 100644
  void USurrealAudioDevice::StopSound(size_t index)
  {
  	PlayingSound& Playing = PlayingSounds[index];
-@@ -494,6 +537,11 @@ void USurrealAudioDevice::StopSounds()
+@@ -494,6 +545,11 @@ void USurrealAudioDevice::StopSounds()
  	for (size_t i = 0; i < PlayingSounds.size(); i++)
  		StopSound(i);
  

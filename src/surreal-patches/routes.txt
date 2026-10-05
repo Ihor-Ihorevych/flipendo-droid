@@ -21,7 +21,7 @@ SurrealEngine/GameApp.cpp
 [0003-cursor-focus.patch] flipendo: only recenter the mouse cursor, and only act on raw mouse/keyboard input, while the game window is the active (foreground) window; window icons the right way up
 SurrealWidgets/**
 
-[0010-engine-fixes.patch] flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files, packages, crash reports, music streaming, BSP regions
+[0010-engine-fixes.patch] flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files, packages, crash reports, music streaming (and an optional linear sound falloff, off unless a game asks), BSP regions
 SurrealEngine/VM/**
 SurrealEngine/Packages/Core/**
 SurrealEngine/Package/IniFile.*

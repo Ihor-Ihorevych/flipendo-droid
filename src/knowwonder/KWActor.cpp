@@ -33,6 +33,7 @@ namespace KW
 			props.Opacity = cls->GetPropertyDataOffset("Opacity");
 			props.VisibilityRadius = cls->GetPropertyDataOffset("VisibilityRadius");
 			props.VisibilityHeight = cls->GetPropertyDataOffset("VisibilityHeight");
+			props.TransientSoundPitch = cls->GetPropertyDataOffset("TransientSoundPitch");
 			initialized = true;
 		}
 		return props;
