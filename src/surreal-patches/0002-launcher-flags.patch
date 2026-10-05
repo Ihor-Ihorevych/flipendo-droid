@@ -1,7 +1,7 @@
-flipendo: --autolaunch and --logfile command line flags
+flipendo: --autolaunch, --logfile and --level command line flags
 
 diff --git a/SurrealEngine/GameApp.cpp b/SurrealEngine/GameApp.cpp
-index 3b059e5c..fb489d76 100644
+index 3b059e5c..3a38c11f 100644
 --- a/SurrealEngine/GameApp.cpp
 +++ b/SurrealEngine/GameApp.cpp
 @@ -12,11 +12,18 @@
@@ -23,12 +23,12 @@ index 3b059e5c..fb489d76 100644
  	try
  	{
  		CommandLine cmd(args);
-@@ -27,11 +34,43 @@ int GameApp::main(Array<std::string> args)
+@@ -27,20 +34,65 @@ int GameApp::main(Array<std::string> args)
  
  		if (commandline->HasArg("-h", "--help"))
  		{
 -			std::cout << "SurrealEngine [--url=<mapname>] [--engineversion=X] [Path to game folder]\n";
-+			std::cout << "SurrealEngine [--url=<mapname>] [--engineversion=X] [--autolaunch] [--logfile=<path>] [--skip-splash] [--skip-intro] [--vanilla] [Path to game folder]\n";
++			std::cout << "SurrealEngine [--url=<mapname>] [--level=<mapname>] [--engineversion=X] [--autolaunch] [--logfile=<path>] [--skip-splash] [--skip-intro] [--vanilla] [Path to game folder]\n";
  			return 0;
  		}
  
@@ -69,7 +69,13 @@ index 3b059e5c..fb489d76 100644
  		if (selectedGameIndex >= 0)
  		{
  			GameLaunchInfo info = GameFolderSelection::GetLaunchInfo(selectedGameIndex);
-@@ -41,6 +80,15 @@ int GameApp::main(Array<std::string> args)
++			// --level=<map>: start in that map like --url; the game adds the state a player arrives with (HP1)
++			std::string level = commandline->GetArg("", "--level", "");
++			if (!level.empty())
++				info.url = level;
+ 			Engine engine(info);
+ 			engine.Run();
+ 		}
  	}
  	catch (const std::exception& e)
  	{

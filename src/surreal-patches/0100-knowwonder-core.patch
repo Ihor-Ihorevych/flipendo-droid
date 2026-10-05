@@ -15,7 +15,7 @@ index 799eca23..799b7b61 100644
  set_target_properties(SurrealCommon PROPERTIES CXX_STANDARD 20)
  target_precompile_headers(SurrealCommon PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/SurrealEngine/Precomp.h>)
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 34ee5181..0355f05d 100644
+index 34ee5181..83eadf37 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,8 @@
@@ -124,7 +124,16 @@ index 34ee5181..0355f05d 100644
  
  	// Same as LoadMap: these are session/engine identity, not save data, and must be
  	// re-established on every load regardless of what the package/save file contains.
-@@ -1148,8 +1178,8 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -978,6 +1008,8 @@ void Engine::LoginPlayer()
+ 	// Assign the pawn to the viewport
+ 	viewport->Actor() = pawn;
+ 	viewport->Actor()->Player() = viewport;
++	if (LaunchInfo.IsHarryPotter1())
++		HP1::LevelStartPlayer(pawn, url.Map); // --level: the story flow and what Harry carries in
+ 	CallEvent(viewport->Actor(), EventName::Possess);
+ 
+ 	// Transfer travel actors to the new map
+@@ -1148,8 +1180,8 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  	}*/
  	else if (command == "getres")
  	{
@@ -135,7 +144,7 @@ index 34ee5181..0355f05d 100644
  		return window->GetAvailableResolutions();
  	}
  	else if (command == "getcolordepths")
-@@ -1199,7 +1229,17 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1199,7 +1231,17 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  			{
  				ClientTravel(url.ToString(), ETravelType::TRAVEL_Absolute, false);
  				return {};
@@ -154,7 +163,7 @@ index 34ee5181..0355f05d 100644
  		}
  
  		LogMessage("Couldn't find map " + maparg);
-@@ -1253,6 +1293,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1253,6 +1295,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  			return {};
  		}
  
@@ -169,7 +178,7 @@ index 34ee5181..0355f05d 100644
  		SaveGameInfo.SaveGameSlot = slotNum;
  
  		if (args.size() == 3)
-@@ -1304,20 +1352,40 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1304,20 +1354,40 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  			}
  		}
  	}
@@ -218,7 +227,7 @@ index 34ee5181..0355f05d 100644
  		UClass* cls = packages->FindClass(className);
  		if (!cls)
  		{
-@@ -1414,6 +1482,8 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1414,6 +1484,8 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  	}
  	else
  	{
@@ -227,7 +236,7 @@ index 34ee5181..0355f05d 100644
  		if (!ExecCommand(args))
  		{
  			LogMessage("Unknown command: " + commandline);
-@@ -1423,6 +1493,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1423,6 +1495,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  	return {};
  }
  
@@ -242,7 +251,7 @@ index 34ee5181..0355f05d 100644
  Array<std::string> Engine::GetArgs(const std::string& commandline)
  {
  	Array<std::string> args;
-@@ -1454,6 +1532,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
+@@ -1454,6 +1534,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
  			endpos = command.size();
  
  		std::string subcommand = command.substr(pos, endpos - pos);
@@ -253,7 +262,7 @@ index 34ee5181..0355f05d 100644
  		if (!subcommand.empty())
  			subcommands.push_back(subcommand);
  		pos = endpos + 1;
-@@ -1510,7 +1592,7 @@ void Engine::LoadKeybindings()
+@@ -1510,7 +1594,7 @@ void Engine::LoadKeybindings()
  					std::string aliasCommand = alias.substr(commandStart.size(), pos - commandStart.size());
  					std::string aliasName = alias.substr(pos + commandSplit.size(), pos2 - pos - commandSplit.size());
  					if (!aliasName.empty() && aliasName != "None")
@@ -262,7 +271,7 @@ index 34ee5181..0355f05d 100644
  				}
  			}
  		}
-@@ -1547,7 +1629,15 @@ void Engine::UpdateInput(float timeElapsed)
+@@ -1547,7 +1631,15 @@ void Engine::UpdateInput(float timeElapsed)
  void Engine::OpenWindow()
  {
  	if (!window)
@@ -278,7 +287,7 @@ index 34ee5181..0355f05d 100644
  
  	int width = client->StartupFullscreen ? client->FullscreenViewportX : client->WindowedViewportX;
  	int height = client->StartupFullscreen ? client->FullscreenViewportY : client->WindowedViewportY;
-@@ -1559,6 +1649,8 @@ void Engine::OpenWindow()
+@@ -1559,6 +1651,8 @@ void Engine::OpenWindow()
  	window->SetFrameGeometry(Rect::xywh(0.0, 0.0, width, height));
  	viewport->SetViewportRect(0, 0, width, height);
  
@@ -287,7 +296,7 @@ index 34ee5181..0355f05d 100644
  	if (fullscreen)
  		window->ShowFullscreen();
  	else
-@@ -1616,6 +1708,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
+@@ -1616,6 +1710,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
  	{
  		viewport->WindowsMouseX() = (float)(pos.x * window->GetDpiScale());
  		viewport->WindowsMouseY() = (float)(pos.y * window->GetDpiScale());
@@ -296,7 +305,7 @@ index 34ee5181..0355f05d 100644
  	}
  }
  
-@@ -1689,6 +1783,9 @@ void Engine::OnWindowKeyChar(std::string chars)
+@@ -1689,6 +1785,9 @@ void Engine::OnWindowKeyChar(std::string chars)
  
  void Engine::OnWindowKeyDown(EInputKey key)
  {
@@ -306,7 +315,7 @@ index 34ee5181..0355f05d 100644
  	if (playingAvi)
  	{
  		if (key == EInputKey::IK_Escape)
-@@ -1783,7 +1880,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
+@@ -1783,7 +1882,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
  
  			for (const std::string& command : GetSubcommands(keybindings[keynames[key]]))
  			{
