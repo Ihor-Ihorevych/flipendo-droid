@@ -148,6 +148,7 @@ namespace KW
 			uint8_t cdTrack = 255;
 			uint8_t section = 255;
 			float fade = 1.0f;
+			float volume = 0.0f; // the music volume last set
 			std::shared_ptr<std::atomic<bool>> finished; // the playing stream's end flag; null when no song plays
 			std::chrono::steady_clock::time_point lastUpdate;
 			bool started = false;
@@ -185,15 +186,9 @@ namespace KW
 		music.lastUpdate = now;
 		music.started = true;
 
+		// No player while a level or save loads: the music goes on as it is
 		if (!player)
-		{
-			// No viewport: SurrealEngine plays a video on the music stream. The song starts again afterwards
-			// (SetViewport sets MTRAN_Instant).
-			music.song = nullptr;
-			music.cdTrack = 255;
-			music.finished.reset();
-			return musicVolume / 255.0f;
-		}
+			return music.volume;
 
 		const PlayerMusicProps& props = GetPlayerMusicProps();
 
@@ -263,7 +258,8 @@ namespace KW
 		}
 
 		float volume = player->Value<uint8_t>(props.PercentMusicVolume) * musicVolume / (255.0f * 100.0f) * music.fade;
-		return std::clamp(volume, 0.0f, 1.0f);
+		music.volume = std::clamp(volume, 0.0f, 1.0f);
+		return music.volume;
 	}
 
 	void RegisterSoundNatives()
