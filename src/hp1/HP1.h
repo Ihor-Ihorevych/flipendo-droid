@@ -16,6 +16,8 @@ namespace HP1
 	void TickMods(float realElapsed);
 	// Engine::OnWindowKeyDown, before the key is routed anywhere (EInputKey value).
 	void ModsKeyDown(int key);
+	// Engine::Tick, when the frame's game time is worked out: how much faster the game runs this frame (1 = normal).
+	float ModsTimeScale();
 	// RenderSubsystem::PostRender, after the HUD and the console/menus.
 	void PostRenderMods(UCanvas* canvas);
 

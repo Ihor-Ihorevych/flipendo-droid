@@ -43,7 +43,7 @@ The 2001 release is getting hard to run. SafeDisc copy protection doesn't work o
   the HUD and cutscene bars fill the screen, and the menu book keeps its shape.
 - **Modern renderer.** Vulkan, Direct3D 11/12 or OpenGL instead of Direct3D 7.
 - **No disc, no SafeDisc, no compatibility patches.** Point it at the installed game folder.
-- **The same game.** Nothing is remade or altered. Optional extras (skippable cutscenes and storybooks) can all
+- **The same game.** Nothing is remade or altered. Optional extras (skippable cutscenes and storybooks, fast forward) can all
   be switched off with `--vanilla`.
 - **Fixable.** Bugs in the original engine get fixed in source ([list](docs/re/hp1/original_bugs.md)). Linux, macOS
   and Steam Deck can follow because SurrealEngine already runs on them.
@@ -127,6 +127,7 @@ switched on, and `--vanilla` switches all of them off.
 |---|---|---|
 | Cutscene skip | on | "Press Space to skip" during cutscenes |
 | Storybook skip | on | "Press Space to skip" in storybooks (New Game intro, chapter interludes) |
+| Fast forward | on | hold Shift to play 2.5x as fast |
 | Launch skips | off | `--skip-splash`, `--skip-intro` |
 
 **Coming:** an in-game *Extras* page to switch these on and off, FOV slider, uncapped framerate, controller support,

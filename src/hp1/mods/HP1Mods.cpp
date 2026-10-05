@@ -90,6 +90,11 @@ namespace HP1
 		Mods::TickDiscordPresence(realElapsed);
 	}
 
+	float ModsTimeScale()
+	{
+		return Mods::FastForwardTimeScale();
+	}
+
 	void ModsKeyDown(int key)
 	{
 		if (key == IK_Space)
