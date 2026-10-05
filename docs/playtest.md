@@ -69,3 +69,13 @@ Quidditch League (main menu → Quidditch), indices 40-48: `Quid_SlythA`/`B`/`C`
 `Quid_HuffleA`/`B`/`C`: none played yet.
 
 Other maps: `Entry` and `startup` (the title menu's background), not levels.
+
+## Automated route through Lev_Tut1
+
+`HP1_GOTO` waypoints ([debug-tools.md](debug-tools.md)) that take Harry through Lev_Tut1 (`--url=Lev_Tut1`): stairs →
+Ron cutscene → door D1stA → CutScene52 → Fred & George's room (~126 s) → bookcase climb (`HP1_KEYS="137:Up:2.5"`) →
+shelves along the jelly-bean trail (-32,-4470; 600,-4470; 768,-4432; 864,-3952; 1056,-3744) → climbexit trigger
+(1541,-3749) → jumping-help cutscene → jump room (2080,-3808; 2304,-3824; 2288,-3456; 2640,-3488; 2650,-3392,J;
+2650,-3150 = the west balcony) → through the west arch past the candle stand (2656,-3020; 2656,-2944) → corridor
+(2656,-2790; 3136,-2790) → east arch (3136,-2960; 3150,-3030) → jump down onto box C (3150,-3068,J; 3150,-3300) →
+box D (3150,-3346,J; 3150,-3640) → south ledge (3150,-3748,J; 3150,-3930) → jumpexit doors (3136,-4100).

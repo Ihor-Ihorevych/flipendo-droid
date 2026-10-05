@@ -33,7 +33,7 @@ DLL exports we ported (Engine 199, Render 8, Fire 7, Core 6). Every SurrealEngin
 | Touch, encroachment, MoveActor | HP1 | `KWTouch`, `KWMove` | |
 | AI movement natives (MoveTo/MoveToward/StrafeTo/TurnTo polls, WaitForLanding) | HP1 | the polls and rotation (`KWPawn`) | the native entry points |
 | AI navigation | HP1 / Guess | `Pawn.FindPath` (553, KnowWonder's station pathing) | `FindPathTo`, `FindPathToward`, `FindRandomDest`, `pointReachable` (few HP1 calls), `actorReachable` is a stub |
-| Sight (`LineOfSightTo`, `CanSee`) | HP1 | `APawn::LineOfSightTo` | `PlayerCanSeeMe` (6 calls), `VisibleActors` |
+| Sight (`LineOfSightTo`, `CanSee`) | HP1 | `APawn::LineOfSightTo` | `PlayerCanSeeMe` (6 calls), `VisibleActors`, the sight and hearing events (`SeePlayer`, `EnemyNotVisible`, `HearNoise`) |
 | Animation | HP1 | channels, tweening, root motion, skeletal pose and skinning (`Anim/`) | vertex mesh frame interpolation when drawing |
 | Native actor classes | HP1 | ParticleFX, Wind, Gesture, InterpolationManager, IceTexture | other Fire textures (Fire/Water/Wave) |
 | Save games | HP1 | `KWSave` | |

@@ -41,7 +41,7 @@ Secrets) is being ported onto the same engine. The documents below say when some
 
 - [`README.md`](../README.md): for players. What Flipendo is, screenshots, status, how to play, extras, community.
 - [`CONTRIBUTING.md`](../CONTRIBUTING.md): for contributors. Ways to help, building, developer flags, ground rules.
-- [`ROADMAP.md`](../ROADMAP.md): what's done and what's next. How things work goes here in `docs/`, not there.
+- [`ROADMAP.md`](../ROADMAP.md): what's left and what's next. How things work goes here in `docs/`, not there.
 - [`CLAUDE.md`](../CLAUDE.md): the project rules, written for AI assistants but binding for everyone.
 - [`images/`](../images/): [`branding/`](../images/branding/) (logo, icon) and [`screenshots/`](../images/screenshots/)
   (the README gallery and `social-preview.jpg`, 1280x640, for the repository's social preview). Screenshots are taken
