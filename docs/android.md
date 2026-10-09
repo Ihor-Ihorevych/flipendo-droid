@@ -129,3 +129,27 @@ look, replace the PNGs (square, transparent background) and rebuild; a missing i
 
 (`aapt2 link -A` writes assets with backslashes in their names on Windows, which Android can't open, so the script adds
 `assets/` with `jar` instead: this is also why the self pack's game data was not found until this was fixed.)
+
+## Saving anywhere (the SAVE button)
+
+The button under MENU calls the game's own save, `HPConsole.doLevelSave(slot)` (what the save books call): it writes
+`save/Save<N>.usa` and `save/GameSaveInfo<N>` (beans, house points, level name), which the slot list in Start Game / Load Game is
+built from. It runs on the game thread (`HP1::TickSaveRequest`, `src/hp1/HP1Touch.cpp`) and a toast says which slot. The slot is
+the one New Game / Load Game picked (`FESlotPage.nSelectedSlot`, 0-5); any other value (none, or whatever a Level Select start
+leaves there) takes the first slot without a `GameSaveInfo`, and that becomes the game's slot. The log line is
+`SAVE button: FESlotPage.nSelectedSlot = N, saving to slot M`.
+
+A save made in the middle of a cutscene is saved as it is: loading it resumes the scene. Put a `save.png` in `images/android/` for an icon.
+
+Why Start Game showed no saves before: the slot data is written as UTF-16 (`SaveGameSaveInfo`), and `to_utf16` / `from_utf16`
+were stubs on non-Windows (`Script error: to_utf16 not implemented on unix` in the log), so `GameSaveInfo<N>` was never written. They
+are implemented now (`SurrealEngine/Utils/UTF16.cpp`, in `0200-android-port.patch`).
+
+## Sliders: render scale and subtitles size
+
+Phones differ a lot, so two settings are adjustable at run time. Open the pause menu (the MENU button) and use the sliders in the left margin, next to the menu book:
+
+- **Render scale** (30%..100%): the game is drawn at this fraction of the screen resolution and the compositor scales it up. Lower is faster on weak GPUs. It is applied when the finger lifts (the surface is resized then).
+- **Subtitles and HUD size** (60%..180%): scales the 2D UI (subtitles, HUD). It changes live while dragging; the menu book keeps its size.
+
+Both are remembered between launches (the `flipendo` shared preferences). Defaults: render scale 50%, size 100%.

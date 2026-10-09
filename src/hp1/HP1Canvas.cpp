@@ -28,6 +28,11 @@
 // - Resolutions: GetRes lists the display's real modes and FEOptionsPage.IsSupportedResolution (script, allows
 //   512x384..1024x768 only) is replaced with a native that accepts anything from 640x480 up.
 
+#ifdef __ANDROID__
+#include <atomic>
+extern std::atomic<float> g_uiScale; // android/jni/android_main.cpp: the menu slider for the subtitles and HUD size
+#endif
+
 namespace HP1
 {
 	namespace
@@ -41,8 +46,9 @@ namespace HP1
 	float CanvasUIScale(int viewportHeight)
 	{
 #ifdef __ANDROID__
-		// Phone screens are tiny: lay the 2D UI out as a 640x480 game so subtitles and the HUD stay readable.
-		return std::max(viewportHeight / 480.0f, 1.0f);
+		// Phone screens are tiny: lay the 2D UI out as a 640x480 game so subtitles and the HUD stay readable. The menu
+		// slider (Subtitles and HUD size) scales that; the menu book still fills its 4:3 area (HPConsole's GUIScale follows).
+		return std::max(viewportHeight * g_uiScale.load() / 480.0f, 0.5f);
 #else
 		return std::max(viewportHeight / 768.0f, 1.0f);
 #endif

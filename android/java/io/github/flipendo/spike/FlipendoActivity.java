@@ -23,8 +23,46 @@ import java.util.HashMap;
 
 /** Spike: SDL activity with an on-screen touch overlay that injects keys and mouse input. */
 public class FlipendoActivity extends SDLActivity {
-    /** Ratio of the render surface to the screen (the surface is a fixed-size SurfaceView scaled up by the compositor). */
-    static final float SURFACE_SCALE = 0.5f;
+    /**
+     * Ratio of the render surface to the screen (the surface is a fixed-size SurfaceView scaled up by the compositor).
+     * The "Render scale" slider of the menu changes it; it is kept in the preferences.
+     */
+    static volatile float surfaceScale = 0.5f;
+    static final float RENDER_SCALE_MIN = 0.3f, RENDER_SCALE_MAX = 1.0f;
+
+    /** Size of the subtitles and the HUD, 1 = the default; the engine reads it (android_main.cpp, HP1Canvas.cpp). */
+    static float uiScale = 1.0f;
+    static final float UI_SCALE_MIN = 0.6f, UI_SCALE_MAX = 1.8f;
+
+    static native void nativeSetUiScale(float scale);
+
+    private void saveScales() {
+        getSharedPreferences("flipendo", MODE_PRIVATE).edit()
+                .putFloat("renderScale", surfaceScale).putFloat("uiScale", uiScale).apply();
+    }
+
+    /** Resizes the render surface (the engine rebuilds its scene textures and swapchain for the new size). */
+    void applyRenderScale(float scale) {
+        surfaceScale = Math.max(RENDER_SCALE_MIN, Math.min(RENDER_SCALE_MAX, scale));
+        if (mSurface != null) {
+            android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
+            int longSide = Math.max(dm.widthPixels, dm.heightPixels), shortSide = Math.min(dm.widthPixels, dm.heightPixels);
+            mSurface.getHolder().setFixedSize((int) (longSide * surfaceScale), (int) (shortSide * surfaceScale));
+        }
+        saveScales();
+    }
+
+    /** Subtitles and HUD size: takes effect on the next frame. */
+    void applyUiScale(float scale, boolean save) {
+        uiScale = Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, scale));
+        try {
+            nativeSetUiScale(uiScale);
+        } catch (UnsatisfiedLinkError ignored) {
+        }
+        if (save) {
+            saveScales();
+        }
+    }
 
     /** True while a menu wants the touch cursor (the engine unlocks the mouse); implemented in android_main.cpp. */
     static native boolean nativeMenuActive();
@@ -34,6 +72,20 @@ public class FlipendoActivity extends SDLActivity {
 
     /** The finger position (0..1 of the view) that drives the wand in a lesson; implemented in android_main.cpp. */
     static native void nativeSetTouch(float x, float y, boolean down);
+
+    /** Asks the game thread to save in the player's slot (android_main.cpp, HP1::TickSaveRequest). */
+    static native void nativeRequestSave();
+
+    /** Called from the game thread when the save is done. */
+    public void onSaved(final int slot) {
+        runOnUiThread(new Runnable() {
+            public void run() {
+                android.widget.Toast.makeText(FlipendoActivity.this,
+                        "Game saved (slot " + (slot + 1) + ")",
+                        android.widget.Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
 
     /**
      * Called from the game thread (android_main.cpp) when the game ends. Code 0: the player quit. Otherwise the game
@@ -112,12 +164,11 @@ public class FlipendoActivity extends SDLActivity {
         }
         super.onCreate(savedInstanceState);
         getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        // Spike: render at a reduced fixed surface size; the compositor scales it to the screen.
+        // The player's scales (menu sliders), then render at a reduced fixed surface size: the compositor scales it up.
+        android.content.SharedPreferences prefs = getSharedPreferences("flipendo", MODE_PRIVATE);
+        applyUiScale(prefs.getFloat("uiScale", 1.0f), false);
         if (mSurface != null) {
-            android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
-            int longSide = Math.max(dm.widthPixels, dm.heightPixels), shortSide = Math.min(dm.widthPixels, dm.heightPixels);
-            float scale = SURFACE_SCALE;
-            mSurface.getHolder().setFixedSize((int) (longSide * scale), (int) (shortSide * scale));
+            applyRenderScale(prefs.getFloat("renderScale", 0.5f));
             // SDL adds the surface as WRAP_CONTENT, which would shrink the view to the fixed size: stretch it over the screen.
             mSurface.setLayoutParams(new RelativeLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -129,7 +180,13 @@ public class FlipendoActivity extends SDLActivity {
     }
 
     static final class Overlay extends View {
-        enum Role { STICK, LOOK, BUTTON, MENU, DRAW }
+        enum Role { STICK, LOOK, BUTTON, MENU, DRAW, SLIDER }
+
+        // Two sliders in the left margin of the menu: 0 = render scale, 1 = subtitles and HUD size.
+        float sliderX0, sliderX1;
+        final float[] sliderY = new float[2];
+        int activeSlider = -1;
+        float pendingRender = 0.5f; // the render scale being dragged; it is applied when the finger lifts
 
         boolean menuShown;       // last polled menu state: hides the gameplay buttons
         boolean lessonShown;     // last polled lesson state: hides the gameplay buttons too
@@ -187,7 +244,8 @@ public class FlipendoActivity extends SDLActivity {
         final Btn cast = new Btn("CAST", 0, MotionEvent.BUTTON_PRIMARY, false);
         final Btn jump = new Btn("JUMP", 0, MotionEvent.BUTTON_SECONDARY, false);
         final Btn menu = new Btn("MENU", KeyEvent.KEYCODE_ESCAPE, 0, false);
-        final Btn[] buttons = { cast, jump, menu };
+        final Btn save = new Btn("SAVE", 0, 0, false); // save anywhere (the icon, images/android/save.png, is optional)
+        final Btn[] buttons = { cast, jump, menu, save };
 
         final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
         final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -223,6 +281,8 @@ public class FlipendoActivity extends SDLActivity {
             jump.tint = true;
             menu.icon = loadIcon(c, "menu.png");
             menu.tint = true;
+            save.icon = loadIcon(c, "save.png"); // none shipped yet: the button is then a text one
+            save.tint = true;
         }
 
         /** The button icons ship in the APK (assets/icons/, copied from images/android/ by build-apk.sh). */
@@ -240,7 +300,76 @@ public class FlipendoActivity extends SDLActivity {
             cast.cx = w - 0.20f * u; cast.cy = h - 0.22f * u; cast.r = 0.13f * u;
             jump.cx = w - 0.42f * u; jump.cy = h - 0.12f * u; jump.r = 0.085f * u;
             menu.cx = w - 0.08f * u; menu.cy = 0.08f * u; menu.r = 0.06f * u;
+            save.cx = w - 0.08f * u; save.cy = 0.23f * u; save.r = 0.06f * u;
             text.setTextSize(0.035f * u);
+
+            // The 4:3 menu book is centred: the sliders sit in the black margin to its left (as wide as it allows).
+            float margin = (w - h * 4f / 3f) / 2f;
+            sliderX0 = 0.04f * u;
+            sliderX1 = sliderX0 + Math.min(0.42f * u, Math.max(margin - 0.09f * u, 0.2f * u));
+            sliderY[0] = 0.38f * h;
+            sliderY[1] = 0.60f * h;
+            label.setTextSize(0.03f * u);
+            label.setColor(0xFFFFFFFF);
+            label.setShadowLayer(4f, 0f, 0f, 0xFF000000);
+        }
+
+        final Paint label = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        float sliderMin(int i) { return i == 0 ? RENDER_SCALE_MIN : UI_SCALE_MIN; }
+
+        float sliderMax(int i) { return i == 0 ? RENDER_SCALE_MAX : UI_SCALE_MAX; }
+
+        float sliderValue(int i) { return i == 0 ? (activeSlider == 0 ? pendingRender : surfaceScale) : uiScale; }
+
+        /** The slider under a touch (menu open only), or -1. */
+        int hitSlider(float x, float y) {
+            if (!menuShown) return -1;
+            float u = Math.min(getWidth(), getHeight());
+            for (int i = 0; i < 2; i++) {
+                if (Math.abs(y - sliderY[i]) < 0.08f * u && x > sliderX0 - 0.05f * u && x < sliderX1 + 0.05f * u) return i;
+            }
+            return -1;
+        }
+
+        /** Moves a slider to the finger; the UI size is live, the render scale is applied when the finger lifts (commit). */
+        void setSliderFromX(int i, float x, boolean commit) {
+            float t = Math.max(0f, Math.min(1f, (x - sliderX0) / (sliderX1 - sliderX0)));
+            float v = sliderMin(i) + t * (sliderMax(i) - sliderMin(i));
+            float step = i == 0 ? 0.05f : 0.1f;
+            v = Math.round(v / step) * step;
+            FlipendoActivity activity = (FlipendoActivity) getContext();
+            if (i == 1) {
+                activity.applyUiScale(v, commit);
+            } else {
+                pendingRender = v;
+                if (commit) activity.applyRenderScale(v);
+            }
+            invalidate();
+        }
+
+        void drawSliders(Canvas c) {
+            if (!menuShown) return;
+            float u = Math.min(getWidth(), getHeight());
+            android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
+            int longSide = Math.max(dm.widthPixels, dm.heightPixels), shortSide = Math.min(dm.widthPixels, dm.heightPixels);
+            for (int i = 0; i < 2; i++) {
+                float v = sliderValue(i);
+                String name = i == 0
+                        ? "Render scale " + Math.round(v * 100) + "%  (" + (int) (longSide * v) + "x" + (int) (shortSide * v) + ")"
+                        : "Subtitles and HUD size " + Math.round(v * 100) + "%";
+                c.drawText(name, sliderX0, sliderY[i] - 0.05f * u, label);
+                float t = (v - sliderMin(i)) / (sliderMax(i) - sliderMin(i));
+                float kx = sliderX0 + t * (sliderX1 - sliderX0);
+                line.setStrokeWidth(0.012f * u);
+                line.setColor(0x88FFFFFF);
+                c.drawLine(sliderX0, sliderY[i], sliderX1, sliderY[i], line);
+                line.setColor(0xFFFFD84A);
+                c.drawLine(sliderX0, sliderY[i], kx, sliderY[i], line);
+                fill.setColor(activeSlider == i ? 0xFFFFD84A : 0xFFFFFFFF);
+                c.drawCircle(kx, sliderY[i], 0.03f * u, fill);
+            }
+            line.setStrokeWidth(4f);
         }
 
         Btn hitButton(float x, float y) {
@@ -258,10 +387,15 @@ public class FlipendoActivity extends SDLActivity {
 
         void setButton(Btn b, boolean down) {
             if (b == jump) key(KeyEvent.KEYCODE_SPACE, down); // Space skips cutscenes; Ctrl is the game's jump key
+            if (b == save) {
+                b.down = down;
+                if (down) nativeRequestSave(); // saved by the game thread at its next tick, see onSaved
+                return;
+            }
             b.down = down;
             if (b.mouse != 0)
                 SDLActivity.onNativeMouse(down ? b.mouse : 0, down ? MotionEvent.ACTION_DOWN : MotionEvent.ACTION_UP,
-                        getWidth() / 2f * SURFACE_SCALE, getHeight() / 2f * SURFACE_SCALE, false);
+                        getWidth() / 2f * surfaceScale, getHeight() / 2f * surfaceScale, false);
             else
                 key(b.key, down);
         }
@@ -289,7 +423,7 @@ public class FlipendoActivity extends SDLActivity {
 
         void click(final float sx, final float sy) {
             // The menu reads the cursor position once per frame: move first, then press and release on later frames.
-            final float x = sx * SURFACE_SCALE, y = sy * SURFACE_SCALE;
+            final float x = sx * surfaceScale, y = sy * surfaceScale;
             SDLActivity.onNativeMouse(0, MotionEvent.ACTION_MOVE, x, y, false);
             postDelayed(new Runnable() { public void run() {
                 SDLActivity.onNativeMouse(MotionEvent.BUTTON_PRIMARY, MotionEvent.ACTION_DOWN, x, y, false);
@@ -322,13 +456,18 @@ public class FlipendoActivity extends SDLActivity {
                             } };
                             postDelayed(menuHeld, 1500);
                         }
+                    } else if (hitSlider(x, y) >= 0) {
+                        roles.put(id, Role.SLIDER);
+                        activeSlider = hitSlider(x, y);
+                        pendingRender = surfaceScale;
+                        setSliderFromX(activeSlider, x, false);
                     } else if (menuActive()) {
                         // Menu: the finger is the mouse. Move the cursor now, press a few frames later and keep
                         // following the finger so sliders can be dragged.
                         roles.put(id, Role.MENU);
                         menuDownTime = e.getEventTime();
-                        menuX = x * SURFACE_SCALE;
-                        menuY = y * SURFACE_SCALE;
+                        menuX = x * surfaceScale;
+                        menuY = y * surfaceScale;
                         SDLActivity.onNativeMouse(0, MotionEvent.ACTION_MOVE, menuX, menuY, false);
                         postDelayed(new Runnable() { public void run() {
                             SDLActivity.onNativeMouse(MotionEvent.BUTTON_PRIMARY, MotionEvent.ACTION_DOWN, menuX, menuY, false);
@@ -338,7 +477,7 @@ public class FlipendoActivity extends SDLActivity {
                         roles.put(id, Role.DRAW);
                         nativeSetTouch(x / getWidth(), y / getHeight(), true);
                         SDLActivity.onNativeMouse(MotionEvent.BUTTON_PRIMARY, MotionEvent.ACTION_DOWN,
-                                getWidth() / 2f * SURFACE_SCALE, getHeight() / 2f * SURFACE_SCALE, false);
+                                getWidth() / 2f * surfaceScale, getHeight() / 2f * surfaceScale, false);
                     } else {
                         roles.put(id, x < getWidth() / 2f ? Role.STICK : Role.LOOK);
                         last.put(id, new float[] { x, y });
@@ -351,13 +490,17 @@ public class FlipendoActivity extends SDLActivity {
                         int pid = e.getPointerId(i);
                         Role role = roles.get(pid);
                         float x = e.getX(i), y = e.getY(i);
+                        if (role == Role.SLIDER) {
+                            setSliderFromX(activeSlider, x, false);
+                            continue;
+                        }
                         if (role == Role.DRAW) {
                             nativeSetTouch(x / getWidth(), y / getHeight(), true);
                             continue;
                         }
                         if (role == Role.MENU) {
-                            menuX = x * SURFACE_SCALE;
-                            menuY = y * SURFACE_SCALE;
+                            menuX = x * surfaceScale;
+                            menuY = y * surfaceScale;
                             SDLActivity.onNativeMouse(MotionEvent.BUTTON_PRIMARY, MotionEvent.ACTION_MOVE, menuX, menuY, false);
                             continue;
                         }
@@ -390,10 +533,14 @@ public class FlipendoActivity extends SDLActivity {
                     float[] s = start.remove(id);
                     last.remove(id);
                     boolean cancelled = action == MotionEvent.ACTION_CANCEL;
-                    if (role == Role.DRAW) {
+                    if (role == Role.SLIDER) {
+                        if (!cancelled) setSliderFromX(activeSlider, e.getX(idx), true);
+                        activeSlider = -1;
+                        invalidate();
+                    } else if (role == Role.DRAW) {
                         nativeSetTouch(e.getX(idx) / getWidth(), e.getY(idx) / getHeight(), false);
                         SDLActivity.onNativeMouse(0, MotionEvent.ACTION_UP,
-                                getWidth() / 2f * SURFACE_SCALE, getHeight() / 2f * SURFACE_SCALE, false);
+                                getWidth() / 2f * surfaceScale, getHeight() / 2f * surfaceScale, false);
                     } else if (role == Role.MENU) {
                         // Release after the press has been sent (it goes out 60 ms after the touch) and has had a frame.
                         long held = e.getEventTime() - menuDownTime;
@@ -431,6 +578,7 @@ public class FlipendoActivity extends SDLActivity {
 
         @Override
         protected void onDraw(Canvas c) {
+            drawSliders(c);
             for (Btn b : buttons) {
                 if (!visible(b)) continue;
                 float scale = b.down ? 0.9f : 1f;

@@ -22,6 +22,8 @@ namespace HP1
 #ifdef __ANDROID__
 	// Spell lessons by touch: the wand follows the finger in the Draw state.
 	void TickLessonTouch();
+	// The SAVE button: saves in the player's slot (HPConsole.doLevelSave) and says so.
+	void TickSaveRequest();
 #endif
 	// Engine::Tick, when the frame's game time is worked out: how much faster the game runs this frame (1 = normal).
 	float ModsTimeScale();

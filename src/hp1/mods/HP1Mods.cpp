@@ -94,6 +94,7 @@ namespace HP1
 #ifdef __ANDROID__
 		TickTouchDefaults();
 		TickLessonTouch();
+		TickSaveRequest();
 #endif
 	}
 

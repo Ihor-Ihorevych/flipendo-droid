@@ -25,6 +25,18 @@
 
 std::atomic<bool> g_androidMenuActive{false};
 std::atomic<bool> g_lessonDrawing{false};
+std::atomic<float> g_uiScale{1.0f}; // subtitles and HUD size from the menu slider (HP1Canvas.cpp)
+std::atomic<bool> g_saveRequested{false}; // the SAVE button: the game thread saves at its next tick (HP1::TickSaveRequest)
+
+extern "C" JNIEXPORT void JNICALL Java_io_github_flipendo_spike_FlipendoActivity_nativeSetUiScale(JNIEnv*, jclass, jfloat scale)
+{
+	g_uiScale = scale;
+}
+
+extern "C" JNIEXPORT void JNICALL Java_io_github_flipendo_spike_FlipendoActivity_nativeRequestSave(JNIEnv*, jclass)
+{
+	g_saveRequested = true;
+}
 std::atomic<bool> g_touchDown{false};
 std::atomic<float> g_touchX{0.5f}, g_touchY{0.5f};
 
@@ -185,6 +197,23 @@ static void NotifyGameStopped(int code)
 	jmethodID method = env->GetMethodID(cls, "onGameStopped", "(I)V");
 	if (method)
 		env->CallVoidMethod(activity, method, (jint)code);
+	if (env->ExceptionCheck())
+		env->ExceptionClear();
+	env->DeleteLocalRef(cls);
+	env->DeleteLocalRef(activity);
+}
+
+// Tells the player the save is done (a toast): called on the game thread by HP1::TickSaveRequest.
+void AndroidNotifySaved(int slot)
+{
+	JNIEnv* env = static_cast<JNIEnv*>(SDL_GetAndroidJNIEnv());
+	jobject activity = static_cast<jobject>(SDL_GetAndroidActivity());
+	if (!env || !activity)
+		return;
+	jclass cls = env->GetObjectClass(activity);
+	jmethodID method = env->GetMethodID(cls, "onSaved", "(I)V");
+	if (method)
+		env->CallVoidMethod(activity, method, (jint)slot);
 	if (env->ExceptionCheck())
 		env->ExceptionClear();
 	env->DeleteLocalRef(cls);
