@@ -39,9 +39,39 @@ public class FlipendoActivity extends SDLActivity {
     /** Movement control: false = a floating stick under the left thumb, true = four arrow buttons that are always visible. */
     static volatile boolean dpadMode = false;
 
+    /** Degrees added to the game's field of view (engine side: KW::ViewFovAngle). */
+    static float fovOffset = 0f;
+    static final float FOV_MIN = -20f, FOV_MAX = 40f;
+
+    /** HP's debug mode (Level Select in the main menu, debug text); on by default. */
+    static boolean debugMode = true;
+
+    static native void nativeSetFovOffset(float degrees);
+
+    static native void nativeSetDebugMode(boolean on);
+
+    void applyFovOffset(float degrees, boolean save) {
+        fovOffset = Math.max(FOV_MIN, Math.min(FOV_MAX, degrees));
+        try {
+            nativeSetFovOffset(fovOffset);
+        } catch (UnsatisfiedLinkError ignored) {
+        }
+        if (save) saveScales();
+    }
+
+    void applyDebugMode(boolean on, boolean save) {
+        debugMode = on;
+        try {
+            nativeSetDebugMode(on);
+        } catch (UnsatisfiedLinkError ignored) {
+        }
+        if (save) saveScales();
+    }
+
     private void saveScales() {
         getSharedPreferences("flipendo", MODE_PRIVATE).edit()
-                .putFloat("renderScale", surfaceScale).putFloat("uiScale", uiScale).apply();
+                .putFloat("renderScale", surfaceScale).putFloat("uiScale", uiScale)
+                .putFloat("fovOffset", fovOffset).putBoolean("debug", debugMode).apply();
     }
 
     /** Resizes the render surface (the engine rebuilds its scene textures and swapchain for the new size). */
@@ -171,6 +201,8 @@ public class FlipendoActivity extends SDLActivity {
         android.content.SharedPreferences prefs = getSharedPreferences("flipendo", MODE_PRIVATE);
         dpadMode = prefs.getBoolean("dpad", false);
         applyUiScale(prefs.getFloat("uiScale", 1.0f), false);
+        applyFovOffset(prefs.getFloat("fovOffset", 0f), false);
+        applyDebugMode(prefs.getBoolean("debug", true), false);
         if (mSurface != null) {
             applyRenderScale(prefs.getFloat("renderScale", 0.5f));
             // SDL adds the surface as WRAP_CONTENT, which would shrink the view to the fixed size: stretch it over the screen.
@@ -188,7 +220,7 @@ public class FlipendoActivity extends SDLActivity {
 
         // Two sliders in the left margin of the menu: 0 = render scale, 1 = subtitles and HUD size.
         float sliderX0, sliderX1;
-        final float[] sliderY = new float[2];
+        final float[] sliderY = new float[3];
         int activeSlider = -1;
         float pendingRender = 0.5f; // the render scale being dragged; it is applied when the finger lifts
 
@@ -242,12 +274,43 @@ public class FlipendoActivity extends SDLActivity {
 
         boolean isArrow(Btn b) { return arrowIndex(b) >= 0; }
 
+        /** A finger held on an arrow button slides to another arrow without lifting: the old one is released, the new pressed. */
+        final java.util.HashSet<Integer> arrowFingers = new java.util.HashSet<>(); // fingers that went down on an arrow
+
+        void slideArrow(int pid, float x, float y) {
+            if (!arrowFingers.contains(pid)) return;
+            Btn held = null;
+            for (Btn a : arrows) {
+                if (a.pointer == pid) held = a;
+            }
+            Btn over = null;
+            float best = Float.MAX_VALUE;
+            for (Btn a : arrows) {
+                float dx = x - a.cx, dy = y - a.cy, d = dx * dx + dy * dy;
+                if (d <= a.r * a.r * 1.3f && d < best && (a.pointer == -1 || a == held)) {
+                    best = d;
+                    over = a;
+                }
+            }
+            if (over == held) return;
+            if (held != null) {
+                setButton(held, false);
+                held.pointer = -1;
+            }
+            if (over != null) {
+                over.pointer = pid;
+                setButton(over, true);
+            }
+            invalidate();
+        }
+
         void openSettings() {
             releaseStick();
             for (Btn a : arrows) {
                 if (a.down) setButton(a, false);
                 a.pointer = -1;
             }
+            arrowFingers.clear();
             settingsOpen = true;
             invalidate();
         }
@@ -293,7 +356,7 @@ public class FlipendoActivity extends SDLActivity {
         boolean settingsOpen;    // the settings panel is up: it takes every touch
         final android.graphics.RectF panel = new android.graphics.RectF();
         final android.graphics.RectF segStick = new android.graphics.RectF(), segDpad = new android.graphics.RectF();
-        final android.graphics.RectF closeBtn = new android.graphics.RectF();
+        final android.graphics.RectF closeBtn = new android.graphics.RectF(), debugBtn = new android.graphics.RectF();
 
         final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
         final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -329,14 +392,24 @@ public class FlipendoActivity extends SDLActivity {
             jump.tint = true;
             menu.icon = loadIcon(c, "menu.png");
             menu.tint = true;
-            save.icon = loadIcon(c, "save.png"); // none shipped yet: the button is then a text one
-            save.tint = true;
+            save.icon = loadIcon(c, "save.png"); // a coloured picture (book and quill), drawn like the wand: on a light disc
         }
 
         /** The button icons ship in the APK (assets/icons/, copied from images/android/ by build-apk.sh). */
         static android.graphics.Bitmap loadIcon(android.content.Context c, String name) {
-            try (InputStream in = c.getAssets().open("icons/" + name)) {
-                return android.graphics.BitmapFactory.decodeStream(in);
+            try {
+                // decode at about 256 px: the pictures can be much larger than the buttons (save.png is 2500x2500)
+                android.graphics.BitmapFactory.Options opts = new android.graphics.BitmapFactory.Options();
+                opts.inJustDecodeBounds = true;
+                try (InputStream in = c.getAssets().open("icons/" + name)) {
+                    android.graphics.BitmapFactory.decodeStream(in, null, opts);
+                }
+                opts.inJustDecodeBounds = false;
+                opts.inSampleSize = 1;
+                while (Math.max(opts.outWidth, opts.outHeight) / (opts.inSampleSize * 2) >= 256) opts.inSampleSize *= 2;
+                try (InputStream in = c.getAssets().open("icons/" + name)) {
+                    return android.graphics.BitmapFactory.decodeStream(in, null, opts);
+                }
             } catch (IOException e) {
                 return null; // the button falls back to its text label
             }
@@ -348,10 +421,10 @@ public class FlipendoActivity extends SDLActivity {
             cast.cx = w - 0.20f * u; cast.cy = h - 0.22f * u; cast.r = 0.13f * u;
             jump.cx = w - 0.42f * u; jump.cy = h - 0.12f * u; jump.r = 0.085f * u;
             menu.cx = w - 0.08f * u; menu.cy = 0.08f * u; menu.r = 0.06f * u;
-            save.cx = w - 0.08f * u; save.cy = 0.23f * u; save.r = 0.06f * u;
+            save.cx = w - 0.21f * u; save.cy = 0.08f * u; save.r = 0.06f * u;
             text.setTextSize(0.035f * u);
 
-            gear.cx = w - 0.08f * u; gear.cy = 0.38f * u; gear.r = 0.06f * u;
+            gear.cx = w - 0.34f * u; gear.cy = 0.08f * u; gear.r = 0.06f * u;
             float ax = 0.27f * u, ay = h - 0.27f * u, ad = 0.155f * u;
             arrows[0].cx = ax; arrows[0].cy = ay - ad;
             arrows[1].cx = ax; arrows[1].cy = ay + ad;
@@ -361,15 +434,17 @@ public class FlipendoActivity extends SDLActivity {
 
             // The settings panel, centred: controls switch, the two sliders, Close.
             float pw = Math.min(0.9f * w, 1.5f * h);
-            panel.set((w - pw) / 2f, 0.08f * h, (w + pw) / 2f, 0.92f * h);
+            panel.set((w - pw) / 2f, 0.03f * h, (w + pw) / 2f, 0.97f * h);
             float gap = 0.02f * pw;
-            segStick.set(panel.left + 0.06f * pw, 0.27f * h, w / 2f - gap, 0.39f * h);
-            segDpad.set(w / 2f + gap, 0.27f * h, panel.right - 0.06f * pw, 0.39f * h);
+            segStick.set(panel.left + 0.06f * pw, 0.20f * h, w / 2f - gap, 0.30f * h);
+            segDpad.set(w / 2f + gap, 0.20f * h, panel.right - 0.06f * pw, 0.30f * h);
             sliderX0 = panel.left + 0.1f * pw;
             sliderX1 = panel.right - 0.1f * pw;
-            sliderY[0] = 0.58f * h;
-            sliderY[1] = 0.73f * h;
-            closeBtn.set(w / 2f - 0.15f * pw, 0.79f * h, w / 2f + 0.15f * pw, 0.89f * h);
+            sliderY[0] = 0.47f * h;
+            sliderY[1] = 0.60f * h;
+            sliderY[2] = 0.73f * h;
+            debugBtn.set(panel.left + 0.06f * pw, 0.83f * h, w / 2f - gap, 0.93f * h);
+            closeBtn.set(w / 2f + gap, 0.83f * h, panel.right - 0.06f * pw, 0.93f * h);
             label.setTextSize(0.03f * u);
             label.setColor(0xFFFFFFFF);
             label.setShadowLayer(4f, 0f, 0f, 0xFF000000);
@@ -377,17 +452,22 @@ public class FlipendoActivity extends SDLActivity {
 
         final Paint label = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-        float sliderMin(int i) { return i == 0 ? RENDER_SCALE_MIN : UI_SCALE_MIN; }
+        // sliders: 0 = render scale, 1 = subtitles and HUD size, 2 = field of view offset
+        float sliderMin(int i) { return i == 0 ? RENDER_SCALE_MIN : i == 1 ? UI_SCALE_MIN : FOV_MIN; }
 
-        float sliderMax(int i) { return i == 0 ? RENDER_SCALE_MAX : UI_SCALE_MAX; }
+        float sliderMax(int i) { return i == 0 ? RENDER_SCALE_MAX : i == 1 ? UI_SCALE_MAX : FOV_MAX; }
 
-        float sliderValue(int i) { return i == 0 ? (activeSlider == 0 ? pendingRender : surfaceScale) : uiScale; }
+        float sliderStep(int i) { return i == 0 ? 0.05f : i == 1 ? 0.1f : 5f; }
+
+        float sliderValue(int i) {
+            return i == 0 ? (activeSlider == 0 ? pendingRender : surfaceScale) : i == 1 ? uiScale : fovOffset;
+        }
 
         /** The slider under a touch (menu open only), or -1. */
         int hitSlider(float x, float y) {
             if (!settingsOpen) return -1;
             float u = Math.min(getWidth(), getHeight());
-            for (int i = 0; i < 2; i++) {
+            for (int i = 0; i < 3; i++) {
                 if (Math.abs(y - sliderY[i]) < 0.08f * u && x > sliderX0 - 0.05f * u && x < sliderX1 + 0.05f * u) return i;
             }
             return -1;
@@ -397,11 +477,13 @@ public class FlipendoActivity extends SDLActivity {
         void setSliderFromX(int i, float x, boolean commit) {
             float t = Math.max(0f, Math.min(1f, (x - sliderX0) / (sliderX1 - sliderX0)));
             float v = sliderMin(i) + t * (sliderMax(i) - sliderMin(i));
-            float step = i == 0 ? 0.05f : 0.1f;
+            float step = sliderStep(i);
             v = Math.round(v / step) * step;
             FlipendoActivity activity = (FlipendoActivity) getContext();
             if (i == 1) {
                 activity.applyUiScale(v, commit);
+            } else if (i == 2) {
+                activity.applyFovOffset(v, commit);
             } else {
                 pendingRender = v;
                 if (commit) activity.applyRenderScale(v);
@@ -430,13 +512,14 @@ public class FlipendoActivity extends SDLActivity {
             float size = text.getTextSize();
             text.setTextSize(size * 1.5f);
             text.setColor(0xFFFFFFFF);
-            c.drawText("Settings", getWidth() / 2f, 0.19f * getHeight(), text);
+            c.drawText("Settings", getWidth() / 2f, 0.105f * getHeight(), text);
             text.setTextSize(size);
             text.setColor(0xCCFFFFFF);
-            c.drawText("Movement controls", getWidth() / 2f, 0.245f * getHeight(), text);
+            c.drawText("Movement controls", getWidth() / 2f, 0.175f * getHeight(), text);
             drawSegment(c, segStick, "Floating stick", !dpadMode);
             drawSegment(c, segDpad, "Arrow buttons", dpadMode);
             drawSliders(c);
+            drawSegment(c, debugBtn, debugMode ? "Debug mode: ON" : "Debug mode: OFF", debugMode);
             fill.setColor(0x44FFFFFF);
             c.drawRoundRect(closeBtn, closeBtn.height() / 2f, closeBtn.height() / 2f, fill);
             text.setColor(0xFFFFFFFF);
@@ -448,11 +531,12 @@ public class FlipendoActivity extends SDLActivity {
             float u = Math.min(getWidth(), getHeight());
             android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
             int longSide = Math.max(dm.widthPixels, dm.heightPixels), shortSide = Math.min(dm.widthPixels, dm.heightPixels);
-            for (int i = 0; i < 2; i++) {
+            for (int i = 0; i < 3; i++) {
                 float v = sliderValue(i);
                 String name = i == 0
                         ? "Render scale " + Math.round(v * 100) + "%  (" + (int) (longSide * v) + "x" + (int) (shortSide * v) + ")"
-                        : "Subtitles and HUD size " + Math.round(v * 100) + "%";
+                        : i == 1 ? "Subtitles and HUD size " + Math.round(v * 100) + "%"
+                        : "Field of view " + (v > 0 ? "+" : "") + Math.round(v) + (v == 0 ? " (default)" : " degrees");
                 c.drawText(name, sliderX0, sliderY[i] - 0.05f * u, label);
                 float t = (v - sliderMin(i)) / (sliderMax(i) - sliderMin(i));
                 float kx = sliderX0 + t * (sliderX1 - sliderX0);
@@ -554,6 +638,8 @@ public class FlipendoActivity extends SDLActivity {
                             setDpadMode(false);
                         } else if (segDpad.contains(x, y)) {
                             setDpadMode(true);
+                        } else if (debugBtn.contains(x, y)) {
+                            ((FlipendoActivity) getContext()).applyDebugMode(!debugMode, true);
                         } else if (closeBtn.contains(x, y) || !panel.contains(x, y)) {
                             settingsOpen = false;
                         }
@@ -563,6 +649,7 @@ public class FlipendoActivity extends SDLActivity {
                     if (b != null) {
                         roles.put(id, Role.BUTTON);
                         b.pointer = id;
+                        if (isArrow(b)) arrowFingers.add(id);
                         if (b.toggle) setButton(b, !b.down); else setButton(b, true);
                         if (b == menu) {
                             // Holding MENU for a moment sends the logs (also when the game is stuck or black).
@@ -603,6 +690,10 @@ public class FlipendoActivity extends SDLActivity {
                         float x = e.getX(i), y = e.getY(i);
                         if (role == Role.SLIDER) {
                             setSliderFromX(activeSlider, x, false);
+                            continue;
+                        }
+                        if (role == Role.BUTTON) {
+                            slideArrow(pid, x, y);
                             continue;
                         }
                         if (role == Role.DRAW) {
@@ -661,6 +752,7 @@ public class FlipendoActivity extends SDLActivity {
                             SDLActivity.onNativeMouse(0, MotionEvent.ACTION_UP, ux, uy, false);
                         } }, delay);
                     } else if (role == Role.BUTTON) {
+                        arrowFingers.remove(id);
                         for (Btn b : buttons) {
                             if (b.pointer == id) {
                                 b.pointer = -1;
@@ -734,9 +826,12 @@ public class FlipendoActivity extends SDLActivity {
                     c.drawText(b.label, b.cx, b.cy + text.getTextSize() * 0.35f, text);
                     continue;
                 }
-                // an icon on a soft disc: dark behind the white glyphs, light behind the coloured wand
-                fill.setColor(b.tint ? (b.down ? 0x99000000 : 0x66000000) : (b.down ? 0xCCFFFFFF : 0x99FFFFFF));
+                // an icon on a soft dark disc (the jump button's), also behind the coloured wand and book
+                fill.setColor(b.down ? 0x99000000 : 0x66000000);
                 c.drawCircle(b.cx, b.cy, b.r * scale, fill);
+                line.setColor(0xAAFFFFFF); // the white rim, as on the settings and arrow buttons
+                line.setStrokeWidth(4f);
+                c.drawCircle(b.cx, b.cy, b.r * scale, line);
                 float half = b.r * 0.82f * scale;
                 iconRect.set(b.cx - half, b.cy - half, b.cx + half, b.cy + half);
                 c.drawBitmap(b.icon, null, iconRect, b.tint ? (b.down ? yellowPaint : whitePaint) : iconPaint);

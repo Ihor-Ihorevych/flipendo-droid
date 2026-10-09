@@ -22,9 +22,12 @@
 
 #ifdef __ANDROID__
 // Defined in android/jni/android_main.cpp (touch bridge to the Java overlay).
+extern std::atomic<bool> g_debugMode; // the settings panel's debug mode switch
 extern std::atomic<bool> g_lessonDrawing; // a spell lesson is in its Draw state: the finger draws
 extern std::atomic<bool> g_touchDown;
 extern std::atomic<float> g_touchX, g_touchY; // finger position, 0..1 of the view
+#else
+static std::atomic<bool> g_debugMode{true}; // no settings panel off Android: debug mode stays on
 #endif
 
 namespace HP1
@@ -80,13 +83,16 @@ namespace HP1
 			pawn->SetPropertyFromString(NameString("bAutoJump"), "True");
 		}
 
-		// Debug mode on by default (what typing "harrydebugmodeon" does): adds Level Select to the main menu and the
-		// console. There is no keyboard on a phone to type it.
+		// Debug mode (what typing "harrydebugmodeon" does): adds Level Select to the main menu and the console.
+		// There is no keyboard on a phone to type it: the settings panel switches it (on by default).
 		static UObject* debugConsole = nullptr;
-		if (engine->console && engine->console != debugConsole)
+		static int debugApplied = -1;
+		int debugWanted = g_debugMode.load() ? 1 : 0;
+		if (engine->console && (engine->console != debugConsole || debugWanted != debugApplied))
 		{
 			debugConsole = engine->console;
-			engine->console->SetPropertyFromString(NameString("bDebugMode"), "True");
+			debugApplied = debugWanted;
+			engine->console->SetPropertyFromString(NameString("bDebugMode"), debugWanted ? "True" : "False");
 		}
 
 		// The page can be rebuilt when the menu is opened: re-apply regularly while it exists.

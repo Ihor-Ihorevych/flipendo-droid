@@ -26,11 +26,23 @@
 std::atomic<bool> g_androidMenuActive{false};
 std::atomic<bool> g_lessonDrawing{false};
 std::atomic<float> g_uiScale{1.0f}; // subtitles and HUD size from the menu slider (HP1Canvas.cpp)
+std::atomic<float> g_fovOffset{0.0f}; // degrees added to the field of view (settings panel; KW::ViewFovAngle)
+std::atomic<bool> g_debugMode{true}; // HP's debug mode (settings panel; HP1::TickTouchDefaults)
 std::atomic<bool> g_saveRequested{false}; // the SAVE button: the game thread saves at its next tick (HP1::TickSaveRequest)
 
 extern "C" JNIEXPORT void JNICALL Java_io_github_flipendo_spike_FlipendoActivity_nativeSetUiScale(JNIEnv*, jclass, jfloat scale)
 {
 	g_uiScale = scale;
+}
+
+extern "C" JNIEXPORT void JNICALL Java_io_github_flipendo_spike_FlipendoActivity_nativeSetFovOffset(JNIEnv*, jclass, jfloat degrees)
+{
+	g_fovOffset = degrees;
+}
+
+extern "C" JNIEXPORT void JNICALL Java_io_github_flipendo_spike_FlipendoActivity_nativeSetDebugMode(JNIEnv*, jclass, jboolean on)
+{
+	g_debugMode = on == JNI_TRUE;
 }
 
 extern "C" JNIEXPORT void JNICALL Java_io_github_flipendo_spike_FlipendoActivity_nativeRequestSave(JNIEnv*, jclass)

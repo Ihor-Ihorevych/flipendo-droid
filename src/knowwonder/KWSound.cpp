@@ -231,6 +231,8 @@ namespace KW
 		struct MusicState
 		{
 			UMusic* song = nullptr; // only compared, never read (it can be gone after a level change)
+			const UPlayerPawn* player = nullptr; // the player of the last update, only compared: a new one means a level loaded
+			std::chrono::steady_clock::time_point newPlayerTime;
 			uint8_t cdTrack = 255;
 			uint8_t section = 255;
 			float fade = 1.0f;
@@ -278,6 +280,19 @@ namespace KW
 
 		const PlayerMusicProps& props = GetPlayerMusicProps();
 
+		// A new player (a level or a saved game was loaded) that comes with a song but no Transition: a loaded save
+		// restores PlayerPawn.Song without asking for a change, and the song of the menu would play on under the level.
+		// The same rule USurrealAudioDevice::SetViewport has for a new viewport: the song is switched at once.
+		// (the song can be set a few frames after the player appears: the rule holds for the first 3 seconds)
+		if (player != music.player)
+		{
+			music.player = player;
+			music.newPlayerTime = now;
+		}
+		if (now - music.newPlayerTime < std::chrono::seconds(3) && player->Song() && player->Song() != music.song &&
+			player->Transition() == MTRAN_None)
+			player->Transition() = MTRAN_Instant;
+
 		// No music playing: only the flag. A song that played to its end is also cleared.
 		bool ended = music.finished && music.finished->load();
 		player->BoolValue(props.bSongFinished) = !music.finished || ended;
@@ -289,6 +304,22 @@ namespace KW
 		}
 
 		uint8_t transition = player->Transition();
+		{
+			// debug: one line per change of what the player asks for (a song that never stops after a level change)
+			static UMusic* loggedSong = nullptr;
+			static uint8_t loggedTransition = 255;
+			static bool loggedPlaying = false;
+			bool playing = music.song != nullptr;
+			if (player->Song() != loggedSong || transition != loggedTransition || playing != loggedPlaying)
+			{
+				loggedSong = player->Song();
+				loggedTransition = transition;
+				loggedPlaying = playing;
+				LogMessage("Music: player song " + (player->Song() ? player->Song()->Name.ToString() : std::string("none")) +
+					", transition " + std::to_string(transition) + ", playing " + (music.song ? "yes" : "no") +
+					", volume " + std::to_string(musicVolume));
+			}
+		}
 		if (transition != MTRAN_None)
 		{
 			// With the music volume at 0 Galaxy doesn't change the stream, even for a different song

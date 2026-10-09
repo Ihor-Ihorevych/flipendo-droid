@@ -8,6 +8,10 @@
 #include "Engine.h"
 #include <cmath>
 #include <chrono>
+#ifdef __ANDROID__
+#include <atomic>
+extern std::atomic<float> g_fovOffset; // android/jni/android_main.cpp
+#endif
 
 namespace KW
 {
@@ -17,6 +21,10 @@ namespace KW
 	// widen the horizontal one instead ("Hor+"). Screens narrower than 4:3 keep the original FOV.
 	float ViewFovAngle(float fovAngle, int width, int height)
 	{
+#ifdef __ANDROID__
+		// the player's field of view setting (android settings panel), in degrees on top of the game's
+		fovAngle = std::clamp(fovAngle + g_fovOffset.load(), 40.0f, 150.0f);
+#endif
 		if (width <= 0 || height <= 0)
 			return fovAngle;
 		float widen = ((float)width / (float)height) / (4.0f / 3.0f);
