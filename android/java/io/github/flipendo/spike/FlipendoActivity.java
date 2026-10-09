@@ -36,6 +36,9 @@ public class FlipendoActivity extends SDLActivity {
 
     static native void nativeSetUiScale(float scale);
 
+    /** Movement control: false = a floating stick under the left thumb, true = four arrow buttons that are always visible. */
+    static volatile boolean dpadMode = false;
+
     private void saveScales() {
         getSharedPreferences("flipendo", MODE_PRIVATE).edit()
                 .putFloat("renderScale", surfaceScale).putFloat("uiScale", uiScale).apply();
@@ -166,6 +169,7 @@ public class FlipendoActivity extends SDLActivity {
         getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         // The player's scales (menu sliders), then render at a reduced fixed surface size: the compositor scales it up.
         android.content.SharedPreferences prefs = getSharedPreferences("flipendo", MODE_PRIVATE);
+        dpadMode = prefs.getBoolean("dpad", false);
         applyUiScale(prefs.getFloat("uiScale", 1.0f), false);
         if (mSurface != null) {
             applyRenderScale(prefs.getFloat("renderScale", 0.5f));
@@ -219,7 +223,41 @@ public class FlipendoActivity extends SDLActivity {
 
         /** Gameplay buttons are hidden while a menu is open; MENU stays as the way back. */
         boolean visible(Btn b) {
-            return b == menu || !(menuShown || lessonShown);
+            if (b == menu || b == gear) return true;
+            boolean game = !(menuShown || lessonShown);
+            for (Btn a : arrows) {
+                if (a == b) return dpadMode && game;
+            }
+            return game;
+        }
+
+        final android.graphics.Path arrowPath = new android.graphics.Path();
+
+        int arrowIndex(Btn b) {
+            for (int i = 0; i < arrows.length; i++) {
+                if (arrows[i] == b) return i;
+            }
+            return -1;
+        }
+
+        boolean isArrow(Btn b) { return arrowIndex(b) >= 0; }
+
+        void openSettings() {
+            releaseStick();
+            for (Btn a : arrows) {
+                if (a.down) setButton(a, false);
+                a.pointer = -1;
+            }
+            settingsOpen = true;
+            invalidate();
+        }
+
+        void setDpadMode(boolean on) {
+            if (dpadMode == on) return;
+            releaseStick();
+            dpadMode = on;
+            ((FlipendoActivity) getContext()).getSharedPreferences("flipendo", MODE_PRIVATE).edit().putBoolean("dpad", on).apply();
+            invalidate();
         }
 
         static final class Btn {
@@ -245,7 +283,17 @@ public class FlipendoActivity extends SDLActivity {
         final Btn jump = new Btn("JUMP", 0, MotionEvent.BUTTON_SECONDARY, false);
         final Btn menu = new Btn("MENU", KeyEvent.KEYCODE_ESCAPE, 0, false);
         final Btn save = new Btn("SAVE", 0, 0, false); // save anywhere (the icon, images/android/save.png, is optional)
-        final Btn[] buttons = { cast, jump, menu, save };
+        final Btn gear = new Btn("SET", 0, 0, false); // opens the settings panel
+        // arrow buttons (movement in dpadMode): up, down, left, right, in the order of DIR_KEYS
+        final Btn[] arrows = {
+            new Btn("UP", KeyEvent.KEYCODE_DPAD_UP, 0, false), new Btn("DOWN", KeyEvent.KEYCODE_DPAD_DOWN, 0, false),
+            new Btn("LEFT", KeyEvent.KEYCODE_DPAD_LEFT, 0, false), new Btn("RIGHT", KeyEvent.KEYCODE_DPAD_RIGHT, 0, false) };
+        final Btn[] buttons = { cast, jump, menu, save, gear, arrows[0], arrows[1], arrows[2], arrows[3] };
+
+        boolean settingsOpen;    // the settings panel is up: it takes every touch
+        final android.graphics.RectF panel = new android.graphics.RectF();
+        final android.graphics.RectF segStick = new android.graphics.RectF(), segDpad = new android.graphics.RectF();
+        final android.graphics.RectF closeBtn = new android.graphics.RectF();
 
         final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
         final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -303,12 +351,25 @@ public class FlipendoActivity extends SDLActivity {
             save.cx = w - 0.08f * u; save.cy = 0.23f * u; save.r = 0.06f * u;
             text.setTextSize(0.035f * u);
 
-            // The 4:3 menu book is centred: the sliders sit in the black margin to its left (as wide as it allows).
-            float margin = (w - h * 4f / 3f) / 2f;
-            sliderX0 = 0.04f * u;
-            sliderX1 = sliderX0 + Math.min(0.42f * u, Math.max(margin - 0.09f * u, 0.2f * u));
-            sliderY[0] = 0.38f * h;
-            sliderY[1] = 0.60f * h;
+            gear.cx = w - 0.08f * u; gear.cy = 0.38f * u; gear.r = 0.06f * u;
+            float ax = 0.27f * u, ay = h - 0.27f * u, ad = 0.155f * u;
+            arrows[0].cx = ax; arrows[0].cy = ay - ad;
+            arrows[1].cx = ax; arrows[1].cy = ay + ad;
+            arrows[2].cx = ax - ad; arrows[2].cy = ay;
+            arrows[3].cx = ax + ad; arrows[3].cy = ay;
+            for (Btn a : arrows) a.r = 0.08f * u;
+
+            // The settings panel, centred: controls switch, the two sliders, Close.
+            float pw = Math.min(0.9f * w, 1.5f * h);
+            panel.set((w - pw) / 2f, 0.08f * h, (w + pw) / 2f, 0.92f * h);
+            float gap = 0.02f * pw;
+            segStick.set(panel.left + 0.06f * pw, 0.27f * h, w / 2f - gap, 0.39f * h);
+            segDpad.set(w / 2f + gap, 0.27f * h, panel.right - 0.06f * pw, 0.39f * h);
+            sliderX0 = panel.left + 0.1f * pw;
+            sliderX1 = panel.right - 0.1f * pw;
+            sliderY[0] = 0.58f * h;
+            sliderY[1] = 0.73f * h;
+            closeBtn.set(w / 2f - 0.15f * pw, 0.79f * h, w / 2f + 0.15f * pw, 0.89f * h);
             label.setTextSize(0.03f * u);
             label.setColor(0xFFFFFFFF);
             label.setShadowLayer(4f, 0f, 0f, 0xFF000000);
@@ -324,7 +385,7 @@ public class FlipendoActivity extends SDLActivity {
 
         /** The slider under a touch (menu open only), or -1. */
         int hitSlider(float x, float y) {
-            if (!menuShown) return -1;
+            if (!settingsOpen) return -1;
             float u = Math.min(getWidth(), getHeight());
             for (int i = 0; i < 2; i++) {
                 if (Math.abs(y - sliderY[i]) < 0.08f * u && x > sliderX0 - 0.05f * u && x < sliderX1 + 0.05f * u) return i;
@@ -348,8 +409,42 @@ public class FlipendoActivity extends SDLActivity {
             invalidate();
         }
 
+        void drawSegment(Canvas c, android.graphics.RectF r, String name, boolean on) {
+            fill.setColor(on ? 0xFFFFD84A : 0x33FFFFFF);
+            c.drawRoundRect(r, r.height() / 2f, r.height() / 2f, fill);
+            text.setColor(on ? 0xFF000000 : 0xFFFFFFFF);
+            c.drawText(name, r.centerX(), r.centerY() + text.getTextSize() * 0.35f, text);
+            text.setColor(0xCCFFFFFF);
+        }
+
+        void drawSettings(Canvas c) {
+            if (!settingsOpen) return;
+            float u = Math.min(getWidth(), getHeight());
+            fill.setColor(0xB0000000);
+            c.drawRect(0, 0, getWidth(), getHeight(), fill);
+            fill.setColor(0xF01C1C26);
+            c.drawRoundRect(panel, 0.03f * u, 0.03f * u, fill);
+            line.setColor(0x66FFFFFF);
+            line.setStrokeWidth(3f);
+            c.drawRoundRect(panel, 0.03f * u, 0.03f * u, line);
+            float size = text.getTextSize();
+            text.setTextSize(size * 1.5f);
+            text.setColor(0xFFFFFFFF);
+            c.drawText("Settings", getWidth() / 2f, 0.19f * getHeight(), text);
+            text.setTextSize(size);
+            text.setColor(0xCCFFFFFF);
+            c.drawText("Movement controls", getWidth() / 2f, 0.245f * getHeight(), text);
+            drawSegment(c, segStick, "Floating stick", !dpadMode);
+            drawSegment(c, segDpad, "Arrow buttons", dpadMode);
+            drawSliders(c);
+            fill.setColor(0x44FFFFFF);
+            c.drawRoundRect(closeBtn, closeBtn.height() / 2f, closeBtn.height() / 2f, fill);
+            text.setColor(0xFFFFFFFF);
+            c.drawText("Close", closeBtn.centerX(), closeBtn.centerY() + size * 0.35f, text);
+            text.setColor(0xCCFFFFFF);
+        }
+
         void drawSliders(Canvas c) {
-            if (!menuShown) return;
             float u = Math.min(getWidth(), getHeight());
             android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
             int longSide = Math.max(dm.widthPixels, dm.heightPixels), shortSide = Math.min(dm.widthPixels, dm.heightPixels);
@@ -390,6 +485,11 @@ public class FlipendoActivity extends SDLActivity {
             if (b == save) {
                 b.down = down;
                 if (down) nativeRequestSave(); // saved by the game thread at its next tick, see onSaved
+                return;
+            }
+            if (b == gear) {
+                b.down = false;
+                if (down) openSettings();
                 return;
             }
             b.down = down;
@@ -443,6 +543,22 @@ public class FlipendoActivity extends SDLActivity {
                 case MotionEvent.ACTION_DOWN:
                 case MotionEvent.ACTION_POINTER_DOWN: {
                     float x = e.getX(idx), y = e.getY(idx);
+                    if (settingsOpen) {
+                        // the panel takes every touch
+                        if (hitSlider(x, y) >= 0) {
+                            roles.put(id, Role.SLIDER);
+                            activeSlider = hitSlider(x, y);
+                            pendingRender = surfaceScale;
+                            setSliderFromX(activeSlider, x, false);
+                        } else if (segStick.contains(x, y)) {
+                            setDpadMode(false);
+                        } else if (segDpad.contains(x, y)) {
+                            setDpadMode(true);
+                        } else if (closeBtn.contains(x, y) || !panel.contains(x, y)) {
+                            settingsOpen = false;
+                        }
+                        break;
+                    }
                     Btn b = hitButton(x, y);
                     if (b != null) {
                         roles.put(id, Role.BUTTON);
@@ -456,11 +572,6 @@ public class FlipendoActivity extends SDLActivity {
                             } };
                             postDelayed(menuHeld, 1500);
                         }
-                    } else if (hitSlider(x, y) >= 0) {
-                        roles.put(id, Role.SLIDER);
-                        activeSlider = hitSlider(x, y);
-                        pendingRender = surfaceScale;
-                        setSliderFromX(activeSlider, x, false);
                     } else if (menuActive()) {
                         // Menu: the finger is the mouse. Move the cursor now, press a few frames later and keep
                         // following the finger so sliders can be dragged.
@@ -479,7 +590,7 @@ public class FlipendoActivity extends SDLActivity {
                         SDLActivity.onNativeMouse(MotionEvent.BUTTON_PRIMARY, MotionEvent.ACTION_DOWN,
                                 getWidth() / 2f * surfaceScale, getHeight() / 2f * surfaceScale, false);
                     } else {
-                        roles.put(id, x < getWidth() / 2f ? Role.STICK : Role.LOOK);
+                        roles.put(id, !dpadMode && x < getWidth() / 2f ? Role.STICK : Role.LOOK);
                         last.put(id, new float[] { x, y });
                         start.put(id, new float[] { x, y });
                     }
@@ -578,10 +689,43 @@ public class FlipendoActivity extends SDLActivity {
 
         @Override
         protected void onDraw(Canvas c) {
-            drawSliders(c);
             for (Btn b : buttons) {
                 if (!visible(b)) continue;
                 float scale = b.down ? 0.9f : 1f;
+                if (b == gear || isArrow(b)) {
+                    fill.setColor(b.down ? 0x99FFD84A : 0x55000000);
+                    c.drawCircle(b.cx, b.cy, b.r * scale, fill);
+                    line.setColor(0xAAFFFFFF);
+                    line.setStrokeWidth(4f);
+                    c.drawCircle(b.cx, b.cy, b.r * scale, line);
+                    fill.setColor(b.down ? 0xFFFFD84A : 0xCCFFFFFF);
+                    if (b == gear) {
+                        // a gear: a ring with eight teeth
+                        line.setStrokeWidth(b.r * 0.22f);
+                        c.drawCircle(b.cx, b.cy, b.r * 0.32f, line);
+                        for (int k = 0; k < 8; k++) {
+                            double a = k * Math.PI / 4;
+                            float cs = (float) Math.cos(a), sn = (float) Math.sin(a);
+                            c.drawLine(b.cx + cs * b.r * 0.42f, b.cy + sn * b.r * 0.42f,
+                                    b.cx + cs * b.r * 0.62f, b.cy + sn * b.r * 0.62f, line);
+                        }
+                        line.setStrokeWidth(4f);
+                    } else {
+                        // a triangle pointing up, rotated: up, down, left, right
+                        float[] angle = { 0f, 180f, 270f, 90f };
+                        float k = b.r * 0.45f;
+                        arrowPath.reset();
+                        arrowPath.moveTo(b.cx, b.cy - k);
+                        arrowPath.lineTo(b.cx - k, b.cy + k * 0.7f);
+                        arrowPath.lineTo(b.cx + k, b.cy + k * 0.7f);
+                        arrowPath.close();
+                        c.save();
+                        c.rotate(angle[arrowIndex(b)], b.cx, b.cy);
+                        c.drawPath(arrowPath, fill);
+                        c.restore();
+                    }
+                    continue;
+                }
                 if (b.icon == null) {
                     fill.setColor(b.down ? 0x88FFD84A : 0x55000000);
                     c.drawCircle(b.cx, b.cy, b.r, fill);
@@ -606,6 +750,7 @@ public class FlipendoActivity extends SDLActivity {
                 fill.setColor(0x88FFFFFF);
                 c.drawCircle(knobX, knobY, r * 0.4f, fill);
             }
+            drawSettings(c);
         }
     }
 }

@@ -145,11 +145,10 @@ Why Start Game showed no saves before: the slot data is written as UTF-16 (`Save
 were stubs on non-Windows (`Script error: to_utf16 not implemented on unix` in the log), so `GameSaveInfo<N>` was never written. They
 are implemented now (`SurrealEngine/Utils/UTF16.cpp`, in `0200-android-port.patch`).
 
-## Sliders: render scale and subtitles size
+## Settings panel
 
-Phones differ a lot, so two settings are adjustable at run time. Open the pause menu (the MENU button) and use the sliders in the left margin, next to the menu book:
+The gear button (below SAVE, visible in game and in menus) opens a settings panel. Everything in it is remembered between launches (the `flipendo` shared preferences).
 
-- **Render scale** (30%..100%): the game is drawn at this fraction of the screen resolution and the compositor scales it up. Lower is faster on weak GPUs. It is applied when the finger lifts (the surface is resized then).
-- **Subtitles and HUD size** (60%..180%): scales the 2D UI (subtitles, HUD). It changes live while dragging; the menu book keeps its size.
-
-Both are remembered between launches (the `flipendo` shared preferences). Defaults: render scale 50%, size 100%.
+- **Movement controls**: *Floating stick* (the default: touch and drag on the left half) or *Arrow buttons* (four arrows always visible at the bottom left; the whole screen then looks around).
+- **Render scale** (30%..100%, default 50%): the game is drawn at this fraction of the screen resolution and the compositor scales it up. Lower is faster on weak GPUs. Applied when the finger lifts (the surface is resized then).
+- **Subtitles and HUD size** (60%..180%, default 100%): scales the 2D UI (subtitles, HUD). Changes live while dragging; the menu book keeps its size.
