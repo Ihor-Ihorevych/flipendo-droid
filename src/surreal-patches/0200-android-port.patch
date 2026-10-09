@@ -1,4 +1,4 @@
-flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CPU, per-frame command pool reset, no gl_ClipDistance, upright swapchain, absolute touch mouse, no backtrace()
+flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CPU, per-frame command pool reset, no gl_ClipDistance, upright swapchain, absolute touch mouse, no backtrace(); Vulkan device choice needs only independentBlend and names why a device was rejected
 
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
@@ -23,40 +23,6 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  elseif(HAIKU)
  	set(SURREALCOMMON_SOURCES ${SURREALCOMMON_SOURCES})
  	set(SURREALCOMMON_LIBS ${SURREALCOMMON_LIBS} ${SURREALCOMMON_UNIX_LIBS} ${CMAKE_DL_LIBS} -lbe -lnetwork)
---- a/SurrealWidgets/CMakeLists.txt
-+++ b/SurrealWidgets/CMakeLists.txt
-@@ -12,7 +12,7 @@
- 	option(ENABLE_SDL2 "Enable SDL2 backend. Optional on all platforms" ON)
- endif()
- 
--if (UNIX AND NOT APPLE)
-+if (UNIX AND NOT APPLE AND NOT ANDROID)
- 	include(FindPkgConfig)
- 	if (NOT HAIKU)
- 		pkg_check_modules(DBUS dbus-1)
-@@ -45,6 +45,10 @@
- 	endif()
- endif()
- 
-+if(ANDROID)
-+	set(SDL3_FOUND TRUE)
-+endif()
-+
- # SDL2 finding stuff
- # Optional on all platforms
- if(ENABLE_SDL2)
-@@ -360,6 +364,11 @@
- 	if (NOT UNIFORMTYPEIDENTIFIERS_FRAMEWORK)
- 		message(FATAL_ERROR "UniformTypeIdentifiers framework not found")
- 	endif()
-+elseif(ANDROID)
-+	set(SURREALWIDGETS_SOURCES ${SURREALWIDGETS_SOURCES} ${CMAKE_CURRENT_SOURCE_DIR}/../../../android/jni/resourcedata_android.cpp)
-+	set(SURREALWIDGETS_LIBS ${CMAKE_DL_LIBS})
-+	set(SURREALWIDGETS_DEFINES -DUNIX -D_UNIX)
-+	set(SURREALWIDGETS_LINK_OPTIONS -pthread)
- elseif(HAIKU)
- 	set(SURREALWIDGETS_SOURCES ${SURREALWIDGETS_SOURCES} ${SURREALWIDGETS_UNIX_SOURCES})
- 	set(SURREALWIDGETS_INCLUDE_DIRS ${SURREALWIDGETS_INCLUDE_DIRS} ${GLIB_INCLUDE_DIRS} ${FONTCONFIG_INCLUDE_DIRS})
 --- a/SurrealEngine/Audio/AudioPlayer.cpp
 +++ b/SurrealEngine/Audio/AudioPlayer.cpp
 @@ -290,6 +290,16 @@
@@ -76,17 +42,6 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  #else
  
  #include <alsa/asoundlib.h>
---- a/SurrealEngine/Utils/Exception.cpp
-+++ b/SurrealEngine/Utils/Exception.cpp
-@@ -131,7 +131,7 @@
- 
- 
- /////////////////////////////////////////////////////////////////////
--#elif defined __linux__ || defined __OpenBSD__ || defined __APPLE__
-+#elif (defined __linux__ || defined __OpenBSD__ || defined __APPLE__) && !defined __ANDROID__
- 
- 	if (maxframes <= 0)
- 		return 0;
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,5 +1,9 @@
@@ -122,6 +77,221 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  		if (viewport->bShowWindowsMouse() && viewport->bWindowsMouseAvailable())
  			window->UnlockCursor();
  		else
+--- a/SurrealEngine/Render/RenderCanvas.cpp
++++ b/SurrealEngine/Render/RenderCanvas.cpp
+@@ -289,6 +289,7 @@
+ 
+ void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<std::string>& textBlocks, size_t start, size_t end, UFont* font, vec4 color, uint32_t polyflags, float spaceX)
+ {
++	if (!font) return; // script can draw text with Canvas.Font == None (debug mode HUD)
+ 	for (size_t i = start; i < end; i++)
+ 	{
+ 		for (char c : textBlocks[i])
+@@ -325,6 +326,7 @@
+ 
+ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY, float& curX, float& curY, float& curXL, float& curYL, bool newlineAtEnd, const std::string& text, uint32_t polyflags, bool center, float spaceX, float spaceY, float clipX, float clipY, bool noDraw)
+ {
++	if (!font) return; // script can draw text with Canvas.Font == None (debug mode HUD)
+ 	float totalWidth = 0.0f;
+ 	float totalHeight = 0.0f;
+ 
+--- a/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
++++ b/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
+@@ -129,6 +129,8 @@
+ 	DrawCommands.reset();
+ 	TransferCommands.reset();
+ 	DeleteFrameObjects();
++	// Spike: Mali keeps command-stream memory until the pool is reset; recycle it every frame.
++	vkResetCommandPool(renderer->Device.get()->device, CommandPool->pool, 0);
+ }
+ 
+ VulkanCommandBuffer* CommandBufferManager::GetTransferCommands()
+--- a/SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.cpp
++++ b/SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.cpp
+@@ -8,7 +8,10 @@
+ 
+ DescriptorSetManager::DescriptorSetManager(VulkanRenderDevice* renderer) : renderer(renderer)
+ {
+-	CreateBindlessTextureSet();
++	if (renderer->Bindless)
++		CreateBindlessTextureSet();
++	else
++		CreateFixedTextureSets();
+ 	CreatePresentLayout();
+ 	CreatePresentSet();
+ 	CreateBloomLayout();
+@@ -17,6 +20,8 @@
+ 
+ DescriptorSetManager::~DescriptorSetManager()
+ {
++	if (FixedTextures.Pool != VK_NULL_HANDLE)
++		vkDestroyDescriptorPool(renderer->Device->device, FixedTextures.Pool, nullptr);
+ }
+ 
+ void DescriptorSetManager::ClearCache()
+@@ -68,6 +73,8 @@
+ 
+ void DescriptorSetManager::UpdateBindlessSet()
+ {
++	if (!renderer->Bindless)
++		return;
+ 	Textures.WriteBindless.Execute(renderer->Device.get());
+ 	Textures.WriteBindless = WriteDescriptors();
+ }
+@@ -155,3 +162,69 @@
+ 	write.AddCombinedImageSampler(Bloom.PPImageSet.get(), 0, textures->Scene->PPImageView[0].get(), samplers->PPLinearClamp.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+ 	write.Execute(renderer->Device.get());
+ }
++
++void DescriptorSetManager::CreateFixedTextureSets()
++{
++	FixedTextures.Layout = DescriptorSetLayoutBuilder()
++		.AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
++		.AddBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
++		.AddBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
++		.AddBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
++		.DebugName("FixedTextureLayout")
++		.Create(renderer->Device.get());
++
++	VkDescriptorPoolSize size = {};
++	size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
++	size.descriptorCount = 4 * MaxFixedTextureSets;
++
++	VkDescriptorPoolCreateInfo info = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
++	info.maxSets = MaxFixedTextureSets;
++	info.poolSizeCount = 1;
++	info.pPoolSizes = &size;
++	VkResult result = vkCreateDescriptorPool(renderer->Device->device, &info, nullptr, &FixedTextures.Pool);
++	renderer->Device->CheckVulkanError(result, "Could not create the fixed texture descriptor pool");
++}
++
++VkDescriptorSet DescriptorSetManager::GetFixedTextureSet(const FixedTextureKey& key)
++{
++	auto it = FixedTextures.Cache.find(key);
++	if (it != FixedTextures.Cache.end())
++		return it->second;
++
++	VkDescriptorSetAllocateInfo alloc = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
++	alloc.descriptorPool = FixedTextures.Pool;
++	alloc.descriptorSetCount = 1;
++	alloc.pSetLayouts = &FixedTextures.Layout->layout;
++	VkDescriptorSet set = VK_NULL_HANDLE;
++	VkResult result = vkAllocateDescriptorSets(renderer->Device->device, &alloc, &set);
++	renderer->Device->CheckVulkanError(result, "Could not allocate a texture descriptor set");
++
++	VkDescriptorImageInfo images[4] = {};
++	VkWriteDescriptorSet writes[4] = {};
++	for (int i = 0; i < 4; i++)
++	{
++		images[i].sampler = key.sampler[i];
++		images[i].imageView = key.view[i];
++		images[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
++		writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
++		writes[i].dstSet = set;
++		writes[i].dstBinding = (uint32_t)i;
++		writes[i].descriptorCount = 1;
++		writes[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
++		writes[i].pImageInfo = &images[i];
++	}
++	vkUpdateDescriptorSets(renderer->Device->device, 4, writes, 0, nullptr);
++
++	FixedTextures.Cache[key] = set;
++	FixedTextures.Count++;
++	return set;
++}
++
++void DescriptorSetManager::ResetFixedTextureSets()
++{
++	if (FixedTextures.Pool == VK_NULL_HANDLE)
++		return;
++	vkResetDescriptorPool(renderer->Device->device, FixedTextures.Pool, 0);
++	FixedTextures.Cache.clear();
++	FixedTextures.Count = 0;
++}
+--- a/SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.h
++++ b/SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.h
+@@ -2,6 +2,7 @@
+ 
+ #include "SceneTextures.h"
+ #include <unordered_map>
++#include <map>
+ #include <surrealgpu/vulkanbuilders.h>
+ 
+ class VulkanRenderDevice;
+@@ -45,6 +46,36 @@
+ 	}
+ };
+ 
++// Without bindless textures (GPUs that lack descriptor indexing, e.g. older Mali): the four textures of a draw call
++// (texture, macro, detail, lightmap) with their samplers. A descriptor set per distinct key, made on demand each frame.
++struct FixedTextureKey
++{
++	VkImageView view[4] = {};
++	VkSampler sampler[4] = {};
++
++	bool operator==(const FixedTextureKey& other) const
++	{
++		for (int i = 0; i < 4; i++)
++			if (view[i] != other.view[i] || sampler[i] != other.sampler[i])
++				return false;
++		return true;
++	}
++
++	bool operator!=(const FixedTextureKey& other) const { return !(*this == other); }
++
++	bool operator<(const FixedTextureKey& other) const
++	{
++		for (int i = 0; i < 4; i++)
++		{
++			if (view[i] != other.view[i])
++				return view[i] < other.view[i];
++			if (sampler[i] != other.sampler[i])
++				return sampler[i] < other.sampler[i];
++		}
++		return false;
++	}
++};
++
+ class DescriptorSetManager
+ {
+ public:
+@@ -63,6 +94,13 @@
+ 	VulkanDescriptorSet* GetBloomHTextureSet(int level) { return Bloom.HTextureSets[level].get(); }
+ 
+ 	void UpdateBindlessSet();
++
++	// No-bindless path
++	VkDescriptorSet GetFixedTextureSet(const FixedTextureKey& key);
++	void ResetFixedTextureSets();
++	bool FixedTextureSetsFull() const { return FixedTextures.Count + 2 > MaxFixedTextureSets; }
++	static const int MaxFixedTextureSets = 6000;
++	VulkanDescriptorSetLayout* GetFixedTextureLayout() { return FixedTextures.Layout.get(); }
+ 	void UpdateFrameDescriptors();
+ 
+ 	static const int MaxBindlessTextures = 16536;
+@@ -73,6 +111,7 @@
+ 
+ private:
+ 	void CreateBindlessTextureSet();
++	void CreateFixedTextureSets();
+ 	void CreatePresentLayout();
+ 	void CreatePresentSet();
+ 	void CreateBloomLayout();
+@@ -92,6 +131,14 @@
+ 
+ 	struct
+ 	{
++		std::unique_ptr<VulkanDescriptorSetLayout> Layout;
++		VkDescriptorPool Pool = VK_NULL_HANDLE;
++		std::map<FixedTextureKey, VkDescriptorSet> Cache;
++		int Count = 0;
++	} FixedTextures;
++
++	struct
++	{
+ 		std::unique_ptr<VulkanDescriptorSetLayout> Layout;
+ 		std::unique_ptr<VulkanDescriptorPool> Pool;
+ 		std::unique_ptr<VulkanDescriptorSet> Set;
 --- a/SurrealEngine/RenderDevice/Vulkan/FileResource.cpp
 +++ b/SurrealEngine/RenderDevice/Vulkan/FileResource.cpp
 @@ -39,7 +39,9 @@
@@ -134,50 +304,86 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  				flags = aFlags;
  				texCoord = aTexCoord;
  				texCoord2 = aTexCoord2;
---- a/SurrealGPU/src/vulkanswapchain.cpp
-+++ b/SurrealGPU/src/vulkanswapchain.cpp
-@@ -167,6 +167,11 @@
- 	}
- 
- 	swapChainCreateInfo.preTransform = caps.Capabilites.currentTransform;
-+#ifdef __ANDROID__
-+	// The engine renders upright; let the compositor rotate instead of pre-rotating the frame.
-+	if (caps.Capabilites.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR)
-+		swapChainCreateInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+@@ -54,7 +56,14 @@
+ 	else if (filename == "shaders/Scene.frag")
+ 	{
+ 		return R"(
++#ifdef NO_BINDLESS
++			layout(binding = 0) uniform sampler2D texTex;
++			layout(binding = 1) uniform sampler2D texMacro;
++			layout(binding = 2) uniform sampler2D texDetail;
++			layout(binding = 3) uniform sampler2D texLightmap;
++#else
+ 			layout(binding = 0) uniform sampler2D textures[];
 +#endif
- 	swapChainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; // If alpha channel is passed on to the DWM or not
- 	swapChainCreateInfo.presentMode = presentMode;
- 	swapChainCreateInfo.clipped = VK_TRUE; // Applications SHOULD set this value to VK_TRUE if they do not expect to read back the content of presentable images before presenting them or after reacquiring them, and if their fragment shaders do not have any side effects that require them to run for all pixels in the presentable image
---- a/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
-+++ b/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
-@@ -129,6 +129,8 @@
- 	DrawCommands.reset();
- 	TransferCommands.reset();
- 	DeleteFrameObjects();
-+	// Spike: Mali keeps command-stream memory until the pool is reset; recycle it every frame.
-+	vkResetCommandPool(renderer->Device.get()->device, CommandPool->pool, 0);
- }
  
- VulkanCommandBuffer* CommandBufferManager::GetTransferCommands()
---- a/SurrealEngine/RenderDevice/Vulkan/TextureUploader.h
-+++ b/SurrealEngine/RenderDevice/Vulkan/TextureUploader.h
-@@ -106,3 +106,16 @@
- 	int BlockY;
- 	int BytesPerBlock;
- };
+ 			layout(location = 0) flat in uint flags;
+ 			layout(location = 1) centroid in vec2 texCoord;
+@@ -75,10 +84,17 @@
+ 				return vec4(clamp((c.rgb - cutoff) / (1.0 - cutoff), 0.0, 1.0), c.a);
+ 			}
+ 
++#ifdef NO_BINDLESS
++			vec4 textureTex(vec2 uv) { return texture(texTex, uv); }
++			vec4 textureMacro(vec2 uv) { return texture(texMacro, uv); }
++			vec4 textureDetail(vec2 uv) { return texture(texDetail, uv); }
++			vec4 textureLightmap(vec2 uv) { return texture(texLightmap, uv); }
++#else
+ 			vec4 textureTex(vec2 uv) { return texture(textures[nonuniformEXT(textureBinds.x)], uv); }
+ 			vec4 textureMacro(vec2 uv) { return texture(textures[nonuniformEXT(textureBinds.y)], uv); }
+ 			vec4 textureDetail(vec2 uv) { return texture(textures[nonuniformEXT(textureBinds.z)], uv); }
+ 			vec4 textureLightmap(vec2 uv) { return texture(textures[nonuniformEXT(textureBinds.w)], uv); }
++#endif
+ 
+ 			void main()
+ 			{
+--- a/SurrealEngine/RenderDevice/Vulkan/RenderPassManager.cpp
++++ b/SurrealEngine/RenderDevice/Vulkan/RenderPassManager.cpp
+@@ -23,7 +23,7 @@
+ void RenderPassManager::CreateSceneBindlessPipelineLayout()
+ {
+ 	Scene.BindlessPipelineLayout = PipelineLayoutBuilder()
+-		.AddSetLayout(renderer->DescriptorSets->GetTextureBindlessLayout())
++		.AddSetLayout(renderer->Bindless ? renderer->DescriptorSets->GetTextureBindlessLayout() : renderer->DescriptorSets->GetFixedTextureLayout())
+ 		.AddPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ScenePushConstants))
+ 		.DebugName("SceneBindlessPipelineLayout")
+ 		.Create(renderer->Device.get());
+--- a/SurrealEngine/RenderDevice/Vulkan/ShaderManager.cpp
++++ b/SurrealEngine/RenderDevice/Vulkan/ShaderManager.cpp
+@@ -5,23 +5,30 @@
+ #include "VulkanRenderDevice.h"
+ #include <surrealgpu/vulkanbuilders.h>
+ 
++// Mali drivers crash compiling gl_ClipDistance in the scene vertex shader; the near clip is skipped on Android.
++#ifdef __ANDROID__
++#define SE_CLIP_DISTANCE_DEFINE ""
++#else
++#define SE_CLIP_DISTANCE_DEFINE "#define SE_CLIP_DISTANCE\r\n"
++#endif
 +
-+// Spike: CPU decoder for S3TC (BC1/BC2/BC3) into RGBA8, for GPUs without textureCompressionBC (all Mali/Adreno phones).
-+class TextureUploader_BCDecode : public TextureUploader
-+{
-+public:
-+	TextureUploader_BCDecode(int kind) : TextureUploader(VK_FORMAT_R8G8B8A8_UNORM), Kind(kind) { }
-+
-+	int GetUploadSize(int x, int y, int w, int h) override;
-+	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
-+
-+private:
-+	int Kind; // 1 = BC1, 2 = BC2, 3 = BC3
-+};
+ ShaderManager::ShaderManager(VulkanRenderDevice* renderer) : renderer(renderer)
+ {
+ 	GLSLCompiler::Init();
+ 
+ 	Scene.VertexShader = GLSLCompiler()
+ 		.Type(ShaderType::Vertex)
+-		.AddSource("shaders/Scene.vert", LoadShaderCode("shaders/Scene.vert", "#extension GL_EXT_nonuniform_qualifier : enable\r\n"))
++		.AddSource("shaders/Scene.vert", LoadShaderCode("shaders/Scene.vert", "#extension GL_EXT_nonuniform_qualifier : enable\r\n" SE_CLIP_DISTANCE_DEFINE))
+ 		.Compile(renderer->Device.get());
+ 
+ 	Scene.FragmentShader = GLSLCompiler()
+ 		.Type(ShaderType::Fragment)
+-		.AddSource("shaders/Scene.frag", LoadShaderCode("shaders/Scene.frag", "#extension GL_EXT_nonuniform_qualifier : enable\r\n#"))
++		.AddSource("shaders/Scene.frag", LoadShaderCode("shaders/Scene.frag", "#extension GL_EXT_nonuniform_qualifier : enable\r\n" + std::string(renderer->Bindless ? "" : "#define NO_BINDLESS\r\n") + "#"))
+ 		.Compile(renderer->Device.get());
+ 
+ 	Scene.FragmentShaderAlphaTest = GLSLCompiler()
+ 		.Type(ShaderType::Fragment)
+-		.AddSource("shaders/Scene.frag", LoadShaderCode("shaders/Scene.frag", "#extension GL_EXT_nonuniform_qualifier : enable\r\n#define ALPHATEST"))
++		.AddSource("shaders/Scene.frag", LoadShaderCode("shaders/Scene.frag", "#extension GL_EXT_nonuniform_qualifier : enable\r\n" + std::string(renderer->Bindless ? "" : "#define NO_BINDLESS\r\n") + "#define ALPHATEST"))
+ 		.Compile(renderer->Device.get());
+ 
+ 	Postprocess.VertexShader = GLSLCompiler()
 --- a/SurrealEngine/RenderDevice/Vulkan/TextureUploader.cpp
 +++ b/SurrealEngine/RenderDevice/Vulkan/TextureUploader.cpp
 @@ -18,13 +18,25 @@
@@ -330,24 +536,176 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
 +		}
 +	}
 +}
---- a/SurrealEngine/Render/RenderCanvas.cpp
-+++ b/SurrealEngine/Render/RenderCanvas.cpp
-@@ -289,6 +289,7 @@
+--- a/SurrealEngine/RenderDevice/Vulkan/TextureUploader.h
++++ b/SurrealEngine/RenderDevice/Vulkan/TextureUploader.h
+@@ -106,3 +106,16 @@
+ 	int BlockY;
+ 	int BytesPerBlock;
+ };
++
++// Spike: CPU decoder for S3TC (BC1/BC2/BC3) into RGBA8, for GPUs without textureCompressionBC (all Mali/Adreno phones).
++class TextureUploader_BCDecode : public TextureUploader
++{
++public:
++	TextureUploader_BCDecode(int kind) : TextureUploader(VK_FORMAT_R8G8B8A8_UNORM), Kind(kind) { }
++
++	int GetUploadSize(int x, int y, int w, int h) override;
++	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
++
++private:
++	int Kind; // 1 = BC1, 2 = BC2, 3 = BC3
++};
+--- a/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp
++++ b/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp
+@@ -10,6 +10,9 @@
+ #include <surrealwidgets/core/widget.h>
+ #include <cmath>
+ #include <stdexcept>
++#ifdef __ANDROID__
++#include <unistd.h>
++#endif
  
- void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<std::string>& textBlocks, size_t start, size_t end, UFont* font, vec4 color, uint32_t polyflags, float spaceX)
+ VulkanRenderDevice::VulkanRenderDevice(Widget* InViewport)
  {
-+	if (!font) return; // script can draw text with Canvas.Font == None (debug mode HUD)
- 	for (size_t i = start; i < end; i++)
+@@ -41,8 +44,13 @@
+ 			Device->EnabledFeatures.DescriptorIndexing.runtimeDescriptorArray &&
+ 			Device->EnabledFeatures.DescriptorIndexing.shaderSampledImageArrayNonUniformIndexing;
+ 
+-		if (!supportsBindless)
+-			throw std::runtime_error("VulkanDrv requires a GPU that supports bindless textures!");
++#ifdef __ANDROID__
++		// Testing aid: this file forces the path for GPUs without bindless textures.
++		if (access("/sdcard/FlipendoHP/no_bindless.txt", F_OK) == 0)
++			supportsBindless = false;
++#endif
++		// Without descriptor indexing (older Mali): textures are bound four at a time per draw instead.
++		Bindless = supportsBindless;
+ 
+ 		Commands.reset(new CommandBufferManager(this));
+ 		Samplers.reset(new SamplerManager(this));
+@@ -73,6 +81,7 @@
+ 		LogMessage(std::string("Vulkan device: ") + props.deviceName);
+ 		LogMessage("Vulkan device type: " + deviceType);
+ 		LogMessage("Vulkan version: " + apiVersion + " (api) " + driverVersion + " (driver)");
++		LogMessage(std::string("Bindless textures: ") + (Bindless ? "yes" : "no, textures are bound four at a time") + " (partiallyBound " + std::to_string(Device->EnabledFeatures.DescriptorIndexing.descriptorBindingPartiallyBound) + ", runtimeArray " + std::to_string(Device->EnabledFeatures.DescriptorIndexing.runtimeDescriptorArray) + ", nonUniformIndexing " + std::to_string(Device->EnabledFeatures.DescriptorIndexing.shaderSampledImageArrayNonUniformIndexing) + ")");
+ 	}
+ 	catch (const std::exception& e)
  	{
- 		for (char c : textBlocks[i])
-@@ -325,6 +326,7 @@
+@@ -113,6 +122,8 @@
+ 	DescriptorSets->UpdateBindlessSet();
  
- void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY, float& curX, float& curY, float& curXL, float& curYL, bool newlineAtEnd, const std::string& text, uint32_t polyflags, bool center, float spaceX, float spaceY, float clipX, float clipY, bool noDraw)
+ 	Commands->SubmitCommands(present, presentWidth, presentHeight, presentFullscreen);
++	if (!Bindless)
++		DescriptorSets->ResetFixedTextureSets();
+ 
+ 	Batch.SceneIndexStart = 0;
+ 	SceneVertexPos = 0;
+@@ -336,6 +347,37 @@
+ 	Textures->UpdateTextureRect(&Info, U, V, UL, VL);
+ }
+ 
++// Not Bindless: the textures of a draw are fixed per batch, so a change of textures ends the batch.
++void VulkanRenderDevice::SetFixedTextures(uint32_t PolyFlags, CachedTexture* tex, bool clamp, CachedTexture* macrotex, CachedTexture* detailtex, CachedTexture* lightmap)
++{
++	uint32_t samplermode = 0;
++	if (PolyFlags & PF_NoSmooth) samplermode |= 1;
++	if (clamp) samplermode |= 2;
++
++	CachedTexture* textures[4] = { tex, macrotex, detailtex, lightmap };
++	FixedTextureKey key;
++	for (int i = 0; i < 4; i++)
++	{
++		VulkanImageView* view = textures[i] ? textures[i]->imageView.get() : Textures->NullTextureView.get();
++		key.view[i] = view->view;
++		key.sampler[i] = Samplers->Samplers[i == 0 ? samplermode : 0]->sampler; // as the bindless path: only the texture itself picks its sampler
++	}
++
++	if (key != Batch.Fixed)
++	{
++		if (DescriptorSets->FixedTextureSetsFull())
++		{
++			FlushDrawBatchAndWait(); // submits and waits, then the sets can be recycled
++			DescriptorSets->ResetFixedTextureSets();
++		}
++		else
++		{
++			DrawBatch(Commands->GetDrawCommands());
++		}
++		Batch.Fixed = key;
++	}
++}
++
+ void VulkanRenderDevice::DrawBatch(VulkanCommandBuffer* cmdbuffer)
  {
-+	if (!font) return; // script can draw text with Canvas.Font == None (debug mode HUD)
- 	float totalWidth = 0.0f;
- 	float totalHeight = 0.0f;
+ 	size_t icount = SceneIndexPos - Batch.SceneIndexStart;
+@@ -350,7 +392,15 @@
  
+ 		auto layout = RenderPasses->Scene.BindlessPipelineLayout.get();
+ 		cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, Batch.Pipeline->Pipeline.get());
+-		cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, DescriptorSets->GetBindlessSet());
++		if (Bindless)
++		{
++			cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, DescriptorSets->GetBindlessSet());
++		}
++		else
++		{
++			VkDescriptorSet textureSet = DescriptorSets->GetFixedTextureSet(Batch.Fixed);
++			cmdbuffer->bindDescriptorSets(VK_PIPELINE_BIND_POINT_GRAPHICS, layout->layout, 0, 1, &textureSet, 0, nullptr);
++		}
+ 		cmdbuffer->pushConstants(layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ScenePushConstants), &pushconstants);
+ 		cmdbuffer->setBlendConstants(Batch.BlendConstants);
+ 		cmdbuffer->drawIndexed((uint32_t)icount, 1, (uint32_t)Batch.SceneIndexStart, 0, 0);
+--- a/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.h
++++ b/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.h
+@@ -61,6 +61,9 @@
+ 
+ 	int VkDeviceIndex = 0;
+ 
++	// False on GPUs without descriptor indexing: textures are then bound four at a time per draw (DescriptorSetManager).
++	bool Bindless = true;
++
+ 	void RunBloomPass();
+ 	void BloomStep(VulkanCommandBuffer* cmdbuffer, VulkanPipeline* pipeline, VulkanDescriptorSet* input, VulkanFramebuffer* output, int width, int height, const BloomPushConstants &pushconstants);
+ 	static float ComputeBlurGaussian(float n, float theta);
+@@ -141,6 +144,7 @@
+ 	ivec4 GetTextureIndexes(uint32_t PolyFlags, CachedTexture* tex, bool clamp = false);
+ 	ivec4 GetTextureIndexes(uint32_t PolyFlags, CachedTexture* tex, CachedTexture* lightmap, CachedTexture* macrotex, CachedTexture* detailtex);
+ 	void DrawBatch(VulkanCommandBuffer* cmdbuffer);
++	void SetFixedTextures(uint32_t PolyFlags, CachedTexture* tex, bool clamp, CachedTexture* macrotex, CachedTexture* detailtex, CachedTexture* lightmap);
+ 	void SubmitAndWait(bool present, int presentWidth, int presentHeight, bool presentFullscreen);
+ 
+ 	vec4 ApplyInverseGamma(vec4 color);
+@@ -150,6 +154,7 @@
+ 		size_t SceneIndexStart = 0;
+ 		PipelineState* Pipeline = nullptr;
+ 		float BlendConstants[4] = {};
++		FixedTextureKey Fixed; // the textures of the batch when not Bindless
+ 	} Batch;
+ 
+ 	ScenePushConstants pushconstants = {};
+@@ -184,11 +189,22 @@
+ 
+ inline ivec4 VulkanRenderDevice::GetTextureIndexes(uint32_t PolyFlags, CachedTexture* tex, bool clamp)
+ {
++	if (!Bindless)
++	{
++		SetFixedTextures(PolyFlags, tex, clamp, nullptr, nullptr, nullptr);
++		return ivec4(0, 0, 0, 0);
++	}
+ 	return ivec4(DescriptorSets->GetTextureArrayIndex(PolyFlags, tex, clamp), 0, 0, 0);
+ }
+ 
+ inline ivec4 VulkanRenderDevice::GetTextureIndexes(uint32_t PolyFlags, CachedTexture* tex, CachedTexture* lightmap, CachedTexture* macrotex, CachedTexture* detailtex)
+ {
++	if (!Bindless)
++	{
++		SetFixedTextures(PolyFlags, tex, false, macrotex, detailtex, lightmap);
++		return ivec4(0, 0, 0, 0);
++	}
++
+ 	if (DescriptorSets->IsTextureArrayFull())
+ 	{
+ 		FlushDrawBatchAndWait();
 --- a/SurrealEngine/UE1GameDatabase.h
 +++ b/SurrealEngine/UE1GameDatabase.h
 @@ -202,6 +202,7 @@
@@ -358,27 +716,157 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  
  	// Harry Potter 2 (UK)
  	{"3a43d9ec8be7ec441b18a8dc710b4bdd5b29bda3", KnownUE1Games::HARRYPOTTER2_433},
---- a/SurrealEngine/RenderDevice/Vulkan/ShaderManager.cpp
-+++ b/SurrealEngine/RenderDevice/Vulkan/ShaderManager.cpp
-@@ -5,13 +5,20 @@
- #include "VulkanRenderDevice.h"
- #include <surrealgpu/vulkanbuilders.h>
+--- a/SurrealEngine/Utils/Exception.cpp
++++ b/SurrealEngine/Utils/Exception.cpp
+@@ -131,7 +131,7 @@
  
-+// Mali drivers crash compiling gl_ClipDistance in the scene vertex shader; the near clip is skipped on Android.
-+#ifdef __ANDROID__
-+#define SE_CLIP_DISTANCE_DEFINE ""
-+#else
-+#define SE_CLIP_DISTANCE_DEFINE "#define SE_CLIP_DISTANCE\r\n"
-+#endif
+ 
+ /////////////////////////////////////////////////////////////////////
+-#elif defined __linux__ || defined __OpenBSD__ || defined __APPLE__
++#elif (defined __linux__ || defined __OpenBSD__ || defined __APPLE__) && !defined __ANDROID__
+ 
+ 	if (maxframes <= 0)
+ 		return 0;
+--- a/SurrealGPU/include/surrealgpu/vulkanbuilders.h
++++ b/SurrealGPU/include/surrealgpu/vulkanbuilders.h
+@@ -42,6 +42,7 @@
+ 	VulkanDeviceBuilder& SelectDevice(int index);
+ 
+ 	std::vector<VulkanCompatibleDevice> FindDevices(const std::shared_ptr<VulkanInstance>& instance);
++	std::string deviceRejections; // filled by FindDevices: why each device was not usable
+ 	std::shared_ptr<VulkanDevice> Create(std::shared_ptr<VulkanInstance> instance);
+ 
+ private:
+--- a/SurrealGPU/src/vulkanbuilders.cpp
++++ b/SurrealGPU/src/vulkanbuilders.cpp
+@@ -1835,23 +1835,40 @@
+ 	{
+ 		const auto& info = instance->PhysicalDevices[idx];
+ 
+-		// Check if all required extensions are there
++		// Why this device can't be used, for the error message when none can (the user sends it in the log report)
++		std::string rejected;
 +
- ShaderManager::ShaderManager(VulkanRenderDevice* renderer) : renderer(renderer)
- {
- 	GLSLCompiler::Init();
++		// Check if all required extensions are there. A driver that reports Vulkan 1.2 or newer may not list the
++		// extensions that became core in 1.2 (descriptor indexing, mirror clamp to edge): their features are then
++		// enabled through the feature structures alone.
+ 		std::set<std::string> requiredExtensionSearch = requiredDeviceExtensions;
++		std::set<std::string> listedExtensions;
+ 		for (const auto& ext : info.Extensions)
++		{
+ 			requiredExtensionSearch.erase(ext.extensionName);
+-		if (!requiredExtensionSearch.empty())
+-			continue;
++			listedExtensions.insert(ext.extensionName);
++		}
++		if (info.Properties.Properties.apiVersion >= VK_API_VERSION_1_2)
++		{
++			requiredExtensionSearch.erase(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
++			requiredExtensionSearch.erase(VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME);
++		}
++		for (const std::string& name : requiredExtensionSearch)
++			rejected += " missing extension " + name + ";";
  
- 	Scene.VertexShader = GLSLCompiler()
- 		.Type(ShaderType::Vertex)
--		.AddSource("shaders/Scene.vert", LoadShaderCode("shaders/Scene.vert", "#extension GL_EXT_nonuniform_qualifier : enable\r\n"))
-+		.AddSource("shaders/Scene.vert", LoadShaderCode("shaders/Scene.vert", "#extension GL_EXT_nonuniform_qualifier : enable\r\n" SE_CLIP_DISTANCE_DEFINE))
- 		.Compile(renderer->Device.get());
+-		// Check if all required features are there
+-		if (info.Features.Features.samplerAnisotropy != VK_TRUE ||
+-			info.Features.Features.fragmentStoresAndAtomics != VK_TRUE ||
+-			info.Features.Features.multiDrawIndirect != VK_TRUE ||
+-			info.Features.Features.independentBlend != VK_TRUE)
+-			continue;
++		// Check if all required features are there. The renderer never draws indirectly, never writes storage or
++		// atomics from a fragment shader and creates its samplers without anisotropy, so only independent blending
++		// (the second color attachment is blended differently) is needed; the others are enabled when present.
++		if (info.Features.Features.independentBlend != VK_TRUE)
++			rejected += " no independentBlend;";
  
- 	Scene.FragmentShader = GLSLCompiler()
+ 		VulkanCompatibleDevice dev;
+ 		dev.Device = &instance->PhysicalDevices[idx];
+-		dev.EnabledDeviceExtensions = requiredDeviceExtensions;
++		for (const std::string& name : requiredDeviceExtensions)
++		{
++			if (listedExtensions.find(name) != listedExtensions.end())
++				dev.EnabledDeviceExtensions.insert(name);
++		}
+ 
+ 		// Enable optional extensions we are interested in, if they are available on this device
+ 		for (const auto& ext : dev.Device->Extensions)
+@@ -1915,10 +1932,21 @@
+ 		}
+ 
+ 		// Only use device if we found the required graphics and present queues
+-		if (dev.GraphicsFamily != -1 && (!surface || dev.PresentFamily != -1))
++		if (dev.GraphicsFamily == -1)
++			rejected += " no graphics queue;";
++		if (surface && dev.PresentFamily == -1)
++			rejected += " no queue can present to the surface;";
++
++		if (rejected.empty())
+ 		{
+ 			supportedDevices.push_back(dev);
+ 		}
++		else
++		{
++			const auto& props = info.Properties.Properties;
++			deviceRejections += "\n  " + std::string(props.deviceName) + " (Vulkan " + std::to_string(VK_VERSION_MAJOR(props.apiVersion)) + "." +
++				std::to_string(VK_VERSION_MINOR(props.apiVersion)) + ", driver 0x" + [&] { char s[16]; snprintf(s, sizeof(s), "%x", props.driverVersion); return std::string(s); }() + "):" + rejected;
++		}
+ 	}
+ 
+ 	// The device order returned by Vulkan can be anything. Prefer discrete > integrated > virtual gpu > cpu > other
+@@ -1953,7 +1981,7 @@
+ 
+ 	std::vector<VulkanCompatibleDevice> supportedDevices = FindDevices(instance);
+ 	if (supportedDevices.empty())
+-		VulkanError("No Vulkan device found supports the minimum requirements of this application");
++		VulkanError(("No Vulkan device found supports the minimum requirements of this application:" + (deviceRejections.empty() ? std::string(" none listed") : deviceRejections)).c_str());
+ 
+ 	size_t selected = deviceIndex;
+ 	if (selected >= supportedDevices.size())
+--- a/SurrealGPU/src/vulkanswapchain.cpp
++++ b/SurrealGPU/src/vulkanswapchain.cpp
+@@ -167,6 +167,11 @@
+ 	}
+ 
+ 	swapChainCreateInfo.preTransform = caps.Capabilites.currentTransform;
++#ifdef __ANDROID__
++	// The engine renders upright; let the compositor rotate instead of pre-rotating the frame.
++	if (caps.Capabilites.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR)
++		swapChainCreateInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
++#endif
+ 	swapChainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; // If alpha channel is passed on to the DWM or not
+ 	swapChainCreateInfo.presentMode = presentMode;
+ 	swapChainCreateInfo.clipped = VK_TRUE; // Applications SHOULD set this value to VK_TRUE if they do not expect to read back the content of presentable images before presenting them or after reacquiring them, and if their fragment shaders do not have any side effects that require them to run for all pixels in the presentable image
+--- a/SurrealWidgets/CMakeLists.txt
++++ b/SurrealWidgets/CMakeLists.txt
+@@ -12,7 +12,7 @@
+ 	option(ENABLE_SDL2 "Enable SDL2 backend. Optional on all platforms" ON)
+ endif()
+ 
+-if (UNIX AND NOT APPLE)
++if (UNIX AND NOT APPLE AND NOT ANDROID)
+ 	include(FindPkgConfig)
+ 	if (NOT HAIKU)
+ 		pkg_check_modules(DBUS dbus-1)
+@@ -45,6 +45,10 @@
+ 	endif()
+ endif()
+ 
++if(ANDROID)
++	set(SDL3_FOUND TRUE)
++endif()
++
+ # SDL2 finding stuff
+ # Optional on all platforms
+ if(ENABLE_SDL2)
+@@ -360,6 +364,11 @@
+ 	if (NOT UNIFORMTYPEIDENTIFIERS_FRAMEWORK)
+ 		message(FATAL_ERROR "UniformTypeIdentifiers framework not found")
+ 	endif()
++elseif(ANDROID)
++	set(SURREALWIDGETS_SOURCES ${SURREALWIDGETS_SOURCES} ${CMAKE_CURRENT_SOURCE_DIR}/../../../android/jni/resourcedata_android.cpp)
++	set(SURREALWIDGETS_LIBS ${CMAKE_DL_LIBS})
++	set(SURREALWIDGETS_DEFINES -DUNIX -D_UNIX)
++	set(SURREALWIDGETS_LINK_OPTIONS -pthread)
+ elseif(HAIKU)
+ 	set(SURREALWIDGETS_SOURCES ${SURREALWIDGETS_SOURCES} ${SURREALWIDGETS_UNIX_SOURCES})
+ 	set(SURREALWIDGETS_INCLUDE_DIRS ${SURREALWIDGETS_INCLUDE_DIRS} ${GLIB_INCLUDE_DIRS} ${FONTCONFIG_INCLUDE_DIRS})

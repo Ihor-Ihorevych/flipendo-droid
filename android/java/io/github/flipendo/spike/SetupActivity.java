@@ -93,14 +93,77 @@ public class SetupActivity extends Activity {
         new Thread(new Runnable() {
             public void run() {
                 installGameData();
+                final boolean haveGame = findGame(new File(FlipendoActivity.GAME_DIR), 2) != null;
                 ui.post(new Runnable() {
                     public void run() {
+                        if (!haveGame) {
+                            showMissingGame();
+                            return;
+                        }
                         startActivity(new Intent(SetupActivity.this, FlipendoActivity.class));
                         finish();
                     }
                 });
             }
         }).start();
+    }
+
+    /** The folder with System/HP.exe: the game folder itself, or one or two levels inside it (a copy made one folder too deep). */
+    static File findGame(File dir, int depth) {
+        if (new File(dir, "System/HP.exe").isFile() || new File(dir, "system/HP.exe").isFile()) {
+            return dir;
+        }
+        File[] children = depth > 0 ? dir.listFiles() : null;
+        if (children != null) {
+            for (File child : children) {
+                if (child.isDirectory() && !child.getName().startsWith(".")) {
+                    File found = findGame(child, depth - 1);
+                    if (found != null) {
+                        return found;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private LinearLayout buttons;
+
+    private LinearLayout buttonRow() {
+        if (buttons == null) {
+            buttons = new LinearLayout(this);
+            buttons.setOrientation(LinearLayout.VERTICAL);
+            ((LinearLayout) status.getParent()).addView(buttons);
+        }
+        buttons.removeAllViews();
+        return buttons;
+    }
+
+    private android.widget.Button button(String label, android.view.View.OnClickListener onClick) {
+        android.widget.Button b = new android.widget.Button(this);
+        b.setText(label);
+        b.setOnClickListener(onClick);
+        return b;
+    }
+
+    /** There is no game on the phone yet: say where to put it (this is the most common first-run problem). */
+    private void showMissingGame() {
+        status.setText("Game data not found.\n\nCopy the game folder from your PC (the one that contains System, Maps, Textures, "
+                + "Sounds and Music) to the phone, into Internal storage / FlipendoHP.\n\n"
+                + "The app looks for " + FlipendoActivity.GAME_DIR + "/System/HP.exe.");
+        bar.setVisibility(android.view.View.GONE);
+        LinearLayout row = buttonRow();
+        row.addView(button("Check again", new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) {
+                bar.setVisibility(android.view.View.VISIBLE);
+                begin();
+            }
+        }));
+        row.addView(button("Send logs", new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) {
+                LogReport.share(SetupActivity.this);
+            }
+        }));
     }
 
     /** Set when the game stopped on its own (FlipendoActivity.onGameStopped) or the last run of the app crashed. */
@@ -128,25 +191,19 @@ public class SetupActivity extends Activity {
     private void showProblem(String text) {
         status.setText(text + "\n\nPlease send the report to the developer.");
         bar.setVisibility(android.view.View.GONE);
-        LinearLayout root = (LinearLayout) status.getParent();
-        android.widget.Button send = new android.widget.Button(this);
-        send.setText("Send logs");
-        send.setOnClickListener(new android.view.View.OnClickListener() {
+        LinearLayout row = buttonRow();
+        row.addView(button("Send logs", new android.view.View.OnClickListener() {
             public void onClick(android.view.View v) {
                 LogReport.share(SetupActivity.this);
             }
-        });
-        android.widget.Button play = new android.widget.Button(this);
-        play.setText("Play anyway");
-        play.setOnClickListener(new android.view.View.OnClickListener() {
+        }));
+        row.addView(button("Play anyway", new android.view.View.OnClickListener() {
             public void onClick(android.view.View v) {
                 getSharedPreferences("flipendo", MODE_PRIVATE).edit().putLong("ack", System.currentTimeMillis()).apply();
                 bar.setVisibility(android.view.View.VISIBLE);
                 begin();
             }
-        });
-        root.addView(send);
-        root.addView(play);
+        }));
     }
 
     private void say(final String text, final int done, final int total) {

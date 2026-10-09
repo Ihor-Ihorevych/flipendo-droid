@@ -7,6 +7,9 @@
 #include <atomic>
 #include <jni.h>
 #include <fstream>
+#include <dirent.h>
+#include <string>
+#include <vector>
 #include <unwind.h>
 #include <dlfcn.h>
 #include <signal.h>
@@ -105,6 +108,44 @@ static void InstallCrashHandler()
 		sigaction(sig, &action, nullptr);
 }
 
+// The folder with the game (System/HP.exe): /sdcard/FlipendoHP, or the first folder inside it, or inside that.
+// A game copied one level too deep (/sdcard/FlipendoHP/FlipendoHP/System/...) is a common mistake.
+static bool HasGame(const std::string& dir)
+{
+	return access((dir + "/System/HP.exe").c_str(), F_OK) == 0 || access((dir + "/system/HP.exe").c_str(), F_OK) == 0;
+}
+
+static std::string FindGame(const std::string& dir, int depth)
+{
+	if (HasGame(dir))
+		return dir;
+	if (depth == 0)
+		return "";
+	std::vector<std::string> subdirs;
+	if (DIR* d = opendir(dir.c_str()))
+	{
+		while (dirent* e = readdir(d))
+		{
+			if (e->d_name[0] != '.' && e->d_type == DT_DIR)
+				subdirs.push_back(dir + "/" + e->d_name);
+		}
+		closedir(d);
+	}
+	for (const std::string& sub : subdirs)
+	{
+		std::string found = FindGame(sub, depth - 1);
+		if (!found.empty())
+			return found;
+	}
+	return "";
+}
+
+static std::string FindGameDir()
+{
+	std::string found = FindGame("/sdcard/FlipendoHP", 2);
+	return found.empty() ? "/sdcard/FlipendoHP" : found;
+}
+
 // Tell FlipendoActivity the game thread is over (code 0: the player quit), so it can show the way to the logs.
 static void NotifyGameStopped(int code)
 {
@@ -150,7 +191,9 @@ extern "C" __attribute__((visibility("default"))) int SDL_main(int argc, char** 
 			}
 		}
 		args.push_back("--logfile=/sdcard/FlipendoHP/flipendo.log");
-		args.push_back("/sdcard/FlipendoHP");
+		const std::string gameDir = FindGameDir();
+		__android_log_print(ANDROID_LOG_INFO, "flipendo", "game folder: %s", gameDir.c_str());
+		args.push_back(gameDir);
 		GameApp app;
 		code = app.main(std::move(args));
 	}

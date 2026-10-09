@@ -86,3 +86,24 @@ SafeDisc files, uninstaller, logs and saves are not packed). Both start through 
 *All files access*.
 
 **The self pack contains the game's copyrighted data: build it for your own phone only, and never publish or share it.**
+
+## GPUs without bindless textures (older Mali)
+
+The renderer was written for bindless textures (an unbounded `sampler2D textures[]` indexed per vertex). A GPU that lacks
+descriptor indexing (the Mali-G52 of a Redmi 13C did) now takes a second path: `VulkanRenderDevice::Bindless` is false, the
+scene fragment shader is compiled with `NO_BINDLESS` (four fixed samplers: texture, macro, detail, lightmap), a change of
+textures ends the draw batch (`SetFixedTextures`), and `DescriptorSetManager` makes a descriptor set per distinct texture
+quadruple each frame (cached, the pool is reset once the GPU is done). The log line `Bindless textures: yes|no (...)` says
+which path a phone took. Creating `/sdcard/FlipendoHP/no_bindless.txt` forces the slow path for testing.
+
+Device selection (`VulkanDeviceBuilder::FindDevices`) only insists on `independentBlend` (the renderer never draws indirectly,
+never writes storage or atomics from a fragment shader and creates samplers without anisotropy), accepts the Vulkan 1.2
+core versions of descriptor indexing and mirror clamp when the extension is not listed, and when no device fits, the fatal
+message names each GPU and what it lacks.
+
+## First-run problems
+
+- **Game data not found:** the app checks for `System/HP.exe` in `/sdcard/FlipendoHP`, and one or two folders below it (a
+  copy made one folder too deep still works), before it starts the engine; if the game is missing it says where to copy
+  it, with **Check again** and **Send logs**.
+- **Black or stuck game:** hold the on-screen MENU button for 1.5 s to send the logs.

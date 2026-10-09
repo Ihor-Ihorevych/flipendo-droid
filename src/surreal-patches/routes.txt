@@ -75,3 +75,8 @@ SurrealEngine/RenderDevice/Vulkan/TextureUploader.*
 SurrealEngine/Render/RenderCanvas.cpp
 SurrealEngine/UE1GameDatabase.h
 SurrealGPU/src/vulkanswapchain.cpp
+SurrealGPU/src/vulkanbuilders.cpp
+SurrealGPU/include/surrealgpu/vulkanbuilders.h
+SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.*
+SurrealEngine/RenderDevice/Vulkan/RenderPassManager.cpp
+SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.*
