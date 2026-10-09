@@ -31,3 +31,4 @@ __pycache__/
 /android/deps/
 /android/debug.keystore
 /logs-*.zip
+/*logs*.zip

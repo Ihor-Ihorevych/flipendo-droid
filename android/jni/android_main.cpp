@@ -3,6 +3,10 @@
 #include "GameApp.h"
 #include <android/log.h>
 #include <SDL3/SDL_hints.h>
+#include <SDL3/SDL_events.h>
+#include <AL/al.h>
+#include <AL/alc.h>
+#include <AL/alext.h>
 #include <stdlib.h>
 #include <atomic>
 #include <jni.h>
@@ -146,6 +150,30 @@ static std::string FindGameDir()
 	return found.empty() ? "/sdcard/FlipendoHP" : found;
 }
 
+// The app in the background: the sound stops with it (SDL already holds the game thread in its event pump).
+static void PauseAudio(bool pause)
+{
+	ALCcontext* context = alcGetCurrentContext();
+	ALCdevice* device = context ? alcGetContextsDevice(context) : nullptr;
+	if (!device || !alcIsExtensionPresent(device, "ALC_SOFT_pause_device"))
+		return;
+	auto pauseDevice = reinterpret_cast<LPALCDEVICEPAUSESOFT>(alcGetProcAddress(device, "alcDevicePauseSOFT"));
+	auto resumeDevice = reinterpret_cast<LPALCDEVICERESUMESOFT>(alcGetProcAddress(device, "alcDeviceResumeSOFT"));
+	if (pause && pauseDevice)
+		pauseDevice(device);
+	else if (!pause && resumeDevice)
+		resumeDevice(device);
+}
+
+static bool SDLCALL LifecycleWatch(void*, SDL_Event* event)
+{
+	if (event->type == SDL_EVENT_WILL_ENTER_BACKGROUND)
+		PauseAudio(true);
+	else if (event->type == SDL_EVENT_DID_ENTER_FOREGROUND)
+		PauseAudio(false);
+	return true;
+}
+
 // Tell FlipendoActivity the game thread is over (code 0: the player quit), so it can show the way to the logs.
 static void NotifyGameStopped(int code)
 {
@@ -171,6 +199,7 @@ extern "C" __attribute__((visibility("default"))) int SDL_main(int argc, char** 
 		setenv("HOME", "/sdcard/FlipendoHP", 1);
 		rename("/sdcard/FlipendoHP/flipendo.log", "/sdcard/FlipendoHP/flipendo.prev.log");
 		InstallCrashHandler();
+		SDL_AddEventWatch(LifecycleWatch, nullptr);
 
 		Array<std::string> args;
 		SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");

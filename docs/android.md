@@ -107,3 +107,25 @@ message names each GPU and what it lacks.
   copy made one folder too deep still works), before it starts the engine; if the game is missing it says where to copy
   it, with **Check again** and **Send logs**.
 - **Black or stuck game:** hold the on-screen MENU button for 1.5 s to send the logs.
+
+## Going to the background and coming back
+
+Android destroys the window when the app is minimised, which kills the Vulkan surface: the next `vkAcquireNextImageKHR`
+returns `VK_ERROR_SURFACE_LOST_KHR`, which the renderer used to treat as a fatal error (the game closed and the state was
+lost). `VulkanSwapChain` now tells a lost surface from an out-of-date swapchain; `CommandBufferManager` then releases the
+swapchain, `VulkanRenderDevice::RecreateSurface` makes a new `VkSurfaceKHR` from the window and the swapchain is rebuilt
+(the log line is `Vulkan surface recreated`). SDL holds the game thread in its event pump while the app is paused, so
+nothing runs in the background; the OpenAL device is paused too (`android_main.cpp`, `ALC_SOFT_pause_device`).
+
+What this does not do: if Android kills the process in the background (the game takes about 0.6-0.9 GB of a phone's RAM),
+the state is gone, because HP1 only saves at save books and level starts.
+
+## Button icons
+
+The touch buttons are the PNGs in `images/android/` (`wand.png` = cast, `jump.png`, `menu.png` = Esc). `android/build-apk.sh`
+copies them into the APK (`assets/icons/`) and the overlay draws them (`FlipendoActivity.java`, `Overlay.loadIcon`): the
+black glyphs are tinted white (yellow while pressed) on a dark disc, the coloured wand sits on a light disc. To change the
+look, replace the PNGs (square, transparent background) and rebuild; a missing icon falls back to the old text button.
+
+(`aapt2 link -A` writes assets with backslashes in their names on Windows, which Android can't open, so the script adds
+`assets/` with `jar` instead: this is also why the self pack's game data was not found until this was fixed.)

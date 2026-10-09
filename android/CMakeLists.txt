@@ -12,6 +12,6 @@ add_subdirectory(deps/SDL SDL3 EXCLUDE_FROM_ALL)
 add_subdirectory(${ENGINE} engine EXCLUDE_FROM_ALL)
 
 add_library(main SHARED jni/android_main.cpp)
-target_include_directories(main PRIVATE ${ENGINE}/SurrealEngine)
+target_include_directories(main PRIVATE ${ENGINE}/SurrealEngine ${ENGINE}/Thirdparty/openal-soft/include)
 set_target_properties(main PROPERTIES CXX_STANDARD 20)
 target_link_libraries(main PRIVATE -Wl,--whole-archive SurrealCommon -Wl,--no-whole-archive SDL3::SDL3 surrealwidgets surrealgpu openmpt SurrealVideo OpenAL log android)

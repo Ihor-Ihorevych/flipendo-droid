@@ -170,6 +170,8 @@ public class FlipendoActivity extends SDLActivity {
             final int key;
             final int mouse;
             final boolean toggle;
+            android.graphics.Bitmap icon;
+            boolean tint; // black glyph: drawn white (yellow while pressed) so it shows on dark scenes
             float cx, cy, r;
             boolean down;
             int pointer = -1;
@@ -190,6 +192,10 @@ public class FlipendoActivity extends SDLActivity {
         final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
         final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
         final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
+        final Paint iconPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+        final Paint whitePaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+        final Paint yellowPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+        final android.graphics.RectF iconRect = new android.graphics.RectF();
 
         final HashMap<Integer, Role> roles = new HashMap<>();
         final HashMap<Integer, float[]> last = new HashMap<>();   // pointer -> last x,y
@@ -210,6 +216,22 @@ public class FlipendoActivity extends SDLActivity {
             text.setTextAlign(Paint.Align.CENTER);
             text.setColor(0xCCFFFFFF);
             setFocusable(false);
+            whitePaint.setColorFilter(new android.graphics.PorterDuffColorFilter(0xFFFFFFFF, android.graphics.PorterDuff.Mode.SRC_IN));
+            yellowPaint.setColorFilter(new android.graphics.PorterDuffColorFilter(0xFFFFD84A, android.graphics.PorterDuff.Mode.SRC_IN));
+            cast.icon = loadIcon(c, "wand.png");
+            jump.icon = loadIcon(c, "jump.png");
+            jump.tint = true;
+            menu.icon = loadIcon(c, "menu.png");
+            menu.tint = true;
+        }
+
+        /** The button icons ship in the APK (assets/icons/, copied from images/android/ by build-apk.sh). */
+        static android.graphics.Bitmap loadIcon(android.content.Context c, String name) {
+            try (InputStream in = c.getAssets().open("icons/" + name)) {
+                return android.graphics.BitmapFactory.decodeStream(in);
+            } catch (IOException e) {
+                return null; // the button falls back to its text label
+            }
         }
 
         @Override
@@ -411,11 +433,21 @@ public class FlipendoActivity extends SDLActivity {
         protected void onDraw(Canvas c) {
             for (Btn b : buttons) {
                 if (!visible(b)) continue;
-                fill.setColor(b.down ? 0x88FFD84A : 0x55000000);
-                c.drawCircle(b.cx, b.cy, b.r, fill);
-                line.setColor(0xAAFFFFFF);
-                c.drawCircle(b.cx, b.cy, b.r, line);
-                c.drawText(b.label, b.cx, b.cy + text.getTextSize() * 0.35f, text);
+                float scale = b.down ? 0.9f : 1f;
+                if (b.icon == null) {
+                    fill.setColor(b.down ? 0x88FFD84A : 0x55000000);
+                    c.drawCircle(b.cx, b.cy, b.r, fill);
+                    line.setColor(0xAAFFFFFF);
+                    c.drawCircle(b.cx, b.cy, b.r, line);
+                    c.drawText(b.label, b.cx, b.cy + text.getTextSize() * 0.35f, text);
+                    continue;
+                }
+                // an icon on a soft disc: dark behind the white glyphs, light behind the coloured wand
+                fill.setColor(b.tint ? (b.down ? 0x99000000 : 0x66000000) : (b.down ? 0xCCFFFFFF : 0x99FFFFFF));
+                c.drawCircle(b.cx, b.cy, b.r * scale, fill);
+                float half = b.r * 0.82f * scale;
+                iconRect.set(b.cx - half, b.cy - half, b.cx + half, b.cy + half);
+                c.drawBitmap(b.icon, null, iconRect, b.tint ? (b.down ? yellowPaint : whitePaint) : iconPaint);
             }
             if (stickPointer != -1) {
                 float r = 0.12f * Math.min(getWidth(), getHeight());

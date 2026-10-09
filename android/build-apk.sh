@@ -76,21 +76,25 @@ date +%F >> android/dist/symbols/build-info.txt
 paste -sd' ' android/dist/symbols/build-info.txt > "$A/assets/build-info.txt"
 "$STRIP" --strip-unneeded "$A"/lib/arm64-v8a/*.so
 jar --create --no-manifest --file "$A/assets/SurrealEngine.pk3" -C src/engine/Resources .
+# the touch buttons' icons (images/android/*.png) are loaded from assets/icons/ by the overlay
+mkdir -p "$A/assets/icons" && cp images/android/*.png "$A/assets/icons/"
 javac -Xlint:-options -source 8 -target 8 -cp "$AJ" -d "$A/classes" \
 	android/deps/SDL/android-project/app/src/main/java/org/libsdl/app/*.java android/java/io/github/flipendo/spike/*.java
 "$BT/d8.bat" --lib "$AJ" --output "$A" $(find "$A/classes" -name "*.class")
 [ -f android/debug.keystore ] || keytool -genkeypair -keystore android/debug.keystore -storepass android -keypass android \
 	-alias debug -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Flipendo Debug"
 
-# package <output apk> [extra aapt2 -A asset directory]
+# package <output apk> [directory that holds gamedata/ for the self pack]
 package() {
 	local out="$1"; shift
-	local assets=(-A "$A/assets")
-	[ $# -gt 0 ] && assets+=(-A "$1")
 	rm -f "$A/base.apk" "$A/unsigned.apk" "$A/aligned.apk"
-	"$BT/aapt2.exe" link -o "$A/base.apk" --manifest android/AndroidManifest.xml -I "$AJ" "${assets[@]}" \
+	# aapt2 links the manifest and resources only: on Windows it writes assets with backslashes in their names
+	# (assets/icons\wand.png), which Android can't find. jar writes proper paths, so the assets are added with it.
+	"$BT/aapt2.exe" link -o "$A/base.apk" --manifest android/AndroidManifest.xml -I "$AJ" \
 		--min-sdk-version 29 --target-sdk-version 35
-	(cd "$A" && cp base.apk unsigned.apk && jar uf unsigned.apk classes.dex lib && "$BT/zipalign.exe" -f -p 4 unsigned.apk aligned.apk)
+	local extra=()
+	[ $# -gt 0 ] && extra=(-C "$1" assets)
+	(cd "$A" && cp base.apk unsigned.apk && jar uf unsigned.apk classes.dex lib assets "${extra[@]/#$A\//}" && "$BT/zipalign.exe" -f -p 4 unsigned.apk aligned.apk)
 	"$BT/apksigner.bat" sign --ks android/debug.keystore --ks-pass pass:android --key-pass pass:android --out "$out" "$A/aligned.apk"
 	rm -f "$out.idsig"
 	echo "built $out ($(du -h "$out" | cut -f1))"
@@ -101,7 +105,7 @@ package android/dist/flipendo-droid.apk
 
 # 6. the self pack: the same APK plus the game, unpacked on first launch (SetupActivity)
 if [ -n "$SELFPACK" ]; then
-	STAGE="$A/data_stage/gamedata"
+	STAGE="$A/data_stage/assets/gamedata"
 	rm -rf "$A/data_stage"
 	mkdir -p "$STAGE"
 	# Everything the engine reads, except SafeDisc files, the uninstaller, shortcuts, logs and saves (the save

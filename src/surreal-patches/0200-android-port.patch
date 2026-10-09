@@ -97,7 +97,20 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  
 --- a/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
 +++ b/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
-@@ -129,6 +129,8 @@
+@@ -66,6 +66,12 @@
+ 			UsingVsync = renderer->UseVSync;
+ 			UsingHdr = renderer->Hdr;
+ 			renderer->Framebuffers->DestroySwapChainFramebuffers();
++			if (SwapChain->SurfaceLost())
++			{
++				// The window was destroyed (Android: the app went to the background) and a new one exists now.
++				SwapChain->ReleaseSwapchain();
++				renderer->RecreateSurface();
++			}
+ 			SwapChain->Create(presentWidth, presentHeight, renderer->UseVSync ? 2 : 3, renderer->UseVSync, renderer->Hdr);
+ 			renderer->Framebuffers->CreateSwapChainFramebuffers();
+ 
+@@ -129,6 +135,8 @@
  	DrawCommands.reset();
  	TransferCommands.reset();
  	DeleteFrameObjects();
@@ -655,19 +668,36 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  		cmdbuffer->pushConstants(layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ScenePushConstants), &pushconstants);
  		cmdbuffer->setBlendConstants(Batch.BlendConstants);
  		cmdbuffer->drawIndexed((uint32_t)icount, 1, (uint32_t)Batch.SceneIndexStart, 0, 0);
+@@ -1437,3 +1487,13 @@
+ 		.AddImage(Commands->SwapChain->GetImage(Commands->PresentImageIndex), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0)
+ 		.Execute(cmdbuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+ }
++
++void VulkanRenderDevice::RecreateSurface()
++{
++	vkDeviceWaitIdle(Device->device);
++	VkInstance instance = Device->Surface->Instance->Instance;
++	VkSurfaceKHR fresh = Viewport->CreateVulkanSurface(instance);
++	vkDestroySurfaceKHR(instance, Device->Surface->Surface, nullptr);
++	Device->Surface->Surface = fresh;
++	LogMessage("Vulkan surface recreated (the window was recreated, e.g. the app came back from the background)");
++}
 --- a/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.h
 +++ b/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.h
-@@ -61,6 +61,9 @@
+@@ -61,6 +61,12 @@
  
  	int VkDeviceIndex = 0;
  
 +	// False on GPUs without descriptor indexing: textures are then bound four at a time per draw (DescriptorSetManager).
 +	bool Bindless = true;
 +
++	// A new VkSurfaceKHR for the window (the old one died with it: the app was in the background); SwapChain must be released first.
++	void RecreateSurface();
++
  	void RunBloomPass();
  	void BloomStep(VulkanCommandBuffer* cmdbuffer, VulkanPipeline* pipeline, VulkanDescriptorSet* input, VulkanFramebuffer* output, int width, int height, const BloomPushConstants &pushconstants);
  	static float ComputeBlurGaussian(float n, float theta);
-@@ -141,6 +144,7 @@
+@@ -141,6 +147,7 @@
  	ivec4 GetTextureIndexes(uint32_t PolyFlags, CachedTexture* tex, bool clamp = false);
  	ivec4 GetTextureIndexes(uint32_t PolyFlags, CachedTexture* tex, CachedTexture* lightmap, CachedTexture* macrotex, CachedTexture* detailtex);
  	void DrawBatch(VulkanCommandBuffer* cmdbuffer);
@@ -675,7 +705,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  	void SubmitAndWait(bool present, int presentWidth, int presentHeight, bool presentFullscreen);
  
  	vec4 ApplyInverseGamma(vec4 color);
-@@ -150,6 +154,7 @@
+@@ -150,6 +157,7 @@
  		size_t SceneIndexStart = 0;
  		PipelineState* Pipeline = nullptr;
  		float BlendConstants[4] = {};
@@ -683,7 +713,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  	} Batch;
  
  	ScenePushConstants pushconstants = {};
-@@ -184,11 +189,22 @@
+@@ -184,11 +192,22 @@
  
  inline ivec4 VulkanRenderDevice::GetTextureIndexes(uint32_t PolyFlags, CachedTexture* tex, bool clamp)
  {
@@ -737,6 +767,26 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  	std::shared_ptr<VulkanDevice> Create(std::shared_ptr<VulkanInstance> instance);
  
  private:
+--- a/SurrealGPU/include/surrealgpu/vulkanswapchain.h
++++ b/SurrealGPU/include/surrealgpu/vulkanswapchain.h
+@@ -27,6 +27,9 @@
+ 
+ 	void Create(int width, int height, int imageCount, bool vsync, bool hdr);
+ 	bool Lost() const { return lost; }
++	// The window behind the surface is gone (Android: the app was in the background): make a new surface, then a new swapchain.
++	bool SurfaceLost() const { return surfaceLost; }
++	void ReleaseSwapchain();
+ 
+ 	int Width() const { return actualExtent.width; }
+ 	int Height() const { return actualExtent.height; }
+@@ -48,6 +51,7 @@
+ 
+ 	VulkanDevice* device = nullptr;
+ 	bool lost = true;
++	bool surfaceLost = false;
+ 
+ 	VkExtent2D actualExtent = {};
+ 	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
 --- a/SurrealGPU/src/vulkanbuilders.cpp
 +++ b/SurrealGPU/src/vulkanbuilders.cpp
 @@ -1835,23 +1835,40 @@
@@ -836,6 +886,56 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  	swapChainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; // If alpha channel is passed on to the DWM or not
  	swapChainCreateInfo.presentMode = presentMode;
  	swapChainCreateInfo.clipped = VK_TRUE; // Applications SHOULD set this value to VK_TRUE if they do not expect to read back the content of presentable images before presenting them or after reacquiring them, and if their fragment shaders do not have any side effects that require them to run for all pixels in the presentable image
+@@ -181,12 +186,26 @@
+ 	{
+ 		swapchain = VK_NULL_HANDLE;
+ 		lost = true;
++		if (result == VK_ERROR_SURFACE_LOST_KHR || result == VK_ERROR_NATIVE_WINDOW_IN_USE_KHR)
++			surfaceLost = true;
+ 		return false;
+ 	}
+ 
+ 	return true;
+ }
+ 
++// Drops the swapchain (and its images) so that the surface can be replaced; a swapchain can't outlive its surface.
++void VulkanSwapChain::ReleaseSwapchain()
++{
++	views.clear();
++	images.clear();
++	if (swapchain)
++		vkDestroySwapchainKHR(device->device, swapchain, nullptr);
++	swapchain = VK_NULL_HANDLE;
++	lost = true;
++	surfaceLost = false;
++}
++
+ int VulkanSwapChain::AcquireImage(VulkanSemaphore* semaphore, VulkanFence* fence)
+ {
+ 	if (lost)
+@@ -198,6 +217,13 @@
+ 	{
+ 		return imageIndex;
+ 	}
++	else if (result == VK_ERROR_SURFACE_LOST_KHR)
++	{
++		// Android destroys the window when the app goes to the background: a new surface is needed
++		lost = true;
++		surfaceLost = true;
++		return -1;
++	}
+ 	else if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT)
+ 	{
+ 		lost = true;
+@@ -233,6 +259,8 @@
+ 	else if (result == VK_ERROR_OUT_OF_DATE_KHR  || result == VK_ERROR_SURFACE_LOST_KHR || result == VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT)
+ 	{
+ 		lost = true;
++		if (result == VK_ERROR_SURFACE_LOST_KHR)
++			surfaceLost = true;
+ 	}
+ 	else if (result == VK_ERROR_OUT_OF_HOST_MEMORY || result == VK_ERROR_OUT_OF_DEVICE_MEMORY)
+ 	{
 --- a/SurrealWidgets/CMakeLists.txt
 +++ b/SurrealWidgets/CMakeLists.txt
 @@ -12,7 +12,7 @@
