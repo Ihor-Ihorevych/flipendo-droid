@@ -50,6 +50,20 @@ public class FlipendoActivity extends SDLActivity {
 
     static native void nativeSetDebugMode(boolean on);
 
+    /** HP's Auto Jump option (Harry jumps by himself at ledges); on by default. */
+    static boolean autoJump = true;
+
+    static native void nativeSetAutoJump(boolean on);
+
+    void applyAutoJump(boolean on, boolean save) {
+        autoJump = on;
+        try {
+            nativeSetAutoJump(on);
+        } catch (UnsatisfiedLinkError ignored) {
+        }
+        if (save) saveScales();
+    }
+
     void applyFovOffset(float degrees, boolean save) {
         fovOffset = Math.max(FOV_MIN, Math.min(FOV_MAX, degrees));
         try {
@@ -71,7 +85,7 @@ public class FlipendoActivity extends SDLActivity {
     private void saveScales() {
         getSharedPreferences("flipendo", MODE_PRIVATE).edit()
                 .putFloat("renderScale", surfaceScale).putFloat("uiScale", uiScale)
-                .putFloat("fovOffset", fovOffset).putBoolean("debug", debugMode).apply();
+                .putFloat("fovOffset", fovOffset).putBoolean("debug", debugMode).putBoolean("autoJump", autoJump).apply();
     }
 
     /** Resizes the render surface (the engine rebuilds its scene textures and swapchain for the new size). */
@@ -136,6 +150,17 @@ public class FlipendoActivity extends SDLActivity {
                 finish();
             }
         });
+    }
+
+    /** True while a cutscene holds Harry; implemented in android_main.cpp. */
+    static native boolean nativeCutsceneActive();
+
+    static boolean cutsceneActive() {
+        try {
+            return nativeCutsceneActive();
+        } catch (UnsatisfiedLinkError e) {
+            return false;
+        }
     }
 
     static boolean lessonDrawing() {
@@ -203,6 +228,7 @@ public class FlipendoActivity extends SDLActivity {
         applyUiScale(prefs.getFloat("uiScale", 1.0f), false);
         applyFovOffset(prefs.getFloat("fovOffset", 0f), false);
         applyDebugMode(prefs.getBoolean("debug", true), false);
+        applyAutoJump(prefs.getBoolean("autoJump", true), false);
         if (mSurface != null) {
             applyRenderScale(prefs.getFloat("renderScale", 0.5f));
             // SDL adds the surface as WRAP_CONTENT, which would shrink the view to the fixed size: stretch it over the screen.
@@ -226,15 +252,18 @@ public class FlipendoActivity extends SDLActivity {
 
         boolean menuShown;       // last polled menu state: hides the gameplay buttons
         boolean lessonShown;     // last polled lesson state: hides the gameplay buttons too
+        boolean cutsceneShown;   // last polled cutscene state: only SKIP, settings and menu are shown, the screen does not steer or look
         long menuDownTime;       // when the menu pointer went down
         float menuX, menuY;      // last menu pointer position, in surface pixels
 
         final Runnable poll = new Runnable() {
             public void run() {
-                boolean m = menuActive(), l = lessonDrawing();
-                if (m != menuShown || l != lessonShown) {
+                boolean m = menuActive(), l = lessonDrawing(), cs = cutsceneActive();
+                if (m != menuShown || l != lessonShown || cs != cutsceneShown) {
                     menuShown = m;
                     lessonShown = l;
+                    cutsceneShown = cs;
+                    if (cs) releaseGameplayControls();
                     invalidate();
                 }
                 postDelayed(this, 150);
@@ -256,6 +285,8 @@ public class FlipendoActivity extends SDLActivity {
         /** Gameplay buttons are hidden while a menu is open; MENU stays as the way back. */
         boolean visible(Btn b) {
             if (b == menu || b == gear) return true;
+            if (b == skip) return cutsceneShown; // the skip button exists only in cutscenes
+            if (cutsceneShown) return false;       // and they leave only the skip, settings and menu buttons
             boolean game = !(menuShown || lessonShown);
             for (Btn a : arrows) {
                 if (a == b) return dpadMode && game;
@@ -304,6 +335,24 @@ public class FlipendoActivity extends SDLActivity {
             invalidate();
         }
 
+        /** A cutscene starts: let go of whatever the fingers were holding (stick directions, arrows, the wand). */
+        void releaseGameplayControls() {
+            releaseStick();
+            arrowFingers.clear();
+            for (Btn a : arrows) {
+                if (a.down) setButton(a, false);
+                a.pointer = -1;
+            }
+            if (cast.down) setButton(cast, false);
+            cast.pointer = -1;
+            // fingers that were steering or looking stop being tracked
+            java.util.Iterator<java.util.Map.Entry<Integer, Role>> it = roles.entrySet().iterator();
+            while (it.hasNext()) {
+                Role r = it.next().getValue();
+                if (r == Role.STICK || r == Role.LOOK) it.remove();
+            }
+        }
+
         void openSettings() {
             releaseStick();
             for (Btn a : arrows) {
@@ -346,17 +395,18 @@ public class FlipendoActivity extends SDLActivity {
         final Btn jump = new Btn("JUMP", 0, MotionEvent.BUTTON_SECONDARY, false);
         final Btn menu = new Btn("MENU", KeyEvent.KEYCODE_ESCAPE, 0, false);
         final Btn save = new Btn("SAVE", 0, 0, false); // save anywhere (the icon, images/android/save.png, is optional)
+        final Btn skip = new Btn("SKIP", KeyEvent.KEYCODE_SPACE, 0, false); // skips a cutscene (Space); shown only in cutscenes
         final Btn gear = new Btn("SET", 0, 0, false); // opens the settings panel
         // arrow buttons (movement in dpadMode): up, down, left, right, in the order of DIR_KEYS
         final Btn[] arrows = {
             new Btn("UP", KeyEvent.KEYCODE_DPAD_UP, 0, false), new Btn("DOWN", KeyEvent.KEYCODE_DPAD_DOWN, 0, false),
             new Btn("LEFT", KeyEvent.KEYCODE_DPAD_LEFT, 0, false), new Btn("RIGHT", KeyEvent.KEYCODE_DPAD_RIGHT, 0, false) };
-        final Btn[] buttons = { cast, jump, menu, save, gear, arrows[0], arrows[1], arrows[2], arrows[3] };
+        final Btn[] buttons = { cast, jump, menu, save, gear, skip, arrows[0], arrows[1], arrows[2], arrows[3] };
 
         boolean settingsOpen;    // the settings panel is up: it takes every touch
         final android.graphics.RectF panel = new android.graphics.RectF();
         final android.graphics.RectF segStick = new android.graphics.RectF(), segDpad = new android.graphics.RectF();
-        final android.graphics.RectF closeBtn = new android.graphics.RectF(), debugBtn = new android.graphics.RectF();
+        final android.graphics.RectF closeBtn = new android.graphics.RectF(), debugBtn = new android.graphics.RectF(), autoJumpBtn = new android.graphics.RectF();
 
         final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
         final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -422,6 +472,7 @@ public class FlipendoActivity extends SDLActivity {
             jump.cx = w - 0.42f * u; jump.cy = h - 0.12f * u; jump.r = 0.085f * u;
             menu.cx = w - 0.08f * u; menu.cy = 0.08f * u; menu.r = 0.06f * u;
             save.cx = w - 0.21f * u; save.cy = 0.08f * u; save.r = 0.06f * u;
+            skip.cx = save.cx; skip.cy = save.cy; skip.r = save.r; // the book's place: the book is hidden in cutscenes
             text.setTextSize(0.035f * u);
 
             gear.cx = w - 0.34f * u; gear.cy = 0.08f * u; gear.r = 0.06f * u;
@@ -440,11 +491,12 @@ public class FlipendoActivity extends SDLActivity {
             segDpad.set(w / 2f + gap, 0.20f * h, panel.right - 0.06f * pw, 0.30f * h);
             sliderX0 = panel.left + 0.1f * pw;
             sliderX1 = panel.right - 0.1f * pw;
-            sliderY[0] = 0.47f * h;
-            sliderY[1] = 0.60f * h;
-            sliderY[2] = 0.73f * h;
-            debugBtn.set(panel.left + 0.06f * pw, 0.83f * h, w / 2f - gap, 0.93f * h);
-            closeBtn.set(w / 2f + gap, 0.83f * h, panel.right - 0.06f * pw, 0.93f * h);
+            sliderY[0] = 0.43f * h;
+            sliderY[1] = 0.54f * h;
+            sliderY[2] = 0.65f * h;
+            autoJumpBtn.set(panel.left + 0.06f * pw, 0.72f * h, w / 2f - gap, 0.81f * h);
+            debugBtn.set(w / 2f + gap, 0.72f * h, panel.right - 0.06f * pw, 0.81f * h);
+            closeBtn.set(w / 2f - 0.15f * pw, 0.86f * h, w / 2f + 0.15f * pw, 0.95f * h);
             label.setTextSize(0.03f * u);
             label.setColor(0xFFFFFFFF);
             label.setShadowLayer(4f, 0f, 0f, 0xFF000000);
@@ -519,6 +571,7 @@ public class FlipendoActivity extends SDLActivity {
             drawSegment(c, segStick, "Floating stick", !dpadMode);
             drawSegment(c, segDpad, "Arrow buttons", dpadMode);
             drawSliders(c);
+            drawSegment(c, autoJumpBtn, autoJump ? "Auto jump: ON" : "Auto jump: OFF", autoJump);
             drawSegment(c, debugBtn, debugMode ? "Debug mode: ON" : "Debug mode: OFF", debugMode);
             fill.setColor(0x44FFFFFF);
             c.drawRoundRect(closeBtn, closeBtn.height() / 2f, closeBtn.height() / 2f, fill);
@@ -565,7 +618,6 @@ public class FlipendoActivity extends SDLActivity {
         }
 
         void setButton(Btn b, boolean down) {
-            if (b == jump) key(KeyEvent.KEYCODE_SPACE, down); // Space skips cutscenes; Ctrl is the game's jump key
             if (b == save) {
                 b.down = down;
                 if (down) nativeRequestSave(); // saved by the game thread at its next tick, see onSaved
@@ -638,6 +690,8 @@ public class FlipendoActivity extends SDLActivity {
                             setDpadMode(false);
                         } else if (segDpad.contains(x, y)) {
                             setDpadMode(true);
+                        } else if (autoJumpBtn.contains(x, y)) {
+                            ((FlipendoActivity) getContext()).applyAutoJump(!autoJump, true);
                         } else if (debugBtn.contains(x, y)) {
                             ((FlipendoActivity) getContext()).applyDebugMode(!debugMode, true);
                         } else if (closeBtn.contains(x, y) || !panel.contains(x, y)) {
@@ -676,6 +730,8 @@ public class FlipendoActivity extends SDLActivity {
                         nativeSetTouch(x / getWidth(), y / getHeight(), true);
                         SDLActivity.onNativeMouse(MotionEvent.BUTTON_PRIMARY, MotionEvent.ACTION_DOWN,
                                 getWidth() / 2f * surfaceScale, getHeight() / 2f * surfaceScale, false);
+                    } else if (cutsceneShown) {
+                        // a cutscene holds Harry: the screen does not steer or look (the buttons above still work)
                     } else {
                         roles.put(id, !dpadMode && x < getWidth() / 2f ? Role.STICK : Role.LOOK);
                         last.put(id, new float[] { x, y });
@@ -784,6 +840,9 @@ public class FlipendoActivity extends SDLActivity {
             for (Btn b : buttons) {
                 if (!visible(b)) continue;
                 float scale = b.down ? 0.9f : 1f;
+                // the top row (settings, save or skip, menu) is 30% visible
+                boolean faint = b == gear || b == save || b == menu || b == skip;
+                int layer = faint ? c.saveLayerAlpha(b.cx - b.r * 1.3f, b.cy - b.r * 1.3f, b.cx + b.r * 1.3f, b.cy + b.r * 1.3f, 77) : 0;
                 if (b == gear || isArrow(b)) {
                     fill.setColor(b.down ? 0x99FFD84A : 0x55000000);
                     c.drawCircle(b.cx, b.cy, b.r * scale, fill);
@@ -816,6 +875,7 @@ public class FlipendoActivity extends SDLActivity {
                         c.drawPath(arrowPath, fill);
                         c.restore();
                     }
+                    if (faint) c.restoreToCount(layer);
                     continue;
                 }
                 if (b.icon == null) {
@@ -824,6 +884,7 @@ public class FlipendoActivity extends SDLActivity {
                     line.setColor(0xAAFFFFFF);
                     c.drawCircle(b.cx, b.cy, b.r, line);
                     c.drawText(b.label, b.cx, b.cy + text.getTextSize() * 0.35f, text);
+                    if (faint) c.restoreToCount(layer);
                     continue;
                 }
                 // an icon on a soft dark disc (the jump button's), also behind the coloured wand and book
@@ -835,6 +896,7 @@ public class FlipendoActivity extends SDLActivity {
                 float half = b.r * 0.82f * scale;
                 iconRect.set(b.cx - half, b.cy - half, b.cx + half, b.cy + half);
                 c.drawBitmap(b.icon, null, iconRect, b.tint ? (b.down ? yellowPaint : whitePaint) : iconPaint);
+                if (faint) c.restoreToCount(layer);
             }
             if (stickPointer != -1) {
                 float r = 0.12f * Math.min(getWidth(), getHeight());

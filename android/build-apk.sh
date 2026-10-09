@@ -90,7 +90,9 @@ package() {
 	rm -f "$A/base.apk" "$A/unsigned.apk" "$A/aligned.apk"
 	# aapt2 links the manifest and resources only: on Windows it writes assets with backslashes in their names
 	# (assets/icons\wand.png), which Android can't find. jar writes proper paths, so the assets are added with it.
-	"$BT/aapt2.exe" link -o "$A/base.apk" --manifest android/AndroidManifest.xml -I "$AJ" \
+	# android/res: the launcher icon (mipmap-*/ic_launcher.png, scaled from images/branding/flipendo-icon.png)
+	"$BT/aapt2.exe" compile --dir android/res -o "$A/res.zip"
+	"$BT/aapt2.exe" link -o "$A/base.apk" --manifest android/AndroidManifest.xml -I "$AJ" -R "$A/res.zip" \
 		--min-sdk-version 29 --target-sdk-version 35
 	local extra=()
 	[ $# -gt 0 ] && extra=(-C "$1" assets)

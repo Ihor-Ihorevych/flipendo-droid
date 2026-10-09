@@ -12,6 +12,7 @@
 #include "Package/PackageManager.h"
 #include <filesystem>
 #include "Packages/Engine/Actors/UActor.h"
+#include "Packages/Engine/Actors/UHUD.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include <atomic>
 #include <cmath>
@@ -23,11 +24,14 @@
 #ifdef __ANDROID__
 // Defined in android/jni/android_main.cpp (touch bridge to the Java overlay).
 extern std::atomic<bool> g_debugMode; // the settings panel's debug mode switch
+extern std::atomic<bool> g_autoJump;  // and its Auto Jump switch
 extern std::atomic<bool> g_lessonDrawing; // a spell lesson is in its Draw state: the finger draws
+extern std::atomic<bool> g_cutsceneActive; // a cutscene holds Harry: the overlay hides the gameplay controls
 extern std::atomic<bool> g_touchDown;
 extern std::atomic<float> g_touchX, g_touchY; // finger position, 0..1 of the view
 #else
 static std::atomic<bool> g_debugMode{true}; // no settings panel off Android: debug mode stays on
+static std::atomic<bool> g_autoJump{true};
 #endif
 
 namespace HP1
@@ -74,13 +78,16 @@ namespace HP1
 		if (!engine->viewport)
 			return;
 
-		// Auto Jump on, once per player pawn.
+		// Auto Jump (on by default, the settings panel switches it): set on every new player pawn and when it changes.
 		static UObject* autoJumpPawn = nullptr;
+		static int autoJumpApplied = -1;
+		int autoJumpWanted = g_autoJump.load() ? 1 : 0;
 		UObject* pawn = engine->viewport->Actor();
-		if (pawn && pawn != autoJumpPawn)
+		if (pawn && (pawn != autoJumpPawn || autoJumpWanted != autoJumpApplied))
 		{
 			autoJumpPawn = pawn;
-			pawn->SetPropertyFromString(NameString("bAutoJump"), "True");
+			autoJumpApplied = autoJumpWanted;
+			pawn->SetPropertyFromString(NameString("bAutoJump"), autoJumpWanted ? "True" : "False");
 		}
 
 		// Debug mode (what typing "harrydebugmodeon" does): adds Level Select to the main menu and the console.
@@ -113,6 +120,11 @@ namespace HP1
 	{
 		if (!engine->Level || !engine->viewport)
 			return;
+
+		// A cutscene holds Harry (the HUD's cutscene mode with a cutscene running): the overlay drops the gameplay controls.
+		UPlayerPawn* player = engine->viewport->Actor();
+		UObject* hud = player ? player->myHUD() : nullptr;
+		g_cutsceneActive = hud && KW::BoolProperty(hud, "bCutSceneMode") && KW::ObjectProperty(hud, "curCutScene");
 
 		UActor* lesson = nullptr;
 		for (UActor* a : engine->Level->Actors)
