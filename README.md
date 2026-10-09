@@ -7,13 +7,14 @@
 </p>
 
 <p align="center">
-  <b>Play the 2001 Harry Potter PC game on a modern PC:<br>
-  native resolution, real widescreen, no SafeDisc, moddable.</b><br>
+  <b>Flipendo Droid: the 2001 Harry Potter PC game on Android, with touch controls.</b><br>
   <sub>Harry Potter and the Philosopher's Stone / Sorcerer's Stone (KnowWonder, 2001), running on an open-source engine.<br>
-  Named after the first spell Harry learns in the game.</sub>
+  An Android (arm64) port of <a href="https://github.com/kroplabeskidu/flipendo">Flipendo</a>, which also plays it on a PC.</sub>
 </p>
 
 <p align="center">
+  <a href="#android-port">Android port</a> ·
+  <a href="#build-the-android-app">Build</a> ·
   <a href="#screenshots">Screenshots</a> ·
   <a href="#status">Status</a> ·
   <a href="#how-to-play">How to play</a> ·
@@ -33,6 +34,40 @@ reimplementation of Unreal Engine 1. The levels, scripts, voices and music all c
 Flipendo replaces only the 2001 engine underneath them.
 
 **You need your own copy of the game.** Flipendo contains no game data.
+
+## Android port
+
+This fork ([Ihor-Ihorevych/flipendo-droid](https://github.com/Ihor-Ihorevych/flipendo-droid)) adds an **Android port of
+Flipendo**: the same engine and game logic, built for Android arm64 with the NDK and SDL3, played with an on-screen
+touch overlay. It is an early spike, tested on one phone (Xiaomi POCO X6 Pro, Mali-G615, Android 16), not a finished app.
+
+- **Touch controls:** floating stick to move, drag the right side to look, CAST / JUMP / MENU buttons, finger as the mouse in
+  menus. Spell lessons are redrawn larger and the wand follows your finger.
+- **Debug mode and Auto Jump on by default**; the game starts at the main menu (Level Select is there).
+- **Runs at about 60 fps** on a Mali-G615 by rendering at half the screen resolution.
+- **Known problems:** `Lev5_FlyKeys` renders black, music is silent, combat casting is not touch-adapted. See
+  [docs/android.md](docs/android.md) for the list and for what the port had to change in the engine.
+
+Your own copy of the game is still required: copy the installed game folder to `/sdcard/FlipendoHP/` on the phone.
+
+### Build the Android app
+
+You need a Windows machine with Git Bash, **JDK 21**, the **Android SDK** (platform 35, build-tools 35.0.0, NDK
+27.2.12479018, CMake 3.22.1) and `git`. Set `JAVA_HOME` and `ANDROID_HOME` if they are not in the default places.
+
+```sh
+git clone --recursive https://github.com/Ihor-Ihorevych/flipendo-droid
+cd flipendo-droid
+git checkout android-spike
+android/build-apk.sh --install      # builds android/dist/flipendo-droid.apk; --install also puts it on the connected phone
+```
+
+The script fetches SDL3 once, applies the engine patches (including `src/surreal-patches/0200-android-port.patch`), builds
+the native library and assembles a debug-signed APK without Gradle; the first build takes a few minutes.
+
+To install on a phone: copy the game folder to `/sdcard/FlipendoHP/` (`adb push "C:\Games\HP\." /sdcard/FlipendoHP/`), install
+the APK (`adb install -r android/dist/flipendo-droid.apk`), open the app and switch on *All files access* when it asks, then
+start it again. Details, controls and troubleshooting: [docs/android.md](docs/android.md).
 
 ## Why play it this way?
 
