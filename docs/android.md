@@ -59,3 +59,30 @@ fetches SDL3 (pinned release) once, applies `src/surreal-patches/` (including `0
   Not looked into further; the flying lesson `Lev2_Quid1` is the broom test level.
 - The Options page still shows the empty bars of the hidden key-binding buttons (they are part of the page art).
 - Combat spell casting is not touch-adapted yet (only the lesson drawing is).
+
+## Logs: what a user sends when it breaks
+
+- **If the game stops with an error or the last run crashed**, the next start of the app shows *The game stopped...* with
+  **Send logs** and **Play anyway**. **Send logs** opens the share sheet with `flipendo-report.zip` (a copy is also left
+  in `Download/`).
+- **If the screen is black or the game hangs**, hold the on-screen **MENU** button for 1.5 s: the same share sheet opens.
+- **What is in the report:** `device-info.txt` (model, SoC, Android, RAM, screen, Vulkan/GLES features, build), `exit-info.txt`
+  (why the last runs ended, Android 11+; a native crash also brings Android's own `tombstone-*.pb`), `flipendo.log` and
+  `flipendo.prev.log` (the engine log of this and the previous run; the `Vulkan device` lines name the GPU),
+  `crash.txt` / `crash.prev.txt` (the backtrace of a fatal signal), `game-folder.txt` (what is in `/sdcard/FlipendoHP`, and
+  whether `System/HP.exe` and the key packages are there), `logcat.txt` (this app's system log).
+- **Reading `crash.txt`:** frames are `module + offset`. `android/build-apk.sh` keeps the matching unstripped library in
+  `android/dist/symbols/libmain.unstripped.so` (with `build-info.txt`, the commit); keep it per release. Then:
+  `llvm-addr2line -f -C -e libmain.unstripped.so 0x<offset>`.
+- By hand, without the app: `adb logcat -d > logcat.txt` and the files in `/sdcard/FlipendoHP/` (`flipendo.log`, `crash.txt`).
+
+## Two builds: plain and self pack
+
+`android/build-apk.sh` makes `android/dist/flipendo-droid.apk` (the port only, ~8 MB: copy the game to the phone by hand,
+see Install). `android/build-apk.sh --selfpack "C:/Games/HP"` also makes `android/dist/flipendo-droid-selfpack.apk`
+(~270 MB): the same APK plus the game from that folder, unpacked into `/sdcard/FlipendoHP/` on the first launch
+(`SetupActivity`, with a progress bar; files that exist are never overwritten, saves and ini files are left alone, the
+SafeDisc files, uninstaller, logs and saves are not packed). Both start through `SetupActivity`, which also asks for
+*All files access*.
+
+**The self pack contains the game's copyrighted data: build it for your own phone only, and never publish or share it.**

@@ -35,6 +35,24 @@ public class FlipendoActivity extends SDLActivity {
     /** The finger position (0..1 of the view) that drives the wand in a lesson; implemented in android_main.cpp. */
     static native void nativeSetTouch(float x, float y, boolean down);
 
+    /**
+     * Called from the game thread (android_main.cpp) when the game ends. Code 0: the player quit. Otherwise the game
+     * stopped on an error: show the screen with the way to send the logs.
+     */
+    public void onGameStopped(final int code) {
+        runOnUiThread(new Runnable() {
+            public void run() {
+                if (code != 0) {
+                    Intent intent = new Intent(FlipendoActivity.this, SetupActivity.class);
+                    intent.putExtra("stopped", "exit code " + code);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                    startActivity(intent);
+                }
+                finish();
+            }
+        });
+    }
+
     static boolean lessonDrawing() {
         try {
             return nativeLessonDrawing();
@@ -182,6 +200,8 @@ public class FlipendoActivity extends SDLActivity {
         static final int[] DIR_KEYS = { KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN,
                 KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT };
 
+        Runnable menuHeld; // pending "hold MENU to send the logs"
+
         Overlay(android.content.Context c) {
             super(c);
             fill.setStyle(Paint.Style.FILL);
@@ -272,6 +292,14 @@ public class FlipendoActivity extends SDLActivity {
                         roles.put(id, Role.BUTTON);
                         b.pointer = id;
                         if (b.toggle) setButton(b, !b.down); else setButton(b, true);
+                        if (b == menu) {
+                            // Holding MENU for a moment sends the logs (also when the game is stuck or black).
+                            menuHeld = new Runnable() { public void run() {
+                                menuHeld = null;
+                                LogReport.share((FlipendoActivity) getContext());
+                            } };
+                            postDelayed(menuHeld, 1500);
+                        }
                     } else if (menuActive()) {
                         // Menu: the finger is the mouse. Move the cursor now, press a few frames later and keep
                         // following the finger so sliders can be dragged.
@@ -356,6 +384,10 @@ public class FlipendoActivity extends SDLActivity {
                         for (Btn b : buttons) {
                             if (b.pointer == id) {
                                 b.pointer = -1;
+                                if (b == menu && menuHeld != null) {
+                                    removeCallbacks(menuHeld);
+                                    menuHeld = null;
+                                }
                                 if (!b.toggle) setButton(b, false);
                             }
                         }
