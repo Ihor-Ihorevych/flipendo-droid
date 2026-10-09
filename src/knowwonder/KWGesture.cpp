@@ -7,6 +7,7 @@
 #include "Engine.h"
 #include "KWParticleFX.h"
 #include <cmath>
+#include <set>
 
 // Gesture (native class in HP1 Engine.dll): a spell shape drawn with the mouse. Points is the template
 // polyline in 0..1 screen space (Z unused); SpellLearnTrigger and Target compare the player's drawn
@@ -28,7 +29,24 @@ namespace KW
 			offset = cls->GetPropertyDataOffset("Points");
 			initialized = true;
 		}
-		return gesture->DynamicArray<vec3>(offset);
+		TypedScriptArray<vec3> points = gesture->DynamicArray<vec3>(offset);
+#ifdef __ANDROID__
+		// Touch build: a bigger drawing canvas, so a finger can trace the symbol. The template (what is shown and what
+		// the drawing is judged against) grows around the centre of the 0..1 canvas; the wand follows the finger.
+		static std::set<UObject*> scaled;
+		if (scaled.insert(gesture).second)
+		{
+			constexpr float GestureTouchScale = 1.6f;
+			for (size_t i = 0; i < points.size(); i++)
+			{
+				vec3 p = points[i];
+				p.x = 0.5f + (p.x - 0.5f) * GestureTouchScale;
+				p.y = 0.5f + (p.y - 0.5f) * GestureTouchScale;
+				points[i] = p;
+			}
+		}
+#endif
+		return points;
 	}
 
 	namespace

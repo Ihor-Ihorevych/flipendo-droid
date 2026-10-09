@@ -41,7 +41,7 @@ namespace KW
 
 	struct AnimationData
 	{
-		Array<AnimBone> RefBones;
+		Array<struct AnimBone> RefBones;
 		Array<AnimMove> Moves;        // parallel to AnimSeqs
 		Array<MeshAnimSeq> AnimSeqs;
 

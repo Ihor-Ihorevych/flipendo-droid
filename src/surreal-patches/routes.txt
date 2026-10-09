@@ -60,3 +60,18 @@ SurrealEngine/Packages/Engine/Resources/Textures/**
 
 [0140-knowwonder-audio.patch] flipendo: KnowWonder sound and music
 SurrealEngine/Packages/Engine/Subsystems/**
+
+# Written by hand (python is not needed): a file already routed above keeps its earlier owner when the patches are refreshed.
+[0200-android-port.patch] flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CPU, per-frame command pool reset, no gl_ClipDistance, upright swapchain, absolute touch mouse, no backtrace()
+CMakeLists.txt
+SurrealWidgets/CMakeLists.txt
+SurrealEngine/Audio/AudioPlayer.cpp
+SurrealEngine/Utils/Exception.cpp
+SurrealEngine/Engine.cpp
+SurrealEngine/RenderDevice/Vulkan/FileResource.cpp
+SurrealEngine/RenderDevice/Vulkan/ShaderManager.cpp
+SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
+SurrealEngine/RenderDevice/Vulkan/TextureUploader.*
+SurrealEngine/Render/RenderCanvas.cpp
+SurrealEngine/UE1GameDatabase.h
+SurrealGPU/src/vulkanswapchain.cpp

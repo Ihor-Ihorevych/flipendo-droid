@@ -1,0 +1,384 @@
+flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CPU, per-frame command pool reset, no gl_ClipDistance, upright swapchain, absolute touch mouse, no backtrace()
+
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -6,7 +6,7 @@
+ add_subdirectory(SurrealGPU)
+ add_subdirectory(SurrealWidgets)
+ 
+-if (WIN32 OR APPLE)
++if (WIN32 OR APPLE OR ANDROID)
+ 	add_subdirectory(Thirdparty/openal-soft)
+ endif()
+ 
+@@ -1114,6 +1114,11 @@
+ 	set(SURREALCOMMON_LIBS ${SURREALCOMMON_LIBS} ${CMAKE_DL_LIBS} OpenAL::OpenAL)
+ 	add_definitions(-DUNIX -D_UNIX)
+ 	add_link_options(-pthread)
++elseif(ANDROID)
++	set(SURREALCOMMON_LIBS ${SURREALCOMMON_LIBS} ${CMAKE_DL_LIBS} OpenAL log android)
++	set(THIRDPARTY_SOURCES ${THIRDPARTY_SOURCES} ${THIRDPARTY_UNIX_SOURCES})
++	add_definitions(-DUNIX -D_UNIX)
++	add_link_options(-pthread)
+ elseif(HAIKU)
+ 	set(SURREALCOMMON_SOURCES ${SURREALCOMMON_SOURCES})
+ 	set(SURREALCOMMON_LIBS ${SURREALCOMMON_LIBS} ${SURREALCOMMON_UNIX_LIBS} ${CMAKE_DL_LIBS} -lbe -lnetwork)
+--- a/SurrealWidgets/CMakeLists.txt
++++ b/SurrealWidgets/CMakeLists.txt
+@@ -12,7 +12,7 @@
+ 	option(ENABLE_SDL2 "Enable SDL2 backend. Optional on all platforms" ON)
+ endif()
+ 
+-if (UNIX AND NOT APPLE)
++if (UNIX AND NOT APPLE AND NOT ANDROID)
+ 	include(FindPkgConfig)
+ 	if (NOT HAIKU)
+ 		pkg_check_modules(DBUS dbus-1)
+@@ -45,6 +45,10 @@
+ 	endif()
+ endif()
+ 
++if(ANDROID)
++	set(SDL3_FOUND TRUE)
++endif()
++
+ # SDL2 finding stuff
+ # Optional on all platforms
+ if(ENABLE_SDL2)
+@@ -360,6 +364,11 @@
+ 	if (NOT UNIFORMTYPEIDENTIFIERS_FRAMEWORK)
+ 		message(FATAL_ERROR "UniformTypeIdentifiers framework not found")
+ 	endif()
++elseif(ANDROID)
++	set(SURREALWIDGETS_SOURCES ${SURREALWIDGETS_SOURCES} ${CMAKE_CURRENT_SOURCE_DIR}/../../../android/jni/resourcedata_android.cpp)
++	set(SURREALWIDGETS_LIBS ${CMAKE_DL_LIBS})
++	set(SURREALWIDGETS_DEFINES -DUNIX -D_UNIX)
++	set(SURREALWIDGETS_LINK_OPTIONS -pthread)
+ elseif(HAIKU)
+ 	set(SURREALWIDGETS_SOURCES ${SURREALWIDGETS_SOURCES} ${SURREALWIDGETS_UNIX_SOURCES})
+ 	set(SURREALWIDGETS_INCLUDE_DIRS ${SURREALWIDGETS_INCLUDE_DIRS} ${GLIB_INCLUDE_DIRS} ${FONTCONFIG_INCLUDE_DIRS})
+--- a/SurrealEngine/Audio/AudioPlayer.cpp
++++ b/SurrealEngine/Audio/AudioPlayer.cpp
+@@ -290,6 +290,16 @@
+ 	bool mixer_stop_flag = false;
+ };
+ 
++#elif defined(__ANDROID__)
++
++// Spike: silent music player (no ALSA on Android).
++class AudioPlayerImpl : public AudioPlayer
++{
++public:
++	AudioPlayerImpl(std::unique_ptr<AudioSource> audiosource) : source(std::move(audiosource)) { }
++	std::unique_ptr<AudioSource> source;
++};
++
+ #else
+ 
+ #include <alsa/asoundlib.h>
+--- a/SurrealEngine/Utils/Exception.cpp
++++ b/SurrealEngine/Utils/Exception.cpp
+@@ -131,7 +131,7 @@
+ 
+ 
+ /////////////////////////////////////////////////////////////////////
+-#elif defined __linux__ || defined __OpenBSD__ || defined __APPLE__
++#elif (defined __linux__ || defined __OpenBSD__ || defined __APPLE__) && !defined __ANDROID__
+ 
+ 	if (maxframes <= 0)
+ 		return 0;
+--- a/SurrealEngine/Engine.cpp
++++ b/SurrealEngine/Engine.cpp
+@@ -1,5 +1,9 @@
+ 
+ #include "Precomp.h"
++#ifdef __ANDROID__
++#include <atomic>
++extern std::atomic<bool> g_androidMenuActive; // defined in android_main.cpp: true while a menu wants the touch cursor
++#endif
+ #include "Engine.h"
+ #include "KW.h"
+ #include "HP1.h"
+@@ -131,7 +135,12 @@
+ 	audiodev->InitDevice();
+ 	render = std::make_unique<RenderSubsystem>(window->GetRenderDevice());
+ 
++#ifdef __ANDROID__
++	// Touch input is absolute: always use the Windows mouse position in menus (the engine only does this when windowed).
++	if (engine->LaunchInfo.ue1Version > 219)
++#else
+ 	if (engine->LaunchInfo.ue1Version > 219 && !client->StartupFullscreen)
++#endif
+ 		viewport->bWindowsMouseAvailable() = true;
+ 
+ 	window->LockCursor();
+@@ -1678,6 +1687,9 @@
+ {
+ 	if (window && engine->LaunchInfo.ue1Version > 219)
+ 	{
++#ifdef __ANDROID__
++		g_androidMenuActive = viewport->bShowWindowsMouse() && viewport->bWindowsMouseAvailable();
++#endif
+ 		if (viewport->bShowWindowsMouse() && viewport->bWindowsMouseAvailable())
+ 			window->UnlockCursor();
+ 		else
+--- a/SurrealEngine/RenderDevice/Vulkan/FileResource.cpp
++++ b/SurrealEngine/RenderDevice/Vulkan/FileResource.cpp
+@@ -39,7 +39,9 @@
+ 			void main()
+ 			{
+ 				gl_Position = objectToProjection * vec4(aPosition, 1.0);
++#ifdef SE_CLIP_DISTANCE
+ 				gl_ClipDistance[0] = dot(nearClip, objectToView * vec4(aPosition, 1.0));
++#endif
+ 				flags = aFlags;
+ 				texCoord = aTexCoord;
+ 				texCoord2 = aTexCoord2;
+--- a/SurrealGPU/src/vulkanswapchain.cpp
++++ b/SurrealGPU/src/vulkanswapchain.cpp
+@@ -167,6 +167,11 @@
+ 	}
+ 
+ 	swapChainCreateInfo.preTransform = caps.Capabilites.currentTransform;
++#ifdef __ANDROID__
++	// The engine renders upright; let the compositor rotate instead of pre-rotating the frame.
++	if (caps.Capabilites.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR)
++		swapChainCreateInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
++#endif
+ 	swapChainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; // If alpha channel is passed on to the DWM or not
+ 	swapChainCreateInfo.presentMode = presentMode;
+ 	swapChainCreateInfo.clipped = VK_TRUE; // Applications SHOULD set this value to VK_TRUE if they do not expect to read back the content of presentable images before presenting them or after reacquiring them, and if their fragment shaders do not have any side effects that require them to run for all pixels in the presentable image
+--- a/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
++++ b/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
+@@ -129,6 +129,8 @@
+ 	DrawCommands.reset();
+ 	TransferCommands.reset();
+ 	DeleteFrameObjects();
++	// Spike: Mali keeps command-stream memory until the pool is reset; recycle it every frame.
++	vkResetCommandPool(renderer->Device.get()->device, CommandPool->pool, 0);
+ }
+ 
+ VulkanCommandBuffer* CommandBufferManager::GetTransferCommands()
+--- a/SurrealEngine/RenderDevice/Vulkan/TextureUploader.h
++++ b/SurrealEngine/RenderDevice/Vulkan/TextureUploader.h
+@@ -106,3 +106,16 @@
+ 	int BlockY;
+ 	int BytesPerBlock;
+ };
++
++// Spike: CPU decoder for S3TC (BC1/BC2/BC3) into RGBA8, for GPUs without textureCompressionBC (all Mali/Adreno phones).
++class TextureUploader_BCDecode : public TextureUploader
++{
++public:
++	TextureUploader_BCDecode(int kind) : TextureUploader(VK_FORMAT_R8G8B8A8_UNORM), Kind(kind) { }
++
++	int GetUploadSize(int x, int y, int w, int h) override;
++	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
++
++private:
++	int Kind; // 1 = BC1, 2 = BC2, 3 = BC3
++};
+--- a/SurrealEngine/RenderDevice/Vulkan/TextureUploader.cpp
++++ b/SurrealEngine/RenderDevice/Vulkan/TextureUploader.cpp
+@@ -18,13 +18,25 @@
+ 		Uploaders[TextureFormat::BGRA8_LM].reset(new TextureUploader_BGRA8_LM());
+ 		Uploaders[TextureFormat::R5G6B5].reset(new TextureUploader_Simple(VK_FORMAT_R5G6B5_UNORM_PACK16, 2));
+ 		// Note: according to formats this should have been VK_FORMAT_BC1_RGB_UNORM_BLOCK, but some textures does use the alpha bit!
++#ifdef __ANDROID__
++		Uploaders[TextureFormat::BC1].reset(new TextureUploader_BCDecode(1));
++#else
+ 		Uploaders[TextureFormat::BC1].reset(new TextureUploader_4x4Block(VK_FORMAT_BC1_RGBA_UNORM_BLOCK, 8));
++#endif
+ 		Uploaders[TextureFormat::RGB8].reset(new TextureUploader_Simple(VK_FORMAT_R8G8B8_UNORM, 3));
+ 		Uploaders[TextureFormat::BGRA8].reset(new TextureUploader_Simple(VK_FORMAT_B8G8R8A8_UNORM, 4));
+ 
+ 		// S3TC (continued).
++#ifdef __ANDROID__
++		Uploaders[TextureFormat::BC2].reset(new TextureUploader_BCDecode(2));
++#else
+ 		Uploaders[TextureFormat::BC2].reset(new TextureUploader_4x4Block(VK_FORMAT_BC2_UNORM_BLOCK, 16));
++#endif
++#ifdef __ANDROID__
++		Uploaders[TextureFormat::BC3].reset(new TextureUploader_BCDecode(3));
++#else
+ 		Uploaders[TextureFormat::BC3].reset(new TextureUploader_4x4Block(VK_FORMAT_BC3_UNORM_BLOCK, 16));
++#endif
+ 
+ 		// RGTC.
+ 		Uploaders[TextureFormat::BC4].reset(new TextureUploader_4x4Block(VK_FORMAT_BC4_UNORM_BLOCK, 8));
+@@ -44,7 +56,11 @@
+ 		//Uploaders[TextureFormat::RGBA32_S].reset(new TextureUploader_Simple(VK_FORMAT_R32G32B32A32_SNORM, 16));
+ 
+ 		// S3TC (continued).
++#ifdef __ANDROID__
++		Uploaders[TextureFormat::BC1_PA].reset(new TextureUploader_BCDecode(1));
++#else
+ 		Uploaders[TextureFormat::BC1_PA].reset(new TextureUploader_4x4Block(VK_FORMAT_BC1_RGBA_UNORM_BLOCK, 8));
++#endif
+ 
+ 		// Normalized RGBA (continued).
+ 		Uploaders[TextureFormat::R8].reset(new TextureUploader_Simple(VK_FORMAT_R8_UNORM, 1));
+@@ -471,3 +487,111 @@
+ 		src += pitch;
+ 	}
+ }
++
++/////////////////////////////////////////////////////////////////////////////
++
++int TextureUploader_BCDecode::GetUploadSize(int x, int y, int w, int h)
++{
++	return w * h * 4;
++}
++
++static void BCExpand565(uint16_t c, uint8_t* rgb)
++{
++	int r = (c >> 11) & 31, g = (c >> 5) & 63, b = c & 31;
++	rgb[0] = (uint8_t)((r << 3) | (r >> 2));
++	rgb[1] = (uint8_t)((g << 2) | (g >> 4));
++	rgb[2] = (uint8_t)((b << 3) | (b >> 2));
++}
++
++// Decodes one 4x4 block (kind 1 = BC1, 2 = BC2, 3 = BC3) to 16 RGBA pixels.
++static void BCDecodeBlock(int kind, const uint8_t* src, uint8_t* out)
++{
++	const uint8_t* color = (kind == 1) ? src : src + 8;
++	uint16_t c0 = color[0] | (color[1] << 8);
++	uint16_t c1 = color[2] | (color[3] << 8);
++	uint8_t pal[4][4];
++	BCExpand565(c0, pal[0]);
++	BCExpand565(c1, pal[1]);
++	pal[0][3] = pal[1][3] = pal[2][3] = pal[3][3] = 255;
++	if (kind != 1 || c0 > c1)
++	{
++		for (int i = 0; i < 3; i++)
++		{
++			pal[2][i] = (uint8_t)((2 * pal[0][i] + pal[1][i]) / 3);
++			pal[3][i] = (uint8_t)((pal[0][i] + 2 * pal[1][i]) / 3);
++		}
++	}
++	else
++	{
++		for (int i = 0; i < 3; i++)
++		{
++			pal[2][i] = (uint8_t)((pal[0][i] + pal[1][i]) / 2);
++			pal[3][i] = 0;
++		}
++		pal[3][3] = 0; // transparent black
++	}
++
++	uint32_t bits = color[4] | (color[5] << 8) | (color[6] << 16) | ((uint32_t)color[7] << 24);
++	for (int i = 0; i < 16; i++)
++	{
++		const uint8_t* p = pal[(bits >> (i * 2)) & 3];
++		out[i * 4 + 0] = p[0];
++		out[i * 4 + 1] = p[1];
++		out[i * 4 + 2] = p[2];
++		out[i * 4 + 3] = p[3];
++	}
++
++	if (kind == 2)
++	{
++		for (int i = 0; i < 16; i++)
++		{
++			int a = (src[i / 2] >> ((i & 1) * 4)) & 15;
++			out[i * 4 + 3] = (uint8_t)(a * 17);
++		}
++	}
++	else if (kind == 3)
++	{
++		uint8_t a[8];
++		a[0] = src[0];
++		a[1] = src[1];
++		if (a[0] > a[1])
++		{
++			for (int i = 1; i < 7; i++)
++				a[i + 1] = (uint8_t)(((7 - i) * a[0] + i * a[1]) / 7);
++		}
++		else
++		{
++			for (int i = 1; i < 5; i++)
++				a[i + 1] = (uint8_t)(((5 - i) * a[0] + i * a[1]) / 5);
++			a[6] = 0;
++			a[7] = 255;
++		}
++		uint64_t abits = 0;
++		for (int i = 0; i < 6; i++)
++			abits |= (uint64_t)src[2 + i] << (8 * i);
++		for (int i = 0; i < 16; i++)
++			out[i * 4 + 3] = a[(abits >> (3 * i)) & 7];
++	}
++}
++
++void TextureUploader_BCDecode::UploadRect(void* d, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked)
++{
++	int bytesPerBlock = (Kind == 1) ? 8 : 16;
++	int blocksPerRow = (mip->Width + 3) / 4;
++	uint8_t* dst = (uint8_t*)d;
++	for (int py = 0; py < h; py++)
++	{
++		int sy = y + py;
++		for (int px = 0; px < w; px++)
++		{
++			int sx = x + px;
++			int block = (sy / 4) * blocksPerRow + (sx / 4);
++			size_t offset = (size_t)block * bytesPerBlock;
++			uint8_t rgba[64] = {};
++			if (offset + bytesPerBlock <= mip->Data.size())
++				BCDecodeBlock(Kind, mip->Data.data() + offset, rgba);
++			int i = (sy & 3) * 4 + (sx & 3);
++			memcpy(dst + ((size_t)py * w + px) * 4, rgba + i * 4, 4);
++		}
++	}
++}
+--- a/SurrealEngine/Render/RenderCanvas.cpp
++++ b/SurrealEngine/Render/RenderCanvas.cpp
+@@ -289,6 +289,7 @@
+ 
+ void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<std::string>& textBlocks, size_t start, size_t end, UFont* font, vec4 color, uint32_t polyflags, float spaceX)
+ {
++	if (!font) return; // script can draw text with Canvas.Font == None (debug mode HUD)
+ 	for (size_t i = start; i < end; i++)
+ 	{
+ 		for (char c : textBlocks[i])
+@@ -325,6 +326,7 @@
+ 
+ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY, float& curX, float& curY, float& curXL, float& curYL, bool newlineAtEnd, const std::string& text, uint32_t polyflags, bool center, float spaceX, float spaceY, float clipX, float clipY, bool noDraw)
+ {
++	if (!font) return; // script can draw text with Canvas.Font == None (debug mode HUD)
+ 	float totalWidth = 0.0f;
+ 	float totalHeight = 0.0f;
+ 
+--- a/SurrealEngine/UE1GameDatabase.h
++++ b/SurrealEngine/UE1GameDatabase.h
+@@ -202,6 +202,7 @@
+ 
+ 	// Harry Potter 1 (EN), unpatched retail 1.0, community No-CD exe
+ 	{"9aad58812940d27c7cd96d2920c726cc2d2fdde9", KnownUE1Games::HARRYPOTTER1_433},
++	{"97882c5533b8eae434b10fab743f812a2993cfe4", KnownUE1Games::HARRYPOTTER1_433}, // spike: US 1.0 with no-CD HP.exe
+ 
+ 	// Harry Potter 2 (UK)
+ 	{"3a43d9ec8be7ec441b18a8dc710b4bdd5b29bda3", KnownUE1Games::HARRYPOTTER2_433},
+--- a/SurrealEngine/RenderDevice/Vulkan/ShaderManager.cpp
++++ b/SurrealEngine/RenderDevice/Vulkan/ShaderManager.cpp
+@@ -5,13 +5,20 @@
+ #include "VulkanRenderDevice.h"
+ #include <surrealgpu/vulkanbuilders.h>
+ 
++// Mali drivers crash compiling gl_ClipDistance in the scene vertex shader; the near clip is skipped on Android.
++#ifdef __ANDROID__
++#define SE_CLIP_DISTANCE_DEFINE ""
++#else
++#define SE_CLIP_DISTANCE_DEFINE "#define SE_CLIP_DISTANCE\r\n"
++#endif
++
+ ShaderManager::ShaderManager(VulkanRenderDevice* renderer) : renderer(renderer)
+ {
+ 	GLSLCompiler::Init();
+ 
+ 	Scene.VertexShader = GLSLCompiler()
+ 		.Type(ShaderType::Vertex)
+-		.AddSource("shaders/Scene.vert", LoadShaderCode("shaders/Scene.vert", "#extension GL_EXT_nonuniform_qualifier : enable\r\n"))
++		.AddSource("shaders/Scene.vert", LoadShaderCode("shaders/Scene.vert", "#extension GL_EXT_nonuniform_qualifier : enable\r\n" SE_CLIP_DISTANCE_DEFINE))
+ 		.Compile(renderer->Device.get());
+ 
+ 	Scene.FragmentShader = GLSLCompiler()

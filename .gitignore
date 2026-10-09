@@ -23,3 +23,10 @@
 tools/uelib_dump/bin/
 tools/uelib_dump/obj/
 __pycache__/
+
+# Android build (android/build-apk.sh)
+/build-android/
+/android/apk/
+/android/dist/
+/android/deps/
+/android/debug.keystore

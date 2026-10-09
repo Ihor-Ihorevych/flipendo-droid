@@ -17,6 +17,7 @@ Secrets) is being ported onto the same engine. The documents below say when some
 | [debug-tools.md](debug-tools.md) | environment variables to script input, dump and trace actors, call script functions; crash reports, the script debugger |
 | [playtest.md](playtest.md) | every HP1 level in story order and whether it has been played through in Flipendo, with what was seen |
 | [speedrunning.md](speedrunning.md) | what HP1 speedrunners already have for the original, and the practice, research and timer tools Flipendo can add |
+- [android.md](android.md): the Android (arm64, touch) build: install, build, controls, what the port changed
 
 ## Developing
 

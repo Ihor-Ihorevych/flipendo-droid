@@ -91,6 +91,10 @@ namespace HP1
 		Mods::TickDiscordPresence(realElapsed);
 		Mods::TickPathFixes();
 		Mods::TickFrameLimit();
+#ifdef __ANDROID__
+		TickTouchDefaults();
+		TickLessonTouch();
+#endif
 	}
 
 	float ModsTimeScale()

@@ -17,6 +17,12 @@ namespace HP1
 	void TickMods(float realElapsed);
 	// Engine::OnWindowKeyDown, before the key is routed anywhere (EInputKey value).
 	void ModsKeyDown(int key);
+	// Android touch build (src/hp1/HP1Touch.cpp), called from TickMods: Auto Jump on, Options page Controls hidden.
+	void TickTouchDefaults();
+#ifdef __ANDROID__
+	// Spell lessons by touch: the wand follows the finger in the Draw state.
+	void TickLessonTouch();
+#endif
 	// Engine::Tick, when the frame's game time is worked out: how much faster the game runs this frame (1 = normal).
 	float ModsTimeScale();
 	// RenderSubsystem::PostRender, after the HUD and the console/menus.

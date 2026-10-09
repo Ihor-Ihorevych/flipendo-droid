@@ -86,7 +86,7 @@ namespace KW
 		int NumRefBones = stream->ReadIndex();
 		for (int i = 0; i < NumRefBones; i++)
 		{
-			AnimBone bone;
+			struct AnimBone bone;
 			bone.Name = stream->ReadName();
 			bone.Flags = stream->ReadUInt32();
 			bone.ParentIndex = stream->ReadInt32();

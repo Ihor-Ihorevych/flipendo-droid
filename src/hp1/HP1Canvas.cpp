@@ -40,7 +40,12 @@ namespace HP1
 
 	float CanvasUIScale(int viewportHeight)
 	{
+#ifdef __ANDROID__
+		// Phone screens are tiny: lay the 2D UI out as a 640x480 game so subtitles and the HUD stay readable.
+		return std::max(viewportHeight / 480.0f, 1.0f);
+#else
 		return std::max(viewportHeight / 768.0f, 1.0f);
+#endif
 	}
 
 	void SetCanvasArea(SceneNode& frame, float uiscale, bool menuArea)
