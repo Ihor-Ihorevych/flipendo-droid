@@ -58,7 +58,6 @@ You need a Windows machine with Git Bash, **JDK 21**, the **Android SDK** (platf
 ```sh
 git clone --recursive https://github.com/Ihor-Ihorevych/flipendo-droid
 cd flipendo-droid
-git checkout android-spike
 android/build-apk.sh --install      # builds android/dist/flipendo-droid.apk; --install also puts it on the connected phone
 ```
 
