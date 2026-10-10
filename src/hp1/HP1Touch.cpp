@@ -9,6 +9,8 @@
 #include "VM/ScriptCall.h"
 #include "KW.h"
 #include "Utils/Logger.h"
+#include "Utils/CommandLine.h"
+#include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Package/PackageManager.h"
 #include <filesystem>
 #include "Packages/Engine/Actors/UActor.h"
@@ -27,6 +29,7 @@ extern std::atomic<bool> g_debugMode; // the settings panel's debug mode switch
 extern std::atomic<bool> g_autoJump;  // and its Auto Jump switch
 extern std::atomic<bool> g_lessonDrawing; // a spell lesson is in its Draw state: the finger draws
 extern std::atomic<bool> g_cutsceneActive; // a cutscene holds Harry: the overlay hides the gameplay controls
+void AndroidSetLevelName(const std::string& name); // the map being played: the overlay's prompts (android_main.cpp)
 extern std::atomic<bool> g_touchDown;
 extern std::atomic<float> g_touchX, g_touchY; // finger position, 0..1 of the view
 #else
@@ -73,10 +76,34 @@ namespace HP1
 		}
 	}
 
+	// --autoload=<slot>: once the main menu is up, load that save slot as Start Game's Load does (FESlotPage.nSelectedSlot, then
+	// HPConsole.LoadSelectedSlot). The Android app passes it after switching the movement mod, to go back to the save it made.
+	static void TickAutoLoad()
+	{
+		static bool done = false;
+		static int ticks = 0;
+		if (done || !commandline || !commandline->HasArg("", "--autoload") || !engine->console)
+			return;
+		UObject* book = KW::ObjectProperty(engine->console, "MenuBook");
+		if (!book || KW::BoolProperty(book, "bShowSplash"))
+			return;
+		if (++ticks < 90) // the menu has been up for a moment: the slot page has read the saves
+			return;
+		done = true;
+		int slot = std::clamp(std::atoi(commandline->GetArg("", "--autoload", "0").c_str()), 0, 5);
+		if (UObject* slotPage = KW::ObjectProperty(book, "SlotPage"))
+			CallEvent(slotPage, NameString("SetSelectedSlot"), { ExpressionValue::IntValue(slot) });
+		LogMessage("Autoload: loading save slot " + std::to_string(slot));
+		CallEvent(engine->console, NameString("LoadSelectedSlot"));
+	}
+
 	void TickTouchDefaults()
 	{
 		if (!engine->viewport)
 			return;
+
+		TickAutoLoad();
+
 
 		// Auto Jump (on by default, the settings panel switches it): set on every new player pawn and when it changes.
 		static UObject* autoJumpPawn = nullptr;
@@ -125,6 +152,15 @@ namespace HP1
 		UPlayerPawn* player = engine->viewport->Actor();
 		UObject* hud = player ? player->myHUD() : nullptr;
 		g_cutsceneActive = hud && KW::BoolProperty(hud, "bCutSceneMode") && KW::ObjectProperty(hud, "curCutScene");
+
+		// The map being played, for prompts that depend on the level (the movement mod can't aim in Devil's Snare).
+		static std::string lastLevelName;
+		std::string levelName = engine->LevelInfo ? engine->LevelInfo->URL.Map : std::string();
+		if (levelName != lastLevelName)
+		{
+			lastLevelName = levelName;
+			AndroidSetLevelName(levelName);
+		}
 
 		UActor* lesson = nullptr;
 		for (UActor* a : engine->Level->Actors)

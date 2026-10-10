@@ -9,6 +9,7 @@
 #include <AL/alext.h>
 #include <stdlib.h>
 #include <atomic>
+#include <mutex>
 #include <jni.h>
 #include <fstream>
 #include <dirent.h>
@@ -58,6 +59,21 @@ extern "C" JNIEXPORT void JNICALL Java_io_github_flipendo_spike_FlipendoActivity
 }
 std::atomic<bool> g_touchDown{false};
 std::atomic<float> g_touchX{0.5f}, g_touchY{0.5f};
+
+static std::mutex g_levelMutex;
+static std::string g_levelName; // the map being played (HP1::TickLessonTouch), for the overlay's prompts
+
+void AndroidSetLevelName(const std::string& name)
+{
+	std::lock_guard<std::mutex> lock(g_levelMutex);
+	g_levelName = name;
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_io_github_flipendo_spike_FlipendoActivity_nativeLevelName(JNIEnv* env, jclass)
+{
+	std::lock_guard<std::mutex> lock(g_levelMutex);
+	return env->NewStringUTF(g_levelName.c_str());
+}
 
 extern "C" JNIEXPORT jboolean JNICALL Java_io_github_flipendo_spike_FlipendoActivity_nativeCutsceneActive(JNIEnv*, jclass)
 {
@@ -271,6 +287,20 @@ extern "C" __attribute__((visibility("default"))) int SDL_main(int argc, char** 
 				if (!level.empty())
 					args.push_back("--level=" + level);
 			}
+		}
+		// The mod switch asks to load a save once the game is back up: the slot in .selfpack-autoload, used once.
+		{
+			const char* path = "/sdcard/FlipendoHP/.selfpack-autoload";
+			std::ifstream autoload(path);
+			std::string slot;
+			if (autoload && std::getline(autoload, slot))
+			{
+				while (!slot.empty() && (slot.back() == 0x0d || slot.back() == 0x20)) slot.pop_back();
+				if (!slot.empty())
+					args.push_back("--autoload=" + slot);
+			}
+			autoload.close();
+			unlink(path);
 		}
 		args.push_back("--logfile=/sdcard/FlipendoHP/flipendo.log");
 		const std::string gameDir = FindGameDir();

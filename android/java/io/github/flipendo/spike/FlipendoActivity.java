@@ -42,7 +42,6 @@ public class FlipendoActivity extends SDLActivity {
     /** Degrees added to the game's field of view (engine side: KW::ViewFovAngle). */
     static float fovOffset = 0f;
     static final float FOV_MIN = -20f, FOV_MAX = 40f;
-
     /** HP's debug mode (Level Select in the main menu, debug text); off by default. */
     static boolean debugMode = false;
 
@@ -161,6 +160,16 @@ public class FlipendoActivity extends SDLActivity {
                 android.widget.Toast.makeText(FlipendoActivity.this,
                         "Game saved (slot " + (slot + 1) + ")",
                         android.widget.Toast.LENGTH_SHORT).show();
+                if (modOffAfterSave) {
+                    // the mod can't aim in this level: switch it off, restart, and the game loads this save by itself
+                    modOffAfterSave = false;
+                    try {
+                        SetupActivity.writeSmallFile(new File(GAME_DIR, ".selfpack-autoload"), String.valueOf(slot));
+                    } catch (IOException e) {
+                        android.util.Log.e("flipendo", "could not write the autoload wish: " + e);
+                    }
+                    switchMod("none");
+                }
             }
         });
     }
@@ -182,6 +191,34 @@ public class FlipendoActivity extends SDLActivity {
             }
         });
     }
+
+    /** The map being played (android_main.cpp), for prompts that depend on the level. */
+    static native String nativeLevelName();
+
+    static String levelName() {
+        try {
+            String name = nativeLevelName();
+            return name == null ? "" : name;
+        } catch (UnsatisfiedLinkError e) {
+            return "";
+        }
+    }
+
+    /** Levels where the game fixes the camera and aims with its own cursor: the movement mod aims along the camera and can't there. */
+    static final String[] FIXED_CAMERA_LEVELS = { "lev5_snare" };
+
+    static boolean isFixedCameraLevel(String map) {
+        String key = map.toLowerCase();
+        key = key.substring(key.lastIndexOf('/') + 1);
+        if (key.endsWith(".unr")) key = key.substring(0, key.length() - 4);
+        for (String level : FIXED_CAMERA_LEVELS) {
+            if (level.equals(key)) return true;
+        }
+        return false;
+    }
+
+    /** The prompt for such a level was accepted: when the save is done, the mod is switched off and the game comes back to the save. */
+    static volatile boolean modOffAfterSave;
 
     /** True while a cutscene holds Harry; implemented in android_main.cpp. */
     static native boolean nativeCutsceneActive();
@@ -296,6 +333,12 @@ public class FlipendoActivity extends SDLActivity {
                     cutsceneShown = cs;
                     if (cs) releaseGameplayControls();
                     invalidate();
+                }
+                // a level where the game fixes the camera, with the mod on: offer to switch the mod off (once per level)
+                levelShown = levelName();
+                if (modOn && !promptOpen && !settingsOpen && !menuShown && !lessonShown && !cutsceneShown
+                        && isFixedCameraLevel(levelShown) && !levelShown.equalsIgnoreCase(promptDeclinedLevel)) {
+                    openPrompt();
                 }
                 postDelayed(this, 150);
             }
@@ -557,6 +600,56 @@ public class FlipendoActivity extends SDLActivity {
             new Btn("LEFT", KeyEvent.KEYCODE_DPAD_LEFT, 0, false), new Btn("RIGHT", KeyEvent.KEYCODE_DPAD_RIGHT, 0, false) };
         final Btn[] buttons = { cast, jump, menu, save, gear, skip, arrows[0], arrows[1], arrows[2], arrows[3] };
 
+        // The prompt for a fixed-camera level (the movement mod can't aim there): a small panel that takes every touch.
+        boolean promptOpen;
+        String levelShown = "";
+        String promptDeclinedLevel = "";
+        final android.graphics.RectF promptPanel = new android.graphics.RectF(), promptYes = new android.graphics.RectF(), promptNo = new android.graphics.RectF();
+
+        void openPrompt() {
+            releaseGameplayControls();
+            promptOpen = true;
+            invalidate();
+        }
+
+        void acceptPrompt() {
+            promptOpen = false;
+            promptDeclinedLevel = levelShown; // whatever happens, no second prompt for this level
+            modOffAfterSave = true;
+            nativeRequestSave(); // the game thread saves at its next tick: onSaved switches the mod off and restarts
+            postDelayed(new Runnable() { public void run() {
+                if (modOffAfterSave) {
+                    modOffAfterSave = false;
+                    android.widget.Toast.makeText(getContext(), "Could not save: the mod stays on", android.widget.Toast.LENGTH_LONG).show();
+                }
+            } }, 8000);
+            invalidate();
+        }
+
+        void drawPrompt(Canvas c) {
+            if (!promptOpen) return;
+            float u = Math.min(getWidth(), getHeight());
+            fill.setColor(0xB0000000);
+            c.drawRect(0, 0, getWidth(), getHeight(), fill);
+            fill.setColor(0xF01C1C26);
+            c.drawRoundRect(promptPanel, 0.03f * u, 0.03f * u, fill);
+            line.setColor(0x66FFFFFF);
+            line.setStrokeWidth(3f);
+            c.drawRoundRect(promptPanel, 0.03f * u, 0.03f * u, line);
+            float size = text.getTextSize();
+            float cx = promptPanel.centerX();
+            text.setTextSize(size * 1.4f);
+            text.setColor(0xFFFFFFFF);
+            c.drawText("Fixed camera level", cx, promptPanel.top + 0.12f * promptPanel.height(), text);
+            text.setTextSize(size);
+            text.setColor(0xCCFFFFFF);
+            c.drawText("The game fixes the camera here and the movement mod aims along it,", cx, promptPanel.top + 0.30f * promptPanel.height(), text);
+            c.drawText("so you can't aim. Switch the mod off? The game saves,", cx, promptPanel.top + 0.42f * promptPanel.height(), text);
+            c.drawText("restarts and loads this save by itself.", cx, promptPanel.top + 0.54f * promptPanel.height(), text);
+            drawSegment(c, promptYes, "Switch off and restart", true);
+            drawSegment(c, promptNo, "Keep the mod", false);
+        }
+
         boolean settingsOpen;    // the settings panel is up: it takes every touch
         final android.graphics.RectF panel = new android.graphics.RectF();
         final android.graphics.RectF segStick = new android.graphics.RectF(), segDpad = new android.graphics.RectF();
@@ -623,7 +716,7 @@ public class FlipendoActivity extends SDLActivity {
         protected void onSizeChanged(int w, int h, int ow, int oh) {
             float u = Math.min(w, h);
             // with the mod the wand button is a stick whose range ring must clear the jump button: it sits higher
-            cast.cx = w - 0.20f * u; cast.cy = h - (modOn ? 0.40f : 0.22f) * u; cast.r = 0.13f * u;
+            cast.cx = w - 0.20f * u; cast.cy = h - (modOn ? 0.40f : 0.22f) * u; cast.r = 0.104f * u; // 20% smaller than the 0.13
             jump.cx = w - 0.42f * u; jump.cy = h - 0.12f * u; jump.r = 0.085f * u;
             menu.cx = w - 0.08f * u; menu.cy = 0.08f * u; menu.r = 0.06f * u;
             save.cx = w - 0.21f * u; save.cy = 0.08f * u; save.r = 0.06f * u;
@@ -644,20 +737,30 @@ public class FlipendoActivity extends SDLActivity {
             panel.set((w - pw) / 2f, 0.03f * h, (w + pw) / 2f, 0.97f * h);
             float gap = 0.02f * pw;
             // rows, top to bottom: movement controls, three sliders, Auto jump | Debug, Language and Mod (when the APK has them), Telegram | Close
+
+
             float rowH = 0.075f * h;
-            segStick.set(panel.left + 0.06f * pw, 0.19f * h, w / 2f - gap, 0.19f * h + rowH);
-            segDpad.set(w / 2f + gap, 0.19f * h, panel.right - 0.06f * pw, 0.19f * h + rowH);
+            float segTop = 0.19f * h;
+            segStick.set(panel.left + 0.06f * pw, segTop, w / 2f - gap, segTop + rowH);
+            segDpad.set(w / 2f + gap, segTop, panel.right - 0.06f * pw, segTop + rowH);
             sliderX0 = panel.left + 0.1f * pw;
             sliderX1 = panel.right - 0.1f * pw;
+            float step = 0.08f * h;
             sliderY[0] = 0.335f * h;
-            sliderY[1] = 0.415f * h;
-            sliderY[2] = 0.495f * h;
-            autoJumpBtn.set(panel.left + 0.06f * pw, 0.545f * h, w / 2f - gap, 0.545f * h + rowH);
-            debugBtn.set(w / 2f + gap, 0.545f * h, panel.right - 0.06f * pw, 0.545f * h + rowH);
-            languageBtn.set(panel.left + 0.06f * pw, 0.635f * h, panel.right - 0.06f * pw, 0.635f * h + rowH);
-            modBtn.set(panel.left + 0.06f * pw, 0.725f * h, panel.right - 0.06f * pw, 0.725f * h + rowH);
-            telegramBtn.set(panel.left + 0.06f * pw, 0.84f * h, w / 2f - gap, 0.84f * h + rowH);
-            closeBtn.set(w / 2f + gap, 0.84f * h, panel.right - 0.06f * pw, 0.84f * h + rowH);
+            for (int s = 1; s < 3; s++) sliderY[s] = sliderY[s - 1] + step;
+            float rowsTop = 0.545f * h;
+            float rowGap = 0.09f * h;
+            autoJumpBtn.set(panel.left + 0.06f * pw, rowsTop, w / 2f - gap, rowsTop + rowH);
+            debugBtn.set(w / 2f + gap, rowsTop, panel.right - 0.06f * pw, rowsTop + rowH);
+            languageBtn.set(panel.left + 0.06f * pw, rowsTop + rowGap, panel.right - 0.06f * pw, rowsTop + rowGap + rowH);
+            modBtn.set(panel.left + 0.06f * pw, rowsTop + 2 * rowGap, panel.right - 0.06f * pw, rowsTop + 2 * rowGap + rowH);
+            float bottomTop = 0.84f * h;
+            float ppw = Math.min(0.8f * w, 1.7f * h);
+            promptPanel.set((w - ppw) / 2f, 0.22f * h, (w + ppw) / 2f, 0.78f * h);
+            promptYes.set(promptPanel.left + 0.05f * ppw, promptPanel.bottom - 0.28f * promptPanel.height(), w / 2f - gap, promptPanel.bottom - 0.08f * promptPanel.height());
+            promptNo.set(w / 2f + gap, promptYes.top, promptPanel.right - 0.05f * ppw, promptYes.bottom);
+            telegramBtn.set(panel.left + 0.06f * pw, bottomTop, w / 2f - gap, bottomTop + rowH);
+            closeBtn.set(w / 2f + gap, bottomTop, panel.right - 0.06f * pw, bottomTop + rowH);
             label.setTextSize(0.03f * u);
             label.setColor(0xFFFFFFFF);
             label.setShadowLayer(4f, 0f, 0f, 0xFF000000);
@@ -849,6 +952,16 @@ public class FlipendoActivity extends SDLActivity {
                 case MotionEvent.ACTION_DOWN:
                 case MotionEvent.ACTION_POINTER_DOWN: {
                     float x = e.getX(idx), y = e.getY(idx);
+                    if (promptOpen) {
+                        // the prompt takes every touch
+                        if (promptYes.contains(x, y)) {
+                            acceptPrompt();
+                        } else if (promptNo.contains(x, y)) {
+                            promptOpen = false;
+                            promptDeclinedLevel = levelShown;
+                        }
+                        break;
+                    }
                     if (settingsOpen) {
                         // the panel takes every touch
                         if (hitSlider(x, y) >= 0) {
@@ -1106,6 +1219,7 @@ public class FlipendoActivity extends SDLActivity {
                 c.drawCircle(knobX, knobY, r * 0.4f, fill);
             }
             drawSettings(c);
+            drawPrompt(c);
         }
     }
 }
