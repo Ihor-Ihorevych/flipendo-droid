@@ -149,3 +149,15 @@ The gear button (below SAVE, visible in game and in menus) opens a settings pane
 - **Movement controls**: *Floating stick* (the default: touch and drag on the left half) or *Arrow buttons* (four arrows always visible at the bottom left; the whole screen then looks around).
 - **Render scale** (30%..100%, default 50%): the game is drawn at this fraction of the screen resolution and the compositor scales it up. Lower is faster on weak GPUs. Applied when the finger lifts (the surface is resized then).
 - **Subtitles and HUD size** (60%..180%, default 100%): scales the 2D UI (subtitles, HUD). Changes live while dragging; the menu book keeps its size.
+
+## Languages (self pack with several editions)
+
+A self pack can carry more than one edition of the game, for example English and the Russian release with the Fargus voice-over:
+
+```sh
+android/build-apk.sh --selfpack "C:/Games/HP" --lang ru="C:/Program Files/HPFarg"
+```
+
+The script compares the installs and ships the files they share once, and the files that differ (voices, fonts, texts) once per language (`assets/langs/<code>/`, listed in `assets/langs/langs.txt`). The base install is `en`. On first launch the base language is installed; the settings panel then shows a **Language** button. Tapping it asks for a confirmation (the game is restarted, so unsaved progress is lost); the second tap writes the wish to `/sdcard/FlipendoHP/.selfpack-want`, starts the launcher (`SetupActivity`, which runs in its own process `:setup`), and kills the game's process. The launcher copies the chosen language's files over the game folder (`.selfpack-lang` records which one is installed) and starts the game again in a fresh process, which is what makes the restart clean (the engine can't be started twice in one process).
+
+Unpacking replaces files that are already in the game folder when the APK's data changes (a stamp over the contents decides), except everything under `save/`.

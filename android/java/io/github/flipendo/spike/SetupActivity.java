@@ -234,13 +234,16 @@ public class SetupActivity extends Activity {
 
     /** Set when the game stopped on its own (FlipendoActivity.onGameStopped) or the last run of the app crashed. */
     private String previousProblem() {
+        if (getIntent().getBooleanExtra("restart", false)) {
+            return null; // the game was closed on purpose (the language switch)
+        }
         String stopped = getIntent().getStringExtra("stopped");
         if (stopped != null) {
             String fatal = LogReport.lastFatal();
             return "The game stopped (" + stopped + ")." + (fatal != null ? "\n\n" + fatal : "");
         }
         if (Build.VERSION.SDK_INT >= 30) {
-            long acknowledged = getSharedPreferences("flipendo", MODE_PRIVATE).getLong("ack", 0);
+            long acknowledged = getSharedPreferences("setup", MODE_PRIVATE).getLong("ack", 0);
             ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
             for (ApplicationExitInfo info : am.getHistoricalProcessExitReasons(getPackageName(), 0, 3)) {
                 int reason = info.getReason();
@@ -265,7 +268,7 @@ public class SetupActivity extends Activity {
         }));
         row.addView(button("Play anyway", new android.view.View.OnClickListener() {
             public void onClick(android.view.View v) {
-                getSharedPreferences("flipendo", MODE_PRIVATE).edit().putLong("ack", System.currentTimeMillis()).apply();
+                getSharedPreferences("setup", MODE_PRIVATE).edit().putLong("ack", System.currentTimeMillis()).apply();
                 bar.setVisibility(android.view.View.VISIBLE);
                 begin();
             }
@@ -308,6 +311,83 @@ public class SetupActivity extends Activity {
         }
     }
 
+    static final String LANG_DIR = "langs";
+    static final String LANG_MARKER = ".selfpack-lang"; // the language whose files are in the game folder
+    static final String LANG_WANT = ".selfpack-want";   // written by the in-game switch: the language to install next
+
+    /** The languages this APK carries as {code, label} (the first is the base install); empty for a single-language build. */
+    static List<String[]> readLanguages(android.content.Context context) {
+        List<String[]> out = new ArrayList<>();
+        try (InputStream in = context.getAssets().open(LANG_DIR + "/langs.txt")) {
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            byte[] buffer = new byte[1024];
+            int n;
+            while ((n = in.read(buffer)) > 0) {
+                bytes.write(buffer, 0, n);
+            }
+            for (String line : bytes.toString("UTF-8").split("\n")) {
+                String[] parts = line.trim().split("[|]", 2);
+                if (parts.length == 2 && !parts[0].isEmpty()) {
+                    out.add(parts);
+                }
+            }
+        } catch (IOException e) {
+            // no langs.txt: a single-language build
+        }
+        return out;
+    }
+
+    static String readSmallFile(File file) {
+        try (InputStream in = new java.io.FileInputStream(file)) {
+            byte[] data = new byte[64];
+            int n = in.read(data);
+            return new String(data, 0, Math.max(n, 0)).trim();
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    static void writeSmallFile(File file, String text) throws IOException {
+        try (OutputStream os = new FileOutputStream(file)) {
+            os.write(text.getBytes());
+        }
+    }
+
+    /** Copies one asset into the game folder, replacing what is there (through a .part file, so a stop leaves no half file). */
+    private void copyAsset(String path, File out, byte[] buffer) throws IOException {
+        out.getParentFile().mkdirs();
+        File temp = new File(out.getPath() + ".part");
+        try (InputStream in = getAssets().open(path); OutputStream os = new FileOutputStream(temp)) {
+            int n;
+            while ((n = in.read(buffer)) > 0) {
+                os.write(buffer, 0, n);
+            }
+        }
+        if (out.exists()) {
+            out.delete();
+        }
+        temp.renameTo(out);
+    }
+
+    /** Puts one language's files (voices, fonts, texts) into the game folder. */
+    private void installLanguage(File gameDir, String code, String label, byte[] buffer) throws IOException {
+        List<String> files = new ArrayList<>();
+        collect(LANG_DIR + "/" + code, files);
+        int done = 0;
+        for (String path : files) {
+            String relative = path.substring(LANG_DIR.length() + 1 + code.length() + 1);
+            say("Switching to " + label + " " + (done + 1) + " / " + files.size() + "\n" + relative, done, files.size());
+            copyAsset(path, new File(gameDir, relative), buffer);
+            done++;
+        }
+        writeSmallFile(new File(gameDir, LANG_MARKER), code);
+    }
+
+    /**
+     * Self pack: puts the game data in place. The files that all languages share are unpacked when the APK's data changes
+     * (they replace what is there, but never the saves); the language files are copied when the wanted language is not the
+     * installed one (the in-game language switch writes the wish to LANG_WANT).
+     */
     private void installGameData() {
         String stamp = readStamp();
         if (stamp == null) {
@@ -316,43 +396,56 @@ public class SetupActivity extends Activity {
         File gameDir = new File(FlipendoActivity.GAME_DIR);
         File marker = new File(gameDir, MARKER);
         try {
-            if (marker.exists()) {
-                try (InputStream in = new java.io.FileInputStream(marker)) {
-                    byte[] data = new byte[64];
-                    int n = in.read(data);
-                    if (stamp.equals(new String(data, 0, Math.max(n, 0)).trim())) {
-                        return; // this exact game data is already unpacked
-                    }
+            List<String[]> languages = readLanguages(this);
+            String installed = readSmallFile(new File(gameDir, LANG_MARKER));
+            String wanted = readSmallFile(new File(gameDir, LANG_WANT));
+            if (wanted == null || wanted.isEmpty()) {
+                wanted = installed;
+            }
+            String label = wanted;
+            boolean known = false;
+            for (String[] l : languages) {
+                if (l[0].equals(wanted)) {
+                    known = true;
+                    label = l[1];
                 }
             }
-
-            List<String> files = new ArrayList<>();
-            collect(BUNDLE, files);
+            if (!known && !languages.isEmpty()) {
+                wanted = languages.get(0)[0]; // never installed, or a language this APK doesn't have: the base one
+                label = languages.get(0)[1];
+            }
+            boolean dataCurrent = marker.exists() && stamp.equals(readSmallFile(marker));
             byte[] buffer = new byte[1 << 20];
-            int done = 0;
-            for (String path : files) {
-                String relative = path.substring(BUNDLE.length() + 1);
-                if (relative.equals(".stamp")) {
-                    done++;
-                    continue;
-                }
-                File out = new File(gameDir, relative);
-                say("Installing game data " + (done + 1) + " / " + files.size() + "\n" + relative, done, files.size());
-                if (!out.exists()) {
-                    out.getParentFile().mkdirs();
-                    File temp = new File(out.getPath() + ".part");
-                    try (InputStream in = getAssets().open(path); OutputStream os = new FileOutputStream(temp)) {
-                        int n;
-                        while ((n = in.read(buffer)) > 0) {
-                            os.write(buffer, 0, n);
-                        }
+
+            if (!dataCurrent) {
+                List<String> files = new ArrayList<>();
+                collect(BUNDLE, files);
+                int done = 0;
+                for (String path : files) {
+                    String relative = path.substring(BUNDLE.length() + 1);
+                    if (relative.equals(".stamp")) {
+                        done++;
+                        continue;
                     }
-                    temp.renameTo(out);
+                    File out = new File(gameDir, relative);
+                    say("Installing game data " + (done + 1) + " / " + files.size() + "\n" + relative, done, files.size());
+                    // saves of the player are never replaced; everything else is the APK's version
+                    boolean keep = out.exists() && relative.toLowerCase().startsWith("save/");
+                    if (!keep) {
+                        copyAsset(path, out, buffer);
+                    }
+                    done++;
                 }
-                done++;
+                if (!languages.isEmpty()) {
+                    installLanguage(gameDir, wanted, label, buffer);
+                }
+                writeSmallFile(marker, stamp);
+            } else if (!languages.isEmpty() && !wanted.equals(installed)) {
+                installLanguage(gameDir, wanted, label, buffer);
             }
-            try (OutputStream os = new FileOutputStream(marker)) {
-                os.write(stamp.getBytes());
+            File want = new File(gameDir, LANG_WANT);
+            if (want.exists()) {
+                want.delete();
             }
         } catch (IOException e) {
             android.util.Log.e("flipendo", "installing game data failed: " + e);

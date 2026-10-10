@@ -5,6 +5,8 @@
 #                                                 the game from that folder and unpacks it on first launch
 #   android/build-apk.sh --selfpack-ru "C:/Program Files/HPFarg"   ... and flipendo-droid-selfpack-ru.apk: the same with
 #                                                 another install (the Russian one), under its own file name
+#   android/build-apk.sh --selfpack "C:/Games/HP" --lang ru="C:/Program Files/HPFarg"
+#                                                 one self pack with both languages; Settings > Language switches them in game
 #   android/build-apk.sh --install                ... and install the plain APK on the connected phone (adb)
 # The self pack contains copyrighted game data: for your own phone only, never publish or share it.
 # Needs: JDK 21, Android SDK (platform 35, build-tools 35.0.0, NDK 27.2.12479018, CMake 3.22.1), git.
@@ -16,17 +18,27 @@ cd "$ROOT"
 
 INSTALL=0
 SELFPACKS=() # "game folder|apk name"
+LANGS=()     # "code=game folder": more languages for --selfpack (the in-game language switch)
 while [ $# -gt 0 ]; do
 	case "$1" in
 		--install) INSTALL=1 ;;
 		--selfpack) shift; SELFPACKS+=("$(cygpath -u "${1:?--selfpack needs the game folder}")|flipendo-droid-selfpack.apk") ;;
 		--selfpack-ru) shift; SELFPACKS+=("$(cygpath -u "${1:?--selfpack-ru needs the game folder}")|flipendo-droid-selfpack-ru.apk") ;;
+		--lang) shift; LANGS+=("$(echo "${1:?--lang needs code=game folder (e.g. ru=D:/HP-Russian)}" | sed 's|=.*||')=$(cygpath -u "$(echo "$1" | sed 's|^[^=]*=||')")") ;;
 		*) echo "unknown argument: $1" >&2; exit 1 ;;
 	esac
 	shift
 done
 for entry in "${SELFPACKS[@]}"; do
 	dir="${entry%|*}"
+	if [ ! -f "$dir/System/HP.exe" ] && [ ! -f "$dir/system/HP.exe" ]; then
+		echo "$dir is not an HP1 install (no System/HP.exe)" >&2
+		exit 1
+	fi
+done
+
+for l in "${LANGS[@]}"; do
+	dir="${l#*=}"
 	if [ ! -f "$dir/System/HP.exe" ] && [ ! -f "$dir/system/HP.exe" ]; then
 		echo "$dir is not an HP1 install (no System/HP.exe)" >&2
 		exit 1
@@ -112,21 +124,73 @@ package() {
 package android/dist/flipendo-droid.apk
 
 # 6. the self pack: the same APK plus the game, unpacked on first launch (SetupActivity)
-for entry in "${SELFPACKS[@]}"; do
-	SELFPACK="${entry%|*}"
-	STAGE="$A/data_stage/assets/gamedata"
-	rm -rf "$A/data_stage"
-	mkdir -p "$STAGE"
-	# Everything the engine reads, except SafeDisc files, the uninstaller, shortcuts, logs and saves (the save
-	# thumbnails stay: the slot page needs them).
-	(cd "$SELFPACK" && find . -type f \
+# What the engine reads from an install: everything except SafeDisc files, the uninstaller, shortcuts, logs and saves
+# (the save thumbnails stay: the slot page needs them). NUL-separated paths relative to the folder, "./" first.
+game_files() {
+	(cd "$1" && find . -type f \
 		! -iname 'drvmgt.dll' ! -iname 'secdrv.sys' ! -iname 'uninst.*' ! -iname '*.lnk' ! -iname '*.log' \
 		! -iname 'NEW.txt' ! -iname '*.usa' ! -iname 'GameSaveInfo*' ! -iname 'SE-*.ini' ! -iname 'User.ini' ! -iname 'flipendo*' \
-		-print0 | tar --null -cf - --files-from=-) | (cd "$STAGE" && tar xf -)
+		-print0)
+}
+
+# language label for the in-game switch (assets/langs/langs.txt: "code|label", the first one is the base install)
+lang_label() {
+	case "$1" in
+		en) echo "English" ;;
+		ru) echo "Русский (Фаргус)" ;;
+		*) echo "$1" ;;
+	esac
+}
+
+for entry in "${SELFPACKS[@]}"; do
+	SELFPACK="${entry%|*}"
+	NAME="${entry#*|}"
+	STAGE="$A/data_stage/assets/gamedata"
+	LANGDIR="$A/data_stage/assets/langs"
+	rm -rf "$A/data_stage"
+	mkdir -p "$STAGE"
+	if [ "$NAME" = flipendo-droid-selfpack.apk ] && [ ${#LANGS[@]} -gt 0 ]; then
+		# Several languages (the base install is English): the files all installs share are shipped once, the files that differ
+		# (voices, fonts, texts) once per language; the app copies the chosen language's set over (SetupActivity, in-game switch).
+		declare -A base_files=() lang_dir=()
+		while IFS= read -r -d '' f; do base_files["${f,,}"]="$f"; done < <(game_files "$SELFPACK")
+		differ=() # lowercase keys of the files that differ in any language
+		for l in "${LANGS[@]}"; do
+			code="${l%%=*}"; dir="${l#*=}"
+			lang_dir["$code"]="$dir"
+			declare -A seen=()
+			while IFS= read -r -d '' f; do
+				key="${f,,}"; seen["$key"]=1
+				if [ -z "${base_files[$key]:-}" ] || ! cmp -s "$SELFPACK/${base_files[$key]}" "$dir/$f"; then differ+=("$key"); fi
+			done < <(game_files "$dir")
+			for key in "${!base_files[@]}"; do [ -z "${seen[$key]:-}" ] && differ+=("$key"); done
+			unset seen
+		done
+		declare -A is_diff=()
+		for key in "${differ[@]}"; do is_diff["$key"]=1; done
+		common=(); for key in "${!base_files[@]}"; do [ -z "${is_diff[$key]:-}" ] && common+=("${base_files[$key]}"); done
+		printf '%s\0' "${common[@]}" | (cd "$SELFPACK" && tar --null -cf - --files-from=-) | (cd "$STAGE" && tar xf -)
+		mkdir -p "$LANGDIR"
+		{ echo "en|$(lang_label en)"; for l in "${LANGS[@]}"; do echo "${l%%=*}|$(lang_label "${l%%=*}")"; done; } > "$LANGDIR/langs.txt"
+		# the base language's version of the differing files (the ones the base install has)
+		mkdir -p "$LANGDIR/en"
+		for key in "${!is_diff[@]}"; do [ -n "${base_files[$key]:-}" ] && printf '%s\0' "${base_files[$key]}"; done \
+			| (cd "$SELFPACK" && tar --null -cf - --files-from=-) | (cd "$LANGDIR/en" && tar xf -)
+		for l in "${LANGS[@]}"; do
+			code="${l%%=*}"; dir="${l#*=}"
+			mkdir -p "$LANGDIR/$code"
+			game_files "$dir" | while IFS= read -r -d '' f; do [ -n "${is_diff[${f,,}]:-}" ] && printf '%s\0' "$f"; done \
+				| (cd "$dir" && tar --null -cf - --files-from=-) | (cd "$LANGDIR/$code" && tar xf -)
+		done
+		echo "languages: $(paste -sd, "$LANGDIR/langs.txt"); ${#is_diff[@]} files differ, $(du -sm "$LANGDIR" | cut -f1) MB in langs/"
+		unset base_files lang_dir is_diff
+	else
+		game_files "$SELFPACK" | (cd "$SELFPACK" && tar --null -cf - --files-from=-) | (cd "$STAGE" && tar xf -)
+	fi
 	# a stamp of what is inside (a hash of the contents: two installs can differ with the same sizes): the app only unpacks again when the data changes
-	(cd "$STAGE" && find . -type f ! -name .stamp -print0 | sort -z | xargs -0 sha1sum | sha1sum | cut -d' ' -f1) > "$STAGE/.stamp"
-	echo "game data: $(find "$STAGE" -type f | wc -l) files, $(du -sm "$STAGE" | cut -f1) MB"
-	package "android/dist/${entry#*|}" "$A/data_stage"
+	(cd "$A/data_stage/assets" && find . -type f ! -name .stamp -print0 | sort -z | xargs -0 sha1sum | sha1sum | cut -d' ' -f1) > "$STAGE/.stamp"
+	echo "game data: $(find "$A/data_stage" -type f | wc -l) files, $(du -sm "$A/data_stage" | cut -f1) MB"
+	package "android/dist/$NAME" "$A/data_stage"
 	rm -rf "$A/data_stage"
 done
 

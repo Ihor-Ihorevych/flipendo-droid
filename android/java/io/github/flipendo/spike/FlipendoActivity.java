@@ -73,6 +73,28 @@ public class FlipendoActivity extends SDLActivity {
         if (save) saveScales();
     }
 
+    /**
+     * Switches the game's language (voices, fonts, texts): the wish goes into a file, the launcher (SetupActivity, in its own
+     * process) is started, and this process, with the engine in it, is killed so the game starts again from nothing.
+     */
+    void switchLanguage(String code) {
+        try {
+            SetupActivity.writeSmallFile(new File(GAME_DIR, SetupActivity.LANG_WANT), code);
+        } catch (IOException e) {
+            android.util.Log.e("flipendo", "could not write the language wish: " + e);
+            return;
+        }
+        Intent intent = new Intent(this, SetupActivity.class);
+        intent.putExtra("restart", true);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(new Runnable() {
+            public void run() {
+                android.os.Process.killProcess(android.os.Process.myPid());
+            }
+        }, 600);
+    }
+
     void applyDebugMode(boolean on, boolean save) {
         debugMode = on;
         try {
@@ -353,6 +375,49 @@ public class FlipendoActivity extends SDLActivity {
             }
         }
 
+        // Languages carried by this APK ({code, label}; only a self pack with several has more than one) and the Language button
+        final java.util.List<String[]> languages = SetupActivity.readLanguages(getContext());
+        int languageAsk = -1;       // the language a first tap asked for, until it is confirmed or times out
+        long languageAskTime;
+
+        String currentLanguage() {
+            String code = SetupActivity.readSmallFile(new File(GAME_DIR, SetupActivity.LANG_MARKER));
+            return code == null || code.isEmpty() ? languages.get(0)[0] : code;
+        }
+
+        int languageIndex(String code) {
+            for (int i = 0; i < languages.size(); i++) {
+                if (languages.get(i)[0].equals(code)) return i;
+            }
+            return 0;
+        }
+
+        String languageText() {
+            if (languageAsk >= 0) {
+                return "Restart in " + languages.get(languageAsk)[1] + "? Tap again (unsaved progress is lost)";
+            }
+            return "Language: " + languages.get(languageIndex(currentLanguage()))[1] + "  (tap to change)";
+        }
+
+        /** First tap: picks the next language and asks to confirm; a second tap within 5 s switches (the game restarts). */
+        void languageTap() {
+            long now = android.os.SystemClock.uptimeMillis();
+            if (languageAsk >= 0 && now - languageAskTime < 5000) {
+                int target = languageAsk;
+                languageAsk = -1;
+                ((FlipendoActivity) getContext()).switchLanguage(languages.get(target)[0]);
+                return;
+            }
+            languageAsk = (languageIndex(currentLanguage()) + 1) % languages.size();
+            languageAskTime = now;
+            postDelayed(new Runnable() { public void run() {
+                if (languageAsk >= 0 && android.os.SystemClock.uptimeMillis() - languageAskTime >= 5000) {
+                    languageAsk = -1;
+                    invalidate();
+                }
+            } }, 5100);
+        }
+
         void openSettings() {
             releaseStick();
             for (Btn a : arrows) {
@@ -406,7 +471,7 @@ public class FlipendoActivity extends SDLActivity {
         boolean settingsOpen;    // the settings panel is up: it takes every touch
         final android.graphics.RectF panel = new android.graphics.RectF();
         final android.graphics.RectF segStick = new android.graphics.RectF(), segDpad = new android.graphics.RectF();
-        final android.graphics.RectF closeBtn = new android.graphics.RectF(), debugBtn = new android.graphics.RectF(), autoJumpBtn = new android.graphics.RectF(), telegramBtn = new android.graphics.RectF();
+        final android.graphics.RectF closeBtn = new android.graphics.RectF(), debugBtn = new android.graphics.RectF(), autoJumpBtn = new android.graphics.RectF(), telegramBtn = new android.graphics.RectF(), languageBtn = new android.graphics.RectF();
 
         final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
         final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -491,11 +556,13 @@ public class FlipendoActivity extends SDLActivity {
             segDpad.set(w / 2f + gap, 0.20f * h, panel.right - 0.06f * pw, 0.30f * h);
             sliderX0 = panel.left + 0.1f * pw;
             sliderX1 = panel.right - 0.1f * pw;
-            sliderY[0] = 0.43f * h;
-            sliderY[1] = 0.54f * h;
-            sliderY[2] = 0.65f * h;
-            autoJumpBtn.set(panel.left + 0.06f * pw, 0.72f * h, w / 2f - gap, 0.81f * h);
-            debugBtn.set(w / 2f + gap, 0.72f * h, panel.right - 0.06f * pw, 0.81f * h);
+            // with several languages in the APK: a Language row above the bottom buttons
+            sliderY[0] = 0.385f * h;
+            sliderY[1] = 0.48f * h;
+            sliderY[2] = 0.575f * h;
+            autoJumpBtn.set(panel.left + 0.06f * pw, 0.64f * h, w / 2f - gap, 0.73f * h);
+            debugBtn.set(w / 2f + gap, 0.64f * h, panel.right - 0.06f * pw, 0.73f * h);
+            languageBtn.set(panel.left + 0.06f * pw, 0.75f * h, panel.right - 0.06f * pw, 0.84f * h);
             telegramBtn.set(panel.left + 0.06f * pw, 0.86f * h, w / 2f - gap, 0.95f * h);
             closeBtn.set(w / 2f + gap, 0.86f * h, panel.right - 0.06f * pw, 0.95f * h);
             label.setTextSize(0.03f * u);
@@ -574,6 +641,9 @@ public class FlipendoActivity extends SDLActivity {
             drawSliders(c);
             drawSegment(c, autoJumpBtn, autoJump ? "Auto jump: ON" : "Auto jump: OFF", autoJump);
             drawSegment(c, debugBtn, debugMode ? "Debug mode: ON" : "Debug mode: OFF", debugMode);
+            if (languages.size() > 1) {
+                drawSegment(c, languageBtn, languageText(), languageAsk >= 0);
+            }
             fill.setColor(0x44FFFFFF);
             c.drawRoundRect(closeBtn, closeBtn.height() / 2f, closeBtn.height() / 2f, fill);
             text.setColor(0xFFFFFFFF);
@@ -698,6 +768,8 @@ public class FlipendoActivity extends SDLActivity {
                             ((FlipendoActivity) getContext()).applyAutoJump(!autoJump, true);
                         } else if (debugBtn.contains(x, y)) {
                             ((FlipendoActivity) getContext()).applyDebugMode(!debugMode, true);
+                        } else if (languages.size() > 1 && languageBtn.contains(x, y)) {
+                            languageTap();
                         } else if (telegramBtn.contains(x, y)) {
                             try {
                                 getContext().startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(SetupActivity.CHANNEL_URL)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
