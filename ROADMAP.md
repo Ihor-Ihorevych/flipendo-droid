@@ -1,17 +1,18 @@
 # Roadmap
 
 What's left to do on the HP1 port, and what's next. Only open work is listed: remove an item when it lands (what
-was done is in the git history, how it works in `docs/`, [docs/README.md](docs/README.md)). Per-level play status is
-[docs/playtest.md](docs/playtest.md), whose code is still SurrealEngine's [docs/surrealengine-coverage.md](docs/surrealengine-coverage.md),
-the native-level checklist [docs/re/reports/native_audit_hp1.md](docs/re/reports/native_audit_hp1.md) (`python tools/native_audit.py`).
+was done is in the git history, how it works in `docs/`, [docs/README.md](docs/README.md)). Not repeated here:
+per-level status and bugs ([docs/playtest.md](docs/playtest.md)), which code is still SurrealEngine's and what to
+reverse next ([docs/surrealengine-coverage.md](docs/surrealengine-coverage.md)), the native-level checklist
+([docs/re/reports/native_audit_hp1.md](docs/re/reports/native_audit_hp1.md), `python tools/native_audit.py`).
 
 Legend: [~] partly done / in progress · [ ] not started
 
 ## Next up (in order)
-1. **Play the game through in story order** and fix what breaks ([docs/playtest.md](docs/playtest.md)). Next:
-   Lev2_RemChase.
-2. **SurrealEngine's guesses, reversed in order** (phase 5 below): next Galaxy's pan law and ambient Doppler, then
-   vertex mesh lighting.
+1. **Play the game through in story order** and fix what breaks: the next level and every level's open issues are in
+   [docs/playtest.md](docs/playtest.md).
+2. **SurrealEngine's guesses, reversed in order**: the list is in
+   [docs/surrealengine-coverage.md](docs/surrealengine-coverage.md#what-to-reverse-next-in-order).
 3. **Dark levels**: compare Lev5_FlyKeys' lighting with the original (`tools/orig_shots.ps1`).
 4. **First prebuilt release** (see "Releases"): players can't try Flipendo without building it.
 
@@ -23,10 +24,7 @@ particle effects.
 - [~] Channel blending in the pose (AuxAnims per bone subtree) — implemented, not yet verified in game
 - [ ] Verify animations visually against the original (walk/run/breathe, tween blends)
 
-## 2. Playable tutorial (Lev_Tut1)
-- [ ] Some cutscene kids reportedly look like they walk while running (all play `run` at rate 1.5 with
-      finished tweens; needs a closer look at which ones)
-- [ ] Kids spawned on the same patrol point can overlap (UE1 Spawn fails when the spot is occupied?)
+## 2. Engine gaps found in the first levels
 - [ ] Windowed mode: menu mouse mapping (`WindowsMouseX/Y` into the 4:3 area) not yet tested in game
 - [ ] TraceTexture: decals not traced yet
 - [ ] `APawn::physicsRotation`: flying/swimming roll banking not ported yet
@@ -45,17 +43,8 @@ particle effects.
 - [ ] Save/LoadObjectAsFile, CreateTextureFromScreenShot, `Snap 3`: no script uses them (low priority)
 
 ## 5. Remaining native classes and polish
-- [~] SurrealEngine's guesses replaced with HP1's code, in this order
-      ([docs/surrealengine-coverage.md](docs/surrealengine-coverage.md); move each row there from "Guess" to "HP1"):
-  - [~] Sound: Galaxy's pan law and ambient Doppler ([docs/re/engine/sound.md](docs/re/engine/sound.md))
-  - [ ] Vertex mesh lighting (props, non-skeletal meshes)
-  - [ ] Sprites and decals (spell sprites, actor shadows)
-  - [ ] `Spawn` and `Destroy` (placement when blocked, event order)
-  - [~] BSP drawing rules: masked/translucent/modulated, two-sided, panning, sky zone, mirrors, fog
-  - [ ] Canvas text and tiles (HUD, menus, storybook)
-  - [ ] Level load and travel (`LoadMap`, `ClientTravel`, event order)
-  - [ ] The remaining light effects (~60 lights), the Waver flicker, the factor 2 behind the lights' 0.5
-  - [ ] The rest of the coverage list's "Guess" rows, as they come up
+- [~] SurrealEngine's guesses replaced with HP1's code, in the order of
+      [docs/surrealengine-coverage.md](docs/surrealengine-coverage.md#what-to-reverse-next-in-order)
 - [ ] Bugs of the original to fix, not reproduce: [docs/re/hp1/original_bugs.md](docs/re/hp1/original_bugs.md)
 - [ ] Console.CreateNativeFont for the Asian languages (WinDrv.dll's GDI font rasterizer)
 - [ ] `Actor.Fatness`: not ported; only matters if a map or script changes it from 128
