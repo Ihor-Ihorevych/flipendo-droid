@@ -204,7 +204,11 @@ Each file has one job; keep them apart:
 - `tools/run_hp1.sh [secs] [args]` — `--autolaunch --logfile=build/hp1_run.log` against `../eagames/hp1-work`.
   `--level=<map>` starts a level with the story flow and the state a player carries in (playtesting; `--url` only
   loads the map), `--skip-splash` goes straight to the main menu, `--skip-intro` skips the New Game storybook,
-  `--vanilla` disables the default-on mods (`src/hp1/mods/`).
+  `--vanilla` disables the default-on mods (`src/hp1/mods/`). `HP1_FULLSCREEN=1` runs borderless full screen at
+  the desktop size, otherwise windowed at `HP1_WINDOW` (1280x720).
+- **Starting the game for the user to playtest by hand:** always `HP1_FULLSCREEN=1`, never the small window. Never
+  kill or restart a game the user is playing; test in a second instance (`HP1_BACKGROUND=1`, its own `HP1_LOG`,
+  `--slot=5` so their save slot is left alone), and rebuild only once they have quit (the exe is locked).
 - Debug env vars (`src/knowwonder/KWDebug.cpp`, times in seconds since the first frame): `HP1_SHOTS="5,8.5"` +
   `HP1_SHOT_DIR` for in-engine screenshots (never capture the desktop), `HP1_KEYS="62:Up:3,66:Left:0.6"`
   to press keys (the Lev_Tut1 intro hands control to the player at ~58 s), `HP1_MOUSE="63:0:-30:4"` to move the
