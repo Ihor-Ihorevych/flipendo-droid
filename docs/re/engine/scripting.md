@@ -61,6 +61,15 @@ In HP1's Core.dll `execDisable` (0x10141F30) only clears the bit in the state fr
 SurrealEngine kept disabled events per state name for good, which hung HP1's spell lesson
 ([spells.md](../hp1/spells.md#spell-lesson-flow)); fixed in `0010-engine-fixes.patch`. HP2 not checked.
 
+A set bit is an enabled probe (`UObject::IsProbing`, Core 0x1015A2F0, tests it). Map actors are saved with the whole
+mask set. SurrealEngine's `UObject::Load` read the saved bits as disabled, so a map actor ignored its probe functions
+until its first GotoState. That matters during level start: SurrealEngine's VM also skips a script call to a disabled
+probe function (`Frame::Call`), and `SetInitialState` runs actor by actor. Lev2_RemChase's `RemembrallReferee` enters
+`GameIntro` from `SetInitialState` and triggers `Intro`; `CutScene0` (later in the list) dropped the `Trigger`, and its
+`bDelayLevelFadeIn` left the screen black. Fixed in `0010-engine-fixes.patch` (only a clear bit disables). HP1's
+`UObject::CallFunction` (Core 0x10142FE0) has no probe check at all; only `ProcessEvent` (engine-raised events) asks
+`IsProbing`. SurrealEngine's check on script calls stays (not needed by anything found so far).
+
 ## Latent calls on other actors
 
 In HP1's Lev_Tut1, `SpellLearnTrigger` calls `Teacher.TurnToward(Cam)` on Quirrell, whose `Tut1Quirrell` `state idle {}` has no code.

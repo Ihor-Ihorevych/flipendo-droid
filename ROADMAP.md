@@ -9,7 +9,7 @@ Legend: [~] partly done / in progress · [ ] not started
 
 ## Next up (in order)
 1. **Play the game through in story order** and fix what breaks ([docs/playtest.md](docs/playtest.md)). Next:
-   Lev2_HogFront_2.
+   Lev2_RemChase.
 2. **SurrealEngine's guesses, reversed in order** (phase 5 below): next Galaxy's pan law and ambient Doppler, then
    vertex mesh lighting.
 3. **Dark levels**: compare Lev5_FlyKeys' lighting with the original (`tools/orig_shots.ps1`).
