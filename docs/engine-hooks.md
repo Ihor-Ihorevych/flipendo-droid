@@ -12,7 +12,7 @@ them, kept as patch files so a newer SurrealEngine rarely conflicts.
 | `src/surreal-patches/0001-game-detection.patch` | HP1 `System/HP.exe` hashes (UK 1.1, EN retail SafeDisc, community No-CD); why a folder isn't a game |
 | `src/surreal-patches/0002-launcher-flags.patch` | `--autolaunch`, `--logfile`, the flags the HP1 code reads |
 | `src/surreal-patches/0003-cursor-focus.patch` | cursor recentering and raw input only while the game window has focus; window icons the right way up |
-| `src/surreal-patches/0010-engine-fixes.patch` | fixes to SurrealEngine bugs that aren't specific to one game (VM, properties, ini, packages, crash reports) |
+| `src/surreal-patches/0010-engine-fixes.patch` | fixes to SurrealEngine bugs that aren't specific to one game (VM, properties, ini, packages, crash reports, audio device) |
 | `src/surreal-patches/0100-knowwonder-core.patch` | build (`src/flipendo.cmake`), natives registration, engine loop (input, console, saves, view), missing data messages |
 | `src/surreal-patches/0110-knowwonder-physics.patch` | KnowWonder physics, pawn movement, collision |
 | `src/surreal-patches/0120-knowwonder-actors.patch` | KnowWonder actor tick, native actors, animation |

@@ -1,10 +1,18 @@
-flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files, packages (Unicode strings), crash reports, music streaming (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties
+flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files, packages (Unicode strings), crash reports, music streaming and following the default audio device (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties
 
 diff --git a/SurrealEngine/Audio/AudioDevice.cpp b/SurrealEngine/Audio/AudioDevice.cpp
-index 03e82566..89c4363b 100644
+index 03e82566..64fef794 100644
 --- a/SurrealEngine/Audio/AudioDevice.cpp
 +++ b/SurrealEngine/Audio/AudioDevice.cpp
-@@ -88,7 +88,7 @@ public:
+@@ -13,6 +13,7 @@
+ #include <queue>
+ #include <thread>
+ #include <chrono>
++#include <cstring>
+ #include <AL/al.h>
+ #include <AL/alc.h>
+ #include <AL/alext.h>
+@@ -88,7 +89,7 @@ public:
  		{
  			radius = newRadius;
  			alSourcef(id, AL_MAX_DISTANCE, radius);
@@ -13,7 +21,7 @@ index 03e82566..89c4363b 100644
  		}
  	}
  
-@@ -131,7 +131,21 @@ public:
+@@ -131,7 +132,21 @@ public:
  		{
  			volume = newVolume;
  			alSourcef(id, AL_GAIN, volume * globalVolume);
@@ -36,7 +44,7 @@ index 03e82566..89c4363b 100644
  		}
  	}
  
-@@ -173,6 +187,7 @@ private:
+@@ -173,6 +188,7 @@ private:
  	float pitch = 0.0f;
  	float dopplerFactor = 0.0f;
  	bool bIs3d = false;
@@ -44,7 +52,17 @@ index 03e82566..89c4363b 100644
  };
  
  // TODO list:
-@@ -451,6 +466,12 @@ public:
+@@ -222,6 +238,9 @@ public:
+ 		if (alcMakeContextCurrent(alContext) == ALC_FALSE)
+ 			Exception::Throw("Failed to make OpenAL context current");
+ 
++		if (alcIsExtensionPresent(alDevice, "ALC_SOFT_reopen_device"))
++			alcReopenDevice = (LPALCREOPENDEVICESOFT)alcGetProcAddress(alDevice, "alcReopenDeviceSOFT");
++
+ 		// init listener state
+ 		ALfloat listenerOri[] = { 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, -1.0f };
+ 		alListener3f(AL_POSITION, 0, 0, 0.0f);
+@@ -451,6 +470,12 @@ public:
  		alSourcef(alMusicSource, AL_GAIN, volume);
  	}
  
@@ -57,7 +75,7 @@ index 03e82566..89c4363b 100644
  	void SetSoundVolume(float volume) override
  	{
  		globalSoundVolume = volume;
-@@ -508,8 +529,11 @@ public:
+@@ -508,8 +533,11 @@ public:
  				while (musicQueue.Size() < musicBufferCount)
  				{
  					// render a chunk of music
@@ -71,6 +89,49 @@ index 03e82566..89c4363b 100644
  				}
  
  				if (!musicPlaying)
+@@ -528,12 +556,42 @@ public:
+ 			{
+ 				musicPlaying = false;
+ 			}
++
++			FollowDefaultDevice();
++
+ 			using namespace std::chrono_literals;
+ 			std::this_thread::sleep_for(5ms);
+ 		}
+ 	}
+ 
++	// OpenAL Soft 1.23 stays on the device it opened: unplugging it leaves the game silent and a new system default
++	// (headphones plugged back in) is never picked up. Once a second, reopen the default device when ours was lost or
++	// the default changed; alcReopenDeviceSOFT keeps the context, sources and buffers.
++	void FollowDefaultDevice()
++	{
++		auto now = std::chrono::steady_clock::now();
++		if (now < nextDeviceCheck)
++			return;
++		nextDeviceCheck = now + std::chrono::seconds(1);
++
++		if (!alcReopenDevice)
++			return;
++
++		ALCint connected = ALC_TRUE;
++		alcGetIntegerv(alDevice, ALC_CONNECTED, 1, &connected);
++		const ALCchar* current = alcGetString(alDevice, ALC_ALL_DEVICES_SPECIFIER);
++		const ALCchar* defaultName = alcGetString(nullptr, ALC_DEFAULT_ALL_DEVICES_SPECIFIER);
++		bool defaultChanged = current && defaultName && *defaultName && std::strcmp(current, defaultName) != 0;
++		if (connected && !defaultChanged)
++			return;
++
++		if (alcReopenDevice(alDevice, nullptr, nullptr))
++			LogMessage(std::string("Audio device: now ") + alcGetString(alDevice, ALC_ALL_DEVICES_SPECIFIER));
++	}
++
+ 	ALCdevice* alDevice = nullptr;
++	LPALCREOPENDEVICESOFT alcReopenDevice = nullptr;
++	std::chrono::steady_clock::time_point nextDeviceCheck;
+ 	ALCcontext* alContext = nullptr;
+ 	ALenum alError = 0;
+ 	ALuint alMusicSource = 0;
 diff --git a/SurrealEngine/Audio/AudioDevice.h b/SurrealEngine/Audio/AudioDevice.h
 index d201523d..1b395a9d 100644
 --- a/SurrealEngine/Audio/AudioDevice.h

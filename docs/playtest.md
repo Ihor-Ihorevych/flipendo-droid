@@ -50,9 +50,9 @@ to test with an exact state.
 | 13 | `Lev2_RemChase` | Remembrall Chase | yes | |
 | 14 | `Lev2_HogFront_3` | Hogwarts Grounds | yes | Logs `H2Crabbe1 fell out of the world` at load, as Lev2_HogFront_2 |
 | 15 | `Lev2_Fire2` | Forest Edge | yes | Started with `--level` or `--url` the screen stays black (entered by a level change it draws; not looked into). Jelly beans fall out of the world. As in the map: the first log bridge's Flipendo trigger (`spellTrigger0`, event `logbridge`) sits on the west face of the standing log (`Mover7`), so a cast from the side hits the log's brush first and explodes; cast from the west, facing the gap. The target still locks on from the side (whether the original does is not checked). `rolllog5` is saved inside solid (its point check is blocked) and falls out of the world at load. A Flipendo at the fire crab can hit the fireball it throws (spells touch each other, `Projectile.Touch`); not compared with the original |
-| 16 | `Lev2_fire1` | Fire Seed Caves | being played | |
-| 17 | `Lev2_Quid1` | Quidditch Match: Gryffindor vs. Slytherin | no | |
-| 18 | `Lev3_Intro` | Hogwarts Main Entrance (also 19 Lumos Lesson) | no | |
+| 16 | `Lev2_fire1` | Fire Seed Caves | yes | Once the chest by the exit (`WoodChest3`) was drawn black from every side, closed, the other chests fine; a new start draws it lit. Likely a mover blocking every light's visibility test (the original tests the level's BSP only); fixed in `KW::SetupMeshLighting`, not checked in play yet. A `baseChar` in `patrol` logs `PlayAnim: Sequence 'Break' not found in Mesh 'skNorbertEggMesh'` twice a second (not looked into) |
+| 17 | `Lev2_Quid1` | Quidditch Match: Gryffindor vs. Slytherin | yes | |
+| 18 | `Lev3_Intro` | Hogwarts Main Entrance (also 19 Lumos Lesson) | being played | |
 | 20 | `Lev3_Lumos` | Lumos Challenge | no | |
 | 21 | `Lev3_PreDungeon` | Second Floor Landing | no | |
 | 22 | `Lev3_Dungeon` | Potions Lesson | no | |
