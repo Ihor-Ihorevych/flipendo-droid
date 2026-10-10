@@ -36,6 +36,7 @@ public class SetupActivity extends Activity {
     private final Handler ui = new Handler(Looper.getMainLooper());
     private TextView status;
     private ProgressBar bar;
+    private android.view.View startScreen; // the splash with the progress: what the problem cards go back to
     private boolean askedPermission;
     private boolean started;
     private boolean gameReady;  // the game data is there: start the game once the splash has been up long enough
@@ -101,6 +102,7 @@ public class SetupActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.topMargin = 48;
         root.addView(bar, lp);
+        startScreen = root;
         setContentView(root);
     }
 
@@ -193,43 +195,150 @@ public class SetupActivity extends Activity {
         return null;
     }
 
-    private LinearLayout buttons;
+    // The problem screens: a card in the settings panel's style (gold accent, dark card, gold main button). The text scrolls, so a
+    // long error never pushes the buttons off a small or landscape screen.
+    static final int GOLD = 0xFFE8C15A, CARD = 0xF2181722, MUTED = 0x99FFFFFF;
 
-    private LinearLayout buttonRow() {
-        if (buttons == null) {
-            buttons = new LinearLayout(this);
-            buttons.setOrientation(LinearLayout.VERTICAL);
-            ((LinearLayout) status.getParent()).addView(buttons);
-        }
-        buttons.removeAllViews();
-        return buttons;
+    private int dp(float v) {
+        return Math.round(v * getResources().getDisplayMetrics().density);
     }
 
-    private android.widget.Button button(String label, android.view.View.OnClickListener onClick) {
-        android.widget.Button b = new android.widget.Button(this);
+    private android.graphics.drawable.GradientDrawable rounded(int color, float radiusDp, int strokeColor) {
+        android.graphics.drawable.GradientDrawable d = new android.graphics.drawable.GradientDrawable();
+        d.setColor(color);
+        d.setCornerRadius(dp(radiusDp));
+        if (strokeColor != 0) {
+            d.setStroke(dp(1), strokeColor);
+        }
+        return d;
+    }
+
+    private TextView pill(String label, boolean primary, android.view.View.OnClickListener onClick) {
+        TextView b = new TextView(this);
         b.setText(label);
+        b.setTextSize(16);
+        b.setGravity(Gravity.CENTER);
+        b.setTextColor(primary ? 0xFF1A1A1A : 0xFFFFFFFF);
+        b.setTypeface(android.graphics.Typeface.DEFAULT, primary ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+        b.setPadding(dp(22), dp(11), dp(22), dp(11));
+        b.setBackground(rounded(primary ? GOLD : 0x1FFFFFFF, 24, primary ? 0 : 0x33FFFFFF));
         b.setOnClickListener(onClick);
         return b;
     }
 
+    /** Puts a card on the screen: title, message (scrolls), the main action in gold and a second one. */
+    private void showCard(String title, String message, String primaryLabel, android.view.View.OnClickListener primary,
+                          String secondaryLabel, android.view.View.OnClickListener secondary) {
+        android.widget.FrameLayout screen = new android.widget.FrameLayout(this);
+        screen.setBackgroundColor(0xFF000000);
+        screen.setPadding(dp(16), dp(16), dp(16), dp(16));
+
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setBackground(rounded(CARD, 20, 0x33FFFFFF));
+        card.setPadding(dp(24), dp(20), dp(24), dp(18));
+
+        // header: a gold accent and the title, the app's name on the right
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        android.view.View accent = new android.view.View(this);
+        accent.setBackground(rounded(GOLD, 2, 0));
+        header.addView(accent, new LinearLayout.LayoutParams(dp(4), dp(24)));
+        TextView titleView = new TextView(this);
+        titleView.setText(title);
+        titleView.setTextColor(0xFFFFFFFF);
+        titleView.setTextSize(22);
+        titleView.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
+        titleView.setPadding(dp(12), 0, dp(12), 0);
+        header.addView(titleView, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        TextView app = new TextView(this);
+        app.setText("Flipendo for Android");
+        app.setTextColor(MUTED);
+        app.setTextSize(13);
+        header.addView(app);
+        card.addView(header);
+
+        android.view.View divider = new android.view.View(this);
+        divider.setBackgroundColor(0x22FFFFFF);
+        LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1));
+        dl.topMargin = dp(14);
+        dl.bottomMargin = dp(12);
+        card.addView(divider, dl);
+
+        // the message: takes what is left of the screen and scrolls
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        TextView body = new TextView(this);
+        body.setText(message);
+        body.setTextColor(0xDDFFFFFF);
+        body.setTextSize(15);
+        body.setLineSpacing(0, 1.15f);
+        body.setTextIsSelectable(true);
+        scroll.addView(body);
+        card.addView(scroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        // footer: the channel on the left, the actions on the right
+        LinearLayout footer = new LinearLayout(this);
+        footer.setOrientation(LinearLayout.HORIZONTAL);
+        footer.setGravity(Gravity.CENTER_VERTICAL);
+        TextView channel = new TextView(this);
+        channel.setText("t.me/flipendodroid");
+        channel.setTextColor(0xFF8CC8FF);
+        channel.setTextSize(14);
+        channel.setPadding(0, dp(8), dp(8), dp(8));
+        channel.setOnClickListener(new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) {
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(CHANNEL_URL)));
+                } catch (RuntimeException ignored) {
+                }
+            }
+        });
+        footer.addView(channel, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        if (secondaryLabel != null) {
+            LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            sp.rightMargin = dp(12);
+            footer.addView(pill(secondaryLabel, false, secondary), sp);
+        }
+        footer.addView(pill(primaryLabel, true, primary));
+        LinearLayout.LayoutParams fl = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        fl.topMargin = dp(16);
+        card.addView(footer, fl);
+
+        // the card is as tall as its text needs, at most the screen; at most 760 dp wide
+        int width = Math.min(getResources().getDisplayMetrics().widthPixels - dp(32), dp(760));
+        android.widget.FrameLayout.LayoutParams cl = new android.widget.FrameLayout.LayoutParams(width,
+                android.widget.FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER);
+        screen.addView(card, cl);
+        setContentView(screen);
+    }
+
+    /** Back from a problem card to the start screen (progress, then the game). */
+    private void backToStart() {
+        setContentView(startScreen);
+        bar.setVisibility(android.view.View.VISIBLE);
+        status.setText("");
+        begin();
+    }
+
+    private final android.view.View.OnClickListener sendLogs = new android.view.View.OnClickListener() {
+        public void onClick(android.view.View v) {
+            LogReport.share(SetupActivity.this);
+        }
+    };
+
     /** There is no game on the phone yet: say where to put it (this is the most common first-run problem). */
     private void showMissingGame() {
-        status.setText("Game data not found.\n\nCopy the game folder from your PC (the one that contains System, Maps, Textures, "
-                + "Sounds and Music) to the phone, into Internal storage / FlipendoHP.\n\n"
-                + "The app looks for " + FlipendoActivity.GAME_DIR + "/System/HP.exe.");
-        bar.setVisibility(android.view.View.GONE);
-        LinearLayout row = buttonRow();
-        row.addView(button("Check again", new android.view.View.OnClickListener() {
-            public void onClick(android.view.View v) {
-                bar.setVisibility(android.view.View.VISIBLE);
-                begin();
-            }
-        }));
-        row.addView(button("Send logs", new android.view.View.OnClickListener() {
-            public void onClick(android.view.View v) {
-                LogReport.share(SetupActivity.this);
-            }
-        }));
+        showCard("Game data not found",
+                "Copy the game folder from your PC (the one that contains System, Maps, Textures, Sounds and Music) to the phone, "
+                        + "into Internal storage / FlipendoHP.\n\nThe app looks for " + FlipendoActivity.GAME_DIR + "/System/HP.exe "
+                        + "(or one folder deeper).\n\nStill not found after copying? Send the logs: they list what the app sees.",
+                "Check again", new android.view.View.OnClickListener() {
+                    public void onClick(android.view.View v) {
+                        backToStart();
+                    }
+                },
+                "Send logs", sendLogs);
     }
 
     /** Set when the game stopped on its own (FlipendoActivity.onGameStopped) or the last run of the app crashed. */
@@ -257,22 +366,25 @@ public class SetupActivity extends Activity {
         return null;
     }
 
+    /** The game crashed or stopped: say so, and offer to send the logs right away (the share sheet opens by itself, once). */
     private void showProblem(String text) {
-        status.setText(text + "\n\nPlease send the report to the developer.");
-        bar.setVisibility(android.view.View.GONE);
-        LinearLayout row = buttonRow();
-        row.addView(button("Send logs", new android.view.View.OnClickListener() {
-            public void onClick(android.view.View v) {
-                LogReport.share(SetupActivity.this);
+        showCard("Something went wrong",
+                text + "\n\nPlease send the logs: they help fix it. Pick an app to send them with (Telegram, mail, ...), "
+                        + "or share them in t.me/flipendodroid. A copy is also saved in Download.",
+                "Send logs", sendLogs,
+                "Play anyway", new android.view.View.OnClickListener() {
+                    public void onClick(android.view.View v) {
+                        getSharedPreferences("setup", MODE_PRIVATE).edit().putLong("ack", System.currentTimeMillis()).apply();
+                        backToStart();
+                    }
+                });
+        ui.postDelayed(new Runnable() {
+            public void run() {
+                if (!isFinishing()) {
+                    LogReport.share(SetupActivity.this);
+                }
             }
-        }));
-        row.addView(button("Play anyway", new android.view.View.OnClickListener() {
-            public void onClick(android.view.View v) {
-                getSharedPreferences("setup", MODE_PRIVATE).edit().putLong("ack", System.currentTimeMillis()).apply();
-                bar.setVisibility(android.view.View.VISIBLE);
-                begin();
-            }
-        }));
+        }, 700);
     }
 
     private void say(final String text, final int done, final int total) {
