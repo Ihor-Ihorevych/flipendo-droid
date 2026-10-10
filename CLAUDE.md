@@ -7,42 +7,21 @@ layout, build and run commands, and the next section before writing any engine c
 
 ## HP1, HP2 and src/knowwonder/: one engine, no duplication
 
-Every change must keep the three apart and must not create a second copy of any behaviour. This applies to every
-change, also HP1-only work: code written for HP1 today is the code HP2 runs tomorrow.
+Every change keeps the three apart and never creates a second copy of a behaviour, HP1-only work included: code
+written for HP1 today is the code HP2 runs tomorrow. The rules with examples: `docs/one-engine.md`. In short:
 
-- **Where code goes:**
-  - `src/knowwonder/` (namespace `KW`): KnowWonder's engine, **everything both games do**. The default home for any port.
-  - `src/hp1/` (namespace `HP1`): only what HP1 has and HP2 doesn't (HP1's menu canvas, HP1's extras in `src/hp1/mods/`).
-  - `src/hp2/` (namespace `HP2`): only what HP2 has and HP1 doesn't (HP2-only natives, HP2's bytecode token table,
-    OpenAL/Ogg music, HP2's menus). Details and examples: `docs/one-engine.md`.
-  - Before putting anything in `src/hp1/` or `src/hp2/`, check the other game: `docs/re/reports/hp2_compare.md` (per exported
-    function: identical / offsets only / changed / missing / HP2 only) and the other game's scripts in
-    `reference/<game>/ScriptSource/`. If the other game has the same thing, it goes in `src/knowwonder/`.
-- **Same behaviour, one implementation.** A function identical in both DLLs, or differing only in struct offsets,
-  is written once in `src/knowwonder/`. Never read fields at fixed offsets: script properties are looked up by name
-  (`src/knowwonder/KWActor.h`), which handles both games' layouts.
-- **A real difference is a branch at the exact line that differs**, with `KW::IsHP1()` / `KW::IsHP2()`
-  (`src/knowwonder/KWGame.h`), inside the one shared function. Never copy a function into `src/hp1/` or `src/hp2/` to change part of
-  it. If the difference is large (a whole different algorithm), split out only that part as a helper and keep the
-  shared remainder in `src/knowwonder/`.
-- **A changed script signature gets a thin adapter, not a second body.** The shared body lives in `src/knowwonder/` as a plain
-  function taking the union of both games' parameters; each game's native only unpacks its own arguments and calls
-  it (example: `KW::StopSound`, HP1's `NStopSound` in `src/knowwonder/KWSound.cpp`, HP2's in `src/hp2/HP2Natives.cpp`).
-- **Native registration order:** `KW::RegisterNatives()` registers with HP1's signatures (shared by both games for
-  almost every native), then calls `HP2::RegisterNatives()` when HP2 runs, which adds HP2-only natives and
-  overrides only the changed ones. HP1-only natives that HP2 lacks are registered from `src/hp1/` (or gated `IsHP1()`).
-- **Read the other game's code before calling something a difference.** Most "changed" functions in
-  `hp2_compare.md` differ only by HP2's DebugInfo check after native parameters (`docs/re/engine/scripting.md`), which
-  is handled once in the bytecode reader, not per native.
-- **Game checks:** inside `src/knowwonder/` use `KW::IsHP1()` / `KW::IsHP2()`; engine hooks into `src/knowwonder/` are gated by
-  `IsKnowWonder()` (both KnowWonder games once HP2 is enabled), hooks into `src/hp1/` by `IsHarryPotter1()`, into `src/hp2/`
-  by `IsHarryPotter2()`. Don't spread new game checks through `src/engine/`.
-- **Keep the tools in sync:** after adding or moving a port, rerun `python tools/hp2_compare.py`,
-  `python tools/native_audit.py hp1` and `python tools/native_audit.py hp2` (and `tools/dll_report.py`); they scan
-  `src/knowwonder/`, `src/hp1/` and `src/hp2/`. A duplicate shows up there as the same decorated name tagged in two folders: fix it.
-- **Never mix the two games' binaries or databases.** HP1's DLLs come from `../eagames/hp1/System`, HP2's from
-  `../eagames/hp2/System` (`Game.exe`); their IDA databases live in separate folders (`../ida/README.md`), and
-  fingerprints are prefixed `hp1_` / `hp2_`. Always check which database is open before reading an address.
+- `src/knowwonder/` (`KW`) is the default home: everything both games do. `src/hp1/` / `src/hp2/` only for what the
+  other game lacks; check first (`docs/re/reports/hp2_compare.md`, the other game's `reference/<game>/ScriptSource/`).
+- One implementation per behaviour. Never read fields at fixed offsets (script properties by name, `KWActor.h`).
+- A real difference is a `KW::IsHP1()` / `KW::IsHP2()` branch at the line that differs, never a copied function; a
+  changed script signature gets a thin adapter calling the shared body.
+- Most "changed" functions in `hp2_compare.md` differ only by HP2's DebugInfo check: read the code before branching.
+- Game checks: `KW::IsHP1/IsHP2()` inside `src/knowwonder/`; engine hooks gated by `IsKnowWonder()` (into
+  `src/knowwonder/`), `IsHarryPotter1()` / `IsHarryPotter2()` (into `src/hp1/` / `src/hp2/`). None spread through `src/engine/`.
+- After adding or moving a port, rerun `python tools/hp2_compare.py`, `python tools/native_audit.py hp1` / `hp2` and
+  `python tools/dll_report.py`; a decorated name tagged in two folders is a duplicate to fix.
+- Never mix the games' binaries or IDA databases (`../eagames/hp1|hp2/System`, `../ida/hp1|hp2/`, fingerprints
+  `hp1_` / `hp2_`); check which database is open before reading an address.
 
 ## Rules
 
@@ -137,6 +116,9 @@ Each file has one job; keep them apart:
   and free of developer detail; link to `CONTRIBUTING.md` and `docs/`.
 - `CONTRIBUTING.md`: for contributors (ways to help, building, developer flags, ground rules, the AI/SurrealEngine note).
 - `ROADMAP.md`: the phase checklist of open work and what's next. Remove an item when it lands (no done items). No how-it-works detail.
+  Per-level status and bugs are not repeated there, nor the reversing order (`docs/surrealengine-coverage.md`).
+- `docs/playtest.md`: the only place for per-level status; notes hold only what is still open in a level and the
+  original's own quirks. A fixed bug leaves it (how the fix works goes in `docs/re/`).
 - `docs/`: all other documentation, how things work (index: `docs/README.md`). Player-facing error messages in
   `docs/troubleshooting.md`; modding in `docs/modding.md`, debug env vars in `docs/debug-tools.md`; workflow in
   `docs/development.md`, the src/knowwonder/hp1/hp2 split in `docs/one-engine.md`, every SurrealEngine hook in
@@ -167,20 +149,8 @@ Each file has one job; keep them apart:
 
 ## Workflow for porting a native
 
-1. `python tools/native_audit.py` → `docs/re/reports/native_audit_hp1.md` lists MISSING / STUB / INDEX natives (`hp2` as argument: the same for HP2).
-2. Read the UnrealScript declaration and callers in `reference/hp1/ScriptSource/<Pkg>/Classes/` (our disc,
-   `tools/extract_scripts.sh`) to get the signature; native-only field layouts come from IDA (step 3).
-3. Reverse the real implementation in IDA from `../ida/hp1/Engine.dll` (a copy of `../eagames/hp1/System/Engine.dll`)
-   (find it by its exported/decorated name, e.g. `?execPlayAnim@AActor@@QAEXAAUFFrame@@QAX@Z`).
-4. Check HP2 first (`docs/re/reports/hp2_compare.md`, `reference/hp2/ScriptSource/`), then implement in `src/knowwonder/` when both games
-   have it (the usual case), `src/hp1/` or `src/hp2/` only when the other game doesn't (see "HP1, HP2 and src/knowwonder/"):
-   - registration: in a `Register*Natives()` called from `KW::RegisterNatives()` (`src/knowwonder/KWNatives.cpp`), using
-     `OverrideNative(index, [] { RegisterVMNativeFunc_<argc>("Class", "Name", &Fn, index); })`
-     (SurrealEngine may already have a stub at that index);
-   - HP-only Actor properties: accessors in `src/knowwonder/KWActor.h` (offsets looked up by name);
-   - only if there's no other way, a gated hook in an engine file, added to `docs/engine-hooks.md`;
-   - the `// IDA <dll>: <decorated name> [HP1 0x...]` tag above every reimplemented function (see Rules).
-5. Rebuild, `tools/run_hp1.sh 60`, check the `Unimplemented:` summary, rerun the audit (and `tools/dll_report.py`).
+The steps (audit, scripts, IDA, HP2 check, registration, tag, rerun the audits): `docs/development.md`
+("Porting a native"). Start from `docs/re/reports/native_audit_hp1.md` or an `Unimplemented:` line in the log.
 
 ## Where things are in SurrealEngine
 
@@ -199,8 +169,8 @@ Each file has one job; keep them apart:
   re-apply `src/surreal-patches/`. `tools/apply_patches.sh [--reset]`, `tools/refresh_patches.sh` for the patch set.
 - `tools/build.sh [Release|Debug|RelWithDebInfo] [target]` — VS 18 (2026) generator, x64, output in
   `build/<Config>/`. A full build takes a few minutes; `--target SurrealEngine` for the game only.
-- Rebuilding fails if `SurrealEngine.exe` is running (file lock). The user is fine with Claude killing it
-  (`taskkill //IM SurrealEngine.exe //F`) to rebuild or relaunch.
+- Rebuilding fails if `SurrealEngine.exe` is running (file lock). Killing it (`taskkill //IM SurrealEngine.exe //F`)
+  is fine for Claude's own runs, never for a game the user is playing (below).
 - `tools/run_hp1.sh [secs] [args]` — `--autolaunch --logfile=build/hp1_run.log` against `../eagames/hp1-work`.
   `--level=<map>` starts a level with the story flow and the state a player carries in (playtesting; `--url` only
   loads the map), `--skip-splash` goes straight to the main menu, `--skip-intro` skips the New Game storybook,
@@ -209,17 +179,6 @@ Each file has one job; keep them apart:
 - **Starting the game for the user to playtest by hand:** always `HP1_FULLSCREEN=1`, never the small window. Never
   kill or restart a game the user is playing; test in a second instance (`HP1_BACKGROUND=1`, its own `HP1_LOG`,
   `--slot=5` so their save slot is left alone), and rebuild only once they have quit (the exe is locked).
-- Debug env vars (`src/knowwonder/KWDebug.cpp`, times in seconds since the first frame): `HP1_SHOTS="5,8.5"` +
-  `HP1_SHOT_DIR` for in-engine screenshots (never capture the desktop), `HP1_KEYS="62:Up:3,66:Left:0.6"`
-  to press keys (the Lev_Tut1 intro hands control to the player at ~58 s), `HP1_MOUSE="63:0:-30:4"` to move the
-  mouse by dx,dy raw counts every frame for a duration (dy<0 = mouse up = camera looks up), `HP1_TRACE="harry0,gen_"` to
-  log actors by name prefix every 0.5 s (state, zone, location, velocity, rotation, anim, tween, pawn speed/input),
-  `HP1_CAMERA="x,y,z,pitch,yaw"` to look at something from a fixed camera (e.g. a particle effect).
-  `HP1_DUMP="5,80"` logs every actor (class, name, state, location, Tag, Event) at those times (find triggers,
-  doors, cutscenes); `HP1_GOTO="79:x,y;x,y,J;x,y,w3|126:..."` steers the player through waypoints (`J` = jump on
-  arrival, within 8 units so it goes off at a ledge edge; `w3` = stop and wait 3 s; `|` starts another run at a later
-  time) and logs `goto reached` / `goto stuck`. `HP1_HEIGHTMAP="12:x0,y0,x1,y1,step,ztop"` logs floor heights (player cylinder
-  traced down from ztop) over a grid: the way to plan jumps and climbs. `HP1_EXEC="66:@console SaveSelectedSlot;70:open save99.usa"`
-  runs console commands, or (`@console[.Prop] Fn [arg]`) script functions on the console / an object it references
-  (`@console.MenuBook OpenBook Slot` opens the save slot page); `@set <actor> <prop> <value>` / `@get <actor> <prop>` set or log properties on live actors. `HP1_SKIPCUTS=1` presses Space in cutscenes. `HP1_BACKGROUND=1` keeps the game window in the background (no focus); use it for every automated run.
-  Lev_Tut1 up to Fred & George's room: `HP1_KEYS="62:Up:5" HP1_GOTO="79:-400,-2000;-104,-2016;-20,-2016;140,-2016;232,-2095;225,-2887"`.
+- Debug env vars and `HP1_EXEC` commands (screenshots, keys, mouse, waypoints, traces, dumps, fixed camera, `@set` /
+  `@get` / `@teleport` / `@trigger` / `@travel` ...): `docs/debug-tools.md`, code in `src/knowwonder/KWDebug.cpp`.
+  Every automated run uses `HP1_BACKGROUND=1`; screenshots only with `HP1_SHOTS` (never capture the desktop).

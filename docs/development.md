@@ -79,9 +79,15 @@ python tools/dll_report.py              # -> docs/re/reports/dlls.md
    A script state that never gets entered is usually an event the engine doesn't raise: check
    [script_events.md](re/engine/script_events.md) first.
 4. Check HP2 ([hp2_compare.md](re/reports/hp2_compare.md)), then implement it in `src/knowwonder/` (or `src/hp1/` / `src/hp2/` when the
-   other game lacks it, [one-engine.md](one-engine.md)): register it from `KW::RegisterNatives()` (`src/knowwonder/KWNatives.cpp`)
-   with `OverrideNative(index, ...)`, and add the IDA tag.
-5. Rebuild, run `tools/run_hp1.sh 60`, check the `Unimplemented:` summary, rerun the audit, and note what you
+   other game lacks it, [one-engine.md](one-engine.md)):
+   - register it in a `Register*Natives()` called from `KW::RegisterNatives()` (`src/knowwonder/KWNatives.cpp`) with
+     `OverrideNative(index, [] { RegisterVMNativeFunc_<argc>("Class", "Name", &Fn, index); })` (SurrealEngine may
+     already have a stub at that index);
+   - HP-only Actor properties: accessors in `src/knowwonder/KWActor.h` (offsets looked up by name);
+   - only if there's no other way, a gated hook in an engine file, listed in [engine-hooks.md](engine-hooks.md);
+   - the [IDA tag](#ida-tags) above every reimplemented function.
+5. Rebuild, run `tools/run_hp1.sh 60`, check the `Unimplemented:` summary, rerun the audits
+   (`python tools/native_audit.py hp1`, `hp2`, `tools/hp2_compare.py`, `tools/dll_report.py`), and note what you
    learned in `docs/re/`.
 
 ## Debug tools
