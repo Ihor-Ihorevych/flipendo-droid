@@ -1,7 +1,7 @@
 flipendo: KnowWonder actor tick, native actors (ParticleFX, Wind), animation
 
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor.cpp b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
-index 29c45a1c..973f7ffa 100644
+index 29c45a1c..462b1fed 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
 @@ -9,6 +9,7 @@
@@ -12,23 +12,29 @@ index 29c45a1c..973f7ffa 100644
  #include "Packages/Engine/Subsystems/USurrealAudioDevice.h"
  #include "Utils/Logger.h"
  #include "Engine.h"
-@@ -122,6 +123,15 @@ bool UActor::Destroy()
+@@ -120,8 +121,21 @@ bool UActor::Destroy()
+ 	if (bDeleteMe())
+ 		return true;
  
++	// HP1's ULevel::DestroyActor calls EndState first when the actor is in a state, before the actor is marked deleted
++	// (CallEvent skips a deleted actor). Harry's Target draws the spell symbol on a creature
++	// (baseChar.bGestureOnTargeting false: imps, Peeves, gnomes) from its EndState when the cast destroys it.
++	if (engine->LaunchInfo.IsKnowWonder() && StateFrame && StateFrame->Func && IsEventEnabled(EventName::EndState))
++	{
++		CallEvent(this, EventName::EndState);
++		if (bDeleteMe()) // EndState destroyed it
++			return true;
++	}
++
  	bDeleteMe() = true;
  
-+	// HP1's ULevel::DestroyActor calls EndState first when the actor is in a state. Harry's Target draws the spell
-+	// symbol on a creature (baseChar.bGestureOnTargeting false: imps, Peeves, gnomes) from its EndState when the cast
-+	// destroys it.
-+	if (engine->LaunchInfo.IsKnowWonder() && StateFrame && StateFrame->Func && IsEventEnabled(EventName::EndState))
-+		CallEvent(this, EventName::EndState);
-+
 +	if (engine->LaunchInfo.IsKnowWonder()) // free the ParticleFX particle list
 +		KW::ParticleFXDestroyed(this);
 +
  	//GotoState({}, {}); // What should happen to function calls after Destroy() has been called? Razor2 calls SetRoll afterwards!
  	SetBase(nullptr, true);
  
-@@ -168,6 +178,13 @@ bool UActor::Destroy()
+@@ -168,6 +182,13 @@ bool UActor::Destroy()
  
  void UActor::Tick(float elapsed)
  {
@@ -42,7 +48,7 @@ index 29c45a1c..973f7ffa 100644
  	if (engine->LaunchInfo.IsDeusEx())
  	{
  		DistanceFromPlayer() = length(engine->viewport->Actor()->Location() - Location());
-@@ -182,12 +199,16 @@ void UActor::Tick(float elapsed)
+@@ -182,12 +203,16 @@ void UActor::Tick(float elapsed)
  		CallEvent(this, EventName::Tick, { ExpressionValue::FloatValue(elapsed) });
  	}
  
@@ -61,7 +67,7 @@ index 29c45a1c..973f7ffa 100644
  				StateFrame->LatentState = LatentRunState::Continue;
  		}
  		else if (StateFrame->LatentState == LatentRunState::FinishInterpolation)
-@@ -202,7 +223,9 @@ void UActor::Tick(float elapsed)
+@@ -202,7 +227,9 @@ void UActor::Tick(float elapsed)
  		}
  	}
  
@@ -72,7 +78,7 @@ index 29c45a1c..973f7ffa 100644
  
  	if (TimerRate() > 0.0f) // Role() == ROLE_Authority && RemoteRole() == ROLE_AutonomousProxy
  	{
-@@ -215,6 +238,12 @@ void UActor::Tick(float elapsed)
+@@ -215,6 +242,12 @@ void UActor::Tick(float elapsed)
  			CallEvent(this, EventName::Timer);
  		}
  	}
@@ -85,7 +91,7 @@ index 29c45a1c..973f7ffa 100644
  }
  
  bool UActor::Move(const vec3& delta)
-@@ -395,3 +424,13 @@ float UActor::AIVisibility(std::optional<bool> bIncludeVelocity)
+@@ -395,3 +428,13 @@ float UActor::AIVisibility(std::optional<bool> bIncludeVelocity)
  	//LogMessage(Name.ToString() + ": AIVisibility");
  	return 0.0f;
  }

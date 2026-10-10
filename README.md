@@ -112,11 +112,10 @@ All taken in Flipendo at 1920x1080 from the original game files.
 | | |
 |---|---|
 | ✅ Works | Menus and options (incl. key rebinding), widescreen at any resolution, music, cutscenes, characters and their animations, doors, NPCs, Peeves, jelly beans, wizard cards, saving and loading |
-| 🟡 Partly | The first four levels play through to the end: the castle entrance and the Flipendo lesson, the Flipendo challenge, the flying lesson, and the Wingardium Leviosa lesson and challenge. Spell casting and particle effects mostly work. The Quidditch matches load and play their intros |
-| ❌ Not yet | The rest of the game (26 more story levels, the Quidditch League), Linux / macOS builds, prebuilt downloads |
+| 🟡 Partly | The story levels, played through in order: how far that has got is in [docs/playtest.md](docs/playtest.md). Spell casting and particle effects mostly work |
+| ❌ Not yet | The whole game start to finish, the Quidditch League, Linux / macOS builds, prebuilt downloads |
 
-Every level in story order and how far it has been played: [docs/playtest.md](docs/playtest.md). Playtesters are
-welcome; a level that hasn't been played yet is the most useful bug report.
+Playtesters are welcome; a level that hasn't been played yet is the most useful bug report.
 
 Harry Potter and the Chamber of Secrets (2002) runs on the same engine and is next once the first game is finished.
 
@@ -170,11 +169,9 @@ switched on, and `--vanilla` switches all of them off.
 | Map fixes | on | fixes broken paths in the original maps (Peeves now flies off after the Lev_Tut3b duel instead of drifting through the walls) |
 | Launch skips | off | `--skip-splash`, `--skip-intro` |
 
-**Coming:** an in-game *Extras* page to switch these on and off, FOV slider, smooth high frame rates (the game logic
-kept at 60), controller support, speedrun practice tools ([docs/speedrunning.md](docs/speedrunning.md)), and drop-in
-`Mods/` folders for texture packs, custom levels and script mods, including the levels the HP1 modding community has
-already made. In-game modding tools (actor inspector, property editor, mod manager) are planned too. See
-[docs/modding.md](docs/modding.md) to write a mod today or help shape the platform.
+More is coming (an in-game page to switch these, drop-in `Mods/` folders for texture packs and custom levels, modding
+tools): see the [roadmap](ROADMAP.md#6-modding-srchp1mods-and-beyond), and [docs/modding.md](docs/modding.md) to
+write a mod today.
 
 ## Community
 

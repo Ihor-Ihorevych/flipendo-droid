@@ -1,17 +1,18 @@
 # Roadmap
 
 What's left to do on the HP1 port, and what's next. Only open work is listed: remove an item when it lands (what
-was done is in the git history, how it works in `docs/`, [docs/README.md](docs/README.md)). Per-level play status is
-[docs/playtest.md](docs/playtest.md), whose code is still SurrealEngine's [docs/surrealengine-coverage.md](docs/surrealengine-coverage.md),
-the native-level checklist [docs/re/reports/native_audit_hp1.md](docs/re/reports/native_audit_hp1.md) (`python tools/native_audit.py`).
+was done is in the git history, how it works in `docs/`, [docs/README.md](docs/README.md)). Not repeated here:
+per-level status and bugs ([docs/playtest.md](docs/playtest.md)), which code is still SurrealEngine's and what to
+reverse next ([docs/surrealengine-coverage.md](docs/surrealengine-coverage.md)), the native-level checklist
+([docs/re/reports/native_audit_hp1.md](docs/re/reports/native_audit_hp1.md), `python tools/native_audit.py`).
 
 Legend: [~] partly done / in progress · [ ] not started
 
 ## Next up (in order)
-1. **Play the game through in story order** and fix what breaks ([docs/playtest.md](docs/playtest.md)). Next:
-   Lev2_HogFront_2.
-2. **SurrealEngine's guesses, reversed in order** (phase 5 below): next Galaxy's pan law and ambient Doppler, then
-   vertex mesh lighting.
+1. **Play the game through in story order** and fix what breaks: the next level and every level's open issues are in
+   [docs/playtest.md](docs/playtest.md).
+2. **SurrealEngine's guesses, reversed in order**: the list is in
+   [docs/surrealengine-coverage.md](docs/surrealengine-coverage.md#what-to-reverse-next-in-order).
 3. **Dark levels**: compare Lev5_FlyKeys' lighting with the original (`tools/orig_shots.ps1`).
 4. **First prebuilt release** (see "Releases"): players can't try Flipendo without building it.
 
@@ -23,10 +24,7 @@ particle effects.
 - [~] Channel blending in the pose (AuxAnims per bone subtree) — implemented, not yet verified in game
 - [ ] Verify animations visually against the original (walk/run/breathe, tween blends)
 
-## 2. Playable tutorial (Lev_Tut1)
-- [ ] Some cutscene kids reportedly look like they walk while running (all play `run` at rate 1.5 with
-      finished tweens; needs a closer look at which ones)
-- [ ] Kids spawned on the same patrol point can overlap (UE1 Spawn fails when the spot is occupied?)
+## 2. Engine gaps found in the first levels
 - [ ] Windowed mode: menu mouse mapping (`WindowsMouseX/Y` into the 4:3 area) not yet tested in game
 - [ ] TraceTexture: decals not traced yet
 - [ ] `APawn::physicsRotation`: flying/swimming roll banking not ported yet
@@ -45,17 +43,8 @@ particle effects.
 - [ ] Save/LoadObjectAsFile, CreateTextureFromScreenShot, `Snap 3`: no script uses them (low priority)
 
 ## 5. Remaining native classes and polish
-- [~] SurrealEngine's guesses replaced with HP1's code, in this order
-      ([docs/surrealengine-coverage.md](docs/surrealengine-coverage.md); move each row there from "Guess" to "HP1"):
-  - [~] Sound: Galaxy's pan law and ambient Doppler ([docs/re/engine/sound.md](docs/re/engine/sound.md))
-  - [ ] Vertex mesh lighting (props, non-skeletal meshes)
-  - [ ] Sprites and decals (spell sprites, actor shadows)
-  - [ ] `Spawn` and `Destroy` (placement when blocked, event order)
-  - [~] BSP drawing rules: masked/translucent/modulated, two-sided, panning, sky zone, mirrors, fog
-  - [ ] Canvas text and tiles (HUD, menus, storybook)
-  - [ ] Level load and travel (`LoadMap`, `ClientTravel`, event order)
-  - [ ] The remaining light effects (~60 lights), the Waver flicker, the factor 2 behind the lights' 0.5
-  - [ ] The rest of the coverage list's "Guess" rows, as they come up
+- [~] SurrealEngine's guesses replaced with HP1's code, in the order of
+      [docs/surrealengine-coverage.md](docs/surrealengine-coverage.md#what-to-reverse-next-in-order)
 - [ ] Bugs of the original to fix, not reproduce: [docs/re/hp1/original_bugs.md](docs/re/hp1/original_bugs.md)
 - [ ] Console.CreateNativeFont for the Asian languages (WinDrv.dll's GDI font rasterizer)
 - [ ] `Actor.Fatness`: not ported; only matters if a map or script changes it from 128
@@ -148,30 +137,6 @@ Ground rules:
 6. Sharing
    - [ ] "Package mod": writes `Mods/<name>/` with a manifest (version, dependencies, game)
    - [ ] In-game mod browser: enable / disable, load order; later a community mod index
-
-## Speedrun practice and research tools
-What runners already have for the original and why these add to it: [docs/speedrunning.md](docs/speedrunning.md).
-All of it is mods (`src/hp1/mods/`, off with `--vanilla`) that never change the game's rules; worth showing to the HP1 PC
-community once the levels they run play like the original.
-
-1. Practice
-   - [ ] Save state anywhere and restore it with one key (exact actor state, not only at save points)
-   - [ ] Warp: store and return to a position (and the camera with it, as `@teleport` now does)
-   - [ ] Trick reset loop: one key back to the start of a trick, attempt counter
-   - [ ] Input recording and replay (from `HP1_KEYS` / `HP1_MOUSE`); first check that replays are deterministic
-   - [ ] Jump planning view from `HP1_HEIGHTMAP` (floor heights around Harry)
-2. Show what is hidden
-   - [ ] Trigger and cutscene volumes drawn in the world, with their Tag and Event
-   - [ ] Tag → Event links drawn as lines (shared with §7 "Trigger graph")
-   - [ ] Collision shapes (cylinder, CT_Box, movers) and grabbable ledges (PF_SpecialPoly)
-   - [ ] Auto-jump landing prediction drawn
-   - [ ] Live actor inspector (state, velocity, physics; the §6 ImGui overlay)
-3. Timer in the engine
-   - [ ] In-game timer with load time removed exactly (the engine knows when it loads)
-   - [ ] Splits from engine events: level change, cutscene start/end, lesson passed, save point (the community's
-         autosplitter only splits on map entry)
-   - [ ] LiveSplit Server link, so runners keep their splits
-   - [~] 60 FPS cap with a visible FPS counter, like the community's required mod (the cap is in, §6; no counter yet)
 
 ## Releases
 - [ ] Prebuilt Windows download on the release page (zip with `SurrealEngine.exe` and its DLLs; no game data), with a

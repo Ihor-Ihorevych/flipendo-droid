@@ -11,7 +11,7 @@ Details: [native_audit_hp1.md](native_audit_hp1.md), [native_audit_hp2.md](nativ
 | DLL | HP1 | HP2 | exports HP1 / HP2 | ported functions | provided by |
 |---|---|---|---|---|---|
 | [Core](#core) | 840 KB | 904 KB | 2046 / 2070 | 6 | SurrealEngine |
-| [Engine](#engine) | 2072 KB | 2092 KB | 2722 / 2784 | 203 | SurrealEngine + **src/knowwonder/** |
+| [Engine](#engine) | 2072 KB | 2092 KB | 2722 / 2784 | 207 | SurrealEngine + **src/knowwonder/** |
 | [Fire](#fire) | 104 KB | 104 KB | 133 / 133 | 7 | SurrealEngine + src/knowwonder/ (IceTexture) |
 | [Render](#render) | 288 KB | 296 KB | 93 / 94 | 8 | SurrealEngine + src/knowwonder/ (particles) |
 | [D3DDrv](#d3ddrv) | 216 KB | 216 KB | 392 / 392 | 0 | replaced (SurrealEngine render devices) |
@@ -65,7 +65,7 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 
 **HP2 script natives** (Engine.u): 102 OK, 25 HP1_PORT, 24 STUB, 3 MISSING, 1 INDEX, 4 OTHER_GAME.
 
-**Reimplemented in Flipendo** (203):
+**Reimplemented in Flipendo** (207):
 
 | function | where | HP2 |
 |---|---|---|
@@ -166,7 +166,7 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 | `AParticleFX::execRecomputeDeltas` | `src/knowwonder/KWParticleFX.cpp:998` | changed |
 | `AParticleFX::execSetParticleParams` | `src/knowwonder/KWParticleFX.cpp:973` | changed |
 | `APawn::LineOfSightTo` | `src/knowwonder/KWMoveNatives.cpp:166` | ? |
-| `APawn::Mount` | `src/knowwonder/KWPawn.cpp:420` | changed |
+| `APawn::Mount` | `src/knowwonder/KWPawn.cpp:433` | changed |
 | `APawn::Mount` | `src/knowwonder/KWPhysics.cpp:477` | changed |
 | `APawn::Swim` | `src/knowwonder/KWPhysics.cpp:1522` | offsets only |
 | `APawn::calcVelocity` | `src/knowwonder/KWPhysics.cpp:744` | changed |
@@ -175,15 +175,19 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 | `APawn::execFindPath` | `src/knowwonder/KWNavigation.cpp:94` | changed |
 | `APawn::execFindStairRotation` | `src/knowwonder/KWPlayerNatives.cpp:30` | changed |
 | `APawn::execLineOfSightTo` | `src/knowwonder/KWMoveNatives.cpp:304` | changed |
+| `APawn::execMoveTo` | `src/knowwonder/KWPawn.cpp:305` | changed |
+| `APawn::execMoveToward` | `src/knowwonder/KWPawn.cpp:306` | changed |
 | `APawn::execPollMoveTo` | `src/knowwonder/KWPawn.cpp:133` | offsets only |
 | `APawn::execPollMoveToward` | `src/knowwonder/KWPawn.cpp:218` | offsets only |
 | `APawn::execPollStrafeFacing` | `src/knowwonder/KWPawn.cpp:285` | offsets only |
 | `APawn::execPollTurnTo` | `src/knowwonder/KWPawn.cpp:274` | offsets only |
 | `APawn::execPollTurnToward` | `src/knowwonder/KWPawn.cpp:276` | offsets only |
-| `APawn::execPollWaitForLanding` | `src/knowwonder/KWPawn.cpp:304` | offsets only |
+| `APawn::execPollWaitForLanding` | `src/knowwonder/KWPawn.cpp:317` | offsets only |
+| `APawn::execStrafeFacing` | `src/knowwonder/KWPawn.cpp:308` | changed |
+| `APawn::execStrafeTo` | `src/knowwonder/KWPawn.cpp:307` | changed |
 | `APawn::execTurnTo` | `src/knowwonder/KWPawn.cpp:273` | changed |
 | `APawn::execTurnToward` | `src/knowwonder/KWPawn.cpp:275` | changed |
-| `APawn::execWaitForLanding` | `src/knowwonder/KWPawn.cpp:305` | changed |
+| `APawn::execWaitForLanding` | `src/knowwonder/KWPawn.cpp:318` | changed |
 | `APawn::findPath` | `src/knowwonder/KWNavigation.cpp:23` | offsets only |
 | `APawn::findWaterLine` | `src/knowwonder/KWPhysics.cpp:1502` | ? |
 | `APawn::moveToward` | `src/knowwonder/KWPawn.cpp:132` | changed |
@@ -197,7 +201,7 @@ The game engine proper: actors, levels, physics (walking, falling, flying, mover
 | `APawn::physWalking` | `src/knowwonder/KWPawn.cpp:32` | changed |
 | `APawn::physWalking` | `src/knowwonder/KWPawn.cpp:44` | changed |
 | `APawn::physWalking` | `src/knowwonder/KWPawn.cpp:62` | changed |
-| `APawn::physWalking` | `src/knowwonder/KWPawn.cpp:547` | changed |
+| `APawn::physWalking` | `src/knowwonder/KWPawn.cpp:560` | changed |
 | `APawn::physWalking` | `src/knowwonder/KWPhysics.cpp:916` | changed |
 | `APawn::physicsRotation` | `src/knowwonder/KWPawn.cpp:101` | changed |
 | `APawn::physicsRotation` | `src/knowwonder/KWPhysics.cpp:198` | changed |

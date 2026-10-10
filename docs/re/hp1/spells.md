@@ -22,7 +22,7 @@ HP2 rewrote this layer: its spells are cast through a `SpellCursor` (a ParticleF
    It also draws the spell symbol on the target (`DrawSpellFX`: the spell's `GestureParticleEffectClass` spawned by the
    victim, with `Pattern` = the spell's gesture). A `baseChar` with `bGestureOnTargeting` false (doxies, gnomes, Peeves,
    the potion bottle) gets no symbol while aimed at: `Target.seeking.EndState` draws it when the cast destroys the
-   `Target` (`ParticlesMax` 200), which relies on the engine calling `EndState` from `ULevel::DestroyActor`
+   `Target` (`ParticlesMax` 200), which relies on the engine calling `EndState` from `ULevel::DestroyActor` before the actor is marked deleted (SurrealEngine's `CallEvent` skips a deleted actor)
    ([script_events.md](../engine/script_events.md)).
 3. Releasing the button casts: `baseWand.CastSpell(target)` spends mana, fires the `curSpell` projectile
    (`ProjectileFire`) with `target` set, and plays the incantation. Without a learned spell `curSpell` is `spellnone`
@@ -34,6 +34,11 @@ HP2 rewrote this layer: its spells are cast through a `SpellCursor` (a ParticleF
 `rectarget.victim` when locked.
 
 ## Not checked yet
+
+Symbol on creatures against the original (2026-10-10, by hand): on a gnome the original shows it briefly at the cast, like
+ours; on a doxie the original seemed to show none. The script treats the two alike (both `bGestureOnTargeting` false,
+vulnerable to Flipendo), so the doxie should flash it too, at the spot saved when the lock began (`TargetHitLocation`),
+which a flying doxie may have left. Not sure this is replicated: ours on a doxie not compared side by side yet.
 
 The lock-on path with a real victim (`eVulnerableToSpell` choosing the spell) and the spell hit reactions need the first
 spell lesson (Lev_Tut1's Flipendo challenge, `CUTFLIPBEGIN`), which the autopilot doesn't reach yet. Tested: a cast in

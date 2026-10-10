@@ -27,26 +27,23 @@ How code is split between `src/knowwonder/`, `src/hp1/` and `src/hp2/` so that e
 now; HP1-only hooks (mods, menu canvas) call `src/hp1/HP1.h` gated by `IsHarryPotter1()`. HP2 joins `IsKnowWonder()`
 once its differences are handled ([re/reports/hp2_compare.md](re/reports/hp2_compare.md)).
 
-## Ground rules
+## IDA tags
 
-- **Never use Epic's UE1 source or headers** as a reference, including header sets built from them. Layouts and
-  behaviour come from the games' own binaries and scripts, SurrealEngine, and observing the original games.
-- **Never commit game data** or anything extracted from it (`*.u *.unr *.utx *.uax *.umx`, exes, DLLs,
-  `reference/`, decompiled code).
-- **Our code goes in `src/knowwonder/` (both games), `src/hp1/` or `src/hp2/` (one game only)** ([one-engine.md](one-engine.md));
-  SurrealEngine files only get small hooks ([engine-hooks.md](engine-hooks.md)).
-- **Every reimplemented function carries an IDA tag** directly above it, one line per original function:
-  ```cpp
-  // IDA Engine.dll: ?PlayAnim@AActor@@QAEHVFName@@_NMMMW4EAnimType@@0@Z [HP1 0x10408E20]
-  ```
-  The decorated name is the key: it survives rebuilds and finds the same function in HP2's DLLs
-  ([re/reports/hp2_compare.md](re/reports/hp2_compare.md), [re/reports/dlls.md](re/reports/dlls.md) are built from
-  these tags). Code written from
-  script comments or stock UE1 behaviour instead of reversing says so in the tag.
-- **Write down what you learn** in `docs/re/` in the same change: `engine/` for what both games share (say which
-  game was checked), `hp1/` or `hp2/` for one game's own things ([re/README.md](re/README.md)).
+The ground rules are in [CONTRIBUTING.md](../CONTRIBUTING.md#ground-rules), the full set in [`CLAUDE.md`](../CLAUDE.md).
+The one that needs the detail: every function in `src/knowwonder/`, `src/hp1/` or `src/hp2/` that reimplements the
+original carries an IDA tag directly above it, one line per original function:
 
-[`CLAUDE.md`](../CLAUDE.md) has the full rule set (it doubles as the guide for AI assistants).
+```cpp
+// IDA Engine.dll: ?PlayAnim@AActor@@QAEHVFName@@_NMMMW4EAnimType@@0@Z [HP1 0x10408E20]
+// IDA Core.dll: ?SlerpQuat@@YA?AVFQuat@@ABV1@0M@Z [HP1 Core 0x1014F5A0]
+```
+
+The decorated name is the key: it survives rebuilds and finds the same function in HP2's DLLs
+([re/reports/hp2_compare.md](re/reports/hp2_compare.md) and [re/reports/dlls.md](re/reports/dlls.md) are built from
+these tags). The address is the real body (`..._0`) in that game's database. A shared `src/knowwonder/` function whose
+HP2 code differs gets both addresses (`[HP1 0x...] [HP2 0x...]`), never one tag per game on two copies. A function
+that isn't exported: `not exported: sub_XXXXXXXX [HP1 0xXXXXXXXX]` and how to find it again. Code written from script
+comments or stock UE1 behaviour instead of reversing says so in the tag.
 
 ## Reference material
 
@@ -82,9 +79,15 @@ python tools/dll_report.py              # -> docs/re/reports/dlls.md
    A script state that never gets entered is usually an event the engine doesn't raise: check
    [script_events.md](re/engine/script_events.md) first.
 4. Check HP2 ([hp2_compare.md](re/reports/hp2_compare.md)), then implement it in `src/knowwonder/` (or `src/hp1/` / `src/hp2/` when the
-   other game lacks it, [one-engine.md](one-engine.md)): register it from `KW::RegisterNatives()` (`src/knowwonder/KWNatives.cpp`)
-   with `OverrideNative(index, ...)`, and add the IDA tag.
-5. Rebuild, run `tools/run_hp1.sh 60`, check the `Unimplemented:` summary, rerun the audit, and note what you
+   other game lacks it, [one-engine.md](one-engine.md)):
+   - register it in a `Register*Natives()` called from `KW::RegisterNatives()` (`src/knowwonder/KWNatives.cpp`) with
+     `OverrideNative(index, [] { RegisterVMNativeFunc_<argc>("Class", "Name", &Fn, index); })` (SurrealEngine may
+     already have a stub at that index);
+   - HP-only Actor properties: accessors in `src/knowwonder/KWActor.h` (offsets looked up by name);
+   - only if there's no other way, a gated hook in an engine file, listed in [engine-hooks.md](engine-hooks.md);
+   - the [IDA tag](#ida-tags) above every reimplemented function.
+5. Rebuild, run `tools/run_hp1.sh 60`, check the `Unimplemented:` summary, rerun the audits
+   (`python tools/native_audit.py hp1`, `hp2`, `tools/hp2_compare.py`, `tools/dll_report.py`), and note what you
    learned in `docs/re/`.
 
 ## Debug tools

@@ -5,6 +5,10 @@ game's own (`Dobby.int` `n_<map>`, `HPMenu.int` `level_name_<index>`, [re/hp1/me
 without a map of their own (02, 06, 11, 19, 26, 30, 35, 37) are put with the map before them by the order alone,
 not checked in the maps.
 
+This file is the one place for per-level status. Notes list only what is still open in a level, and what looks wrong
+but is the original's behaviour (so it isn't reported again). A fixed bug leaves the table: how the fix works goes in
+`docs/re/`, when it landed is in the git history.
+
 Start a level with `tools/run_hp1.sh 0 --level=<map>`. It loads the map in the story flow (`HPConsole.bInHubFlow`,
 as New Game and Load set it) with what an average player carries in from the levels before
 (`src/hp1/HP1LevelStart.cpp`). Don't playtest with `--url`: it only loads the map, with a new game's state and outside
@@ -34,19 +38,19 @@ to test with an exact state.
 
 | # | Map | Title | Played | Notes |
 |---|---|---|---|---|
-| 01 | `Lev_Tut1` | Hogwarts Main Entrance (also 02 Defence Against the Dark Arts Class) | yes | Loading a save here once logged `Tut1McGonagall4 fell out of the world` (2026-10-05, not looked into yet) |
+| 01 | `Lev_Tut1` | Hogwarts Main Entrance (also 02 Defence Against the Dark Arts Class) | yes | Some cutscene kids look like they walk while running (all play `run` at rate 1.5 with finished tweens; which ones not checked). Kids spawned on the same patrol point can overlap (UE1 Spawn fails when the spot is occupied?). Loading a save here once logged `Tut1McGonagall4 fell out of the world` (not looked into) |
 | 03 | `Lev_Tut1b` | Flipendo Challenge | yes | |
-| 04 | `Lev_Tut2` | Flying Lesson | yes | Story version (`--level`) played by hand to the end (2026-10-05), exits to Lev_Tut3. Its intro crashed once Harry's broom loop faded below zero volume (fixed: Galaxy plays a negative volume silent). After Quit from the pause book the main menu seemed to show only Exit; not reproduced (pause book → main page shows all four buttons, 2026-10-05) |
-| 05 | `Lev_Tut3` | Wingardium Leviosa Lesson (also 06 Challenge) | yes | Played by hand through the Wingardium challenge to the level change (2026-10-05). Loading Lev_Tut3b then crashed on a UTF-16 string in the map (fixed, [re/engine/packages.md](re/engine/packages.md)). With Harry close to the mirror, walls crossing its plane covered the reflection (fixed: clip plane). Entered from Lev_Tut2 (2026-10-05). The save at the level start and the first save book both write slot 99 (`Save99.usa`, `GameSaveInfo99`; the slot page's Load restores Harry at the book). Savepoint ID -1 is the original's too: `savepoint.Touch` destroys the book before saving, so `FindNearestSavePointID` can't find it. The Alohomora room's mirror (a mover) drew dark (fixed, [re/engine/rendering.md](re/engine/rendering.md); checked by hand 2026-10-05). The students CutScene6 sends to class after the third Alohomora door stopped at a ramp until CutMovingTo's timeout teleported them: an original high-frame-rate bug, fixed by the 60 fps cap ([re/hp1/original_bugs.md](re/hp1/original_bugs.md); checked by hand) |
-| 07 | `Lev_Tut3b` | Second Floor Landing | yes | Entered from Lev_Tut3 (2026-10-05); played by hand from Peeves' duel to the level change to Lev2_HogFront (2026-10-05). Harry's beans, house points and wizard cards were lost at every level change until then (fixed, [re/engine/savegames.md](re/engine/savegames.md#level-changes-travel)). After the duel Peeves T-posed and drifted through the walls: the map never links HPath_F3 to his exit station (original bug, fixed by the PathFixes mod, [re/hp1/original_bugs.md](re/hp1/original_bugs.md)). The Wizard Card pickup camera shook left and right (latent turn polled before the Tick event, fixed, [re/engine/physics.md](re/engine/physics.md)). Still open: the camera flutters for a few frames when Harry lands against a wall (BaseCam.PositionCamera) |
-| 08 | `Lev2_HogFront` | Hogwarts Grounds | yes | Played by hand from Lev_Tut3b to the level change to Lev2_Inc_A (2026-10-05). Logged `ChocolateFrog0 fell out of the world` (not looked into yet). Loading Lev2_Inc_A then crashed on a spellTrigger with mover physics (fixed, [re/engine/physics.md](re/engine/physics.md#movers)) |
-| 09 | `Lev2_Inc_A` | Herbology Class | yes | Played by hand from the start (`--level`) through the Incendio lesson, the greenhouse (doxies, Venomous Tentacula) to the level change to Lev2_Inc_B (2026-10-05). The spell symbol never showed on creatures (doxies, gnomes): the engine didn't call `EndState` when destroying Harry's `Target` (fixed, [re/hp1/spells.md](re/hp1/spells.md)). The gnomes ran in place: latent moves timed out at half their time (fixed, [re/engine/physics.md](re/engine/physics.md)); both not yet checked by hand. The doxies react only near Harry: they wake from map triggers and HP1's sight is short (~320 units ahead, ported exactly), so as in the original. Tut1Gnome9/10 and jelly beans `fell out of the world`: original quirks ([re/hp1/original_bugs.md](re/hp1/original_bugs.md)) |
-| 10 | `Lev2_Inc_B` | Incendio Challenge (also 11) | yes | Entered from Lev2_Inc_A; played by hand to the level change to Lev2_HogFront_2 (2026-10-05). Lev2_HogFront_2 then logged `H2Crabbe1 fell out of the world` one second after loading |
-| 12 | `Lev2_HogFront_2` | Hogwarts Grounds | no | |
-| 13 | `Lev2_RemChase` | Remembrall Chase | no | |
-| 14 | `Lev2_HogFront_3` | Hogwarts Grounds | no | |
-| 15 | `Lev2_Fire2` | Forest Edge | no | |
-| 16 | `Lev2_fire1` | Fire Seed Caves | no | |
+| 04 | `Lev_Tut2` | Flying Lesson | yes | Once after Quit from the pause book the main menu seemed to show only Exit (not reproduced) |
+| 05 | `Lev_Tut3` | Wingardium Leviosa Lesson (also 06 Challenge) | yes | |
+| 07 | `Lev_Tut3b` | Second Floor Landing | yes | The camera flutters for a few frames when Harry lands against a wall (`BaseCam.PositionCamera`). Peeves' missing exit path is the original's, fixed by the PathFixes mod ([re/hp1/original_bugs.md](re/hp1/original_bugs.md)) |
+| 08 | `Lev2_HogFront` | Hogwarts Grounds | yes | Logs `ChocolateFrog0 fell out of the world` (not looked into) |
+| 09 | `Lev2_Inc_A` | Herbology Class | yes | The spell symbol on a doxie may not match the original ([re/hp1/spells.md](re/hp1/spells.md#not-checked-yet)). As in the original: doxies react only near Harry ([re/engine/physics.md](re/engine/physics.md)); Tut1Gnome9/10 and jelly beans fall out of the world ([re/hp1/original_bugs.md](re/hp1/original_bugs.md)) |
+| 10 | `Lev2_Inc_B` | Incendio Challenge (also 11) | yes | |
+| 12 | `Lev2_HogFront_2` | Hogwarts Grounds | yes | Logs `H2Crabbe1 fell out of the world` at load (not looked into) |
+| 13 | `Lev2_RemChase` | Remembrall Chase | yes | |
+| 14 | `Lev2_HogFront_3` | Hogwarts Grounds | yes | Logs `H2Crabbe1 fell out of the world` at load, as Lev2_HogFront_2 |
+| 15 | `Lev2_Fire2` | Forest Edge | yes | Started with `--level` or `--url` the screen stays black (entered by a level change it draws; not looked into). Jelly beans fall out of the world. As in the map: the first log bridge's Flipendo trigger (`spellTrigger0`, event `logbridge`) sits on the west face of the standing log (`Mover7`), so a cast from the side hits the log's brush first and explodes; cast from the west, facing the gap. The target still locks on from the side (whether the original does is not checked). `rolllog5` is saved inside solid (its point check is blocked) and falls out of the world at load. A Flipendo at the fire crab can hit the fireball it throws (spells touch each other, `Projectile.Touch`); not compared with the original |
+| 16 | `Lev2_fire1` | Fire Seed Caves | being played | |
 | 17 | `Lev2_Quid1` | Quidditch Match: Gryffindor vs. Slytherin | no | |
 | 18 | `Lev3_Intro` | Hogwarts Main Entrance (also 19 Lumos Lesson) | no | |
 | 20 | `Lev3_Lumos` | Lumos Challenge | no | |

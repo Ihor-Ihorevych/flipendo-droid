@@ -68,8 +68,10 @@ The debug environment variables (screenshots, actor dumps, fixed cameras, script
 4. **One implementation for both games**: KnowWonder's engine goes in `src/knowwonder/`, only what one game lacks goes in `src/hp1/`
    or `src/hp2/` ([docs/one-engine.md](docs/one-engine.md)).
 5. **Write down what you learn** in `docs/re/` in the same change.
+6. **Tag every reimplemented function** with the original's decorated name and address
+   ([docs/development.md](docs/development.md#ida-tags)).
 
-[docs/development.md](docs/development.md) explains these, and [`CLAUDE.md`](CLAUDE.md) is the full rule set.
+[`CLAUDE.md`](CLAUDE.md) is the full rule set (it doubles as the guide for AI assistants).
 
 ## SurrealEngine and AI-assisted code
 
