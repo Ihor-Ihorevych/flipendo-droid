@@ -43,8 +43,8 @@ public class FlipendoActivity extends SDLActivity {
     static float fovOffset = 0f;
     static final float FOV_MIN = -20f, FOV_MAX = 40f;
 
-    /** HP's debug mode (Level Select in the main menu, debug text); on by default. */
-    static boolean debugMode = true;
+    /** HP's debug mode (Level Select in the main menu, debug text); off by default. */
+    static boolean debugMode = false;
 
     static native void nativeSetFovOffset(float degrees);
 
@@ -107,7 +107,7 @@ public class FlipendoActivity extends SDLActivity {
     private void saveScales() {
         getSharedPreferences("flipendo", MODE_PRIVATE).edit()
                 .putFloat("renderScale", surfaceScale).putFloat("uiScale", uiScale)
-                .putFloat("fovOffset", fovOffset).putBoolean("debug", debugMode).putBoolean("autoJump", autoJump).apply();
+                .putFloat("fovOffset", fovOffset).putBoolean("debugMode", debugMode).putBoolean("autoJump", autoJump).apply();
     }
 
     /** Resizes the render surface (the engine rebuilds its scene textures and swapchain for the new size). */
@@ -249,7 +249,7 @@ public class FlipendoActivity extends SDLActivity {
         dpadMode = prefs.getBoolean("dpad", false);
         applyUiScale(prefs.getFloat("uiScale", 1.0f), false);
         applyFovOffset(prefs.getFloat("fovOffset", 0f), false);
-        applyDebugMode(prefs.getBoolean("debug", true), false);
+        applyDebugMode(prefs.getBoolean("debugMode", false), false);
         applyAutoJump(prefs.getBoolean("autoJump", true), false);
         if (mSurface != null) {
             applyRenderScale(prefs.getFloat("renderScale", 0.5f));

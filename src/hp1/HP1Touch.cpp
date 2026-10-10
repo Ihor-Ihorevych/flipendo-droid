@@ -30,7 +30,7 @@ extern std::atomic<bool> g_cutsceneActive; // a cutscene holds Harry: the overla
 extern std::atomic<bool> g_touchDown;
 extern std::atomic<float> g_touchX, g_touchY; // finger position, 0..1 of the view
 #else
-static std::atomic<bool> g_debugMode{true}; // no settings panel off Android: debug mode stays on
+static std::atomic<bool> g_debugMode{false}; // no settings panel off Android: debug mode stays off
 static std::atomic<bool> g_autoJump{true};
 #endif
 

@@ -27,7 +27,7 @@ fetches SDL3 (pinned release) once, applies `src/surreal-patches/` (including `0
 
 ## Playing
 
-- Starts at the main menu (splash skipped). **Debug mode is on**: the main menu has Level Select.
+- Starts at the main menu (splash skipped). Debug mode is off by default (Settings > Debug mode turns on Level Select in the main menu).
 - For development, put a map name in `/sdcard/FlipendoHP/start_level.txt` (for example `Lev2_Inc_A`) to start that level
   with the story state a player carries in; delete the file to get the menu back.
 - Left thumb: floating stick (arrow keys). Right thumb: drag to look. CAST = left mouse, JUMP = right mouse + Space

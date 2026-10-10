@@ -87,7 +87,7 @@ Tap the gear in the top row.
 | Subtitles and HUD size (60-180%) | scales the 2D UI; the menu book keeps its size |
 | Field of view (-20 to +40) | added to the game's field of view |
 | Auto jump | Harry jumps by himself at ledges (on by default) |
-| Debug mode | Level Select in the main menu and the game's debug text (on by default) |
+| Debug mode | Level Select in the main menu and the game's debug text (off by default) |
 | Telegram channel | opens `t.me/flipendodroid` |
 
 ## Status
