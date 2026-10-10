@@ -63,7 +63,7 @@ and bForward) are now raised by the InterpolationManager port (`src/knowwonder/K
 | Detach | AActor::SetBase `0x1037A6F0` |
 | DetailChange | ULevel::DetailChange `0x103AE630` |
 | DoJump | APawn::physWalking `0x103E6B60` |
-| EndState | ULevel::DestroyActor `0x103A72C0` (when the actor is in a state that probes it, before Destroyed); UObject::GotoState |
+| EndState | ULevel::DestroyActor `0x103A72C0` (when the actor is in a state that probes it, before Destroyed and before the actor is marked deleted); UObject::GotoState |
 | EncroachedBy | ULevel::CheckEncroachment `0x103AB5F0` |
 | EncroachingOn | ULevel::CheckEncroachment `0x103AB5F0` |
 | EndedRotation | AActor::physicsRotation `0x103E5FB0` |
