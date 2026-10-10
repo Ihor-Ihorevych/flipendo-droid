@@ -66,21 +66,13 @@ scripts is in the [reverse-engineering notes](re/README.md).
 
 ## Where modding is going
 
-Phase 6 of the [roadmap](../ROADMAP.md):
+What is planned (an Extras page, drop-in `Mods/` folders, script mods, community levels, more extras) is phase 6
+of the [roadmap](../ROADMAP.md#6-modding-srchp1mods-and-beyond). Not planned: speedrun tools (timer, splits, practice
+states), since the HP1 PC leaderboards accept runs of the original game only, not of reimplementations.
 
-- **Per-mod settings** in an ini section and an *Extras* page in the options book, instead of only command-line
-  flags.
-- **Drop-in content mods**: a `Mods/<name>/` folder whose packages (`.u`, `.unr`, `.utx`, `.uax`) load ahead of
-  the originals, with no recompiling, for texture packs, custom levels and script mods. SurrealEngine already reads
-  the package folders from the ini, and the first folder that has a package wins, which is the mechanism this
-  needs.
-- **Script mods** that replace a game class with their own subclass (a new Harry, a new spell) without touching
-  the original packages.
-- **Community content**: run the custom levels the HP1 modding community has made.
-- **More built-in extras**: field-of-view slider, frame limiter / uncapped framerate, controller support,
-  free camera. No speedrun tools (timer, splits, practice states): the HP1 PC leaderboards accept runs of the original
-  game only, not of reimplementations, so they would serve no one.
-- **In-game modding tools**: a [Dear ImGui](https://github.com/ocornut/imgui) overlay (MIT licence) toggled with a
+The in-game modding tools, as designed so far:
+
+- a [Dear ImGui](https://github.com/ocornut/imgui) overlay (MIT licence) toggled with a
   key, off with `--vanilla` and in release builds unless asked for. It turns the debug environment variables into
   live panels:
   - *Actors*: every actor in the level with class, state, Tag/Event and location (today's `HP1_DUMP`), filterable,
