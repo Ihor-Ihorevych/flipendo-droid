@@ -155,7 +155,7 @@ index 32736319..573aeef7 100644
  
  	void InitActorZone() override;
 diff --git a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
-index de07166c..53d9d17e 100644
+index de07166c..f4808bd3 100644
 --- a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
 @@ -7,11 +7,10 @@
@@ -282,7 +282,53 @@ index de07166c..53d9d17e 100644
  	if (MoveTimer() < 0.0f)
  		return true;
  
-@@ -322,6 +364,8 @@ void UPawn::TurnTo(const vec3& newFocus)
+@@ -273,6 +315,8 @@ void UPawn::MoveTo(const vec3& newDestination, float speed)
+ 	SetMoveDuration(newDestination - Location());
+ 	if (StateFrame)
+ 		StateFrame->LatentState = LatentRunState::MoveTo;
++	if (engine->LaunchInfo.IsKnowWonder()) // execMoveTo takes the first step at once
++		KW::PawnStartMove(this);
+ }
+ 
+ void UPawn::MoveToward(UActor* newTarget, float speed)
+@@ -286,11 +330,13 @@ void UPawn::MoveToward(UActor* newTarget, float speed)
+ 	bReducedSpeed() = false;
+ 	DesiredSpeed() = clamp(speed, 0.0f, MaxDesiredSpeed());
+ 	if (UObject::TryCast<UPawn>(newTarget))
+-		MoveTimer() = 1.0f;
++		MoveTimer() = engine->LaunchInfo.IsKnowWonder() ? 1.2f : 1.0f;
+ 	else
+ 		SetMoveDuration(newTarget->Location() - Location());
+ 	if (StateFrame)
+ 		StateFrame->LatentState = LatentRunState::MoveToward;
++	if (engine->LaunchInfo.IsKnowWonder()) // execMoveToward takes the first step at once
++		KW::PawnStartMove(this);
+ }
+ 
+ void UPawn::StrafeFacing(const vec3& newDestination, UActor* newTarget)
+@@ -304,6 +350,13 @@ void UPawn::StrafeFacing(const vec3& newDestination, UActor* newTarget)
+ 	SetMoveDuration(newDestination - Location());
+ 	if (StateFrame)
+ 		StateFrame->LatentState = LatentRunState::StrafeFacing;
++	if (engine->LaunchInfo.IsKnowWonder()) // execStrafeFacing: StrafeTo's speed, faces the target, first step at once
++	{
++		bReducedSpeed() = false;
++		DesiredSpeed() = bIsPlayer() ? MaxDesiredSpeed() : 0.8f * MaxDesiredSpeed();
++		Focus() = newTarget->Location();
++		KW::PawnStartMove(this);
++	}
+ }
+ 
+ void UPawn::StrafeTo(const vec3& newDestination, const vec3& newFocus)
+@@ -316,12 +369,16 @@ void UPawn::StrafeTo(const vec3& newDestination, const vec3& newFocus)
+ 	SetMoveDuration(newDestination - Location());
+ 	if (StateFrame)
+ 		StateFrame->LatentState = LatentRunState::StrafeTo;
++	if (engine->LaunchInfo.IsKnowWonder()) // execStrafeTo takes the first step at once
++		KW::PawnStartMove(this);
+ }
+ 
+ void UPawn::TurnTo(const vec3& newFocus)
  {
  	MoveTarget() = nullptr;
  	Focus() = newFocus;
@@ -291,7 +337,7 @@ index de07166c..53d9d17e 100644
  	if (StateFrame)
  		StateFrame->LatentState = LatentRunState::TurnTo;
  }
-@@ -334,12 +378,25 @@ void UPawn::TurnToward(UActor* newTarget)
+@@ -334,12 +391,25 @@ void UPawn::TurnToward(UActor* newTarget)
  	if (engine->LaunchInfo.ue1Version > 219)
  		FaceTarget() = newTarget;
  	Focus() = newTarget->Location();

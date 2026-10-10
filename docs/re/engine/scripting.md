@@ -68,7 +68,10 @@ probe function (`Frame::Call`), and `SetInitialState` runs actor by actor. Lev2_
 `GameIntro` from `SetInitialState` and triggers `Intro`; `CutScene0` (later in the list) dropped the `Trigger`, and its
 `bDelayLevelFadeIn` left the screen black. Fixed in `0010-engine-fixes.patch` (only a clear bit disables). HP1's
 `UObject::CallFunction` (Core 0x10142FE0) has no probe check at all; only `ProcessEvent` (engine-raised events) asks
-`IsProbing`. SurrealEngine's check on script calls stays (not needed by anything found so far).
+`IsProbing`. SurrealEngine's check on script calls stays (not needed by anything found so far). `UObject::Save` wrote the
+disabled probes too (nearly always none, a mask of 0); read the new way, every actor of a loaded save ignored its
+probes until its first GotoState (the camera stopped following Harry after a reload). It now writes the enabled
+ones, and Load takes a mask of 0 as nothing disabled, so saves from before still load.
 
 ## Latent calls on other actors
 

@@ -299,6 +299,19 @@ namespace KW
 		return done;
 	}
 
+	// The latent moves take their first step when they start: rotateToward Focus, then moveToward Destination (the
+	// acceleration). A script that restarts the move every tick still moves: Doxie1.MoveToScowl's Tick does
+	// gotostate('MoveToScowl') each frame, back to its moveto, before the poll would ever run.
+	// IDA Engine.dll: ?execMoveTo@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D8580]
+	// IDA Engine.dll: ?execMoveToward@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D87A0]
+	// IDA Engine.dll: ?execStrafeTo@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D8C60]
+	// IDA Engine.dll: ?execStrafeFacing@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D8E60]
+	void PawnStartMove(UPawn* pawn)
+	{
+		PawnRotateToward(pawn, pawn->Focus());
+		PawnMoveToward(pawn, pawn->Destination());
+	}
+
 	// Done once the pawn stops falling; after LatentFloat (2.5 s from WaitForLanding) runs out, LongFall
 	// every tick until then.
 	// IDA Engine.dll: ?execPollWaitForLanding@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D6EF0]
