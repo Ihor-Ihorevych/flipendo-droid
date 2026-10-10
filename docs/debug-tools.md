@@ -14,7 +14,7 @@ Times are seconds since the first frame.
 | `HP1_SHOTS`, `HP1_SHOT_DIR` | `HP1_SHOTS="5,8.5"` | in-engine screenshots at those times |
 | `HP1_KEYS` | `"62:Up:3,66:Left:0.6"` | hold a key from a time for a duration |
 | `HP1_MOUSE` | `"63:0:-30:4"` | move the mouse by dx,dy raw counts every frame for a duration (dy<0 looks up) |
-| `HP1_GOTO` | `"79:x,y;x,y,J;x,y,w3"` | steer the player through waypoints (`J` jump on arrival, `w3` wait 3 s, `\|` starts another run later) |
+| `HP1_GOTO` | `"79:x,y;x,y,J;x,y,w3"` | steer the player through waypoints (`J` jump on arrival, within 8 units so it goes off at a ledge edge; `w3` wait 3 s; `\|` starts another run later); logs `goto reached` / `goto stuck`. A route through Lev_Tut1: [playtest.md](playtest.md#automated-route-through-lev_tut1) |
 | `HP1_TRACE` | `"harry0,gen_"` | log actors by name prefix every 0.5 s: state, zone, location, velocity, rotation, animation |
 | `HP1_TRACE_INTERVAL` | `"0"` | seconds between `HP1_TRACE` lines (default 0.5; 0 logs every frame, e.g. to see a camera shake) |
 | `HP1_DUMP` | `"5,80"` | log every actor (class, name, state, location, Tag, Event) at those times |
@@ -33,7 +33,7 @@ Times are seconds since the first frame.
 | `@console.MenuBook.SlotPage LoadSelectedSlot` | load a save from the main menu (slot 99 when none is selected); a bare `open saveN.usa` leaves the menu book open over the game |
 | `@console SaveSelectedSlot` | save (slot 99 without a selected slot) |
 | `@set <actor prefix> <prop> <value>` | set a property on live actors, e.g. `@set CutScene3 bDebugScript True` |
-| `@get <actor prefix> <prop>` | log a property, e.g. `@get harry numBeans` |
+| `@get <actor prefix> <prop>` | log a property, e.g. `@get harry numBeans`. Some properties hang the game (seen 2026-10-10 with `harry0 FlashScale` and a name that isn't a property; not looked into) |
 | `@teleport x y z` | move the player there (touches what is there, so it starts touch cutscenes); the game camera comes along |
 | `@trigger <tag>` | trigger every actor with that Tag |
 | `@state <actor> <state>` | `GotoState(state)` on every actor whose name starts with `<actor>` (reach a script state without playing up to it, e.g. `@state tut3peeves2 dieing`) |

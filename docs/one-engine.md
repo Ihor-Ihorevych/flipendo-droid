@@ -36,7 +36,8 @@ putting anything in one game's folder, check the other game (`hp2_compare.md`, a
    so HP2's different layouts are handled automatically.
 2. **A real difference is a branch at the line that differs, not a copy.** Use `KW::IsHP2()` (`src/knowwonder/KWGame.h`) inside
    the shared function, and give the function both addresses in its IDA tags. Never copy a function into `src/hp2/` to
-   change three lines of it.
+   change three lines of it. If the difference is large (a whole different algorithm), split out only that part as a
+   helper and keep the shared remainder in `src/knowwonder/`.
 3. **A different script signature gets a thin adapter, not a second body.** When HP2's UnrealScript declares more
    parameters (StopSound gained `FadeOutTime`), `src/hp2/` registers an adapter for the HP2 signature that calls the
    same shared body as HP1's (`KW::StopSound`, `src/knowwonder/KWSound.cpp`). The adapter only unpacks arguments.
@@ -44,6 +45,7 @@ putting anything in one game's folder, check the other game (`hp2_compare.md`, a
    `GetCurrentKeyState`, music), HP2's script token table, the OpenAL / Ogg audio that replaced Galaxy, HP2's menus.
 5. **Registration order expresses it:** `KW::RegisterNatives()` registers every native with HP1's signature, then
    calls `HP2::RegisterNatives()` when HP2 runs, which adds HP2's natives and overrides only the changed ones.
+   HP1-only natives that HP2 lacks are registered from `src/hp1/` (or gated `KW::IsHP1()`).
 6. **Check before porting.** `python tools/hp2_compare.py` says per function whether HP2's code is identical,
    offsets-only or changed. `python tools/native_audit.py hp2` lists what HP2's scripts still miss. Read HP2's code
    for every "changed" function before deciding it needs a branch: most are the same as HP1's apart from the
