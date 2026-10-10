@@ -62,7 +62,5 @@ putting anything in one game's folder, check the other game (`hp2_compare.md`, a
 
 ## IDA tags
 
-One line per original function directly above its reimplementation ([development.md](development.md#ground-rules)),
-with the game: `// IDA Engine.dll: <decorated name> [HP2 0x...]`, or `[HP2 Core 0x...]` for Core.dll. A shared `src/knowwonder/`
-function whose HP2 code differs gets both addresses (`[HP1 0x...] [HP2 0x...]`), never one tag per game on two copies.
-HP2's databases are in `../ida/hp2/`, never mixed with HP1's.
+The tag format, with the HP1 and HP2 addresses: [development.md](development.md#ida-tags). HP2's databases are in
+`../ida/hp2/`, never mixed with HP1's.
