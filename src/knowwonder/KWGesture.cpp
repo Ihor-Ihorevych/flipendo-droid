@@ -36,7 +36,7 @@ namespace KW
 		static std::set<UObject*> scaled;
 		if (scaled.insert(gesture).second)
 		{
-			constexpr float GestureTouchScale = 1.6f;
+			constexpr float GestureTouchScale = 1.3f;
 			for (size_t i = 0; i < points.size(); i++)
 			{
 				vec3 p = points[i];

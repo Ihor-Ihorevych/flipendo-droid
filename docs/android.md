@@ -1,7 +1,7 @@
 # Flipendo on Android (arm64, touch)
 
 A spike port: SurrealEngine + Flipendo's patches built for Android with SDL3 (window, input, Vulkan surface), played
-with an on-screen touch overlay. Tested on a Xiaomi POCO X6 Pro (Mali-G615, Android 16). You need your own copy of the
+with an on-screen touch overlay. Tested on a Xiaomi POCO X6 Pro (Mali-G615), Redmi Note 13 Pro, Redmi 13C (Mali-G52, no bindless) and Samsung Galaxy S23 and S25. You need your own copy of the
 game: nothing from it is in the APK.
 
 ## Install
@@ -32,7 +32,7 @@ fetches SDL3 (pinned release) once, applies `src/surreal-patches/` (including `0
   with the story state a player carries in; delete the file to get the menu back.
 - Left thumb: floating stick (arrow keys). Right thumb: drag to look. CAST = left mouse, JUMP = right mouse + Space
   (Space also skips cutscenes), MENU = Esc. In menus the finger is the mouse (tap, drag sliders).
-- **Spell lessons:** the symbol is drawn 1.6x larger and the wand follows the finger directly
+- **Spell lessons:** the symbol is drawn 1.3x larger and the wand follows the finger directly
   (`src/hp1/HP1Touch.cpp`, `src/knowwonder/KWGesture.cpp`). Auto Jump is on and the Options page's Controls column is hidden
   (the bindings can't be changed on a phone).
 - Rendering is at half the screen resolution (`SURFACE_SCALE` in `android/java/.../FlipendoActivity.java`) for ~60 fps on
@@ -48,15 +48,12 @@ fetches SDL3 (pinned release) once, applies `src/surreal-patches/` (including `0
 - The engine only uses the absolute (Windows) mouse position in windowed mode; the touch build always does, otherwise
   the HP menus got mouse deltas and the cursor drifted.
 - `DrawText` with `Canvas.Font == None` (debug mode's HUD) crashed in `UFont::GetGlyph`: it returns now.
-- No `backtrace()`, ALSA or GTK/fontconfig on Android: stubs and an Android resource loader (`android/jni/`). Music is
-  silent for now (the sound effects use OpenAL).
+- No `backtrace()`, ALSA or GTK/fontconfig on Android: stubs and an Android resource loader (`android/jni/`).
 - `KW::AnimBone` is both a struct and an accessor in namespace `KW`: Clang resolves the name to the function, so the
   struct is spelled `struct AnimBone` where both are in scope.
 
 ## Known problems
 
-- `Lev5_FlyKeys` (the broom level) renders black: Harry starts in a zone with no lights and flies a loop on rails.
-  Not looked into further; the flying lesson `Lev2_Quid1` is the broom test level.
 - The Options page still shows the empty bars of the hidden key-binding buttons (they are part of the page art).
 - Combat spell casting is not touch-adapted yet (only the lesson drawing is).
 

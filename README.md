@@ -92,16 +92,27 @@ Tap the gear in the top row.
 
 ## Status
 
-An early port, tested mostly on a Xiaomi POCO X6 Pro (Mali-G615), plus testers' Redmi phones. It reaches about
-60 fps on the POCO at the default render scale.
+**All levels are playable.** The port runs the whole story, with the menus, cutscenes, saving and loading, spell lessons by
+touch and music. It reaches about 60 fps on a POCO X6 Pro at the default render scale.
 
 | | |
 |---|---|
-| ✅ Works | menus, saving and loading, the first levels, cutscenes, characters, spell lessons by touch, music (menu and levels), background / foreground |
-| 🟡 Partly | the story levels past the first ones (how far the desktop version got: [docs/playtest.md](docs/playtest.md)); older Mali GPUs without bindless textures (works, speed not measured) |
-| ❌ Not yet | `Lev5_FlyKeys` (the broom level) renders black; spell casting in fights isn't adapted to touch; no autosave if the system kills the app in the background; the Options page still shows empty key-binding bars |
+| ✅ Works | every level, menus, saving and loading, cutscenes, characters, spell lessons by touch, music, going to the background and back |
+| 🟡 Partly | GPUs without bindless textures (older Mali) run through a fallback path: it works, how fast depends on the GPU |
+| ❌ Not yet | spell casting in fights isn't adapted to touch; no autosave if the system kills the app in the background; the Options page still shows empty key-binding bars |
 
-Bugs, GPUs and levels reports are very welcome: hold MENU in the game and send the zip.
+### Tested devices
+
+| Device | GPU | Notes |
+|---|---|---|
+| Xiaomi POCO X6 Pro | Mali-G615 | the main test phone |
+| Redmi Note 13 Pro | Mali-G57 | works |
+| Redmi 13C | Mali-G52 | works through the no-bindless fallback |
+| Samsung Galaxy S23 | Adreno | works |
+| Samsung Galaxy S25 | Adreno | works |
+
+Another phone? Hold MENU in the game and send the log zip to the [Telegram group](#news-reports-and-chat): which GPUs work
+is the most useful report.
 
 ## Build it yourself
 
