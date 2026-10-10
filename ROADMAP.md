@@ -149,30 +149,6 @@ Ground rules:
    - [ ] "Package mod": writes `Mods/<name>/` with a manifest (version, dependencies, game)
    - [ ] In-game mod browser: enable / disable, load order; later a community mod index
 
-## Speedrun practice and research tools
-What runners already have for the original and why these add to it: [docs/speedrunning.md](docs/speedrunning.md).
-All of it is mods (`src/hp1/mods/`, off with `--vanilla`) that never change the game's rules; worth showing to the HP1 PC
-community once the levels they run play like the original.
-
-1. Practice
-   - [ ] Save state anywhere and restore it with one key (exact actor state, not only at save points)
-   - [ ] Warp: store and return to a position (and the camera with it, as `@teleport` now does)
-   - [ ] Trick reset loop: one key back to the start of a trick, attempt counter
-   - [ ] Input recording and replay (from `HP1_KEYS` / `HP1_MOUSE`); first check that replays are deterministic
-   - [ ] Jump planning view from `HP1_HEIGHTMAP` (floor heights around Harry)
-2. Show what is hidden
-   - [ ] Trigger and cutscene volumes drawn in the world, with their Tag and Event
-   - [ ] Tag → Event links drawn as lines (shared with §7 "Trigger graph")
-   - [ ] Collision shapes (cylinder, CT_Box, movers) and grabbable ledges (PF_SpecialPoly)
-   - [ ] Auto-jump landing prediction drawn
-   - [ ] Live actor inspector (state, velocity, physics; the §6 ImGui overlay)
-3. Timer in the engine
-   - [ ] In-game timer with load time removed exactly (the engine knows when it loads)
-   - [ ] Splits from engine events: level change, cutscene start/end, lesson passed, save point (the community's
-         autosplitter only splits on map entry)
-   - [ ] LiveSplit Server link, so runners keep their splits
-   - [~] 60 FPS cap with a visible FPS counter, like the community's required mod (the cap is in, §6; no counter yet)
-
 ## Releases
 - [ ] Prebuilt Windows download on the release page (zip with `SurrealEngine.exe` and its DLLs; no game data), with a
       changelog and a "point it at your game folder" first-run

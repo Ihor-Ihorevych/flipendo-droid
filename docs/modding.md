@@ -78,7 +78,8 @@ Phase 6 of the [roadmap](../ROADMAP.md):
   the original packages.
 - **Community content**: run the custom levels the HP1 modding community has made.
 - **More built-in extras**: field-of-view slider, frame limiter / uncapped framerate, controller support,
-  speedrun timer, free camera.
+  free camera. No speedrun tools (timer, splits, practice states): the HP1 PC leaderboards accept runs of the original
+  game only, not of reimplementations, so they would serve no one.
 - **In-game modding tools**: a [Dear ImGui](https://github.com/ocornut/imgui) overlay (MIT licence) toggled with a
   key, off with `--vanilla` and in release builds unless asked for. It turns the debug environment variables into
   live panels:

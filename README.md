@@ -137,7 +137,7 @@ switched on, and `--vanilla` switches all of them off.
 | Launch skips | off | `--skip-splash`, `--skip-intro` |
 
 **Coming:** an in-game *Extras* page to switch these on and off, FOV slider, smooth high frame rates (the game logic
-kept at 60), controller support, speedrun practice tools ([docs/speedrunning.md](docs/speedrunning.md)), and drop-in
+kept at 60), controller support, and drop-in
 `Mods/` folders for texture packs, custom levels and script mods, including the levels the HP1 modding community has
 already made. In-game modding tools (actor inspector, property editor, mod manager) are planned too. See
 [docs/modding.md](docs/modding.md) to write a mod today or help shape the platform.
