@@ -35,6 +35,11 @@ HP2 rewrote this layer: its spells are cast through a `SpellCursor` (a ParticleF
 
 ## Not checked yet
 
+Symbol on creatures against the original (2026-10-10, by hand): on a gnome the original shows it briefly at the cast, like
+ours; on a doxie the original seemed to show none. The script treats the two alike (both `bGestureOnTargeting` false,
+vulnerable to Flipendo), so the doxie should flash it too, at the spot saved when the lock began (`TargetHitLocation`),
+which a flying doxie may have left. Not sure this is replicated: ours on a doxie not compared side by side yet.
+
 The lock-on path with a real victim (`eVulnerableToSpell` choosing the spell) and the spell hit reactions need the first
 spell lesson (Lev_Tut1's Flipendo challenge, `CUTFLIPBEGIN`), which the autopilot doesn't reach yet. Tested: a cast in
 Fred & George's room (`HP1_EXEC="135:AltFire"` on the Lev_Tut1 route) spawns the Target, fires `spellnone` and homes
