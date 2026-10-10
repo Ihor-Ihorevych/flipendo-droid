@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <set>
 #include "VM/NativeFunc.h"
 #include "Engine.h"
 
@@ -379,8 +380,26 @@ namespace KW
 		return music.volume;
 	}
 
+	// Actor.GetSoundDuration, as upstream's (the decoded length), with one log line per sound: how long it is, and the bit rate
+	// that the size of its data and that length make. A voice line that stops before its end (the Russian dub did) would show
+	// as a length that is too short for the data, i.e. a bit rate far above the line's others.
+	static void NGetSoundDuration(UObject* Self, UObject* Sound, float& ReturnValue)
+	{
+		USound* s = UObject::Cast<USound>(Sound);
+		ReturnValue = s->GetDuration();
+		static std::set<USound*> logged;
+		if (logged.insert(s).second)
+		{
+			float kbps = ReturnValue > 0.0f ? s->Data.size() * 8.0f / ReturnValue / 1000.0f : 0.0f;
+			LogMessage("Sound " + s->Name.ToString() + ": " + s->Format.ToString() + ", " + std::to_string(s->frequency) + " Hz, " +
+				std::to_string(s->channels) + " ch, " + std::to_string(s->Data.size()) + " bytes, " + std::to_string(s->samples.size()) +
+				" samples, " + std::to_string(ReturnValue) + " s (" + std::to_string((int)kbps) + " kbps)");
+		}
+	}
+
 	void RegisterSoundNatives()
 	{
+		RegisterVMNativeFunc_2("Actor", "GetSoundDuration", &NGetSoundDuration, 0);
 		OverrideNative(264, [] { RegisterVMNativeFunc_6("Actor", "PlaySound", &NPlaySound, 264); });
 		RegisterVMNativeFunc_6("Actor", "PlayOwnedSound", &NPlaySound, 0);
 		RegisterVMNativeFunc_5("Pawn", "ClientHearSound", &NClientHearSound, 0);

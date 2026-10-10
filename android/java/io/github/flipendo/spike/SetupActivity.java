@@ -314,11 +314,25 @@ public class SetupActivity extends Activity {
     static final String LANG_DIR = "langs";
     static final String LANG_MARKER = ".selfpack-lang"; // the language whose files are in the game folder
     static final String LANG_WANT = ".selfpack-want";   // written by the in-game switch: the language to install next
+    static final String MOD_DIR = "mods";
+    static final String MOD_MARKER = ".selfpack-mod";       // the mod whose packages are in the System folder ("none": the originals)
+    static final String MOD_WANT = ".selfpack-mod-want";    // written by the in-game switch: the mod to have next
+    static final String MOD_BACKUP = ".mod-backup";         // the original packages a mod replaced, per mod
 
     /** The languages this APK carries as {code, label} (the first is the base install); empty for a single-language build. */
     static List<String[]> readLanguages(android.content.Context context) {
+        return readPairs(context, LANG_DIR + "/langs.txt");
+    }
+
+    /** The mods this APK carries as {id, label}; empty when it has none. */
+    static List<String[]> readMods(android.content.Context context) {
+        return readPairs(context, MOD_DIR + "/mods.txt");
+    }
+
+    /** Reads an asset made of "id|label" lines. */
+    static List<String[]> readPairs(android.content.Context context, String asset) {
         List<String[]> out = new ArrayList<>();
-        try (InputStream in = context.getAssets().open(LANG_DIR + "/langs.txt")) {
+        try (InputStream in = context.getAssets().open(asset)) {
             java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
             byte[] buffer = new byte[1024];
             int n;
@@ -332,7 +346,7 @@ public class SetupActivity extends Activity {
                 }
             }
         } catch (IOException e) {
-            // no langs.txt: a single-language build
+            // the asset isn't there: nothing to offer
         }
         return out;
     }
@@ -383,6 +397,84 @@ public class SetupActivity extends Activity {
         writeSmallFile(new File(gameDir, LANG_MARKER), code);
     }
 
+    private static String normalizeMod(String id) {
+        return id == null || id.isEmpty() ? "none" : id;
+    }
+
+    /** The System folder inside the game folder (its case differs between installs). */
+    private static File systemDir(File gameDir) {
+        File[] children = gameDir.listFiles();
+        if (children != null) {
+            for (File child : children) {
+                if (child.isDirectory() && child.getName().equalsIgnoreCase("system")) {
+                    return child;
+                }
+            }
+        }
+        return new File(gameDir, "System");
+    }
+
+    private static void copyFile(File from, File to, byte[] buffer) throws IOException {
+        to.getParentFile().mkdirs();
+        try (InputStream in = new java.io.FileInputStream(from); OutputStream os = new FileOutputStream(to)) {
+            int n;
+            while ((n = in.read(buffer)) > 0) {
+                os.write(buffer, 0, n);
+            }
+        }
+    }
+
+    /**
+     * Puts a mod's packages into the System folder, or takes the mod out: the originals it replaced are kept in .mod-backup
+     * and copied back. MOD_MARKER records what is installed. Called with the game data in place and the mod to have.
+     */
+    private void applyMod(File gameDir, String wanted, byte[] buffer) throws IOException {
+        List<String[]> mods = readMods(this);
+        if (mods.isEmpty()) {
+            return;
+        }
+        File marker = new File(gameDir, MOD_MARKER);
+        String current = normalizeMod(readSmallFile(marker));
+        wanted = normalizeMod(wanted);
+        boolean known = false;
+        for (String[] m : mods) {
+            known |= m[0].equals(wanted);
+        }
+        if (!known) {
+            wanted = "none"; // a mod this APK doesn't carry
+        }
+        if (current.equals(wanted)) {
+            return;
+        }
+        File system = systemDir(gameDir);
+        File backups = new File(gameDir, MOD_BACKUP);
+        if (!current.equals("none")) {
+            File[] originals = new File(backups, current).listFiles();
+            if (originals != null) {
+                for (File original : originals) {
+                    say("Restoring " + original.getName(), 0, 1);
+                    copyFile(original, new File(system, original.getName()), buffer);
+                }
+            }
+        }
+        if (!wanted.equals("none")) {
+            List<String> files = new ArrayList<>();
+            collect(MOD_DIR + "/" + wanted, files);
+            int done = 0;
+            for (String path : files) {
+                String name = path.substring(path.lastIndexOf('/') + 1);
+                say("Installing the mod " + (done + 1) + " / " + files.size() + "\n" + name, done, files.size());
+                File target = new File(system, name);
+                if (target.exists()) {
+                    copyFile(target, new File(new File(backups, wanted), name), buffer);
+                }
+                copyAsset(path, target, buffer);
+                done++;
+            }
+        }
+        writeSmallFile(marker, wanted);
+    }
+
     /**
      * Self pack: puts the game data in place. The files that all languages share are unpacked when the APK's data changes
      * (they replace what is there, but never the saves); the language files are copied when the wanted language is not the
@@ -415,6 +507,12 @@ public class SetupActivity extends Activity {
                 label = languages.get(0)[1];
             }
             boolean dataCurrent = marker.exists() && stamp.equals(readSmallFile(marker));
+            // the mod to have: the in-game wish, else what is installed (new game data brings the originals' packages back)
+            String modWanted = readSmallFile(new File(gameDir, MOD_WANT));
+            File modMarker = new File(gameDir, MOD_MARKER);
+            if (modWanted == null || modWanted.isEmpty()) {
+                modWanted = readSmallFile(modMarker);
+            }
             byte[] buffer = new byte[1 << 20];
 
             if (!dataCurrent) {
@@ -439,9 +537,18 @@ public class SetupActivity extends Activity {
                 if (!languages.isEmpty()) {
                     installLanguage(gameDir, wanted, label, buffer);
                 }
+                modMarker.delete(); // the mod's packages were just replaced by the originals
+                applyMod(gameDir, modWanted, buffer);
                 writeSmallFile(marker, stamp);
-            } else if (!languages.isEmpty() && !wanted.equals(installed)) {
-                installLanguage(gameDir, wanted, label, buffer);
+            } else {
+                if (!languages.isEmpty() && !wanted.equals(installed)) {
+                    installLanguage(gameDir, wanted, label, buffer);
+                }
+                applyMod(gameDir, modWanted, buffer);
+            }
+            File modWish = new File(gameDir, MOD_WANT);
+            if (modWish.exists()) {
+                modWish.delete();
             }
             File want = new File(gameDir, LANG_WANT);
             if (want.exists()) {

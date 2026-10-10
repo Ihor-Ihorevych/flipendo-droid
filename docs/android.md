@@ -161,3 +161,15 @@ android/build-apk.sh --selfpack "C:/Games/HP" --lang ru="C:/Program Files/HPFarg
 The script compares the installs and ships the files they share once, and the files that differ (voices, fonts, texts) once per language (`assets/langs/<code>/`, listed in `assets/langs/langs.txt`). The base install is `en`. On first launch the base language is installed; the settings panel then shows a **Language** button. Tapping it asks for a confirmation (the game is restarted, so unsaved progress is lost); the second tap writes the wish to `/sdcard/FlipendoHP/.selfpack-want`, starts the launcher (`SetupActivity`, which runs in its own process `:setup`), and kills the game's process. The launcher copies the chosen language's files over the game folder (`.selfpack-lang` records which one is installed) and starts the game again in a fresh process, which is what makes the restart clean (the engine can't be started twice in one process).
 
 Unpacking replaces files that are already in the game folder when the APK's data changes (a stamp over the contents decides), except everything under `save/`.
+
+## Movement mod (AdamJD)
+
+A community mod that improves HP1's movement, camera and climbing and lets Harry cast while moving. It is a set of replacement script packages (`HPBase.u`, `HarryPotter.u`, `Hub2-5.u`, `Tut1.u`), i.e. modified game scripts: they are **never committed** (`.gitignore` has `/movement*.zip` and `*.u`), and an APK that carries them is for your own phone only, like the game data itself. The mod's author is AdamJD; get the zip from the mod's own page and build with:
+
+```sh
+android/build-apk.sh --selfpack "C:/Games/HP" --mod movement=movement.zip
+```
+
+The packages go into the self pack as `assets/mods/movement/`. The settings panel then shows **Movement mod (AdamJD): ON/OFF**. A tap asks for a confirmation (the game restarts, unsaved progress is lost); the second tap writes `.selfpack-mod-want` and restarts through the launcher the same way the language switch does. The launcher copies the mod's packages over the originals in `System/` after saving the originals to `/sdcard/FlipendoHP/.mod-backup/movement/`, and copies them back when the mod is switched off (`.selfpack-mod` records which is installed). New game data from an updated APK brings the originals back and the mod is put in again. Saves made with one set of packages may not load with the other.
+
+With the mod on, **the wand button is a stick**: holding it holds the cast (in the mod that is aiming, and the camera can move), and dragging the finger away from where it went down turns the camera in proportion to the offset; the button follows the finger and a ring shows its range. The button sits higher so the ring clears JUMP. Button clicks (JUMP, CAST) are sent without a cursor position: an absolute position at the screen centre made the mod's camera jump.

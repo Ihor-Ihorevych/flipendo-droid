@@ -32,3 +32,5 @@ __pycache__/
 /android/debug.keystore
 /logs-*.zip
 /*logs*.zip
+/movement*.zip
+*.u

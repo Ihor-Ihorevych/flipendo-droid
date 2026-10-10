@@ -78,10 +78,19 @@ public class FlipendoActivity extends SDLActivity {
      * process) is started, and this process, with the engine in it, is killed so the game starts again from nothing.
      */
     void switchLanguage(String code) {
+        restartWith(SetupActivity.LANG_WANT, code);
+    }
+
+    /** Switches a mod on or off ("none" for the originals), the same way: wish file, launcher, fresh process. */
+    void switchMod(String id) {
+        restartWith(SetupActivity.MOD_WANT, id);
+    }
+
+    private void restartWith(String wishFile, String value) {
         try {
-            SetupActivity.writeSmallFile(new File(GAME_DIR, SetupActivity.LANG_WANT), code);
+            SetupActivity.writeSmallFile(new File(GAME_DIR, wishFile), value);
         } catch (IOException e) {
-            android.util.Log.e("flipendo", "could not write the language wish: " + e);
+            android.util.Log.e("flipendo", "could not write the wish " + wishFile + ": " + e);
             return;
         }
         Intent intent = new Intent(this, SetupActivity.class);
@@ -360,6 +369,7 @@ public class FlipendoActivity extends SDLActivity {
         /** A cutscene starts: let go of whatever the fingers were holding (stick directions, arrows, the wand). */
         void releaseGameplayControls() {
             releaseStick();
+            releaseAim();
             arrowFingers.clear();
             for (Btn a : arrows) {
                 if (a.down) setButton(a, false);
@@ -418,6 +428,85 @@ public class FlipendoActivity extends SDLActivity {
             } }, 5100);
         }
 
+        // The movement mod (AdamJD): a replacement for the game's scripts that the APK can carry (self pack with --mod). While it is
+        // installed the wand is aimed with a stick on the right (in the mod, holding CAST aims and lets the camera move).
+        final java.util.List<String[]> mods = SetupActivity.readMods(getContext());
+        final boolean modOn;
+        boolean modAsk;
+        long modAskTime;
+
+        {
+            String id = SetupActivity.readSmallFile(new File(GAME_DIR, SetupActivity.MOD_MARKER));
+            modOn = id != null && !id.isEmpty() && !id.equals("none");
+        }
+
+        String modText() {
+            String name = mods.get(0)[1];
+            if (modAsk) {
+                return "Restart " + (modOn ? "without" : "with") + " the mod? Tap again (unsaved progress is lost)";
+            }
+            return name + ": " + (modOn ? "ON" : "OFF") + "  (tap to change)";
+        }
+
+        /** First tap asks to confirm; a second tap within 5 s switches the mod and restarts the game. */
+        void modTap() {
+            long now = android.os.SystemClock.uptimeMillis();
+            if (modAsk && now - modAskTime < 5000) {
+                modAsk = false;
+                ((FlipendoActivity) getContext()).switchMod(modOn ? "none" : mods.get(0)[0]);
+                return;
+            }
+            modAsk = true;
+            modAskTime = now;
+            postDelayed(new Runnable() { public void run() {
+                if (modAsk && android.os.SystemClock.uptimeMillis() - modAskTime >= 5000) {
+                    modAsk = false;
+                    invalidate();
+                }
+            } }, 5100);
+        }
+
+        // The right stick (only with the mod): deflection turns the camera, that is the wand's aim, 60 times a second.
+        float aimCx, aimCy, aimR;
+        int aimPointer = -1;
+        float aimDx, aimDy; // knob offset from the centre, in pixels (clamped to aimR)
+        static final float AIM_GAIN = 24f;      // mouse counts per frame at full deflection
+        static final float AIM_DEADZONE = 0.12f;
+
+        final Runnable aimTick = new Runnable() {
+            public void run() {
+                if (aimPointer == -1) return;
+                float mag = (float) Math.hypot(aimDx, aimDy) / aimR;
+                if (mag > AIM_DEADZONE) {
+                    float scaled = (Math.min(mag, 1f) - AIM_DEADZONE) / (1f - AIM_DEADZONE);
+                    float length = (float) Math.hypot(aimDx, aimDy); // the knob offset, at most aimR
+                    SDLActivity.onNativeMouse(0, MotionEvent.ACTION_MOVE,
+                            aimDx / length * scaled * AIM_GAIN, aimDy / length * scaled * AIM_GAIN, true);
+                }
+                postDelayed(this, 16);
+            }
+        };
+
+        boolean aimVisible() {
+            return modOn && !settingsOpen && !menuShown && !lessonShown && !cutsceneShown;
+        }
+
+        void setAim(float x, float y) {
+            float dx = x - aimCx, dy = y - aimCy;
+            float d = (float) Math.hypot(dx, dy);
+            if (d > aimR) {
+                dx *= aimR / d;
+                dy *= aimR / d;
+            }
+            aimDx = dx;
+            aimDy = dy;
+        }
+
+        void releaseAim() {
+            aimPointer = -1;
+            aimDx = aimDy = 0;
+        }
+
         void openSettings() {
             releaseStick();
             for (Btn a : arrows) {
@@ -471,7 +560,7 @@ public class FlipendoActivity extends SDLActivity {
         boolean settingsOpen;    // the settings panel is up: it takes every touch
         final android.graphics.RectF panel = new android.graphics.RectF();
         final android.graphics.RectF segStick = new android.graphics.RectF(), segDpad = new android.graphics.RectF();
-        final android.graphics.RectF closeBtn = new android.graphics.RectF(), debugBtn = new android.graphics.RectF(), autoJumpBtn = new android.graphics.RectF(), telegramBtn = new android.graphics.RectF(), languageBtn = new android.graphics.RectF();
+        final android.graphics.RectF closeBtn = new android.graphics.RectF(), debugBtn = new android.graphics.RectF(), autoJumpBtn = new android.graphics.RectF(), telegramBtn = new android.graphics.RectF(), languageBtn = new android.graphics.RectF(), modBtn = new android.graphics.RectF();
 
         final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
         final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -533,12 +622,14 @@ public class FlipendoActivity extends SDLActivity {
         @Override
         protected void onSizeChanged(int w, int h, int ow, int oh) {
             float u = Math.min(w, h);
-            cast.cx = w - 0.20f * u; cast.cy = h - 0.22f * u; cast.r = 0.13f * u;
+            // with the mod the wand button is a stick whose range ring must clear the jump button: it sits higher
+            cast.cx = w - 0.20f * u; cast.cy = h - (modOn ? 0.40f : 0.22f) * u; cast.r = 0.13f * u;
             jump.cx = w - 0.42f * u; jump.cy = h - 0.12f * u; jump.r = 0.085f * u;
             menu.cx = w - 0.08f * u; menu.cy = 0.08f * u; menu.r = 0.06f * u;
             save.cx = w - 0.21f * u; save.cy = 0.08f * u; save.r = 0.06f * u;
             skip.cx = save.cx; skip.cy = save.cy; skip.r = save.r; // the book's place: the book is hidden in cutscenes
             text.setTextSize(0.035f * u);
+            aimR = 0.12f * u; // how far the wand button follows the finger
 
             gear.cx = w - 0.34f * u; gear.cy = 0.08f * u; gear.r = 0.06f * u;
             float ax = 0.27f * u, ay = h - 0.27f * u, ad = 0.155f * u;
@@ -552,19 +643,21 @@ public class FlipendoActivity extends SDLActivity {
             float pw = Math.min(0.9f * w, 1.5f * h);
             panel.set((w - pw) / 2f, 0.03f * h, (w + pw) / 2f, 0.97f * h);
             float gap = 0.02f * pw;
-            segStick.set(panel.left + 0.06f * pw, 0.20f * h, w / 2f - gap, 0.30f * h);
-            segDpad.set(w / 2f + gap, 0.20f * h, panel.right - 0.06f * pw, 0.30f * h);
+            // rows, top to bottom: movement controls, three sliders, Auto jump | Debug, Language and Mod (when the APK has them), Telegram | Close
+            float rowH = 0.075f * h;
+            segStick.set(panel.left + 0.06f * pw, 0.19f * h, w / 2f - gap, 0.19f * h + rowH);
+            segDpad.set(w / 2f + gap, 0.19f * h, panel.right - 0.06f * pw, 0.19f * h + rowH);
             sliderX0 = panel.left + 0.1f * pw;
             sliderX1 = panel.right - 0.1f * pw;
-            // with several languages in the APK: a Language row above the bottom buttons
-            sliderY[0] = 0.385f * h;
-            sliderY[1] = 0.48f * h;
-            sliderY[2] = 0.575f * h;
-            autoJumpBtn.set(panel.left + 0.06f * pw, 0.64f * h, w / 2f - gap, 0.73f * h);
-            debugBtn.set(w / 2f + gap, 0.64f * h, panel.right - 0.06f * pw, 0.73f * h);
-            languageBtn.set(panel.left + 0.06f * pw, 0.75f * h, panel.right - 0.06f * pw, 0.84f * h);
-            telegramBtn.set(panel.left + 0.06f * pw, 0.86f * h, w / 2f - gap, 0.95f * h);
-            closeBtn.set(w / 2f + gap, 0.86f * h, panel.right - 0.06f * pw, 0.95f * h);
+            sliderY[0] = 0.335f * h;
+            sliderY[1] = 0.415f * h;
+            sliderY[2] = 0.495f * h;
+            autoJumpBtn.set(panel.left + 0.06f * pw, 0.545f * h, w / 2f - gap, 0.545f * h + rowH);
+            debugBtn.set(w / 2f + gap, 0.545f * h, panel.right - 0.06f * pw, 0.545f * h + rowH);
+            languageBtn.set(panel.left + 0.06f * pw, 0.635f * h, panel.right - 0.06f * pw, 0.635f * h + rowH);
+            modBtn.set(panel.left + 0.06f * pw, 0.725f * h, panel.right - 0.06f * pw, 0.725f * h + rowH);
+            telegramBtn.set(panel.left + 0.06f * pw, 0.84f * h, w / 2f - gap, 0.84f * h + rowH);
+            closeBtn.set(w / 2f + gap, 0.84f * h, panel.right - 0.06f * pw, 0.84f * h + rowH);
             label.setTextSize(0.03f * u);
             label.setColor(0xFFFFFFFF);
             label.setShadowLayer(4f, 0f, 0f, 0xFF000000);
@@ -632,15 +725,18 @@ public class FlipendoActivity extends SDLActivity {
             float size = text.getTextSize();
             text.setTextSize(size * 1.5f);
             text.setColor(0xFFFFFFFF);
-            c.drawText("Settings", getWidth() / 2f, 0.105f * getHeight(), text);
+            c.drawText("Settings", getWidth() / 2f, 0.095f * getHeight(), text);
             text.setTextSize(size);
             text.setColor(0xCCFFFFFF);
-            c.drawText("Movement controls", getWidth() / 2f, 0.175f * getHeight(), text);
+            c.drawText("Movement controls", getWidth() / 2f, 0.165f * getHeight(), text);
             drawSegment(c, segStick, "Floating stick", !dpadMode);
             drawSegment(c, segDpad, "Arrow buttons", dpadMode);
             drawSliders(c);
             drawSegment(c, autoJumpBtn, autoJump ? "Auto jump: ON" : "Auto jump: OFF", autoJump);
             drawSegment(c, debugBtn, debugMode ? "Debug mode: ON" : "Debug mode: OFF", debugMode);
+            if (!mods.isEmpty()) {
+                drawSegment(c, modBtn, modText(), modAsk || modOn);
+            }
             if (languages.size() > 1) {
                 drawSegment(c, languageBtn, languageText(), languageAsk >= 0);
             }
@@ -705,7 +801,7 @@ public class FlipendoActivity extends SDLActivity {
             b.down = down;
             if (b.mouse != 0)
                 SDLActivity.onNativeMouse(down ? b.mouse : 0, down ? MotionEvent.ACTION_DOWN : MotionEvent.ACTION_UP,
-                        getWidth() / 2f * surfaceScale, getHeight() / 2f * surfaceScale, false);
+                        0f, 0f, true); // a click without moving the cursor: an absolute position here turned the mod's camera
             else
                 key(b.key, down);
         }
@@ -768,6 +864,8 @@ public class FlipendoActivity extends SDLActivity {
                             ((FlipendoActivity) getContext()).applyAutoJump(!autoJump, true);
                         } else if (debugBtn.contains(x, y)) {
                             ((FlipendoActivity) getContext()).applyDebugMode(!debugMode, true);
+                        } else if (!mods.isEmpty() && modBtn.contains(x, y)) {
+                            modTap();
                         } else if (languages.size() > 1 && languageBtn.contains(x, y)) {
                             languageTap();
                         } else if (telegramBtn.contains(x, y)) {
@@ -785,6 +883,14 @@ public class FlipendoActivity extends SDLActivity {
                         roles.put(id, Role.BUTTON);
                         b.pointer = id;
                         if (isArrow(b)) arrowFingers.add(id);
+                        if (b == cast && modOn) {
+                            // the wand button is a stick too: where the finger went down is its centre
+                            aimPointer = id;
+                            aimCx = x;
+                            aimCy = y;
+                            aimDx = aimDy = 0;
+                            post(aimTick);
+                        }
                         if (b.toggle) setButton(b, !b.down); else setButton(b, true);
                         if (b == menu) {
                             // Holding MENU for a moment sends the logs (also when the game is stuck or black).
@@ -831,6 +937,7 @@ public class FlipendoActivity extends SDLActivity {
                         }
                         if (role == Role.BUTTON) {
                             slideArrow(pid, x, y);
+                            if (aimPointer == pid) setAim(x, y); // the wand button as a stick (mod on)
                             continue;
                         }
                         if (role == Role.DRAW) {
@@ -890,6 +997,7 @@ public class FlipendoActivity extends SDLActivity {
                         } }, delay);
                     } else if (role == Role.BUTTON) {
                         arrowFingers.remove(id);
+                        if (aimPointer == id) releaseAim();
                         for (Btn b : buttons) {
                             if (b.pointer == id) {
                                 b.pointer = -1;
@@ -969,6 +1077,8 @@ public class FlipendoActivity extends SDLActivity {
                     continue;
                 }
                 // an icon on a soft dark disc (the jump button's), also behind the coloured wand and book
+                c.save();
+                if (b == cast && modOn && aimPointer != -1) c.translate(aimDx, aimDy); // the wand button is the stick: it follows the finger
                 fill.setColor(b.down ? 0x99000000 : 0x66000000);
                 c.drawCircle(b.cx, b.cy, b.r * scale, fill);
                 line.setColor(0xAAFFFFFF); // the white rim, as on the settings and arrow buttons
@@ -977,7 +1087,14 @@ public class FlipendoActivity extends SDLActivity {
                 float half = b.r * 0.82f * scale;
                 iconRect.set(b.cx - half, b.cy - half, b.cx + half, b.cy + half);
                 c.drawBitmap(b.icon, null, iconRect, b.tint ? (b.down ? yellowPaint : whitePaint) : iconPaint);
+                c.restore();
                 if (faint) c.restoreToCount(layer);
+            }
+            if (aimVisible()) {
+                // the range of the wand stick: the finger's offset from where it went down turns the camera
+                line.setColor(aimPointer != -1 ? 0x88FFD84A : 0x33FFFFFF);
+                line.setStrokeWidth(3f);
+                c.drawCircle(cast.cx, cast.cy, aimR + cast.r, line);
             }
             if (stickPointer != -1) {
                 float r = 0.12f * Math.min(getWidth(), getHeight());

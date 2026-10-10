@@ -7,6 +7,8 @@
 #                                                 another install (the Russian one), under its own file name
 #   android/build-apk.sh --selfpack "C:/Games/HP" --lang ru="C:/Program Files/HPFarg"
 #                                                 one self pack with both languages; Settings > Language switches them in game
+#   android/build-apk.sh --selfpack "C:/Games/HP" --mod movement=movement.zip
+#                                                 the self pack also carries a mod (replacement .u packages) that Settings can switch
 #   android/build-apk.sh --install                ... and install the plain APK on the connected phone (adb)
 # The self pack contains copyrighted game data: for your own phone only, never publish or share it.
 # Needs: JDK 21, Android SDK (platform 35, build-tools 35.0.0, NDK 27.2.12479018, CMake 3.22.1), git.
@@ -19,12 +21,14 @@ cd "$ROOT"
 INSTALL=0
 SELFPACKS=() # "game folder|apk name"
 LANGS=()     # "code=game folder": more languages for --selfpack (the in-game language switch)
+MODS=()      # "id=zip": script mods the app can switch on and off (Settings > Movement mod)
 while [ $# -gt 0 ]; do
 	case "$1" in
 		--install) INSTALL=1 ;;
 		--selfpack) shift; SELFPACKS+=("$(cygpath -u "${1:?--selfpack needs the game folder}")|flipendo-droid-selfpack.apk") ;;
 		--selfpack-ru) shift; SELFPACKS+=("$(cygpath -u "${1:?--selfpack-ru needs the game folder}")|flipendo-droid-selfpack-ru.apk") ;;
 		--lang) shift; LANGS+=("$(echo "${1:?--lang needs code=game folder (e.g. ru=D:/HP-Russian)}" | sed 's|=.*||')=$(cygpath -u "$(echo "$1" | sed 's|^[^=]*=||')")") ;;
+		--mod) shift; MODS+=("${1:?--mod needs id=mod.zip (e.g. movement=movement.zip)}") ;;
 		*) echo "unknown argument: $1" >&2; exit 1 ;;
 	esac
 	shift
@@ -133,6 +137,14 @@ game_files() {
 		-print0)
 }
 
+# label of a mod in Settings
+mod_label() {
+	case "$1" in
+		movement) echo "Movement mod (AdamJD)" ;;
+		*) echo "$1" ;;
+	esac
+}
+
 # language label for the in-game switch (assets/langs/langs.txt: "code|label", the first one is the base install)
 lang_label() {
 	case "$1" in
@@ -186,6 +198,19 @@ for entry in "${SELFPACKS[@]}"; do
 		unset base_files lang_dir is_diff
 	else
 		game_files "$SELFPACK" | (cd "$SELFPACK" && tar --null -cf - --files-from=-) | (cd "$STAGE" && tar xf -)
+	fi
+	if [ ${#MODS[@]} -gt 0 ] && [ "$NAME" = flipendo-droid-selfpack.apk ]; then
+		mkdir -p "$A/data_stage/assets/mods"
+		: > "$A/data_stage/assets/mods/mods.txt"
+		for m in "${MODS[@]}"; do
+			id="${m%%=*}"; zip="$(cygpath -u "${m#*=}")"
+			# only plain .u packages (no paths), whatever else the zip holds is ignored
+			mkdir -p "$A/data_stage/assets/mods/$id"
+			unzip -qo -j "$zip" '*.u' -d "$A/data_stage/assets/mods/$id"
+			echo "$id|$(mod_label "$id")" >> "$A/data_stage/assets/mods/mods.txt"
+			echo "mod $id: $(ls "$A/data_stage/assets/mods/$id" | tr '
+' ' ')"
+		done
 	fi
 	# a stamp of what is inside (a hash of the contents: two installs can differ with the same sizes): the app only unpacks again when the data changes
 	(cd "$A/data_stage/assets" && find . -type f ! -name .stamp -print0 | sort -z | xargs -0 sha1sum | sha1sum | cut -d' ' -f1) > "$STAGE/.stamp"
