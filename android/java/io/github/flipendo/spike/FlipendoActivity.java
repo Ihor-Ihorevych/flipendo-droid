@@ -115,7 +115,7 @@ public class FlipendoActivity extends SDLActivity {
     private void saveScales() {
         getSharedPreferences("flipendo", MODE_PRIVATE).edit()
                 .putFloat("renderScale", surfaceScale).putFloat("uiScale", uiScale)
-                .putFloat("fovOffset", fovOffset).putBoolean("debugMode", debugMode).putBoolean("autoJump", autoJump).apply();
+                .putFloat("fovOffset", fovOffset).putBoolean("debugMode", debugMode).putBoolean("showFps", showFps).putBoolean("autoJump", autoJump).apply();
     }
 
     /** Resizes the render surface (the engine rebuilds its scene textures and swapchain for the new size). */
@@ -191,6 +191,12 @@ public class FlipendoActivity extends SDLActivity {
             }
         });
     }
+
+    /** Frames the engine has drawn (android_main.cpp): the FPS counter. */
+    static native int nativeFrameCount();
+
+    /** The FPS counter next to the toolbar (Settings > FPS counter), off by default. */
+    static boolean showFps = false;
 
     /** The map being played (android_main.cpp), for prompts that depend on the level. */
     static native String nativeLevelName();
@@ -296,6 +302,7 @@ public class FlipendoActivity extends SDLActivity {
         applyUiScale(prefs.getFloat("uiScale", 1.0f), false);
         applyFovOffset(prefs.getFloat("fovOffset", 0f), false);
         applyDebugMode(prefs.getBoolean("debugMode", false), false);
+        showFps = prefs.getBoolean("showFps", false);
         applyAutoJump(prefs.getBoolean("autoJump", true), false);
         if (mSurface != null) {
             applyRenderScale(prefs.getFloat("renderScale", 0.5f));
@@ -340,6 +347,7 @@ public class FlipendoActivity extends SDLActivity {
                         && isFixedCameraLevel(levelShown) && !levelShown.equalsIgnoreCase(promptDeclinedLevel)) {
                     openPrompt();
                 }
+                sampleFps();
                 postDelayed(this, 150);
             }
         };
@@ -445,13 +453,6 @@ public class FlipendoActivity extends SDLActivity {
             return 0;
         }
 
-        String languageText() {
-            if (languageAsk >= 0) {
-                return "Restart in " + languages.get(languageAsk)[1] + "? Tap again (unsaved progress is lost)";
-            }
-            return "Language: " + languages.get(languageIndex(currentLanguage()))[1] + "  (tap to change)";
-        }
-
         /** First tap: picks the next language and asks to confirm; a second tap within 5 s switches (the game restarts). */
         void languageTap() {
             long now = android.os.SystemClock.uptimeMillis();
@@ -481,14 +482,6 @@ public class FlipendoActivity extends SDLActivity {
         {
             String id = SetupActivity.readSmallFile(new File(GAME_DIR, SetupActivity.MOD_MARKER));
             modOn = id != null && !id.isEmpty() && !id.equals("none");
-        }
-
-        String modText() {
-            String name = mods.get(0)[1];
-            if (modAsk) {
-                return "Restart " + (modOn ? "without" : "with") + " the mod? Tap again (unsaved progress is lost)";
-            }
-            return name + ": " + (modOn ? "ON" : "OFF") + "  (tap to change)";
         }
 
         /** First tap asks to confirm; a second tap within 5 s switches the mod and restarts the game. */
@@ -650,10 +643,30 @@ public class FlipendoActivity extends SDLActivity {
             drawSegment(c, promptNo, "Keep the mod", false);
         }
 
+        // the settings card's geometry (onSizeChanged) and its text styles
+        float headerY, dividerY, colL0, colL1, colR0, colR1, secDisplayY, secControlsY, secGameY;
+        final float[] sliderLabelY = new float[3];
+        static final int GOLD = 0xFFE8C15A, CARD = 0xF2181722, ROW = 0x14FFFFFF, MUTED = 0x99FFFFFF;
+        final Paint titlePaint = new Paint(Paint.ANTI_ALIAS_FLAG), sectionPaint = new Paint(Paint.ANTI_ALIAS_FLAG),
+                rowPaint = new Paint(Paint.ANTI_ALIAS_FLAG), subPaint = new Paint(Paint.ANTI_ALIAS_FLAG),
+                valuePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        {
+            titlePaint.setColor(0xFFFFFFFF);
+            titlePaint.setFakeBoldText(true);
+            sectionPaint.setColor(GOLD);
+            sectionPaint.setFakeBoldText(true);
+            sectionPaint.setLetterSpacing(0.12f);
+            rowPaint.setColor(0xFFFFFFFF);
+            subPaint.setColor(MUTED);
+            valuePaint.setColor(GOLD);
+            valuePaint.setTextAlign(Paint.Align.RIGHT);
+        }
+
         boolean settingsOpen;    // the settings panel is up: it takes every touch
         final android.graphics.RectF panel = new android.graphics.RectF();
         final android.graphics.RectF segStick = new android.graphics.RectF(), segDpad = new android.graphics.RectF();
-        final android.graphics.RectF closeBtn = new android.graphics.RectF(), debugBtn = new android.graphics.RectF(), autoJumpBtn = new android.graphics.RectF(), telegramBtn = new android.graphics.RectF(), languageBtn = new android.graphics.RectF(), modBtn = new android.graphics.RectF();
+        final android.graphics.RectF closeBtn = new android.graphics.RectF(), debugBtn = new android.graphics.RectF(), autoJumpBtn = new android.graphics.RectF(), telegramBtn = new android.graphics.RectF(), languageBtn = new android.graphics.RectF(), modBtn = new android.graphics.RectF(), fpsBtn = new android.graphics.RectF();
 
         final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
         final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -715,52 +728,103 @@ public class FlipendoActivity extends SDLActivity {
         @Override
         protected void onSizeChanged(int w, int h, int ow, int oh) {
             float u = Math.min(w, h);
-            // with the mod the wand button is a stick whose range ring must clear the jump button: it sits higher
-            cast.cx = w - 0.20f * u; cast.cy = h - (modOn ? 0.40f : 0.22f) * u; cast.r = 0.104f * u; // 20% smaller than the 0.13
-            jump.cx = w - 0.42f * u; jump.cy = h - 0.12f * u; jump.r = 0.085f * u;
-            menu.cx = w - 0.08f * u; menu.cy = 0.08f * u; menu.r = 0.06f * u;
-            save.cx = w - 0.21f * u; save.cy = 0.08f * u; save.r = 0.06f * u;
+            // Controls, in the settings card's style, with one margin from every edge:
+            float m = 0.05f * u;
+            // top right: a toolbar (settings | save or skip | menu), three slots in one pill
+            float barSlot = 0.12f * u, barY = m + 0.04f * u;
+            menu.cx = w - m - barSlot / 2f; menu.cy = barY; menu.r = 0.05f * u;
+            save.cx = menu.cx - barSlot; save.cy = barY; save.r = 0.05f * u;
             skip.cx = save.cx; skip.cy = save.cy; skip.r = save.r; // the book's place: the book is hidden in cutscenes
+            gear.cx = save.cx - barSlot; gear.cy = barY; gear.r = 0.05f * u;
+            toolbar.set(gear.cx - barSlot / 2f, barY - 0.055f * u, menu.cx + barSlot / 2f, barY + 0.055f * u);
+            // bottom right: the wand, and the jump to its lower left; with the mod the wand is a stick whose range ring must
+            // clear the jump button: it sits higher
+            cast.r = 0.104f * u;
+            cast.cx = w - m - cast.r - 0.03f * u; cast.cy = h - (modOn ? 0.40f : 0.21f) * u;
+            jump.r = 0.08f * u;
+            jump.cx = cast.cx - 0.23f * u; jump.cy = h - m - jump.r;
             text.setTextSize(0.035f * u);
             aimR = 0.12f * u; // how far the wand button follows the finger
 
-            gear.cx = w - 0.34f * u; gear.cy = 0.08f * u; gear.r = 0.06f * u;
-            float ax = 0.27f * u, ay = h - 0.27f * u, ad = 0.155f * u;
-            arrows[0].cx = ax; arrows[0].cy = ay - ad;
-            arrows[1].cx = ax; arrows[1].cy = ay + ad;
-            arrows[2].cx = ax - ad; arrows[2].cy = ay;
-            arrows[3].cx = ax + ad; arrows[3].cy = ay;
+            // bottom left: the arrows on one round pad
+            float ad = 0.15f * u;
+            padR = ad + 0.085f * u;
+            padX = m + padR; padY = h - m - padR;
+            arrows[0].cx = padX; arrows[0].cy = padY - ad;
+            arrows[1].cx = padX; arrows[1].cy = padY + ad;
+            arrows[2].cx = padX - ad; arrows[2].cy = padY;
+            arrows[3].cx = padX + ad; arrows[3].cy = padY;
             for (Btn a : arrows) a.r = 0.08f * u;
 
-            // The settings panel, centred: controls switch, the two sliders, Close.
-            float pw = Math.min(0.9f * w, 1.5f * h);
-            panel.set((w - pw) / 2f, 0.03f * h, (w + pw) / 2f, 0.97f * h);
+            // The settings panel: a card with a header, two columns (Display: the sliders | Controls and Game: switches) and a footer.
+            float pw = Math.min(0.94f * w, 2.1f * h);
+            float ph = 0.9f * h;
+            panel.set((w - pw) / 2f, (h - ph) / 2f, (w + pw) / 2f, (h + ph) / 2f);
+            float pad = 0.035f * pw;
             float gap = 0.02f * pw;
-            // rows, top to bottom: movement controls, three sliders, Auto jump | Debug, Language and Mod (when the APK has them), Telegram | Close
+            headerY = panel.top + 0.1f * h;
+            dividerY = panel.top + 0.145f * h;
+            float contentTop = dividerY + 0.03f * h;
+            float footerTop = panel.bottom - 0.115f * h;
+            colL0 = panel.left + pad;
+            colL1 = panel.centerX() - pad / 2f;
+            colR0 = panel.centerX() + pad / 2f;
+            colR1 = panel.right - pad;
 
+            // left: Display, three sliders sharing the column's height
+            secDisplayY = contentTop + 0.03f * h;
+            float knobR = 0.026f * u;
+            sliderX0 = colL0 + knobR;
+            sliderX1 = colL1 - knobR;
+            // the FPS counter switch at the bottom of the column, the sliders share what is above it
+            fpsBtn.set(colL0, footerTop - 0.035f * h - 0.078f * h, colL1, footerTop - 0.035f * h);
+            float slot = (fpsBtn.top - 0.02f * h - (secDisplayY + 0.02f * h)) / 3f;
+            for (int s = 0; s < 3; s++) {
+                sliderLabelY[s] = secDisplayY + 0.02f * h + s * slot + 0.055f * h;
+                sliderY[s] = sliderLabelY[s] + 0.05f * h;
+            }
 
-            float rowH = 0.075f * h;
-            float segTop = 0.19f * h;
-            segStick.set(panel.left + 0.06f * pw, segTop, w / 2f - gap, segTop + rowH);
-            segDpad.set(w / 2f + gap, segTop, panel.right - 0.06f * pw, segTop + rowH);
-            sliderX0 = panel.left + 0.1f * pw;
-            sliderX1 = panel.right - 0.1f * pw;
-            float step = 0.08f * h;
-            sliderY[0] = 0.335f * h;
-            for (int s = 1; s < 3; s++) sliderY[s] = sliderY[s - 1] + step;
-            float rowsTop = 0.545f * h;
-            float rowGap = 0.09f * h;
-            autoJumpBtn.set(panel.left + 0.06f * pw, rowsTop, w / 2f - gap, rowsTop + rowH);
-            debugBtn.set(w / 2f + gap, rowsTop, panel.right - 0.06f * pw, rowsTop + rowH);
-            languageBtn.set(panel.left + 0.06f * pw, rowsTop + rowGap, panel.right - 0.06f * pw, rowsTop + rowGap + rowH);
-            modBtn.set(panel.left + 0.06f * pw, rowsTop + 2 * rowGap, panel.right - 0.06f * pw, rowsTop + 2 * rowGap + rowH);
-            float bottomTop = 0.84f * h;
+            // right: Controls (movement segments, Auto jump) and Game (Language, Movement mod, Debug mode)
+            float rowH = 0.078f * h, rowGap = 0.012f * h;
+            secControlsY = contentTop + 0.03f * h;
+            float y = secControlsY + 0.025f * h;
+            segStick.set(colR0, y, (colR0 + colR1) / 2f, y + rowH);
+            segDpad.set((colR0 + colR1) / 2f, y, colR1, y + rowH);
+            y += rowH + rowGap;
+            autoJumpBtn.set(colR0, y, colR1, y + rowH);
+            y += rowH + 0.02f * h;
+            secGameY = y + 0.03f * h;
+            y = secGameY + 0.02f * h;
+            if (languages.size() > 1) {
+                languageBtn.set(colR0, y, colR1, y + rowH);
+                y += rowH + rowGap;
+            } else {
+                languageBtn.setEmpty();
+            }
+            if (!mods.isEmpty()) {
+                modBtn.set(colR0, y, colR1, y + rowH);
+                y += rowH + rowGap;
+            } else {
+                modBtn.setEmpty();
+            }
+            debugBtn.set(colR0, y, colR1, y + rowH);
+
+            // footer: the channel on the left, Done on the right
+            float footH = 0.075f * h;
+            float footY = panel.bottom - 0.03f * h - footH;
+            telegramBtn.set(colL0, footY, colL0 + 0.36f * pw, footY + footH);
+            closeBtn.set(colR1 - 0.2f * pw, footY, colR1, footY + footH);
+
             float ppw = Math.min(0.8f * w, 1.7f * h);
             promptPanel.set((w - ppw) / 2f, 0.22f * h, (w + ppw) / 2f, 0.78f * h);
             promptYes.set(promptPanel.left + 0.05f * ppw, promptPanel.bottom - 0.28f * promptPanel.height(), w / 2f - gap, promptPanel.bottom - 0.08f * promptPanel.height());
             promptNo.set(w / 2f + gap, promptYes.top, promptPanel.right - 0.05f * ppw, promptYes.bottom);
-            telegramBtn.set(panel.left + 0.06f * pw, bottomTop, w / 2f - gap, bottomTop + rowH);
-            closeBtn.set(w / 2f + gap, bottomTop, panel.right - 0.06f * pw, bottomTop + rowH);
+
+            titlePaint.setTextSize(0.055f * u);
+            sectionPaint.setTextSize(0.026f * u);
+            rowPaint.setTextSize(0.033f * u);
+            subPaint.setTextSize(0.024f * u);
+            valuePaint.setTextSize(0.031f * u);
             label.setTextSize(0.03f * u);
             label.setColor(0xFFFFFFFF);
             label.setShadowLayer(4f, 0f, 0f, 0xFF000000);
@@ -784,7 +848,7 @@ public class FlipendoActivity extends SDLActivity {
             if (!settingsOpen) return -1;
             float u = Math.min(getWidth(), getHeight());
             for (int i = 0; i < 3; i++) {
-                if (Math.abs(y - sliderY[i]) < 0.08f * u && x > sliderX0 - 0.05f * u && x < sliderX1 + 0.05f * u) return i;
+                if (Math.abs(y - sliderY[i]) < 0.055f * u && x > sliderX0 - 0.05f * u && x < sliderX1 + 0.05f * u) return i;
             }
             return -1;
         }
@@ -818,39 +882,137 @@ public class FlipendoActivity extends SDLActivity {
         void drawSettings(Canvas c) {
             if (!settingsOpen) return;
             float u = Math.min(getWidth(), getHeight());
-            fill.setColor(0xB0000000);
-            c.drawRect(0, 0, getWidth(), getHeight(), fill);
-            fill.setColor(0xF01C1C26);
-            c.drawRoundRect(panel, 0.03f * u, 0.03f * u, fill);
-            line.setColor(0x66FFFFFF);
-            line.setStrokeWidth(3f);
-            c.drawRoundRect(panel, 0.03f * u, 0.03f * u, line);
-            float size = text.getTextSize();
-            text.setTextSize(size * 1.5f);
-            text.setColor(0xFFFFFFFF);
-            c.drawText("Settings", getWidth() / 2f, 0.095f * getHeight(), text);
-            text.setTextSize(size);
-            text.setColor(0xCCFFFFFF);
-            c.drawText("Movement controls", getWidth() / 2f, 0.165f * getHeight(), text);
-            drawSegment(c, segStick, "Floating stick", !dpadMode);
-            drawSegment(c, segDpad, "Arrow buttons", dpadMode);
+            float h = getHeight();
+            fill.setColor(0xB8000000);
+            c.drawRect(0, 0, getWidth(), h, fill);
+            float r = 0.035f * u;
+            fill.setColor(CARD);
+            c.drawRoundRect(panel, r, r, fill);
+            line.setColor(0x33FFFFFF);
+            line.setStrokeWidth(2f);
+            c.drawRoundRect(panel, r, r, line);
+
+            // header: a gold accent, the title, and a hairline under it
+            fill.setColor(GOLD);
+            c.drawRoundRect(colL0, headerY - 0.045f * h, colL0 + 0.008f * u, headerY + 0.005f * h, 4f, 4f, fill);
+            titlePaint.setTextAlign(Paint.Align.LEFT);
+            c.drawText("Settings", colL0 + 0.025f * u, headerY, titlePaint);
+            subPaint.setTextAlign(Paint.Align.RIGHT);
+            c.drawText("Flipendo for Android", colR1, headerY, subPaint);
+            subPaint.setTextAlign(Paint.Align.LEFT);
+            line.setColor(0x22FFFFFF);
+            line.setStrokeWidth(2f);
+            c.drawLine(colL0, dividerY, colR1, dividerY, line);
+            c.drawLine(panel.centerX(), dividerY + 0.03f * h, panel.centerX(), telegramBtn.top - 0.03f * h, line);
+
+            // left column
+            drawSection(c, "DISPLAY", colL0, secDisplayY);
             drawSliders(c);
-            drawSegment(c, autoJumpBtn, autoJump ? "Auto jump: ON" : "Auto jump: OFF", autoJump);
-            drawSegment(c, debugBtn, debugMode ? "Debug mode: ON" : "Debug mode: OFF", debugMode);
-            if (!mods.isEmpty()) {
-                drawSegment(c, modBtn, modText(), modAsk || modOn);
-            }
+            drawSwitchRow(c, fpsBtn, "FPS counter", "Frames per second next to the toolbar", showFps, false);
+
+            // right column
+            drawSection(c, "CONTROLS", colR0, secControlsY);
+            drawSegments(c);
+            drawSwitchRow(c, autoJumpBtn, "Auto jump", "Harry jumps by himself at ledges", autoJump, false);
+            drawSection(c, "GAME", colR0, secGameY);
             if (languages.size() > 1) {
-                drawSegment(c, languageBtn, languageText(), languageAsk >= 0);
+                String current = languages.get(languageIndex(currentLanguage()))[1];
+                if (languageAsk >= 0) {
+                    drawValueRow(c, languageBtn, "Language", "Tap again: restart in " + languages.get(languageAsk)[1], "Restart", true);
+                } else {
+                    drawValueRow(c, languageBtn, "Language", "Voices, texts and fonts", current, false);
+                }
             }
-            fill.setColor(0x44FFFFFF);
-            c.drawRoundRect(closeBtn, closeBtn.height() / 2f, closeBtn.height() / 2f, fill);
-            text.setColor(0xFFFFFFFF);
-            c.drawText("Close", closeBtn.centerX(), closeBtn.centerY() + size * 0.35f, text);
-            fill.setColor(0x445EB8FF);
+            if (!mods.isEmpty()) {
+                drawSwitchRow(c, modBtn, "Movement mod",
+                        modAsk ? "Tap again to restart " + (modOn ? "without" : "with") + " it (unsaved progress is lost)" : "By AdamJD: camera, climbing, aim",
+                        modOn, modAsk);
+            }
+            drawSwitchRow(c, debugBtn, "Debug mode", "Level Select in the main menu", debugMode, false);
+
+            // footer
+            fill.setColor(0x334A9EE8);
             c.drawRoundRect(telegramBtn, telegramBtn.height() / 2f, telegramBtn.height() / 2f, fill);
-            c.drawText("Telegram channel", telegramBtn.centerX(), telegramBtn.centerY() + size * 0.35f, text);
-            text.setColor(0xCCFFFFFF);
+            rowPaint.setTextAlign(Paint.Align.CENTER);
+            rowPaint.setColor(0xFF8CC8FF);
+            c.drawText("Telegram: t.me/flipendodroid", telegramBtn.centerX(), telegramBtn.centerY() + rowPaint.getTextSize() * 0.35f, rowPaint);
+            fill.setColor(GOLD);
+            c.drawRoundRect(closeBtn, closeBtn.height() / 2f, closeBtn.height() / 2f, fill);
+            rowPaint.setColor(0xFF1A1A1A);
+            c.drawText("Done", closeBtn.centerX(), closeBtn.centerY() + rowPaint.getTextSize() * 0.35f, rowPaint);
+            rowPaint.setColor(0xFFFFFFFF);
+            rowPaint.setTextAlign(Paint.Align.LEFT);
+        }
+
+        void drawSection(Canvas c, String name, float x, float y) {
+            sectionPaint.setTextAlign(Paint.Align.LEFT);
+            c.drawText(name, x, y, sectionPaint);
+        }
+
+        final android.graphics.RectF segAll = new android.graphics.RectF();
+
+        /** Stick | Arrows as one control: a track with the chosen half filled. */
+        void drawSegments(Canvas c) {
+            segAll.set(segStick.left, segStick.top, segDpad.right, segDpad.bottom);
+            float rr = segAll.height() / 2f;
+            fill.setColor(ROW);
+            c.drawRoundRect(segAll, rr, rr, fill);
+            android.graphics.RectF on = dpadMode ? segDpad : segStick;
+            float inset = 0.08f * segAll.height();
+            fill.setColor(GOLD);
+            c.drawRoundRect(on.left + inset, on.top + inset, on.right - inset, on.bottom - inset, rr - inset, rr - inset, fill);
+            rowPaint.setTextAlign(Paint.Align.CENTER);
+            float base = rowPaint.getTextSize() * 0.35f;
+            rowPaint.setColor(dpadMode ? 0xFFFFFFFF : 0xFF1A1A1A);
+            c.drawText("Floating stick", segStick.centerX(), segStick.centerY() + base, rowPaint);
+            rowPaint.setColor(dpadMode ? 0xFF1A1A1A : 0xFFFFFFFF);
+            c.drawText("Arrow buttons", segDpad.centerX(), segDpad.centerY() + base, rowPaint);
+            rowPaint.setColor(0xFFFFFFFF);
+            rowPaint.setTextAlign(Paint.Align.LEFT);
+        }
+
+        float rowPad(android.graphics.RectF row) {
+            return 0.02f * (colR1 - colR0) + 0.035f * row.height();
+        }
+
+        /** A row with a title, a hint under it and a switch on the right; pending: a confirmation is asked (gold outline). */
+        void drawSwitchRow(Canvas c, android.graphics.RectF row, String title, String hint, boolean on, boolean pending) {
+            drawRowBase(c, row, pending);
+            drawRowTexts(c, row, title, hint, pending);
+            float th = 0.42f * row.height(), tw = 1.8f * th;
+            float tx1 = row.right - rowPad(row), tx0 = tx1 - tw, ty0 = row.centerY() - th / 2f, ty1 = ty0 + th;
+            fill.setColor(on ? GOLD : 0x33FFFFFF);
+            c.drawRoundRect(tx0, ty0, tx1, ty1, th / 2f, th / 2f, fill);
+            fill.setColor(0xFFFFFFFF);
+            c.drawCircle(on ? tx1 - th / 2f : tx0 + th / 2f, row.centerY(), 0.38f * th, fill);
+        }
+
+        /** A row with a title, a hint and a value on the right (opens a choice). */
+        void drawValueRow(Canvas c, android.graphics.RectF row, String title, String hint, String value, boolean pending) {
+            drawRowBase(c, row, pending);
+            drawRowTexts(c, row, title, hint, pending);
+            c.drawText(value + "  ›", row.right - rowPad(row), row.centerY() + valuePaint.getTextSize() * 0.35f, valuePaint);
+        }
+
+        void drawRowBase(Canvas c, android.graphics.RectF row, boolean pending) {
+            float rr = 0.25f * row.height();
+            fill.setColor(pending ? 0x22E8C15A : ROW);
+            c.drawRoundRect(row, rr, rr, fill);
+            if (pending) {
+                line.setColor(GOLD);
+                line.setStrokeWidth(2f);
+                c.drawRoundRect(row, rr, rr, line);
+            }
+        }
+
+        void drawRowTexts(Canvas c, android.graphics.RectF row, String title, String hint, boolean pending) {
+            float x = row.left + rowPad(row);
+            rowPaint.setTextAlign(Paint.Align.LEFT);
+            c.drawText(title, x, row.centerY() - 0.04f * row.height(), rowPaint);
+            subPaint.setTextAlign(Paint.Align.LEFT);
+            subPaint.setColor(pending ? GOLD : MUTED);
+            c.drawText(hint, x, row.centerY() + subPaint.getTextSize() * 1.15f, subPaint);
+            subPaint.setColor(MUTED);
         }
 
         void drawSliders(Canvas c) {
@@ -859,20 +1021,28 @@ public class FlipendoActivity extends SDLActivity {
             int longSide = Math.max(dm.widthPixels, dm.heightPixels), shortSide = Math.min(dm.widthPixels, dm.heightPixels);
             for (int i = 0; i < 3; i++) {
                 float v = sliderValue(i);
-                String name = i == 0
-                        ? "Render scale " + Math.round(v * 100) + "%  (" + (int) (longSide * v) + "x" + (int) (shortSide * v) + ")"
-                        : i == 1 ? "Subtitles and HUD size " + Math.round(v * 100) + "%"
-                        : "Field of view " + (v > 0 ? "+" : "") + Math.round(v) + (v == 0 ? " (default)" : " degrees");
-                c.drawText(name, sliderX0, sliderY[i] - 0.05f * u, label);
+                String name = i == 0 ? "Render scale" : i == 1 ? "Subtitles and HUD size" : "Field of view";
+                String value = i == 0 ? Math.round(v * 100) + "%  ·  " + (int) (longSide * v) + "×" + (int) (shortSide * v)
+                        : i == 1 ? Math.round(v * 100) + "%"
+                        : (v > 0 ? "+" : "") + Math.round(v) + "°" + (v == 0 ? "  (default)" : "");
+                rowPaint.setTextAlign(Paint.Align.LEFT);
+                c.drawText(name, colL0, sliderLabelY[i], rowPaint);
+                c.drawText(value, colL1, sliderLabelY[i], valuePaint);
                 float t = (v - sliderMin(i)) / (sliderMax(i) - sliderMin(i));
                 float kx = sliderX0 + t * (sliderX1 - sliderX0);
-                line.setStrokeWidth(0.012f * u);
-                line.setColor(0x88FFFFFF);
+                line.setStrokeCap(Paint.Cap.ROUND);
+                line.setStrokeWidth(0.01f * u);
+                line.setColor(0x33FFFFFF);
                 c.drawLine(sliderX0, sliderY[i], sliderX1, sliderY[i], line);
-                line.setColor(0xFFFFD84A);
+                line.setColor(GOLD);
                 c.drawLine(sliderX0, sliderY[i], kx, sliderY[i], line);
-                fill.setColor(activeSlider == i ? 0xFFFFD84A : 0xFFFFFFFF);
-                c.drawCircle(kx, sliderY[i], 0.03f * u, fill);
+                line.setStrokeCap(Paint.Cap.BUTT);
+                float kr = activeSlider == i ? 0.03f * u : 0.024f * u;
+                fill.setColor(0xFFFFFFFF);
+                c.drawCircle(kx, sliderY[i], kr, fill);
+                line.setColor(GOLD);
+                line.setStrokeWidth(0.005f * u);
+                c.drawCircle(kx, sliderY[i], kr, line);
             }
             line.setStrokeWidth(4f);
         }
@@ -975,6 +1145,10 @@ public class FlipendoActivity extends SDLActivity {
                             setDpadMode(true);
                         } else if (autoJumpBtn.contains(x, y)) {
                             ((FlipendoActivity) getContext()).applyAutoJump(!autoJump, true);
+                        } else if (fpsBtn.contains(x, y)) {
+                            showFps = !showFps;
+                            fpsFrames = -1;
+                            ((FlipendoActivity) getContext()).saveScales();
                         } else if (debugBtn.contains(x, y)) {
                             ((FlipendoActivity) getContext()).applyDebugMode(!debugMode, true);
                         } else if (!mods.isEmpty() && modBtn.contains(x, y)) {
@@ -1137,85 +1311,206 @@ public class FlipendoActivity extends SDLActivity {
             return true;
         }
 
+        // The FPS counter: frames the engine drew over the last half second (nativeFrameCount), shown left of the toolbar.
+        int fpsFrames = -1;
+        long fpsTime;
+        int fpsValue = -1;
+
+        void sampleFps() {
+            if (!showFps) {
+                fpsFrames = -1;
+                return;
+            }
+            int frames;
+            try {
+                frames = nativeFrameCount();
+            } catch (UnsatisfiedLinkError e) {
+                return;
+            }
+            long now = android.os.SystemClock.uptimeMillis();
+            if (fpsFrames < 0) {
+                fpsFrames = frames;
+                fpsTime = now;
+            } else if (now - fpsTime >= 500) {
+                fpsValue = Math.round((frames - fpsFrames) * 1000f / (now - fpsTime));
+                fpsFrames = frames;
+                fpsTime = now;
+                invalidate();
+            }
+        }
+
+        final android.graphics.RectF fpsPill = new android.graphics.RectF();
+
+        void drawFps(Canvas c) {
+            if (!showFps || fpsValue < 0) return;
+            float u = Math.min(getWidth(), getHeight());
+            fpsPill.set(toolbar.left - 0.02f * u - 0.2f * u, toolbar.top, toolbar.left - 0.02f * u, toolbar.bottom);
+            float r = fpsPill.height() / 2f;
+            fill.setColor(DISC);
+            c.drawRoundRect(fpsPill, r, r, fill);
+            line.setColor(DISC_RIM);
+            line.setStrokeWidth(3f);
+            c.drawRoundRect(fpsPill, r, r, line);
+            String number = String.valueOf(fpsValue);
+            valuePaint.setTextAlign(Paint.Align.LEFT);
+            int numberColor = fpsValue >= 50 ? 0xFF7FD88A : fpsValue >= 30 ? GOLD : 0xFFFF7A6B;
+            valuePaint.setColor(numberColor);
+            float numberW = valuePaint.measureText(number), unitW = subPaint.measureText(" FPS");
+            float x = fpsPill.centerX() - (numberW + unitW) / 2f, baseY = fpsPill.centerY() + valuePaint.getTextSize() * 0.35f;
+            c.drawText(number, x, baseY, valuePaint);
+            subPaint.setTextAlign(Paint.Align.LEFT);
+            c.drawText(" FPS", x + numberW, baseY, subPaint);
+            valuePaint.setColor(GOLD);
+            valuePaint.setTextAlign(Paint.Align.RIGHT);
+        }
+
+        // the controls' geometry (onSizeChanged) and look: the settings card's colours on the game
+        final android.graphics.RectF toolbar = new android.graphics.RectF();
+        float padR, padX, padY;
+        static final int DISC = 0x80181722, DISC_RIM = 0x55FFFFFF, DARK = 0xFF1A1A1A;
+        final Paint darkPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+
+        {
+            darkPaint.setColorFilter(new android.graphics.PorterDuffColorFilter(DARK, android.graphics.PorterDuff.Mode.SRC_IN));
+        }
+
+        /** A round button: a dark translucent disc with a thin rim, gold while pressed. */
+        void drawDisc(Canvas c, float cx, float cy, float r, boolean down) {
+            fill.setColor(down ? 0xE6E8C15A : DISC);
+            c.drawCircle(cx, cy, r, fill);
+            line.setColor(down ? GOLD : DISC_RIM);
+            line.setStrokeWidth(3f);
+            c.drawCircle(cx, cy, r, line);
+        }
+
+        /** A button's icon: black glyphs white (dark on gold while pressed), coloured pictures as they are. */
+        void drawIcon(Canvas c, Btn b, float cx, float cy, float size) {
+            iconRect.set(cx - size, cy - size, cx + size, cy + size);
+            c.drawBitmap(b.icon, null, iconRect, b.tint ? (b.down ? darkPaint : whitePaint) : iconPaint);
+        }
+
+        void drawGear(Canvas c, float cx, float cy, float r, int color) {
+            line.setColor(color);
+            line.setStrokeWidth(r * 0.2f);
+            c.drawCircle(cx, cy, r * 0.32f, line);
+            line.setStrokeCap(Paint.Cap.ROUND);
+            for (int k = 0; k < 8; k++) {
+                double a = k * Math.PI / 4;
+                float cs = (float) Math.cos(a), sn = (float) Math.sin(a);
+                c.drawLine(cx + cs * r * 0.5f, cy + sn * r * 0.5f, cx + cs * r * 0.66f, cy + sn * r * 0.66f, line);
+            }
+            line.setStrokeCap(Paint.Cap.BUTT);
+        }
+
+        /** A chevron pointing up, rotated: up, down, left, right. */
+        void drawChevron(Canvas c, Btn b, int color) {
+            float[] angle = { 0f, 180f, 270f, 90f };
+            float k = b.r * 0.38f;
+            arrowPath.reset();
+            arrowPath.moveTo(b.cx - k, b.cy + k * 0.45f);
+            arrowPath.lineTo(b.cx, b.cy - k * 0.55f);
+            arrowPath.lineTo(b.cx + k, b.cy + k * 0.45f);
+            line.setColor(color);
+            line.setStrokeWidth(b.r * 0.16f);
+            line.setStrokeCap(Paint.Cap.ROUND);
+            line.setStrokeJoin(Paint.Join.ROUND);
+            c.save();
+            c.rotate(angle[arrowIndex(b)], b.cx, b.cy);
+            c.drawPath(arrowPath, line);
+            c.restore();
+            line.setStrokeCap(Paint.Cap.BUTT);
+            line.setStrokeJoin(Paint.Join.MITER);
+        }
+
         @Override
         protected void onDraw(Canvas c) {
-            for (Btn b : buttons) {
+            float u = Math.min(getWidth(), getHeight());
+
+            // top right: the toolbar, 30% visible (gear | save or skip | menu)
+            int layer = c.saveLayerAlpha(toolbar.left - 4f, toolbar.top - 4f, toolbar.right + 4f, toolbar.bottom + 4f, 77);
+            float tr = toolbar.height() / 2f;
+            fill.setColor(DISC);
+            c.drawRoundRect(toolbar, tr, tr, fill);
+            line.setColor(DISC_RIM);
+            line.setStrokeWidth(3f);
+            c.drawRoundRect(toolbar, tr, tr, line);
+            line.setColor(0x33FFFFFF);
+            line.setStrokeWidth(2f);
+            float sepTop = toolbar.top + 0.25f * toolbar.height(), sepBottom = toolbar.bottom - 0.25f * toolbar.height();
+            float sep1 = (gear.cx + save.cx) / 2f, sep2 = (save.cx + menu.cx) / 2f;
+            c.drawLine(sep1, sepTop, sep1, sepBottom, line);
+            c.drawLine(sep2, sepTop, sep2, sepBottom, line);
+            for (Btn b : new Btn[] { gear, save, skip, menu }) {
                 if (!visible(b)) continue;
-                float scale = b.down ? 0.9f : 1f;
-                // the top row (settings, save or skip, menu) is 30% visible
-                boolean faint = b == gear || b == save || b == menu || b == skip;
-                int layer = faint ? c.saveLayerAlpha(b.cx - b.r * 1.3f, b.cy - b.r * 1.3f, b.cx + b.r * 1.3f, b.cy + b.r * 1.3f, 77) : 0;
-                if (b == gear || isArrow(b)) {
-                    fill.setColor(b.down ? 0x99FFD84A : 0x55000000);
-                    c.drawCircle(b.cx, b.cy, b.r * scale, fill);
-                    line.setColor(0xAAFFFFFF);
-                    line.setStrokeWidth(4f);
-                    c.drawCircle(b.cx, b.cy, b.r * scale, line);
-                    fill.setColor(b.down ? 0xFFFFD84A : 0xCCFFFFFF);
-                    if (b == gear) {
-                        // a gear: a ring with eight teeth
-                        line.setStrokeWidth(b.r * 0.22f);
-                        c.drawCircle(b.cx, b.cy, b.r * 0.32f, line);
-                        for (int k = 0; k < 8; k++) {
-                            double a = k * Math.PI / 4;
-                            float cs = (float) Math.cos(a), sn = (float) Math.sin(a);
-                            c.drawLine(b.cx + cs * b.r * 0.42f, b.cy + sn * b.r * 0.42f,
-                                    b.cx + cs * b.r * 0.62f, b.cy + sn * b.r * 0.62f, line);
-                        }
-                        line.setStrokeWidth(4f);
-                    } else {
-                        // a triangle pointing up, rotated: up, down, left, right
-                        float[] angle = { 0f, 180f, 270f, 90f };
-                        float k = b.r * 0.45f;
-                        arrowPath.reset();
-                        arrowPath.moveTo(b.cx, b.cy - k);
-                        arrowPath.lineTo(b.cx - k, b.cy + k * 0.7f);
-                        arrowPath.lineTo(b.cx + k, b.cy + k * 0.7f);
-                        arrowPath.close();
-                        c.save();
-                        c.rotate(angle[arrowIndex(b)], b.cx, b.cy);
-                        c.drawPath(arrowPath, fill);
-                        c.restore();
-                    }
-                    if (faint) c.restoreToCount(layer);
-                    continue;
+                if (b.down) {
+                    fill.setColor(0xE6E8C15A);
+                    c.drawCircle(b.cx, b.cy, 0.045f * u, fill);
                 }
-                if (b.icon == null) {
-                    fill.setColor(b.down ? 0x88FFD84A : 0x55000000);
-                    c.drawCircle(b.cx, b.cy, b.r, fill);
-                    line.setColor(0xAAFFFFFF);
-                    c.drawCircle(b.cx, b.cy, b.r, line);
+                if (b == gear) {
+                    drawGear(c, b.cx, b.cy, b.r, b.down ? DARK : 0xFFFFFFFF);
+                } else if (b == skip) {
+                    sectionPaint.setTextAlign(Paint.Align.CENTER);
+                    sectionPaint.setColor(b.down ? DARK : GOLD);
+                    c.drawText("SKIP ›", b.cx, b.cy + sectionPaint.getTextSize() * 0.35f, sectionPaint);
+                    sectionPaint.setColor(GOLD);
+                    sectionPaint.setTextAlign(Paint.Align.LEFT);
+                } else if (b.icon != null) {
+                    drawIcon(c, b, b.cx, b.cy, b.r * 0.8f);
+                } else {
+                    text.setColor(b.down ? DARK : 0xFFFFFFFF);
                     c.drawText(b.label, b.cx, b.cy + text.getTextSize() * 0.35f, text);
-                    if (faint) c.restoreToCount(layer);
-                    continue;
+                    text.setColor(0xCCFFFFFF);
                 }
-                // an icon on a soft dark disc (the jump button's), also behind the coloured wand and book
-                c.save();
-                if (b == cast && modOn && aimPointer != -1) c.translate(aimDx, aimDy); // the wand button is the stick: it follows the finger
-                fill.setColor(b.down ? 0x99000000 : 0x66000000);
-                c.drawCircle(b.cx, b.cy, b.r * scale, fill);
-                line.setColor(0xAAFFFFFF); // the white rim, as on the settings and arrow buttons
-                line.setStrokeWidth(4f);
-                c.drawCircle(b.cx, b.cy, b.r * scale, line);
-                float half = b.r * 0.82f * scale;
-                iconRect.set(b.cx - half, b.cy - half, b.cx + half, b.cy + half);
-                c.drawBitmap(b.icon, null, iconRect, b.tint ? (b.down ? yellowPaint : whitePaint) : iconPaint);
-                c.restore();
-                if (faint) c.restoreToCount(layer);
             }
-            if (aimVisible()) {
-                // the range of the wand stick: the finger's offset from where it went down turns the camera
-                line.setColor(aimPointer != -1 ? 0x88FFD84A : 0x33FFFFFF);
+            c.restoreToCount(layer);
+            drawFps(c);
+
+            // bottom left: the arrows on one round pad
+            if (visible(arrows[0])) {
+                fill.setColor(0x55181722);
+                c.drawCircle(padX, padY, padR, fill);
+                line.setColor(0x33FFFFFF);
                 line.setStrokeWidth(3f);
-                c.drawCircle(cast.cx, cast.cy, aimR + cast.r, line);
+                c.drawCircle(padX, padY, padR, line);
+                fill.setColor(0x22FFFFFF);
+                c.drawCircle(padX, padY, 0.03f * u, fill);
+                for (Btn a : arrows) {
+                    if (a.down) {
+                        fill.setColor(0xE6E8C15A);
+                        c.drawCircle(a.cx, a.cy, a.r * 0.85f, fill);
+                    }
+                    drawChevron(c, a, a.down ? DARK : 0xE6FFFFFF);
+                }
             }
+
+            // bottom right: jump and the wand
+            if (visible(jump)) {
+                drawDisc(c, jump.cx, jump.cy, jump.down ? jump.r * 0.94f : jump.r, jump.down);
+                if (jump.icon != null) drawIcon(c, jump, jump.cx, jump.cy, jump.r * 0.62f);
+            }
+            if (visible(cast)) {
+                if (aimVisible()) {
+                    // the range of the wand stick: the finger's offset from where it went down turns the camera
+                    line.setColor(aimPointer != -1 ? 0x99E8C15A : 0x26FFFFFF);
+                    line.setStrokeWidth(3f);
+                    c.drawCircle(cast.cx, cast.cy, aimR + cast.r, line);
+                }
+                c.save();
+                if (modOn && aimPointer != -1) c.translate(aimDx, aimDy); // the wand button is the stick: it follows the finger
+                drawDisc(c, cast.cx, cast.cy, cast.down ? cast.r * 0.94f : cast.r, cast.down);
+                if (cast.icon != null) drawIcon(c, cast, cast.cx, cast.cy, cast.r * 0.66f);
+                c.restore();
+            }
+
+            // the floating stick, where the finger went down
             if (stickPointer != -1) {
-                float r = 0.12f * Math.min(getWidth(), getHeight());
-                fill.setColor(0x33000000);
+                float r = 0.12f * u;
+                fill.setColor(0x55181722);
                 c.drawCircle(stickX, stickY, r, fill);
-                line.setColor(0x88FFFFFF);
+                line.setColor(0x44FFFFFF);
+                line.setStrokeWidth(3f);
                 c.drawCircle(stickX, stickY, r, line);
-                fill.setColor(0x88FFFFFF);
+                fill.setColor(0xCCE8C15A);
                 c.drawCircle(knobX, knobY, r * 0.4f, fill);
             }
             drawSettings(c);

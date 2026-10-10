@@ -175,3 +175,9 @@ The packages go into the self pack as `assets/mods/movement/`. The settings pane
 With the mod on, **the wand button is a stick**: holding it holds the cast (in the mod that is aiming, and the camera can move), and dragging the finger away from where it went down turns the camera in proportion to the offset; the button follows the finger and a ring shows its range. The button sits higher so the ring clears JUMP. Button clicks (JUMP, CAST) are sent without a cursor position: an absolute position at the screen centre made the mod's camera jump.
 
 Devil's Snare (`Lev5_Snare`) fixes the camera and aims with its own cursor; the mod aims along the camera, so there nothing can be aimed at. With the mod on, entering such a level (`FIXED_CAMERA_LEVELS` in `FlipendoActivity`) shows a prompt: **Switch off and restart** saves the game (the SAVE button's save), switches the mod off, restarts, and the game loads that save by itself (`.selfpack-autoload`, passed to the engine as `--autoload=<slot>`, `HP1::TickAutoLoad`); **Keep the mod** closes it for that level.
+
+## Look of the settings and the controls
+
+The settings panel is a card: Display on the left (render scale, subtitles and HUD size, field of view, **FPS counter**), Controls and Game on the right (movement style, Auto jump, Language, Movement mod, Debug mode), the Telegram channel and Done at the bottom. The on-screen controls use the same colours: the settings, save (or SKIP in cutscenes) and menu buttons sit in one toolbar at the top right (30% visible), the arrows on one round pad, the wand and jump on dark discs that turn gold while pressed.
+
+The FPS counter (off by default) shows the frames the engine drew over the last half second next to the toolbar: the engine counts one per frame (`HP1::TickTouchDefaults`, `g_frameCount`) and the overlay reads it (`nativeFrameCount`).

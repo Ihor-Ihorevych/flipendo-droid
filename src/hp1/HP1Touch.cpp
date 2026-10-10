@@ -29,6 +29,7 @@ extern std::atomic<bool> g_debugMode; // the settings panel's debug mode switch
 extern std::atomic<bool> g_autoJump;  // and its Auto Jump switch
 extern std::atomic<bool> g_lessonDrawing; // a spell lesson is in its Draw state: the finger draws
 extern std::atomic<bool> g_cutsceneActive; // a cutscene holds Harry: the overlay hides the gameplay controls
+extern std::atomic<int> g_frameCount; // frames drawn, for the overlay's FPS counter
 void AndroidSetLevelName(const std::string& name); // the map being played: the overlay's prompts (android_main.cpp)
 extern std::atomic<bool> g_touchDown;
 extern std::atomic<float> g_touchX, g_touchY; // finger position, 0..1 of the view
@@ -103,6 +104,9 @@ namespace HP1
 			return;
 
 		TickAutoLoad();
+#ifdef __ANDROID__
+		g_frameCount.fetch_add(1, std::memory_order_relaxed); // one tick per frame: the overlay's FPS counter
+#endif
 
 
 		// Auto Jump (on by default, the settings panel switches it): set on every new player pawn and when it changes.

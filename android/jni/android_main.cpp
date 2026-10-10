@@ -27,6 +27,7 @@
 std::atomic<bool> g_androidMenuActive{false};
 std::atomic<bool> g_lessonDrawing{false};
 std::atomic<bool> g_cutsceneActive{false}; // a cutscene holds Harry (HP1::TickLessonTouch): the overlay hides the gameplay controls
+std::atomic<int> g_frameCount{0}; // frames drawn, for the FPS counter (HP1::TickTouchDefaults counts, the overlay reads it)
 std::atomic<float> g_uiScale{1.0f}; // subtitles and HUD size from the menu slider (HP1Canvas.cpp)
 std::atomic<float> g_fovOffset{0.0f}; // degrees added to the field of view (settings panel; KW::ViewFovAngle)
 std::atomic<bool> g_debugMode{false}; // HP's debug mode (settings panel; HP1::TickTouchDefaults)
@@ -75,6 +76,10 @@ extern "C" JNIEXPORT jstring JNICALL Java_io_github_flipendo_spike_FlipendoActiv
 	return env->NewStringUTF(g_levelName.c_str());
 }
 
+extern "C" JNIEXPORT jint JNICALL Java_io_github_flipendo_spike_FlipendoActivity_nativeFrameCount(JNIEnv*, jclass)
+{
+	return g_frameCount.load();
+}
 extern "C" JNIEXPORT jboolean JNICALL Java_io_github_flipendo_spike_FlipendoActivity_nativeCutsceneActive(JNIEnv*, jclass)
 {
 	return g_cutsceneActive.load() ? JNI_TRUE : JNI_FALSE;
