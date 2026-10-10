@@ -38,6 +38,9 @@ public class SetupActivity extends Activity {
     private ProgressBar bar;
     private boolean askedPermission;
     private boolean started;
+    private boolean gameReady;  // the game data is there: start the game once the splash has been up long enough
+    private long splashUntil;   // uptime until which the splash stays (held while the channel link is open)
+    static final String CHANNEL_URL = "https://t.me/flipendodroid";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,11 +51,48 @@ public class SetupActivity extends Activity {
         root.setBackgroundColor(0xFF000000);
         root.setPadding(64, 64, 64, 64);
 
+        // the splash: icon, name and the Telegram channel (a tap opens it)
+        splashUntil = android.os.SystemClock.uptimeMillis() + 2500;
+        try {
+            android.widget.ImageView icon = new android.widget.ImageView(this);
+            icon.setImageDrawable(getDrawable(getApplicationInfo().icon));
+            LinearLayout.LayoutParams ip = new LinearLayout.LayoutParams(256, 256);
+            ip.bottomMargin = 32;
+            root.addView(icon, ip);
+        } catch (RuntimeException ignored) {
+        }
+        TextView title = new TextView(this);
+        title.setTextColor(0xFFFFFFFF);
+        title.setTextSize(34);
+        title.setGravity(Gravity.CENTER);
+        title.setText("Flipendo");
+        root.addView(title);
+        TextView tagline = new TextView(this);
+        tagline.setTextColor(0xFFAAAAAA);
+        tagline.setTextSize(15);
+        tagline.setGravity(Gravity.CENTER);
+        tagline.setText("Harry Potter and the Sorcerer's Stone, on Android");
+        root.addView(tagline);
+        TextView link = new TextView(this);
+        link.setTextColor(0xFF5EB8FF);
+        link.setTextSize(18);
+        link.setGravity(Gravity.CENTER);
+        link.setPadding(32, 40, 32, 40);
+        link.setPaintFlags(link.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+        link.setText("Telegram: t.me/flipendodroid");
+        link.setOnClickListener(new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) {
+                splashUntil = Long.MAX_VALUE; // hold the splash while the channel is open; onResume lets it go
+                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(CHANNEL_URL)));
+            }
+        });
+        root.addView(link);
+
         status = new TextView(this);
         status.setTextColor(0xFFFFFFFF);
         status.setTextSize(18);
         status.setGravity(Gravity.CENTER);
-        status.setText("Flipendo");
+        status.setText("");
         root.addView(status);
 
         bar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
@@ -67,6 +107,10 @@ public class SetupActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (splashUntil == Long.MAX_VALUE) {
+            splashUntil = android.os.SystemClock.uptimeMillis() + 800; // back from the channel
+            tryStart();
+        }
         if (started) {
             return;
         }
@@ -100,12 +144,34 @@ public class SetupActivity extends Activity {
                             showMissingGame();
                             return;
                         }
-                        startActivity(new Intent(SetupActivity.this, FlipendoActivity.class));
-                        finish();
+                        gameReady = true;
+                        tryStart();
                     }
                 });
             }
         }).start();
+    }
+
+    private final Runnable launch = new Runnable() {
+        public void run() {
+            tryStart();
+        }
+    };
+
+    /** Starts the game once its data is ready and the splash has been up long enough (not while the channel link is open). */
+    private void tryStart() {
+        ui.removeCallbacks(launch);
+        if (!gameReady || isFinishing() || splashUntil == Long.MAX_VALUE) {
+            return;
+        }
+        long left = splashUntil - android.os.SystemClock.uptimeMillis();
+        if (left > 0) {
+            ui.postDelayed(launch, left);
+            return;
+        }
+        gameReady = false;
+        startActivity(new Intent(this, FlipendoActivity.class));
+        finish();
     }
 
     /** The folder with System/HP.exe: the game folder itself, or one or two levels inside it (a copy made one folder too deep). */

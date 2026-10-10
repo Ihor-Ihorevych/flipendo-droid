@@ -406,7 +406,7 @@ public class FlipendoActivity extends SDLActivity {
         boolean settingsOpen;    // the settings panel is up: it takes every touch
         final android.graphics.RectF panel = new android.graphics.RectF();
         final android.graphics.RectF segStick = new android.graphics.RectF(), segDpad = new android.graphics.RectF();
-        final android.graphics.RectF closeBtn = new android.graphics.RectF(), debugBtn = new android.graphics.RectF(), autoJumpBtn = new android.graphics.RectF();
+        final android.graphics.RectF closeBtn = new android.graphics.RectF(), debugBtn = new android.graphics.RectF(), autoJumpBtn = new android.graphics.RectF(), telegramBtn = new android.graphics.RectF();
 
         final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
         final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -496,7 +496,8 @@ public class FlipendoActivity extends SDLActivity {
             sliderY[2] = 0.65f * h;
             autoJumpBtn.set(panel.left + 0.06f * pw, 0.72f * h, w / 2f - gap, 0.81f * h);
             debugBtn.set(w / 2f + gap, 0.72f * h, panel.right - 0.06f * pw, 0.81f * h);
-            closeBtn.set(w / 2f - 0.15f * pw, 0.86f * h, w / 2f + 0.15f * pw, 0.95f * h);
+            telegramBtn.set(panel.left + 0.06f * pw, 0.86f * h, w / 2f - gap, 0.95f * h);
+            closeBtn.set(w / 2f + gap, 0.86f * h, panel.right - 0.06f * pw, 0.95f * h);
             label.setTextSize(0.03f * u);
             label.setColor(0xFFFFFFFF);
             label.setShadowLayer(4f, 0f, 0f, 0xFF000000);
@@ -577,6 +578,9 @@ public class FlipendoActivity extends SDLActivity {
             c.drawRoundRect(closeBtn, closeBtn.height() / 2f, closeBtn.height() / 2f, fill);
             text.setColor(0xFFFFFFFF);
             c.drawText("Close", closeBtn.centerX(), closeBtn.centerY() + size * 0.35f, text);
+            fill.setColor(0x445EB8FF);
+            c.drawRoundRect(telegramBtn, telegramBtn.height() / 2f, telegramBtn.height() / 2f, fill);
+            c.drawText("Telegram channel", telegramBtn.centerX(), telegramBtn.centerY() + size * 0.35f, text);
             text.setColor(0xCCFFFFFF);
         }
 
@@ -694,6 +698,11 @@ public class FlipendoActivity extends SDLActivity {
                             ((FlipendoActivity) getContext()).applyAutoJump(!autoJump, true);
                         } else if (debugBtn.contains(x, y)) {
                             ((FlipendoActivity) getContext()).applyDebugMode(!debugMode, true);
+                        } else if (telegramBtn.contains(x, y)) {
+                            try {
+                                getContext().startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(SetupActivity.CHANNEL_URL)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                            } catch (RuntimeException ignored) {
+                            }
                         } else if (closeBtn.contains(x, y) || !panel.contains(x, y)) {
                             settingsOpen = false;
                         }
