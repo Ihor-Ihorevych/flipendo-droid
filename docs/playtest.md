@@ -49,8 +49,8 @@ to test with an exact state.
 | 12 | `Lev2_HogFront_2` | Hogwarts Grounds | yes | Logs `H2Crabbe1 fell out of the world` at load (not looked into) |
 | 13 | `Lev2_RemChase` | Remembrall Chase | yes | |
 | 14 | `Lev2_HogFront_3` | Hogwarts Grounds | yes | Logs `H2Crabbe1 fell out of the world` at load, as Lev2_HogFront_2 |
-| 15 | `Lev2_Fire2` | Forest Edge | being played | Doxies attacking and the camera after a reload fixed, not yet checked by hand. Started with `--level` the screen stays black (entered by a level change it draws; not looked into). `rolllog5` and jelly beans fall out of the world |
-| 16 | `Lev2_fire1` | Fire Seed Caves | no | |
+| 15 | `Lev2_Fire2` | Forest Edge | yes | Started with `--level` or `--url` the screen stays black (entered by a level change it draws; not looked into). Jelly beans fall out of the world. As in the map: the first log bridge's Flipendo trigger (`spellTrigger0`, event `logbridge`) sits on the west face of the standing log (`Mover7`), so a cast from the side hits the log's brush first and explodes; cast from the west, facing the gap. The target still locks on from the side (whether the original does is not checked). `rolllog5` is saved inside solid (its point check is blocked) and falls out of the world at load. A Flipendo at the fire crab can hit the fireball it throws (spells touch each other, `Projectile.Touch`); not compared with the original |
+| 16 | `Lev2_fire1` | Fire Seed Caves | being played | |
 | 17 | `Lev2_Quid1` | Quidditch Match: Gryffindor vs. Slytherin | no | |
 | 18 | `Lev3_Intro` | Hogwarts Main Entrance (also 19 Lumos Lesson) | no | |
 | 20 | `Lev3_Lumos` | Lumos Challenge | no | |
