@@ -354,24 +354,41 @@ index 2f91f141..e3a86d3f 100644
  			}
  		}
 diff --git a/SurrealEngine/Packages/Core/UObject.cpp b/SurrealEngine/Packages/Core/UObject.cpp
-index 2b855f33..5f8dcb37 100644
+index 2b855f33..805ade6d 100644
 --- a/SurrealEngine/Packages/Core/UObject.cpp
 +++ b/SurrealEngine/Packages/Core/UObject.cpp
-@@ -110,9 +110,12 @@ void UObject::Load(ObjectStream* stream)
+@@ -110,9 +110,14 @@ void UObject::Load(ObjectStream* stream)
  			LogMessage("UObject::Load encountered object with a state object but no function");
  		}
  
+-		for (int i = 0; i < 64; i++)
+-		{
+-			if ((probeMask >> i) & 1)
 +		// A set bit in the saved probe mask is an enabled probe (HP1's UObject::IsProbing tests the bit, Disable clears
 +		// it); a map actor saves them all set. Read as disabled, an actor ignored script calls of its probe functions
 +		// until its first GotoState: Lev2_RemChase's referee triggers its intro cutscene from SetInitialState.
- 		for (int i = 0; i < 64; i++)
- 		{
--			if ((probeMask >> i) & 1)
++		// Saves from older builds of this engine wrote the disabled probes instead, nearly always none: a mask of 0,
++		// which the original never saves (it starts with every bit set), so 0 disables nothing.
++		for (int i = 0; i < 64 && probeMask != 0; i++)
++		{
 +			if (((probeMask >> i) & 1) == 0)
  			{
  				DisableEvent(ToNameString((EventName)i));
  			}
-@@ -532,6 +535,11 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
+@@ -144,10 +149,11 @@ void UObject::Save(PackageStreamWriter* stream)
+ 		int32_t latentAction = 0;
+ 		int offset = -1;
+ 
++		// A set bit is an enabled probe, as in the original's packages (see Load).
+ 		int64_t probeMask = 0;
+ 		for (int i = 0; i < 64; i++)
+ 		{
+-			if (IsEventDisabled((EventName)i))
++			if (!IsEventDisabled((EventName)i))
+ 			{
+ 				probeMask |= 1ULL << (uint64_t)i;
+ 			}
+@@ -532,6 +538,11 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
  	if (oldState != newState)
  		StateFrame->SetState(newState);
  
@@ -383,7 +400,7 @@ index 2b855f33..5f8dcb37 100644
  	if (newState)
  	{
  		// HasStack is otherwise only ever inherited from the original package's export table at
-@@ -758,7 +766,9 @@ ScriptArray::ScriptArray(UProperty* type) : Type(type)
+@@ -758,7 +769,9 @@ ScriptArray::ScriptArray(UProperty* type) : Type(type)
  {
  }
  
@@ -394,7 +411,7 @@ index 2b855f33..5f8dcb37 100644
  {
  	Reserve(other.Size);
  	try
-@@ -778,7 +788,7 @@ ScriptArray::ScriptArray(const ScriptArray& other)
+@@ -778,7 +791,7 @@ ScriptArray::ScriptArray(const ScriptArray& other)
  	}
  }
  

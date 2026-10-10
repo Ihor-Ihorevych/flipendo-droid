@@ -42,6 +42,15 @@ so the yaw moved only every other frame (+220, 0, +220) and the view shook left 
 `Tick` event for KnowWonder (`UPawn::PollLatentAction`, called from `UActor::Tick`). Checked in HP1; HP2's
 `AActor::Tick` not read yet.
 
+The latent moves take their first step when they start: `execMoveTo` (0x103D8580), `execMoveToward` (0x103D87A0),
+`execStrafeTo` (0x103D8C60) and `execStrafeFacing` (0x103D8E60) end with `rotateToward(Focus)` and
+`moveToward(Destination)`, which sets the acceleration. SurrealEngine only stored the destination and left the step
+to the poll. A script that restarts its move every tick then never moves: `Doxie1.MoveToScowl`'s `Tick` does
+`gotostate('MoveToScowl')` each frame while it is more than 128 units from Harry, back to `Begin` and its
+`moveto(playerHarry.Location)`, before the poll ever runs, so every woken doxie hovered in place (Lev2_Fire2). Ported
+(`KW::PawnStartMove`). `execMoveToward` gives a pawn target a MoveTimer of 1.2 s (SurrealEngine 1.0), and
+`execStrafeFacing` sets StrafeTo's DesiredSpeed and Focus = the face target. HP2 not checked.
+
 `AActor::performPhysics` (0x103E52C0) handles falling, projectile, rolling, moving brush and trailer only; a non-pawn in
 PHYS_Walking or PHYS_Interpolating doesn't move by itself (an InterpolationManager moves its owner).
 `APawn::performPhysics` (0x103E5520) adds walking, swimming, flying, spider, then turns the pawn (below) unless it is a
