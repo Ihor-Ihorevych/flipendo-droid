@@ -145,13 +145,15 @@ public class FlipendoActivity extends SDLActivity {
         }).start();
     }
 
-    private void restartWith(String wishFile, String value) {
+    void restartWith(String wishFile, String value) {
         new File(GAME_DIR).mkdirs(); // the wish files live there even when the game was picked elsewhere
-        try {
-            SetupActivity.writeSmallFile(new File(GAME_DIR, wishFile), value);
-        } catch (IOException e) {
-            android.util.Log.e("flipendo", "could not write the wish " + wishFile + ": " + e);
-            return;
+        if (wishFile != null) {
+            try {
+                SetupActivity.writeSmallFile(new File(GAME_DIR, wishFile), value);
+            } catch (IOException e) {
+                android.util.Log.e("flipendo", "could not write the wish " + wishFile + ": " + e);
+                return;
+            }
         }
         Intent intent = new Intent(this, SetupActivity.class);
         intent.putExtra("restart", true);
@@ -243,6 +245,13 @@ public class FlipendoActivity extends SDLActivity {
     public void onGameStopped(final int code) {
         runOnUiThread(new Runnable() {
             public void run() {
+                if (code == 3) {
+                    // Vulkan failed on this phone and the engine chose OpenGL ES for next time (android_main.cpp): start again
+                    android.widget.Toast.makeText(FlipendoActivity.this, "Vulkan doesn't work on this phone: switching to OpenGL ES",
+                            android.widget.Toast.LENGTH_LONG).show();
+                    restartWith(null, null);
+                    return;
+                }
                 if (code != 0) {
                     Intent intent = new Intent(FlipendoActivity.this, SetupActivity.class);
                     intent.putExtra("stopped", "exit code " + code);
@@ -326,6 +335,9 @@ public class FlipendoActivity extends SDLActivity {
 
     /** The game folder: the user's own HP1 install (Maps, System, Textures...) lives here. */
     static final String GAME_DIR = "/sdcard/FlipendoHP";
+
+    /** The renderer choice in GAME_DIR: "vulkan" (default), "opengl" (Settings) or "opengl-auto" (Vulkan failed; android_main.cpp). */
+    static final String RENDERER_FILE = ".flipendo-renderer";
 
     /** Needs "All files access" to read the game data; opens the system page for it on first launch. */
     private boolean ensureStorageAccess() {
@@ -674,6 +686,40 @@ public class FlipendoActivity extends SDLActivity {
             postDelayed(new Runnable() { public void run() {
                 if (modAsk && android.os.SystemClock.uptimeMillis() - modAskTime >= 5000) {
                     modAsk = false;
+                    invalidate();
+                }
+            } }, 5100);
+        }
+
+        // The renderer (android_main.cpp reads .flipendo-renderer): Vulkan, or OpenGL ES chosen here or picked by the engine
+        // when Vulkan failed on this phone ("opengl-auto"). A switch restarts the game, with a confirmation like the mod's.
+        final android.graphics.RectF rendererBtn = new android.graphics.RectF();
+        final boolean rendererGL, rendererAuto;
+        boolean rendererAsk;
+        long rendererAskTime;
+
+        {
+            String r = SetupActivity.readSmallFile(new File(GAME_DIR, RENDERER_FILE));
+            rendererGL = r != null && r.startsWith("opengl");
+            rendererAuto = "opengl-auto".equals(r);
+        }
+
+        String rendererLabel(boolean gl) {
+            return gl ? "OpenGL ES" : "Vulkan";
+        }
+
+        void rendererTap() {
+            long now = android.os.SystemClock.uptimeMillis();
+            if (rendererAsk && now - rendererAskTime < 5000) {
+                rendererAsk = false;
+                ((FlipendoActivity) getContext()).restartWith(RENDERER_FILE, rendererGL ? "vulkan" : "opengl");
+                return;
+            }
+            rendererAsk = true;
+            rendererAskTime = now;
+            postDelayed(new Runnable() { public void run() {
+                if (rendererAsk && android.os.SystemClock.uptimeMillis() - rendererAskTime >= 5000) {
+                    rendererAsk = false;
                     invalidate();
                 }
             } }, 5100);
@@ -1152,7 +1198,7 @@ public class FlipendoActivity extends SDLActivity {
 
         // The port's settings panel: the entry the pad is on
         static final int SET_RENDER = 0, SET_UI = 1, SET_FOV = 2, SET_FPS = 3, SET_SEG = 4, SET_JUMP = 5, SET_LANG = 6, SET_MOD = 7,
-                SET_DEBUG = 8, SET_TELEGRAM = 9, SET_DONE = 10;
+                SET_DEBUG = 8, SET_TELEGRAM = 9, SET_DONE = 10, SET_RENDERER = 11;
         int settingsFocus = -1;
         final java.util.List<android.graphics.RectF> setRects = new java.util.ArrayList<>();
         final java.util.List<Integer> setIds = new java.util.ArrayList<>();
@@ -1172,6 +1218,7 @@ public class FlipendoActivity extends SDLActivity {
             setRects.add(new android.graphics.RectF(modBtn)); setIds.add(SET_MOD);
             setRects.add(new android.graphics.RectF(debugBtn)); setIds.add(SET_DEBUG);
             setRects.add(new android.graphics.RectF(telegramBtn)); setIds.add(SET_TELEGRAM);
+            setRects.add(new android.graphics.RectF(rendererBtn)); setIds.add(SET_RENDERER);
             setRects.add(new android.graphics.RectF(closeBtn)); setIds.add(SET_DONE);
         }
 
@@ -1226,6 +1273,7 @@ public class FlipendoActivity extends SDLActivity {
                     } catch (RuntimeException ignored) {
                     }
                     break;
+                case SET_RENDERER: rendererTap(); break;
                 case SET_DONE: settingsOpen = false; break;
                 default: break;
             }
@@ -1517,6 +1565,7 @@ public class FlipendoActivity extends SDLActivity {
             float footY = panel.bottom - 0.03f * h - footH;
             telegramBtn.set(colL0, footY, colL0 + 0.36f * pw, footY + footH);
             closeBtn.set(colR1 - 0.2f * pw, footY, colR1, footY + footH);
+            rendererBtn.set(telegramBtn.right + gap, footY, closeBtn.left - gap, footY + footH); // between the channel and Done
 
             float ppw = Math.min(0.8f * w, 1.7f * h);
             promptPanel.set((w - ppw) / 2f, 0.22f * h, (w + ppw) / 2f, 0.78f * h);
@@ -1643,6 +1692,11 @@ public class FlipendoActivity extends SDLActivity {
             c.drawRoundRect(closeBtn, closeBtn.height() / 2f, closeBtn.height() / 2f, fill);
             rowPaint.setColor(0xFF1A1A1A);
             c.drawText("Done", closeBtn.centerX(), closeBtn.centerY() + rowPaint.getTextSize() * 0.35f, rowPaint);
+            fill.setColor(rendererAsk ? 0x33E8C15A : ROW);
+            c.drawRoundRect(rendererBtn, rendererBtn.height() / 2f, rendererBtn.height() / 2f, fill);
+            rowPaint.setColor(rendererAsk ? GOLD : 0xFFFFFFFF);
+            c.drawText(rendererAsk ? "Tap again: restart with " + rendererLabel(!rendererGL) : "Renderer: " + rendererLabel(rendererGL) + (rendererAuto ? " (auto)" : ""),
+                    rendererBtn.centerX(), rendererBtn.centerY() + rowPaint.getTextSize() * 0.35f, rowPaint);
             rowPaint.setColor(0xFFFFFFFF);
             rowPaint.setTextAlign(Paint.Align.LEFT);
             if (padActive && settingsFocus >= 0 && !langListOpen) {
@@ -1883,6 +1937,8 @@ public class FlipendoActivity extends SDLActivity {
                             modTap();
                         } else if (languages.size() > 1 && languageBtn.contains(x, y)) {
                             languageTap();
+                        } else if (rendererBtn.contains(x, y)) {
+                            rendererTap();
                         } else if (telegramBtn.contains(x, y)) {
                             try {
                                 getContext().startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(SetupActivity.CHANNEL_URL)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));

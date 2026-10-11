@@ -225,3 +225,30 @@ installs over an older one. The version shows in the settings header and on the 
 0.2.0"), in `device-info.txt` of a log report and in logcat when the game starts.
 
 Releases before the numbering: `android-2026-10-11` is 0.1.0 (problem cards, gamepad, folder picker).
+
+## OpenGL ES renderer
+
+Vulkan is the default, but Qualcomm's stock drivers (Adreno 618 / 642L with driver 512.x, Vulkan 1.1) refuse one of the
+engine's Vulkan pipelines (`Could not create graphics pipeline: vkResult -13`) and the game stopped before the menu. The port
+therefore also renders with **OpenGL ES 3.2**: SurrealEngine's desktop OpenGL device (`RenderDevice/OpenGL/`) built against
+GLES (patch 0200).
+
+- `GLESCompat.h` replaces the desktop loader on Android: `<GLES3/gl32.h>` (libGLESv3), shims for the calls ES spells
+  differently (`glClearDepthf`, `glDepthRangef`, `glDrawBuffers`, `glTexStorage2DMultisample`, `glFramebufferTexture2D`) and
+  `GLHasExtension`.
+- SDL creates an ES 3.2 context (`sdl3_display_window.cpp`, attributes set before the window so the EGL config matches).
+- Shaders get `#version 310 es`, highp defaults and `layout(std140) uniform;`; the scene shader's integer flags use `u`
+  literals (ES has no implicit int/uint conversion).
+- Textures: BC1-3 are decoded on the CPU with the Vulkan path's `BCDecodeBlock`, BGRA8 (our Cyrillic glyph atlases) is
+  swizzled to RGBA8. The scene targets are RGBA16F when the driver can render to half float (`GL_EXT_color_buffer_half_float`),
+  else RGBA8 (no overbright bloom). No MSAA, no depth clamp, no sampler LOD bias (ES lacks them); the dither texture is R16F.
+- The engine logs `OpenGL renderer: <GPU>, <GL_VERSION>` and the scene buffer format.
+
+**Choosing it.** `android_main.cpp` reads `/sdcard/FlipendoHP/.flipendo-renderer` (`vulkan` default, `opengl`, `opengl-auto`)
+and passes `--renderer=opengl|vulkan` (GameApp, patch 0002, sets `LauncherSettings::RenderDevice.Type` before the window is
+made). When a Vulkan run ends with a Vulkan `FATAL` line in `flipendo.log` (vkResult, VK_ERROR, graphics pipeline,
+swapchain...), it writes `opengl-auto` and exits with code 3; `FlipendoActivity.onGameStopped(3)` shows a toast and restarts the
+game without the problem card. Settings has a **Renderer** button in the footer (Vulkan / OpenGL ES, "(auto)" when the engine
+switched); a change asks for a second tap and restarts. The log report's `device-info.txt` has a `renderer:` line.
+`/sdcard/FlipendoHP/fail_vulkan.txt` makes Vulkan fail on purpose to try the switch. The manifest no longer requires Vulkan,
+only OpenGL ES 3.2.

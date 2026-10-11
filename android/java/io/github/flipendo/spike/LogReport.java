@@ -149,6 +149,8 @@ final class LogReport {
     private static String deviceInfo(Context context) {
         StringBuilder s = new StringBuilder();
         s.append("version: ").append(version(context)).append('\n');
+        String renderer = SetupActivity.readSmallFile(new File(FlipendoActivity.GAME_DIR, FlipendoActivity.RENDERER_FILE));
+        s.append("renderer: ").append(renderer != null && !renderer.isEmpty() ? renderer : "vulkan").append(" (the GPU and driver are in flipendo.log)\n");
         s.append("manufacturer: ").append(Build.MANUFACTURER).append('\n');
         s.append("brand: ").append(Build.BRAND).append('\n');
         s.append("model: ").append(Build.MODEL).append('\n');

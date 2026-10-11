@@ -96,6 +96,7 @@ Open them with the gear (top right) or the View button on a gamepad. Everything 
 | **Movement** | floating stick or arrow buttons |
 | **Auto jump** | Harry jumps across gaps by himself (on by default) |
 | **Debug mode** | adds Level Select to the main menu, to play any level |
+| **Renderer** | Vulkan or OpenGL ES; switches to OpenGL ES by itself if Vulkan does not work on your phone |
 | **Language** | English or Russian text (more editions in builds that include them) |
 | **Movement mod** | AdamJD's mod for better movement, camera and climbing: tap *Choose file* and pick its zip (download it from the mod's page), then switch it on or off here |
 | **Telegram** | opens the group |

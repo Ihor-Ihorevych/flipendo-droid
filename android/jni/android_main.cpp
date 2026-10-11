@@ -261,6 +261,41 @@ static void InstallCrashHandler()
 		sigaction(sig, &action, nullptr);
 }
 
+// ---- The renderer --------------------------------------------------------------------------------------------
+// /sdcard/FlipendoHP/.flipendo-renderer: "vulkan" (default), "opengl" (chosen in Settings) or "opengl-auto" (Vulkan failed).
+
+static const char* RENDERER_FILE = "/sdcard/FlipendoHP/.flipendo-renderer";
+
+static std::string ReadRendererChoice()
+{
+	std::ifstream in(RENDERER_FILE);
+	std::string value;
+	if (in && std::getline(in, value))
+	{
+		while (!value.empty() && (value.back() == 0x0d || value.back() == 0x20 || value.back() == 0x0a))
+			value.pop_back();
+	}
+	return value == "opengl" || value == "opengl-auto" ? value : "vulkan";
+}
+
+// The run's log ends with a FATAL line from Vulkan (GameApp writes it in --autolaunch mode, the catch below otherwise)
+static bool LastFatalIsVulkan()
+{
+	std::ifstream log("/sdcard/FlipendoHP/flipendo.log");
+	std::string line, fatal;
+	while (std::getline(log, line))
+	{
+		if (line.rfind("FATAL:", 0) == 0)
+			fatal = line;
+	}
+	for (const char* sign : { "vkResult", "Vulkan", "VK_ERROR", "graphics pipeline", "swapchain" })
+	{
+		if (fatal.find(sign) != std::string::npos)
+			return true;
+	}
+	return false;
+}
+
 // The folder with the game (System/HP.exe): /sdcard/FlipendoHP, or the first folder inside it, or inside that.
 // A game copied one level too deep (/sdcard/FlipendoHP/FlipendoHP/System/...) is a common mistake.
 static bool HasGame(const std::string& dir)
@@ -410,6 +445,11 @@ extern "C" __attribute__((visibility("default"))) int SDL_main(int argc, char** 
 			args.push_back("--cyrillic");
 		__android_log_print(ANDROID_LOG_INFO, "flipendo", "game folder: %s", gameDir.c_str());
 		args.push_back(gameDir);
+		// The renderer: Vulkan unless .flipendo-renderer says opengl (Settings > Renderer), or Vulkan failed on this phone
+		// before ("opengl-auto", written below).
+		std::string renderer = ReadRendererChoice();
+		args.push_back(renderer.rfind("opengl", 0) == 0 ? "--renderer=opengl" : "--renderer=vulkan");
+		__android_log_print(ANDROID_LOG_INFO, "flipendo", "renderer: %s", renderer.c_str());
 		GameApp app;
 		code = app.main(std::move(args));
 	}
@@ -419,6 +459,15 @@ extern "C" __attribute__((visibility("default"))) int SDL_main(int argc, char** 
 		std::ofstream log("/sdcard/FlipendoHP/flipendo.log", std::ios::app);
 		log << "FATAL: " << e.what() << std::endl;
 		code = 1;
+	}
+	// Vulkan failed on this phone (a driver that rejects a pipeline, no usable device...): next time OpenGL ES, and the Java
+	// side restarts the game right away (exit code 3) instead of showing the problem card.
+	if (code != 0 && ReadRendererChoice() == "vulkan" && LastFatalIsVulkan())
+	{
+		std::ofstream choice(RENDERER_FILE);
+		choice << "opengl-auto";
+		__android_log_print(ANDROID_LOG_WARN, "flipendo", "Vulkan failed: switching to OpenGL ES");
+		code = 3;
 	}
 	NotifyGameStopped(code);
 	return code;

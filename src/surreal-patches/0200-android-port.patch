@@ -1,4 +1,4 @@
-flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CPU, per-frame command pool reset, no gl_ClipDistance, upright swapchain, absolute touch mouse, no backtrace(); Vulkan device choice needs only independentBlend and names why a device was rejected, descriptor indexing optional (Vulkan 1.1 Mali without it); fonts can take glyphs they lack from elsewhere (HP1 Cyrillic text)
+flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CPU, per-frame command pool reset, no gl_ClipDistance, upright swapchain, absolute touch mouse, no backtrace(); Vulkan device choice needs only independentBlend and names why a device was rejected, descriptor indexing optional (Vulkan 1.1 Mali without it); fonts can take glyphs they lack from elsewhere (HP1 Cyrillic text); OpenGL ES 3.2 renderer (the OpenGL device on GLES: SDL ES context, no S3TC/BGRA uploads, GLSL ES shaders), fail_vulkan.txt test aid
 
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
@@ -458,7 +458,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
 +}
 +
 +// Decodes one 4x4 block (kind 1 = BC1, 2 = BC2, 3 = BC3) to 16 RGBA pixels.
-+static void BCDecodeBlock(int kind, const uint8_t* src, uint8_t* out)
++void BCDecodeBlock(int kind, const uint8_t* src, uint8_t* out) // also used by the OpenGL ES uploader (GLTextureUploader.cpp)
 +{
 +	const uint8_t* color = (kind == 1) ? src : src + 8;
 +	uint16_t c0 = color[0] | (color[1] << 8);
@@ -590,7 +590,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  		deviceBuilder.RequireExtension(VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME);
  		deviceBuilder.SelectDevice(VkDeviceIndex);
  		Device = deviceBuilder.Create(surface->Instance);
-@@ -41,8 +45,13 @@
+@@ -41,8 +45,16 @@
  			Device->EnabledFeatures.DescriptorIndexing.runtimeDescriptorArray &&
  			Device->EnabledFeatures.DescriptorIndexing.shaderSampledImageArrayNonUniformIndexing;
  
@@ -600,13 +600,16 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
 +		// Testing aid: this file forces the path for GPUs without bindless textures.
 +		if (access("/sdcard/FlipendoHP/no_bindless.txt", F_OK) == 0)
 +			supportsBindless = false;
++		// Testing aid: this file makes Vulkan fail like Qualcomm's driver does, to try the switch to OpenGL ES.
++		if (access("/sdcard/FlipendoHP/fail_vulkan.txt", F_OK) == 0)
++			throw std::runtime_error("Could not create graphics pipeline (fail_vulkan.txt): vkResult -13");
 +#endif
 +		// Without descriptor indexing (older Mali): textures are bound four at a time per draw instead.
 +		Bindless = supportsBindless;
  
  		Commands.reset(new CommandBufferManager(this));
  		Samplers.reset(new SamplerManager(this));
-@@ -73,6 +82,7 @@
+@@ -73,6 +85,7 @@
  		LogMessage(std::string("Vulkan device: ") + props.deviceName);
  		LogMessage("Vulkan device type: " + deviceType);
  		LogMessage("Vulkan version: " + apiVersion + " (api) " + driverVersion + " (driver)");
@@ -614,7 +617,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  	}
  	catch (const std::exception& e)
  	{
-@@ -113,6 +123,8 @@
+@@ -113,6 +126,8 @@
  	DescriptorSets->UpdateBindlessSet();
  
  	Commands->SubmitCommands(present, presentWidth, presentHeight, presentFullscreen);
@@ -623,7 +626,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  
  	Batch.SceneIndexStart = 0;
  	SceneVertexPos = 0;
-@@ -336,6 +348,37 @@
+@@ -336,6 +351,37 @@
  	Textures->UpdateTextureRect(&Info, U, V, UL, VL);
  }
  
@@ -661,7 +664,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  void VulkanRenderDevice::DrawBatch(VulkanCommandBuffer* cmdbuffer)
  {
  	size_t icount = SceneIndexPos - Batch.SceneIndexStart;
-@@ -350,7 +393,15 @@
+@@ -350,7 +396,15 @@
  
  		auto layout = RenderPasses->Scene.BindlessPipelineLayout.get();
  		cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, Batch.Pipeline->Pipeline.get());
@@ -678,7 +681,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  		cmdbuffer->pushConstants(layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ScenePushConstants), &pushconstants);
  		cmdbuffer->setBlendConstants(Batch.BlendConstants);
  		cmdbuffer->drawIndexed((uint32_t)icount, 1, (uint32_t)Batch.SceneIndexStart, 0, 0);
-@@ -1437,3 +1488,13 @@
+@@ -1437,3 +1491,13 @@
  		.AddImage(Commands->SwapChain->GetImage(Commands->PresentImageIndex), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0)
  		.Execute(cmdbuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
  }
@@ -1119,3 +1122,491 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  	FontGlyph glyph = FindGlyph(c);
  	if (glyph.USize == 0)
  	{
+--- a/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp
++++ b/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp
+@@ -10,6 +10,20 @@
+ #include <surrealwidgets/core/widget.h>
+ #include <cmath>
+ 
++// The scene's colour targets: half float, as on the desktop. OpenGL ES can render into half float only with an extension
++// (every ES 3.2 phone we know has it); without it the scene is RGBA8 (no overbright bloom).
++#ifdef __ANDROID__
++static GLenum SceneColorFormat()
++{
++	static GLenum format = (GLHasExtension("GL_EXT_color_buffer_half_float") || GLHasExtension("GL_EXT_color_buffer_float")) ? GL_RGBA16F : GL_RGBA8;
++	return format;
++}
++static GLenum SceneColorType() { return SceneColorFormat() == GL_RGBA16F ? GL_FLOAT : GL_UNSIGNED_BYTE; }
++#else
++static GLenum SceneColorFormat() { return GL_RGBA16F; }
++static GLenum SceneColorType() { return GL_FLOAT; }
++#endif
++
+ static Widget* InitGLWidget = nullptr;
+ extern "C"
+ {
+@@ -33,6 +47,9 @@
+ 
+ int GLRenderDevice::GetSettingsMultisample()
+ {
++#ifdef __ANDROID__
++	return 0; // the scene is drawn at a reduced size on phones anyway
++#endif
+ 	switch (AntialiasMode)
+ 	{
+ 	default:
+@@ -58,6 +75,13 @@
+ 		if (result == ogl_LOAD_FAILED)
+ 			throw std::runtime_error("ogl_LoadFunctions failed");
+ 
++		const char* glVersion = (const char*)glGetString(GL_VERSION);
++		const char* glRenderer = (const char*)glGetString(GL_RENDERER);
++		LogMessage(std::string("OpenGL renderer: ") + (glRenderer ? glRenderer : "?") + ", " + (glVersion ? glVersion : "?"));
++#ifdef __ANDROID__
++		LogMessage(std::string("OpenGL scene buffer: ") + (SceneColorFormat() == GL_RGBA16F ? "half float" : "RGBA8 (no half float render targets)"));
++#endif
++
+ 		CreateScenePass();
+ 		CreatePresentPass();
+ 		CreateBloomPass();
+@@ -145,7 +169,7 @@
+ 	{
+ 		glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, SceneBuffers.ColorBuffer->Handle);
+ 		SetDebugName(SceneBuffers.ColorBuffer, "SceneBuffers.ColorBuffer");
+-		glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, SceneBuffers.Multisample, GL_RGBA16F, SceneBuffers.Width, SceneBuffers.Height, GL_FALSE);
++		glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, SceneBuffers.Multisample, SceneColorFormat(), SceneBuffers.Width, SceneBuffers.Height, GL_FALSE);
+ 		glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAX_LEVEL, 0);
+ 		ThrowIfGLError("glTexStorage2DMultisample(SceneBuffers.ColorBuffer) failed");
+ 	}
+@@ -153,7 +177,7 @@
+ 	{
+ 		glBindTexture(GL_TEXTURE_2D, SceneBuffers.ColorBuffer->Handle);
+ 		SetDebugName(SceneBuffers.ColorBuffer, "SceneBuffers.ColorBuffer");
+-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SceneBuffers.Width, SceneBuffers.Height, 0, GL_RGBA, GL_FLOAT, nullptr);
++		glTexImage2D(GL_TEXTURE_2D, 0, SceneColorFormat(), SceneBuffers.Width, SceneBuffers.Height, 0, GL_RGBA, SceneColorType(), nullptr);
+ 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+ 		ThrowIfGLError("glTexImage2D(SceneBuffers.ColorBuffer) failed");
+ 	}
+@@ -214,7 +238,7 @@
+ 		SceneBuffers.PPImage[i] = std::make_shared<GLTexture2D>();
+ 		glBindTexture(GL_TEXTURE_2D, SceneBuffers.PPImage[i]->Handle);
+ 		SetDebugName(SceneBuffers.PPImage[i], "SceneBuffers.PPImage");
+-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SceneBuffers.Width, SceneBuffers.Height, 0, GL_RGBA, GL_FLOAT, nullptr);
++		glTexImage2D(GL_TEXTURE_2D, 0, SceneColorFormat(), SceneBuffers.Width, SceneBuffers.Height, 0, GL_RGBA, SceneColorType(), nullptr);
+ 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+ 		ThrowIfGLError("glTexImage2D(SceneBuffers.PPImage) failed");
+ 	}
+@@ -258,14 +282,14 @@
+ 		level.VTexture = std::make_shared<GLTexture2D>();
+ 		glBindTexture(GL_TEXTURE_2D, level.VTexture->Handle);
+ 		SetDebugName(level.VTexture, "SceneBuffers.BlurLevels.VTexture");
+-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, bloomWidth, bloomHeight, 0, GL_RGBA, GL_FLOAT, nullptr);
++		glTexImage2D(GL_TEXTURE_2D, 0, SceneColorFormat(), bloomWidth, bloomHeight, 0, GL_RGBA, SceneColorType(), nullptr);
+ 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+ 		ThrowIfGLError("glTexImage2D(SceneBuffers.BlurLevels.VTexture) failed");
+ 
+ 		level.HTexture = std::make_shared<GLTexture2D>();
+ 		glBindTexture(GL_TEXTURE_2D, level.HTexture->Handle);
+ 		SetDebugName(level.HTexture, "SceneBuffers.BlurLevels.HTexture");
+-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, bloomWidth, bloomHeight, 0, GL_RGBA, GL_FLOAT, nullptr);
++		glTexImage2D(GL_TEXTURE_2D, 0, SceneColorFormat(), bloomWidth, bloomHeight, 0, GL_RGBA, SceneColorType(), nullptr);
+ 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+ 		ThrowIfGLError("glTexImage2D(SceneBuffers.BlurLevels.HTexture) failed");
+ 
+@@ -486,7 +510,11 @@
+ 		GLuint sampler = ScenePass.Samplers[i]->Handle;
+ 
+ 		int dummyMipmapCount = (i >> 2) & 3;
++#ifdef __ANDROID__
++		GLint addressmode = (i & 2) ? (GLHasExtension("GL_EXT_texture_mirror_clamp_to_edge") ? GL_MIRROR_CLAMP_TO_EDGE : GL_MIRRORED_REPEAT) : GL_REPEAT;
++#else
+ 		GLint addressmode = (i & 2) ? GL_MIRROR_CLAMP_TO_EDGE : GL_REPEAT;
++#endif
+ 
+ #if 0
+ 		glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, (i & 1) ? GL_NEAREST : GL_LINEAR);
+@@ -494,14 +522,20 @@
+ #else
+ 		glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, (i & 1) ? GL_NEAREST_MIPMAP_NEAREST : GL_LINEAR_MIPMAP_LINEAR);
+ 		glSamplerParameteri(sampler, GL_TEXTURE_MAG_FILTER, (i & 1) ? GL_NEAREST : GL_LINEAR);
++#ifdef __ANDROID__
++		if ((i & 1) && GLHasExtension("GL_EXT_texture_filter_anisotropic"))
++#else
+ 		if (i & 1)
++#endif
+ 			glSamplerParameterf(sampler, GL_TEXTURE_MAX_ANISOTROPY_EXT, 8.0f); // To do: we should check for this extension
+ #endif
+ 		glSamplerParameteri(sampler, GL_TEXTURE_WRAP_S, addressmode);
+ 		glSamplerParameteri(sampler, GL_TEXTURE_WRAP_T, addressmode);
+ 		glSamplerParameteri(sampler, GL_TEXTURE_WRAP_R, addressmode);
+ 		glSamplerParameterf(sampler, GL_TEXTURE_MIN_LOD, (float)dummyMipmapCount);
++#ifndef __ANDROID__ // OpenGL ES samplers have no LOD bias; MIN_LOD still skips the dummy mipmaps
+ 		glSamplerParameterf(sampler, GL_TEXTURE_LOD_BIAS, (float)dummyMipmapCount + LODBias);
++#endif
+ 
+ 		ThrowIfGLError("Could not create sampler");
+ 	}
+@@ -866,7 +900,11 @@
+ 	PresentPass.DitherTexture = std::make_shared<GLTexture>();
+ 	glBindTexture(GL_TEXTURE_2D, PresentPass.DitherTexture->Handle);
+ 	SetDebugName(PresentPass.DitherTexture, "PresentPass.DitherTexture");
++#ifdef __ANDROID__
++	glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, 8, 8, 0, GL_RED, GL_FLOAT, ditherdata); // 32-bit float textures can't be filtered on ES
++#else
+ 	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, 8, 8, 0, GL_RED, GL_FLOAT, ditherdata);
++#endif
+ 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+ 	ThrowIfGLError("CreateTexture2D(DitherTexture) failed");
+ 
+@@ -2014,6 +2052,10 @@
+ 
+ 	glFrontFace(rasterizerState->desc.FrontCounterClockwise ? GL_CCW : GL_CW);
+ 
++#ifdef __ANDROID__
++	return; // OpenGL ES has neither depth clamp (only as an extension) nor a multisample switch
++#endif
++
+ 	if (rasterizerState->desc.DepthClipEnable)
+ 		glEnable(GL_DEPTH_CLAMP);
+ 	else
+@@ -2221,7 +2263,12 @@
+ 
+ void GLRenderDevice::CompileGlsl(GLShader* shader, const std::string& filename, const std::vector<std::string> defines)
+ {
++#ifdef __ANDROID__
++	// GLSL ES 3.10: explicit locations and bindings; uniform blocks laid out as std140 like the desktop's buffers
++	std::string code = "#version 310 es\r\nprecision highp float;\r\nprecision highp int;\r\nprecision highp sampler2D;\r\nlayout(std140) uniform;\r\n";
++#else
+ 	std::string code = "#version 420\r\n";
++#endif
+ 	for (const std::string& define : defines)
+ 	{
+ 		code += "#define ";
+--- a/SurrealEngine/RenderDevice/OpenGL/GLHandles.h
++++ b/SurrealEngine/RenderDevice/OpenGL/GLHandles.h
+@@ -1,6 +1,10 @@
+ #pragma once
+ 
++#ifdef __ANDROID__
++#include "GLESCompat.h"
++#else
+ #include "gl_load/gl_load.h"
++#endif
+ #include <utility>
+ #include <memory>
+ 
+--- /dev/null
++++ b/SurrealEngine/RenderDevice/OpenGL/GLESCompat.h
+@@ -0,0 +1,67 @@
++#pragma once
++
++// OpenGL ES 3.2 in place of desktop OpenGL 4.2 (Android). The device is written against desktop GL: the few calls ES lacks
++// are mapped here, and the states ES doesn't have are skipped where they are used (GLRenderDevice.cpp, under __ANDROID__).
++
++#include <GLES3/gl32.h>
++#include <GLES2/gl2ext.h>
++#include <cstring>
++
++// No loader: libGLESv3 exports every ES 3.2 entry point.
++#define ogl_LOAD_FAILED 0
++#define ogl_LOAD_SUCCEEDED 1
++inline int ogl_LoadFunctions() { return ogl_LOAD_SUCCEEDED; }
++
++// Desktop enums the shared code names. They are only used on paths that check IsGLES() or that ES ignores.
++#ifndef GL_BGRA
++#define GL_BGRA 0x80E1
++#endif
++#ifndef GL_RGBA16
++#define GL_RGBA16 0x805B
++#endif
++#ifndef GL_UNSIGNED_INT_8_8_8_8
++#define GL_UNSIGNED_INT_8_8_8_8 0x8035
++#endif
++#ifndef GL_TEXTURE_LOD_BIAS
++#define GL_TEXTURE_LOD_BIAS 0x8501
++#endif
++#ifndef GL_MIRROR_CLAMP_TO_EDGE
++#define GL_MIRROR_CLAMP_TO_EDGE 0x8743
++#endif
++#ifndef GL_DEPTH_CLAMP
++#define GL_DEPTH_CLAMP 0x864F
++#endif
++#ifndef GL_MULTISAMPLE
++#define GL_MULTISAMPLE 0x809D
++#endif
++
++inline void glClearDepth(double depth) { glClearDepthf((GLfloat)depth); }
++inline void glDepthRange(double nearVal, double farVal) { glDepthRangef((GLfloat)nearVal, (GLfloat)farVal); }
++inline void glDrawBuffer(GLenum buffer) { glDrawBuffers(1, &buffer); }
++
++// ES 3.1 has the immutable multisample storage only (MSAA is off on Android, kept for completeness)
++inline void glTexImage2DMultisample(GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations)
++{
++	glTexStorage2DMultisample(target, samples, internalformat, width, height, fixedsamplelocations);
++}
++
++// glFramebufferTexture is ES 3.2; every attachment here is a 2D texture
++inline void glFramebufferTextureCompat(GLenum target, GLenum attachment, GLuint texture, GLint level)
++{
++	glFramebufferTexture2D(target, attachment, GL_TEXTURE_2D, texture, level);
++}
++#define glFramebufferTexture glFramebufferTextureCompat
++
++// An extension in the context's list (GL_EXTENSIONS per index, ES 3.0)
++inline bool GLHasExtension(const char* name)
++{
++	GLint count = 0;
++	glGetIntegerv(GL_NUM_EXTENSIONS, &count);
++	for (GLint i = 0; i < count; i++)
++	{
++		const char* ext = (const char*)glGetStringi(GL_EXTENSIONS, (GLuint)i);
++		if (ext && strcmp(ext, name) == 0)
++			return true;
++	}
++	return false;
++}
+--- a/SurrealEngine/RenderDevice/OpenGL/GLFileResource.cpp
++++ b/SurrealEngine/RenderDevice/OpenGL/GLFileResource.cpp
+@@ -82,35 +82,35 @@
+ 
+ 			void main()
+ 			{
+-				float actorXBlending = (flags & 32) != 0 ? 1.5 : 1.0;
+-				float oneXBlending = (flags & 64) != 0 ? 1.0 : 2.0;
++				float actorXBlending = (flags & 32u) != 0u ? 1.5 : 1.0;
++				float oneXBlending = (flags & 64u) != 0u ? 1.0 : 2.0;
+ 
+ 				outColor = darkClamp(textureTex(texCoord)) * color;
+ 				outColor.rgb *= actorXBlending;
+ 
+-				if ((flags & 2) != 0) // Macro texture
++				if ((flags & 2u) != 0u) // Macro texture
+ 				{
+ 					outColor *= darkClamp(textureMacro(texCoord3));
+ 				}
+ 
+-				if ((flags & 1) != 0) // Lightmap
++				if ((flags & 1u) != 0u) // Lightmap
+ 				{
+ 					outColor.rgb *= clamp(textureLightmap(texCoord2).rgb, 0.0, 1.0) * oneXBlending;
+ 				}
+ 
+-				if ((flags & 4) != 0) // Detail texture
++				if ((flags & 4u) != 0u) // Detail texture
+ 				{
+ 					float fadedistance = 380.0f;
+ 					float a = clamp(2.0f - (1.0f / gl_FragCoord.w) / fadedistance, 0.0f, 1.0f);
+ 					vec4 detailColor = (textureDetail(texCoord4) - 0.5) * 0.8 + 1.0;
+ 					outColor.rgb = mix(outColor.rgb, outColor.rgb * detailColor.rgb, a);
+ 				}
+-				else if ((flags & 8) != 0) // Fog map
++				else if ((flags & 8u) != 0u) // Fog map
+ 				{
+ 					vec4 fogcolor = textureDetail(texCoord4);
+ 					outColor.rgb = fogcolor.rgb + outColor.rgb * (1.0 - fogcolor.a);
+ 				}
+-				else if ((flags & 16) != 0) // Fog color
++				else if ((flags & 16u) != 0u) // Fog color
+ 				{
+ 					vec4 fogcolor = vec4(texCoord2, texCoord3);
+ 					outColor.rgb = fogcolor.rgb + outColor.rgb * (1.0 - fogcolor.a);
+@@ -230,7 +230,7 @@
+ 			vec3 colorCorrect(vec3 c)
+ 			{
+ 				float v = c.r + c.g + c.b;
+-				vec3 valgray = vec3(v, v, v) * (1 - Saturation) / 3 + c * Saturation;
++				vec3 valgray = vec3(v, v, v) * (1.0 - Saturation) / 3.0 + c * Saturation;
+ 				vec3 val = valgray * Contrast - (Contrast - 1.0) * 0.5;
+ 				val += Brightness * 0.5;
+ 				return max(val, vec3(0.0, 0.0, 0.0));
+--- a/SurrealEngine/RenderDevice/OpenGL/GLTextureUploader.cpp
++++ b/SurrealEngine/RenderDevice/OpenGL/GLTextureUploader.cpp
+@@ -17,9 +17,19 @@
+ 		Uploaders[TextureFormat::P8].reset(new GLTextureUploader_P8());
+ 		Uploaders[TextureFormat::BGRA8_LM].reset(new GLTextureUploader_BGRA8_LM());
+ 		Uploaders[TextureFormat::R5G6B5].reset(new GLTextureUploader_Simple(GL_RGB565, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, 2));
++#ifdef __ANDROID__
++		// OpenGL ES: no S3TC on phones (decoded on the CPU, as the Android Vulkan path does) and no BGRA uploads (swizzled)
++		Uploaders[TextureFormat::BC1].reset(new GLTextureUploader_BCDecode(1));
++		Uploaders[TextureFormat::BC1_PA].reset(new GLTextureUploader_BCDecode(1));
++		Uploaders[TextureFormat::BC2].reset(new GLTextureUploader_BCDecode(2));
++		Uploaders[TextureFormat::BC3].reset(new GLTextureUploader_BCDecode(3));
++		Uploaders[TextureFormat::RGB8].reset(new GLTextureUploader_RGB8());
++		Uploaders[TextureFormat::BGRA8].reset(new GLTextureUploader_BGRA8Swizzle());
++#else
+ 		Uploaders[TextureFormat::BC1].reset(new GLTextureUploader_4x4Block(GL_COMPRESSED_RGBA_S3TC_DXT1_EXT, 0, 0, 8)); // To do: GL_COMPRESSED_RGB_S3TC_DXT1_EXT and also needs different upload
+ 		Uploaders[TextureFormat::RGB8].reset(new GLTextureUploader_RGB8());
+ 		Uploaders[TextureFormat::BGRA8].reset(new GLTextureUploader_Simple(GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE, 4));
++#endif
+ 		Uploaders[TextureFormat::RGBA32_F].reset(new GLTextureUploader_Simple(GL_RGBA32F, GL_RGBA, GL_FLOAT, 16));
+ 	}
+ 
+@@ -351,3 +361,68 @@
+ 		src += pitch;
+ 	}
+ }
++
++/////////////////////////////////////////////////////////////////////////////
++
++#ifdef __ANDROID__
++
++void BCDecodeBlock(int kind, const uint8_t* src, uint8_t* out); // RenderDevice/Vulkan/TextureUploader.cpp
++
++int GLTextureUploader_BCDecode::GetUploadSize(int x, int y, int w, int h)
++{
++	return w * h * 4;
++}
++
++void GLTextureUploader_BCDecode::UploadRect(void* d, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked)
++{
++	int bytesPerBlock = (Kind == 1) ? 8 : 16;
++	int blocksPerRow = (mip->Width + 3) / 4;
++	uint8_t* dst = (uint8_t*)d;
++	uint8_t rgba[64];
++	int decoded = -1;
++	for (int py = 0; py < h; py++)
++	{
++		int sy = y + py;
++		for (int px = 0; px < w; px++)
++		{
++			int sx = x + px;
++			int block = (sy / 4) * blocksPerRow + (sx / 4);
++			if (block != decoded)
++			{
++				size_t offset = (size_t)block * bytesPerBlock;
++				memset(rgba, 0, sizeof(rgba));
++				if (offset + bytesPerBlock <= mip->Data.size())
++					BCDecodeBlock(Kind, mip->Data.data() + offset, rgba);
++				decoded = block;
++			}
++			int i = (sy & 3) * 4 + (sx & 3);
++			memcpy(dst + ((size_t)py * w + px) * 4, rgba + i * 4, 4);
++		}
++	}
++}
++
++int GLTextureUploader_BGRA8Swizzle::GetUploadSize(int x, int y, int w, int h)
++{
++	return w * h * 4;
++}
++
++void GLTextureUploader_BGRA8Swizzle::UploadRect(void* d, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked)
++{
++	int pitch = mip->Width * 4;
++	const uint8_t* src = mip->Data.data() + x * 4 + y * pitch;
++	uint8_t* dst = (uint8_t*)d;
++	for (int i = 0; i < h; i++)
++	{
++		for (int j = 0; j < w; j++)
++		{
++			dst[0] = src[j * 4 + 2];
++			dst[1] = src[j * 4 + 1];
++			dst[2] = src[j * 4 + 0];
++			dst[3] = src[j * 4 + 3];
++			dst += 4;
++		}
++		src += pitch;
++	}
++}
++
++#endif
+--- a/SurrealEngine/RenderDevice/OpenGL/GLTextureUploader.h
++++ b/SurrealEngine/RenderDevice/OpenGL/GLTextureUploader.h
+@@ -119,3 +119,30 @@
+ 	int BlockY;
+ 	int BytesPerBlock;
+ };
++
++#ifdef __ANDROID__
++
++// BC1-3 decoded to RGBA8 on the CPU (OpenGL ES on phones has no S3TC)
++class GLTextureUploader_BCDecode : public GLTextureUploader
++{
++public:
++	GLTextureUploader_BCDecode(int kind) : GLTextureUploader(GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE), Kind(kind) { }
++
++	int GetUploadSize(int x, int y, int w, int h) override;
++	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
++
++private:
++	int Kind;
++};
++
++// BGRA8 uploaded as RGBA8 (OpenGL ES has no BGRA upload format without an extension)
++class GLTextureUploader_BGRA8Swizzle : public GLTextureUploader
++{
++public:
++	GLTextureUploader_BGRA8Swizzle() : GLTextureUploader(GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE) { }
++
++	int GetUploadSize(int x, int y, int w, int h) override;
++	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
++};
++
++#endif
+--- a/SurrealEngine/RenderDevice/OpenGL/GLTextureManager.cpp
++++ b/SurrealEngine/RenderDevice/OpenGL/GLTextureManager.cpp
+@@ -97,7 +97,7 @@
+ 	uint32_t white = 0xffffffff;
+ 	NullTexture->Texture = std::make_shared<GLTexture2D>();
+ 	glBindTexture(GL_TEXTURE_2D, NullTexture->Texture->Handle);
+-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, &white);
++	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, &white); // all bytes 0xff: the byte order does not matter (and ES has no 8_8_8_8)
+ 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+ 	return NullTexture.get();
+ }
+--- a/SurrealWidgets/src/window/sdl3/sdl3_display_window.cpp
++++ b/SurrealWidgets/src/window/sdl3/sdl3_display_window.cpp
+@@ -12,13 +12,34 @@
+ bool SDL3DisplayWindow::ExitRunLoop;
+ std::unordered_map<unsigned int, SDL3DisplayWindow*> SDL3DisplayWindow::WindowList;
+ 
++#ifdef __ANDROID__
++// Android: an OpenGL ES 3.2 context, set before the window is made (SDL chooses the EGL config then). No depth or stencil in
++// the window: the renderer draws into its own framebuffers and only copies the result to the window.
++static void SetAndroidGLAttributes()
++{
++	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
++	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
++	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
++	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
++	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
++	SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
++	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
++	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 0);
++}
++#endif
++
+ SDL3DisplayWindow::SDL3DisplayWindow(DisplayWindowHost* windowHost, WidgetType type, SDL3DisplayWindow* owner, RenderAPI renderAPI, double uiscale) : WindowHost(windowHost), UIScale(uiscale)
+ {
+ 	unsigned int flags = SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
+ 	if (renderAPI == RenderAPI::Vulkan)
+ 		flags |= SDL_WINDOW_VULKAN;
+ 	else if (renderAPI == RenderAPI::OpenGL)
++	{
+ 		flags |= SDL_WINDOW_OPENGL;
++#ifdef __ANDROID__
++		SetAndroidGLAttributes();
++#endif
++	}
+ #if defined(__APPLE__)
+ 	else if (renderAPI == RenderAPI::Metal)
+ 		flags |= SDL_WINDOW_METAL;
+@@ -667,11 +688,18 @@
+ 
+ void SDL3DisplayWindow::CreateGLContext()
+ {
++#ifdef __ANDROID__
++	SetAndroidGLAttributes();
++	m_GLContext = SDL_GL_CreateContext(Handle.window);
++	if (!m_GLContext)
++		throw std::runtime_error(std::string("Could not create an OpenGL ES 3.2 context: ") + SDL_GetError());
++#else
+ 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+ 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+ 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+ 
+ 	m_GLContext = SDL_GL_CreateContext(Handle.window);
++#endif
+ }
+ 
+ void SDL3DisplayWindow::MakeGLContextCurrent()

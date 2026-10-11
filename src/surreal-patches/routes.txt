@@ -15,7 +15,7 @@
 SurrealEngine/UE1GameDatabase.*
 SurrealEngine/GameFolder.*
 
-[0002-launcher-flags.patch] flipendo: --autolaunch, --logfile and --level command line flags
+[0002-launcher-flags.patch] flipendo: --autolaunch, --logfile, --level and --renderer command line flags
 SurrealEngine/GameApp.cpp
 
 [0003-cursor-focus.patch] flipendo: only recenter the mouse cursor, and only act on raw mouse/keyboard input, while the game window is the active (foreground) window; window icons the right way up
@@ -83,3 +83,5 @@ SurrealGPU/include/surrealgpu/vulkanbuilders.h
 SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.*
 SurrealEngine/RenderDevice/Vulkan/RenderPassManager.cpp
 SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.*
+SurrealEngine/RenderDevice/OpenGL/**
+SurrealWidgets/src/window/sdl3/sdl3_display_window.cpp

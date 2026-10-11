@@ -1,10 +1,12 @@
-flipendo: --autolaunch, --logfile and --level command line flags
+flipendo: --autolaunch, --logfile, --level and --renderer command line flags
 
-diff --git a/SurrealEngine/GameApp.cpp b/SurrealEngine/GameApp.cpp
-index 3b059e5c..b4eec7ca 100644
 --- a/SurrealEngine/GameApp.cpp
 +++ b/SurrealEngine/GameApp.cpp
-@@ -12,11 +12,18 @@
+@@ -9,14 +9,22 @@
+ #include "UI/WidgetResourceData.h"
+ #include "UI/ErrorWindow/ErrorWindow.h"
+ #include "UI/Launcher/LauncherWindow.h"
++#include "LauncherSettings.h"
  #include "Utils/File.h"
  #include <stdexcept>
  #include <iostream>
@@ -23,17 +25,23 @@ index 3b059e5c..b4eec7ca 100644
  	try
  	{
  		CommandLine cmd(args);
-@@ -27,20 +34,65 @@ int GameApp::main(Array<std::string> args)
+@@ -27,20 +35,71 @@
  
  		if (commandline->HasArg("-h", "--help"))
  		{
 -			std::cout << "SurrealEngine [--url=<mapname>] [--engineversion=X] [Path to game folder]\n";
-+			std::cout << "SurrealEngine [--url=<mapname>] [--level=<mapname> [--slot=<n>]] [--engineversion=X] [--autolaunch] [--logfile=<path>] [--skip-splash] [--skip-intro] [--vanilla] [Path to game folder]\n";
++			std::cout << "SurrealEngine [--url=<mapname>] [--level=<mapname> [--slot=<n>]] [--engineversion=X] [--autolaunch] [--logfile=<path>] [--skip-splash] [--skip-intro] [--vanilla] [--renderer=opengl|vulkan] [Path to game folder]\n";
  			return 0;
  		}
  
 -		int selectedGameIndex = LauncherWindow::ExecModal();
 +		autolaunch = commandline->HasArg("", "--autolaunch");
++		// --renderer=opengl|vulkan picks the render device over Settings.json (the Android port falls back to OpenGL ES with it)
++		std::string renderer = commandline->GetArg("", "--renderer", "");
++		if (renderer == "opengl")
++			LauncherSettings::Get().RenderDevice.Type = RenderDeviceType::OpenGL;
++		else if (renderer == "vulkan")
++			LauncherSettings::Get().RenderDevice.Type = RenderDeviceType::Vulkan;
 +		std::string logfilename = commandline->GetArg("", "--logfile", "");
 +		if (!logfilename.empty())
 +		{
