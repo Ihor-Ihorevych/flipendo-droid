@@ -139,13 +139,24 @@ public class SetupActivity extends Activity {
         new Thread(new Runnable() {
             public void run() {
                 installGameData();
-                final boolean haveGame = findGame(new File(FlipendoActivity.GAME_DIR), 2) != null;
+                // the default place first (a self pack unpacks there), else the folder the player picked
+                File found = findGame(new File(FlipendoActivity.GAME_DIR), 2);
+                final String picked = getSharedPreferences("setup", MODE_PRIVATE).getString(PREF_GAME_DIR, null);
+                if (found == null && picked != null) {
+                    found = findGame(new File(picked), 2);
+                }
+                final File game = found;
                 ui.post(new Runnable() {
                     public void run() {
-                        if (!haveGame) {
-                            showMissingGame();
+                        if (game == null) {
+                            if (picked != null) {
+                                showWrongFolder(picked);
+                            } else {
+                                showMissingGame();
+                            }
                             return;
                         }
+                        gameDir = game.getPath();
                         gameReady = true;
                         tryStart();
                     }
@@ -172,7 +183,11 @@ public class SetupActivity extends Activity {
             return;
         }
         gameReady = false;
-        startActivity(new Intent(this, FlipendoActivity.class));
+        Intent intent = new Intent(this, FlipendoActivity.class);
+        if (gameDir != null) {
+            intent.putExtra(EXTRA_GAME_DIR, gameDir);
+        }
+        startActivity(intent);
         finish();
     }
 
@@ -229,6 +244,13 @@ public class SetupActivity extends Activity {
     /** Puts a card on the screen: title, message (scrolls), the main action in gold and a second one. */
     private void showCard(String title, String message, String primaryLabel, android.view.View.OnClickListener primary,
                           String secondaryLabel, android.view.View.OnClickListener secondary) {
+        showCard(title, message, primaryLabel, primary, secondaryLabel, secondary, null, null);
+    }
+
+    /** The same with a third action (left of the other two). */
+    private void showCard(String title, String message, String primaryLabel, android.view.View.OnClickListener primary,
+                          String secondaryLabel, android.view.View.OnClickListener secondary,
+                          String thirdLabel, android.view.View.OnClickListener third) {
         android.widget.FrameLayout screen = new android.widget.FrameLayout(this);
         screen.setBackgroundColor(0xFF000000);
         screen.setPadding(dp(16), dp(16), dp(16), dp(16));
@@ -295,6 +317,11 @@ public class SetupActivity extends Activity {
             }
         });
         footer.addView(channel, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        if (thirdLabel != null) {
+            LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            tp.rightMargin = dp(12);
+            footer.addView(pill(thirdLabel, false, third), tp);
+        }
         if (secondaryLabel != null) {
             LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
             sp.rightMargin = dp(12);
@@ -327,18 +354,85 @@ public class SetupActivity extends Activity {
         }
     };
 
-    /** There is no game on the phone yet: say where to put it (this is the most common first-run problem). */
+    // The game folder: found in the default place or picked by the player (a folder anywhere on the phone or an SD card)
+    static final String EXTRA_GAME_DIR = "gameDir";
+    static final String PREF_GAME_DIR = "gameDir";
+    private static final int REQUEST_PICK_FOLDER = 7;
+    private String gameDir;
+
+    private final android.view.View.OnClickListener checkAgain = new android.view.View.OnClickListener() {
+        public void onClick(android.view.View v) {
+            backToStart();
+        }
+    };
+
+    private final android.view.View.OnClickListener pickFolder = new android.view.View.OnClickListener() {
+        public void onClick(android.view.View v) {
+            try {
+                startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), REQUEST_PICK_FOLDER);
+            } catch (RuntimeException e) {
+                android.widget.Toast.makeText(SetupActivity.this, "No folder picker on this phone: copy the game to "
+                        + FlipendoActivity.GAME_DIR + " instead", android.widget.Toast.LENGTH_LONG).show();
+            }
+        }
+    };
+
+    /** A folder from the system picker as a file path (the app has all files access): internal storage or an SD card. */
+    static String treeUriToPath(Uri uri) {
+        if (uri == null || !"com.android.externalstorage.documents".equals(uri.getAuthority())) {
+            return null;
+        }
+        String id;
+        try {
+            id = android.provider.DocumentsContract.getTreeDocumentId(uri); // "primary:Games/HP", "1A2B-3C4D:HP"
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+        int colon = id.indexOf(':');
+        if (colon < 0) {
+            return null;
+        }
+        String volume = id.substring(0, colon), relative = id.substring(colon + 1);
+        String base = "primary".equalsIgnoreCase(volume) ? Environment.getExternalStorageDirectory().getPath() : "/storage/" + volume;
+        return relative.isEmpty() ? base : base + "/" + relative;
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_PICK_FOLDER || resultCode != RESULT_OK || data == null) {
+            return;
+        }
+        String path = treeUriToPath(data.getData());
+        if (path == null) {
+            showWrongFolder("(a place the app can't read as a folder)");
+            return;
+        }
+        // remembered even when it's the wrong one: the next start says so instead of asking from scratch
+        getSharedPreferences("setup", MODE_PRIVATE).edit().putString(PREF_GAME_DIR, path).apply();
+        if (findGame(new File(path), 2) == null) {
+            showWrongFolder(path);
+        } else {
+            backToStart();
+        }
+    }
+
+    /** There is no game on the phone yet: say where to put it, or let the player pick the folder it is in. */
     private void showMissingGame() {
         showCard("Game data not found",
                 "Copy the game folder from your PC (the one that contains System, Maps, Textures, Sounds and Music) to the phone, "
-                        + "into Internal storage / FlipendoHP.\n\nThe app looks for " + FlipendoActivity.GAME_DIR + "/System/HP.exe "
-                        + "(or one folder deeper).\n\nStill not found after copying? Send the logs: they list what the app sees.",
-                "Check again", new android.view.View.OnClickListener() {
-                    public void onClick(android.view.View v) {
-                        backToStart();
-                    }
-                },
-                "Send logs", sendLogs);
+                        + "into Internal storage / FlipendoHP, then tap Check again.\n\n"
+                        + "Already copied it somewhere else? Tap Choose folder and pick it (or the folder it is in).",
+                "Choose folder", pickFolder, "Check again", checkAgain, "Send logs", sendLogs);
+    }
+
+    /** The folder the player picked has no game in it. */
+    private void showWrongFolder(String path) {
+        showCard("This isn't the game folder",
+                "There is no game in " + path + " (looked for System/HP.exe there and one or two folders deeper).\n\n"
+                        + "Pick the folder you copied from the PC: it contains System, Maps, Textures, Sounds and Music. "
+                        + "Or copy the game into Internal storage / FlipendoHP and tap Check again.",
+                "Choose another folder", pickFolder, "Check again", checkAgain, "Send logs", sendLogs);
     }
 
     /** Set when the game stopped on its own (FlipendoActivity.onGameStopped) or the last run of the app crashed. */

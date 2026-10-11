@@ -330,6 +330,13 @@ public class FlipendoActivity extends SDLActivity {
 
     Overlay overlay;
 
+    /** The game folder the launcher found or the player picked (SetupActivity), for the engine (android_main.cpp, argv[1]). */
+    @Override
+    protected String[] getArguments() {
+        String dir = getIntent() != null ? getIntent().getStringExtra(SetupActivity.EXTRA_GAME_DIR) : null;
+        return dir != null ? new String[] { dir } : new String[0];
+    }
+
     /** A gamepad's buttons and sticks go to the overlay's pad mapping before SDL sees them (the engine has no gamepad input). */
     static boolean fromPad(InputEvent e) {
         int source = e.getSource();

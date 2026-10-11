@@ -341,7 +341,11 @@ extern "C" __attribute__((visibility("default"))) int SDL_main(int argc, char** 
 			unlink(path);
 		}
 		args.push_back("--logfile=/sdcard/FlipendoHP/flipendo.log");
-		const std::string gameDir = FindGameDir();
+		// The game folder: the one the launcher found or the player picked (SetupActivity passes it as the first argument),
+		// else the default place.
+		std::string gameDir = argc > 1 && argv[1] && argv[1][0] ? FindGame(argv[1], 0) : std::string();
+		if (gameDir.empty())
+			gameDir = FindGameDir();
 		__android_log_print(ANDROID_LOG_INFO, "flipendo", "game folder: %s", gameDir.c_str());
 		args.push_back(gameDir);
 		GameApp app;

@@ -76,7 +76,9 @@ final class LogReport {
             addText(zip, "device-info.txt", deviceInfo(context));
             addText(zip, "exit-info.txt", exitInfo(context, zip));
             addText(zip, "logcat.txt", logcat());
-            addText(zip, "game-folder.txt", gameFolder(game));
+            String picked = context.getSharedPreferences("setup", Context.MODE_PRIVATE).getString(SetupActivity.PREF_GAME_DIR, null);
+            addText(zip, "game-folder.txt", gameFolder(game)
+                    + (picked != null ? "\n\npicked folder: " + picked + "\n" + gameFolder(new File(picked)) : "\n\npicked folder: none\n"));
             for (String name : new String[] { "flipendo.log", "flipendo.prev.log", "crash.txt", "crash.prev.txt" }) {
                 File f = new File(game, name);
                 if (f.isFile()) {
