@@ -1,4 +1,4 @@
-flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CPU, per-frame command pool reset, no gl_ClipDistance, upright swapchain, absolute touch mouse, no backtrace(); Vulkan device choice needs only independentBlend and names why a device was rejected, descriptor indexing optional (Vulkan 1.1 Mali without it); fonts can take glyphs they lack from elsewhere (HP1 Cyrillic text); OpenGL ES 3.2 renderer (the OpenGL device on GLES: SDL ES context, no S3TC/BGRA uploads, GLSL ES shaders), fail_vulkan.txt test aid
+flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CPU, per-frame command pool reset, no gl_ClipDistance, upright swapchain, absolute touch mouse, no backtrace(); Vulkan device choice needs only independentBlend and names why a device was rejected, descriptor indexing optional (Vulkan 1.1 Mali without it); fonts can take glyphs they lack from elsewhere (HP1 Cyrillic text); OpenGL ES 3.2 renderer (the OpenGL device on GLES: SDL ES context, no S3TC/BGRA uploads, GLSL ES shaders), fail_vulkan.txt test aid, GL errors name their code
 
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
@@ -1610,3 +1610,46 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  }
  
  void SDL3DisplayWindow::MakeGLContextCurrent()
+--- a/SurrealEngine/RenderDevice/OpenGL/GLUploadManager.cpp
++++ b/SurrealEngine/RenderDevice/OpenGL/GLUploadManager.cpp
+@@ -52,6 +52,11 @@
+ 	// We fix this by creating 1 or 2 additional mipmap levels that are empty.
+ 
+ 	int minSize = Info.Format == TextureFormat::BC1 || (Info.Format >= TextureFormat::BC2 && Info.Format <= TextureFormat::BC6H) ? 4 : 0;
++#ifdef __ANDROID__
++	// OpenGL ES: BC textures are decoded to RGBA8 on the CPU, so there are no 4x4 blocks to complete. Uploading a 4x4 block
++	// into a 2x2 or 1x1 mip level (what the compressed path does) is GL_INVALID_VALUE for an uncompressed level.
++	minSize = 0;
++#endif
+ 
+ 	if (!tex->Texture)
+ 	{
+@@ -97,6 +102,9 @@
+ 
+ void GLUploadManager::UploadTextureRect(GLCachedTexture* tex, const TextureInfo& Info, int x, int y, int w, int h)
+ {
++#ifdef __ANDROID__
++	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
++#endif
+ 	GLTextureUploader* uploader = GLTextureUploader::GetUploader(Info.Format);
+ 	if (!uploader || Info.NumMips < 1 || x < 0 || y < 0 || w <= 0 || h <= 0 || x + w > Info.Mips[0].Width || y + h > Info.Mips[0].Height || Info.Mips[0].Data.empty())
+ 		return;
+@@ -121,6 +129,9 @@
+ 
+ void GLUploadManager::UploadData(GLTexture2D* image, const TextureInfo& Info, bool masked, GLTextureUploader* uploader, int dummyMipmapCount, int minSize)
+ {
++#ifdef __ANDROID__
++	glPixelStorei(GL_UNPACK_ALIGNMENT, 1); // the upload buffers are tightly packed rows (RGB565 with an odd width, ...)
++#endif
+ 	for (int level = 0; level < Info.NumMips; level++)
+ 	{
+ 		UnrealMipmap* Mip = &Info.Mips[level];
+--- a/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.h
++++ b/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.h
+@@ -439,5 +439,5 @@
+ {
+ 	GLenum error = glGetError();
+ 	if (error != GL_NO_ERROR)
+-		throw std::runtime_error(msg);
++		throw std::runtime_error(std::string(msg) + " (GL error 0x" + [error] { char text[16]; snprintf(text, sizeof(text), "%04X", (unsigned)error); return std::string(text); }() + ")");
+ }
