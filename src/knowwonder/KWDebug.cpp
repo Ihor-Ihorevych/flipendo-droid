@@ -58,7 +58,7 @@
 //                              "@state tut3peeves2 dieing" sends the matching actors to that script state;
 //                              "@travel Lev2_HogFront" changes level as the game's level exits do (carrying Harry's travel properties);
 //                              "@bump GridMover0 harry0" raises Bump(harry0) on the actors whose name starts with GridMover0;
-//                              "@polys Mover17" logs the brush polygons (normal, PolyFlags, texture) of the matching movers;
+//                              "@polys Mover17" logs the brush polygons (normal, PolyFlags, texture, vertices) of the matching movers;
 //                              "@sweep x y z x y z ex ey ez" runs KnowWonder's BSP line/point checks and the actor sweep with that box and logs them;
 //                              "@hull Mover0" logs the brush's collision hulls (planes in world space)
 
@@ -388,7 +388,14 @@ namespace KW
 					char buf[256];
 					snprintf(buf, sizeof(buf), "HP1 polys %s %d: normal=(%.2f,%.2f,%.2f) flags=0x%08x tex=%s", a->Name.ToString().c_str(), i++,
 						poly.Normal.x, poly.Normal.y, poly.Normal.z, poly.PolyFlags, poly.Texture ? poly.Texture->Name.ToString().c_str() : "None");
-					LogMessage(buf);
+					std::string line = buf;
+					line += " verts (brush space):";
+					for (const vec3& v : poly.Vertices)
+					{
+						snprintf(buf, sizeof(buf), " (%.1f,%.1f,%.1f)", v.x, v.y, v.z);
+						line += buf;
+					}
+					LogMessage(line);
 				}
 			}
 			return;

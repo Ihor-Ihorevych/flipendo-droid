@@ -60,8 +60,8 @@ to test with an exact state.
 | 24 | `Lev3_PreTroll` | Hogwarts Main Entrance | yes | |
 | 25 | `Lev3_Troll` | Corridor To The Girl's Washroom (also 26 Troll Battle) | yes | |
 | 27 | `Lev3_Quid2` | Quidditch Match: Gryffindor vs. Ravenclaw | yes | As in the map: Norbert's cloak-scene commands name sequences his mesh lacks (`Walk`, `Animate lookaound1`, a typo of LOOKAROUND1), logged as not found. As in the script: a beater hit by a Bludger or a wall stays on the last frame of `Hit_Small` / `Hit_Big` (`QuidPlayer` state `Beater` only sleeps and never loops another animation; not compared with the original). |
-| 28 | `Lev4_Sneak` | Sneak Up To The Tower | no | Seen in the logs only (2026-10-11): `baseChar.patrol` asks for `Idle` on meshes that lack it (`skpercyMesh`, `sknorbertMesh`, `skquidplayermMesh`) twice a second; which actors and what they look like not looked into |
-| 29 | `Lev4_Sneak2` | Sneak Down From The Tower (also 30 Gryffindor Common Room) | no | |
+| 28 | `Lev4_Sneak` | Sneak Up To The Tower | yes | `baseChar.patrol` asks for `Idle` on meshes that lack it (`skpercyMesh`, `sknorbertMesh`, `skquidplayermMesh`) twice a second; which actors and what they look like not looked into |
+| 29 | `Lev4_Sneak2` | Sneak Down From The Tower (also 30 Gryffindor Common Room) | yes | In the mirror scene Harry's reflection shows half see-through while James and Lily are in the glass (the translucent `JamesLilli` polygon over him in the reflection? not looked into). Logs `PlayAnim: Sequence 'Idle' not found in Mesh 'skNHNickMesh'` twice a second (`baseChar.patrol`; not looked into) |
 | 31 | `Lev5_fluffy` | The Forbidden Corridor | no | |
 | 32 | `Lev5_Snare` | The Devil's Snare | no | |
 | 33 | `Lev5_FlyKeys` | The Winged Keys | no | |
