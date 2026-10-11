@@ -43,7 +43,8 @@ GLightManager's vtable is `off_10B386D4` (+8 SetupForActor, +24 Light per vertex
   Coronas are not excluded.
 - Importance `(1 - dist/radius) * LightBrightness * 1024`, sorted strongest first. Picked: at most 3 static lights;
   dynamic lights only while fewer than 3 lights are picked in total; nothing under 1/8 of the first picked light.
-- A light must see the actor's location (BSP line check light → actor). The check runs again only every 16 frames per
+- A light must see the actor's location: `UModel::LineCheck` on the level's own model (vtable +92, zero extent, light →
+  actor), so movers and other actors never block a light. The check runs again only every 16 frames per
   light (staggered by the light's object index); in between the last result is kept. Dynamic `bMovable` lights skip it.
 - Fade: 768 per second. Picked lights fade in, dropped ones fade out and keep lighting until they reach 0. An actor
   seen for the first time gets its visible lights at full strength at once.

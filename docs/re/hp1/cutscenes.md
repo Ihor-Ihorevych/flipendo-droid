@@ -18,6 +18,14 @@ command list (`Cast0Script` .. `Cast6Script`, strings like `Moveto HpLoc`, `Talk
 - **setPhysics stops actors** ([physics.md](../engine/physics.md#setphysics)). `CutMovingTo` depends on that:
   without it the player's last run velocity kept moving Harry under PHYS_Walking, past the mark, and he ran in place
   facing away from the NPC until the timeout.
+- **Camera speed.** In `CutState` the camera (`BaseCam`, `PotCam0` in Lev3_Lumos) moves `CameraSpeed * dt` of the way
+  to its mark every tick (`throttleTrack`; `Camspeed 0.3` makes it 0.6) and reports arrival within `CutCameraProx`
+  (15, or `Camprox`). The step is tripled while `p.bMovingBackwards` is set, `p.BossTarget` isn't None or the camera
+  is `CAM_Reverse`. `bMovingBackwards` is script only (`Harry.PlayRunning` / `TweenToRunning`): set when Harry runs
+  backwards, cleared only when he next runs forwards, so a cast made after backing up plays every camera move of the
+  next cutscene three times faster. Lev3_Lumos's bridges cutscene (`CutScene3`, from `Dispatcher2`) then lasts
+  ~5.4 s instead of ~11.7 s and ends before the `Bridges` movers turn up at 7.2 s (measured 2026-10-11 with
+  `HP1_KEYS` holding Down for 1 s before `@trigger BridgesSwitch`).
 - **CutSkip()** zeroes each cast member's next-action time; nothing in HP1 calls it (the CutsceneSkip mod does,
   [modding.md](../../modding.md)).
 

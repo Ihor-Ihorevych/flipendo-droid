@@ -21,6 +21,7 @@ Times are seconds since the first frame.
 | `HP1_CAMERA` | `"x,y,z,pitch,yaw"` | look from a fixed camera |
 | `HP1_HEIGHTMAP` | `"12:x0,y0,x1,y1,step,ztop"` | floor heights over a grid, for planning jumps and climbs |
 | `HP1_SKIPCUTS` | `1` | press Space whenever a cutscene holds Harry (the CutsceneSkip mod fast-forwards it) |
+| `HP1_FLY` | `1` | F toggles fly mode: UE1's `PlayerPawn.Fly` cheat (state `CheatFlying`, collision on; Jump goes up, Duck down), F again `Walk`s back to `PlayerWalking` |
 | `HP1_BACKGROUND` | `1` | open the window windowed, behind the other windows and without taking focus, so automated runs don't take over the screen |
 | `HP1_EXEC` | `"3:@console.MenuBook.SlotPage LoadSelectedSlot"` | commands at those times, `;` separated (below) |
 
@@ -30,7 +31,7 @@ Times are seconds since the first frame.
 |---|---|
 | `open save99.usa`, `SaveGame 3`, ... | any console command |
 | `@console[.Prop] Fn [arg]` | call a script function on the console or an object it references, e.g. `@console.MenuBook OpenBook Slot` |
-| `@console.MenuBook.SlotPage LoadSelectedSlot` | load a save from the main menu (slot 99 when none is selected); a bare `open saveN.usa` leaves the menu book open over the game |
+| `@console.MenuBook.SlotPage LoadSelectedSlot` | load a save from the main menu (slot 99 when none is selected); a bare `open saveN.usa` leaves the menu book open over the game and `HPConsole.bInHubFlow` false (a Quidditch match then runs in league mode), so for a playtest copy the save to `Save99.usa` and use this |
 | `@console SaveSelectedSlot` | save (slot 99 without a selected slot) |
 | `@set <actor prefix> <prop> <value>` | set a property on live actors, e.g. `@set CutScene3 bDebugScript True` |
 | `@get <actor prefix> <prop>` | log a property, e.g. `@get harry numBeans`. Some properties hang the game (seen 2026-10-10 with `harry0 FlashScale` and a name that isn't a property; not looked into) |

@@ -33,6 +33,13 @@ HP2 rewrote this layer: its spells are cast through a `SpellCursor` (a ParticleF
 `Harry.AdjustAim` (the plain-fire path) picks among `VisibleActors` with `bProjTarget` the one closest in yaw, or
 `rectarget.victim` when locked.
 
+`baseHarry.ExtendTarget` is what makes small or moving targets (doxies) easy to lock: among `VisibleActors` with
+`bProjTarget` (not Harry, not a `BaseCam`) it takes the nearest within 4000 units of yaw and pitch (about 22°) of
+Harry's yaw and the target pitch, and drops it beyond 512 units. It calls `VisibleActors` without a radius, which in
+HP1's `AActor::execVisibleActors` (Engine 0x1040E610) means no distance limit: every actor of the class that isn't
+bHidden and whose location the BSP alone doesn't block from the caller (`UModel::FastLineCheck`, movers don't count).
+A radius, when given, keeps only actors closer than it.
+
 ## Not checked yet
 
 Symbol on creatures against the original (2026-10-10, by hand): on a gnome the original shows it briefly at the cast, like

@@ -47,6 +47,7 @@
 //                              does nothing with --vanilla). Shifts later timings, so routes need their own times
 //   HP1_HEIGHTMAP="5:x0,y0,x1,y1,step,ztop"  at <sec>, trace straight down (player-sized cylinder) from ztop over
 //                              the grid and log one row of floor heights per y (blank = nothing within 2000 units)
+//   HP1_FLY=1                  F toggles fly mode (PlayerPawn.Fly / Walk; Jump goes up, Duck down)
 //   HP1_BACKGROUND=1           open the game window windowed, at the bottom of the window stack and without activating
 //                              it, so automated runs don't take over the screen (keys/mouse come from HP1_KEYS etc.)
 //   HP1_EXEC="40:open save0.usa;90:SaveGame 3"  run a console command at <sec> (';' separates entries);
@@ -626,6 +627,43 @@ namespace KW
 		nextTap = now + 1.0f;
 	}
 
+	// F toggles the stock UE1 fly cheat: PlayerPawn.Fly (state CheatFlying, Jump/Duck go up and down) and back with
+	// PlayerPawn.Walk. HP1 keeps bCheatsEnabled false, so it is set first. F is bound to nothing in HP1 (DefUser.ini).
+	static bool FlyQueued = false; // set by an F key-down, consumed by the next TickDebugFly
+
+	void DebugKeyDown(int key)
+	{
+		if (key == IK_F)
+			FlyQueued = true;
+	}
+
+	static void TickDebugFly()
+	{
+		static int enabled = -1;
+		if (enabled < 0)
+		{
+			const char* s = getenv("HP1_FLY");
+			enabled = s && *s && *s != '0';
+		}
+		bool pressed = FlyQueued;
+		FlyQueued = false;
+		UPlayerPawn* player = engine->viewport ? engine->viewport->Actor() : nullptr;
+		if (!enabled || !pressed || !player)
+			return;
+		if (player->GetStateName() == NameString("CheatFlying"))
+		{
+			CallEvent(player, NameString("Walk"));
+			player->GotoState(NameString("PlayerWalking"), {});
+			LogMessage("HP1 fly: off");
+		}
+		else
+		{
+			player->SetPropertyFromString(NameString("bCheatsEnabled"), "True");
+			CallEvent(player, NameString("Fly"));
+			LogMessage("HP1 fly: on");
+		}
+	}
+
 	static void TickDebugGoto(float now)
 	{
 		struct Waypoint { vec2 Pos; char Action = 0; float Arg = 0.0f; };
@@ -752,6 +790,7 @@ namespace KW
 		TickDebugDump(frameTime);
 		TickDebugHeightmap(frameTime);
 		TickDebugSkipCutscenes(frameTime);
+		TickDebugFly();
 		TickDebugGoto(frameTime);
 		TickDebugExec(frameTime);
 

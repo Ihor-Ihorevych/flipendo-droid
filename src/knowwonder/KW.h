@@ -79,6 +79,8 @@ namespace KW
 	// Engine::OpenWindow: HP1_BACKGROUND=1 shows the window windowed, behind the others and without taking focus
 	// (src/knowwonder/KWDebug.cpp). Returns false (window shown as usual) when it isn't set.
 	bool ShowWindowInBackground(GameWindow* window, int width, int height);
+	// HP1::ModsKeyDown (window key events and HP1_KEYS): HP1_FLY=1 toggles fly mode on F (src/knowwonder/KWDebug.cpp).
+	void DebugKeyDown(int key);
 
 	// Engine::ConsoleCommand "open": FESlotPage loads a slot with "open saveN.usa". Returns "?load=N" when the map names
 	// an existing save file in the Save folder, else empty (src/knowwonder/KWSave.cpp).

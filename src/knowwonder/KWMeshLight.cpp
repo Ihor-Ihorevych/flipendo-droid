@@ -1,6 +1,7 @@
 #include "Precomp.h"
 #include "KWMeshLight.h"
 #include "KWActor.h"
+#include "KWCheck.h"
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Engine/Actors/Pawn/UPawn.h"
 #include "Packages/Engine/Actors/Info/UZoneInfo.h"
@@ -336,7 +337,9 @@ namespace KW
 				}
 				else
 				{
-					picked = !engine->Level->Collision.TraceAnyHit(light->Location(), location, lightActor, false, true, true);
+					// The level's BSP only (UModel::LineCheck through the model's vtable +92, zero extent): movers never block a light.
+					CheckResult hit;
+					picked = ModelLineCheck(hit, ModelFrame::Level(engine->Level->Model), light->Location(), location, vec3(0.0f), 0);
 					if (picked && fresh)
 						c.Fade = 255;
 				}
