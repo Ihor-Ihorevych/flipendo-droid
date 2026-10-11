@@ -929,6 +929,29 @@ index 70dc72e3..1ec0d278 100644
 +	vec3 MirrorBase = vec3(0.0f);
 +	vec3 MirrorNormal = vec3(0.0f);
  };
+diff --git a/SurrealEngine/RenderDevice/D3D11/D3D11FileResource.cpp b/SurrealEngine/RenderDevice/D3D11/D3D11FileResource.cpp
+index a2940705..c8f614e1 100644
+--- a/SurrealEngine/RenderDevice/D3D11/D3D11FileResource.cpp
++++ b/SurrealEngine/RenderDevice/D3D11/D3D11FileResource.cpp
+@@ -108,7 +108,8 @@ std::string D3D11FileResource::readAllText(const std::string& filename)
+ 				float actorXBlending = (input.flags & 32) != 0 ? 1.5 : 1.0;
+ 				float oneXBlending = (input.flags & 64) != 0 ? 1.0 : 2.0;
+ 
+-				output.outColor = darkClamp(textureTex(input.texCoord)) * input.color;
++				float4 texel = darkClamp(textureTex(input.texCoord));
++				output.outColor = texel * input.color;
+ 				output.outColor.rgb *= actorXBlending;
+ 
+ 				if ((input.flags & 2) != 0) // Macro texture
+@@ -140,7 +141,7 @@ std::string D3D11FileResource::readAllText(const std::string& filename)
+ 				}
+ 
+ 				#if defined(ALPHATEST)
+-				if (output.outColor.a < 0.5) discard;
++				if (texel.a < 0.5) discard; // the texel's own mask: a mesh faded by vertex alpha keeps its masked parts
+ 				#endif
+ 
+ 				output.outColor = clamp(output.outColor, 0.0, 1.0);
 diff --git a/SurrealEngine/RenderDevice/D3D11/D3D11RenderDevice.cpp b/SurrealEngine/RenderDevice/D3D11/D3D11RenderDevice.cpp
 index ba22defd..1bb02add 100644
 --- a/SurrealEngine/RenderDevice/D3D11/D3D11RenderDevice.cpp
@@ -942,6 +965,29 @@ index ba22defd..1bb02add 100644
  				vertex++;
  			}
  		}
+diff --git a/SurrealEngine/RenderDevice/OpenGL/GLFileResource.cpp b/SurrealEngine/RenderDevice/OpenGL/GLFileResource.cpp
+index 593b4239..701428a9 100644
+--- a/SurrealEngine/RenderDevice/OpenGL/GLFileResource.cpp
++++ b/SurrealEngine/RenderDevice/OpenGL/GLFileResource.cpp
+@@ -85,7 +85,8 @@ std::string GLFileResource::readAllText(const std::string& filename)
+ 				float actorXBlending = (flags & 32) != 0 ? 1.5 : 1.0;
+ 				float oneXBlending = (flags & 64) != 0 ? 1.0 : 2.0;
+ 
+-				outColor = darkClamp(textureTex(texCoord)) * color;
++				vec4 texel = darkClamp(textureTex(texCoord));
++				outColor = texel * color;
+ 				outColor.rgb *= actorXBlending;
+ 
+ 				if ((flags & 2) != 0) // Macro texture
+@@ -117,7 +118,7 @@ std::string GLFileResource::readAllText(const std::string& filename)
+ 				}
+ 
+ 				#if defined(ALPHATEST)
+-				if (outColor.a < 0.5) discard;
++				if (texel.a < 0.5) discard; // the texel's own mask: a mesh faded by vertex alpha keeps its masked parts
+ 				#endif
+ 
+ 				outColor = clamp(outColor, 0.0, 1.0);
 diff --git a/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp b/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp
 index 00a0aab8..406a3ea9 100644
 --- a/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp
@@ -967,6 +1013,29 @@ index 2e23b3c1..72b3f515 100644
  };
  
  struct SurfaceFacet
+diff --git a/SurrealEngine/RenderDevice/Vulkan/FileResource.cpp b/SurrealEngine/RenderDevice/Vulkan/FileResource.cpp
+index 681fb558..1caf4fa1 100644
+--- a/SurrealEngine/RenderDevice/Vulkan/FileResource.cpp
++++ b/SurrealEngine/RenderDevice/Vulkan/FileResource.cpp
+@@ -85,7 +85,8 @@ std::string FileResource::readAllText(const std::string& filename)
+ 				float actorXBlending = (flags & 32) != 0 ? 1.5 : 1.0;
+ 				float oneXBlending = (flags & 64) != 0 ? 1.0 : 2.0;
+ 
+-				outColor = darkClamp(textureTex(texCoord)) * color;
++				vec4 texel = darkClamp(textureTex(texCoord));
++				outColor = texel * color;
+ 				outColor.rgb *= actorXBlending;
+ 
+ 				if ((flags & 2) != 0) // Macro texture
+@@ -117,7 +118,7 @@ std::string FileResource::readAllText(const std::string& filename)
+ 				}
+ 
+ 				#if defined(ALPHATEST)
+-				if (outColor.a < 0.5) discard;
++				if (texel.a < 0.5) discard; // the texel's own mask: a mesh faded by vertex alpha keeps its masked parts
+ 				#endif
+ 
+ 				outColor = clamp(outColor, 0.0, 1.0);
 diff --git a/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp b/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp
 index 0c7b3bb7..a2a627f3 100644
 --- a/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp

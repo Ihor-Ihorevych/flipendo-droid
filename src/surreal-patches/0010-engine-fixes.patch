@@ -481,6 +481,39 @@ index 2b855f33..805ade6d 100644
  {
  	Data = other.Data;
  	Size = other.Size;
+diff --git a/SurrealEngine/Packages/Core/UState.cpp b/SurrealEngine/Packages/Core/UState.cpp
+index 55f5c3f7..57069c47 100644
+--- a/SurrealEngine/Packages/Core/UState.cpp
++++ b/SurrealEngine/Packages/Core/UState.cpp
+@@ -28,3 +28,14 @@ void UState::Save(PackageStreamWriter* stream)
+ 	stream->WriteUInt16(LabelTableOffset);
+ 	stream->WriteUInt32((uint32_t)StateFlags);
+ }
++
++UFunction* UState::GetFunction(const NameString& name)
++{
++	for (UState* state = this; state; state = UObject::TryCast<UState>(state->BaseStruct))
++	{
++		auto it = state->Functions.find(name);
++		if (it != state->Functions.end())
++			return it->second;
++	}
++	return nullptr;
++}
+diff --git a/SurrealEngine/Packages/Core/UState.h b/SurrealEngine/Packages/Core/UState.h
+index e0615c50..98d86ac5 100644
+--- a/SurrealEngine/Packages/Core/UState.h
++++ b/SurrealEngine/Packages/Core/UState.h
+@@ -29,6 +29,8 @@ public:
+ 	uint16_t LabelTableOffset = 0;
+ 	ScriptStateFlags StateFlags = {};
+ 
+-	UFunction* GetFunction(const NameString& name) { auto it = Functions.find(name); if (it != Functions.end()) return it->second; else return nullptr; }
++	// A state inherits the functions of the state it extends (BaseStruct): "state Beater extends Fly" runs Fly's
++	// BeginState. UE1 finds them through the state's field hash, which holds the super state's fields too.
++	UFunction* GetFunction(const NameString& name);
+ 	std::map<NameString, UFunction*> Functions;
+ };
 diff --git a/SurrealEngine/Packages/Engine/Resources/Level/UModel.cpp b/SurrealEngine/Packages/Engine/Resources/Level/UModel.cpp
 index 79b40d31..53de1d53 100644
 --- a/SurrealEngine/Packages/Engine/Resources/Level/UModel.cpp

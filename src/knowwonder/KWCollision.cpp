@@ -154,9 +154,11 @@ namespace KW
 
 	// IDA Engine.dll: ?LineCheck@UBox@@UAEHAAUFCheckResult@@PAVAActor@@VFVector@@22K@Z [HP1 0x103FE620]
 	// IDA Engine.dll: ?PointCheck@UBox@@UAEHAAUFCheckResult@@PAVAActor@@VFVector@@2K@Z [HP1 0x103FE590]
+	// CT_Box, and CT_Shape with a Mesh: the mesh classes have UBox's PointCheck / LineCheck in their vtables.
 	bool IsBoxCollider(UActor* actor)
 	{
-		return CollideType(actor) == CT_Box && !actor->Brush();
+		PrimitiveKind kind = ActorPrimitive(actor);
+		return (kind == PrimitiveKind::Box || kind == PrimitiveKind::Mesh) && !actor->Brush();
 	}
 
 	// The segment origin + dir * [tmin, tmax] against the box. Starting outside: the earliest of the six grown faces
