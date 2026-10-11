@@ -1,4 +1,4 @@
-flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CPU, per-frame command pool reset, no gl_ClipDistance, upright swapchain, absolute touch mouse, no backtrace(); Vulkan device choice needs only independentBlend and names why a device was rejected
+flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CPU, per-frame command pool reset, no gl_ClipDistance, upright swapchain, absolute touch mouse, no backtrace(); Vulkan device choice needs only independentBlend and names why a device was rejected, descriptor indexing optional (Vulkan 1.1 Mali without it)
 
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
@@ -580,7 +580,17 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  
  VulkanRenderDevice::VulkanRenderDevice(Widget* InViewport)
  {
-@@ -41,8 +44,13 @@
+@@ -31,7 +34,8 @@
+ 		deviceBuilder.OptionalDescriptorIndexing();
+ 		deviceBuilder.OptionalRayQuery();
+ 		deviceBuilder.Surface(surface);
+-		deviceBuilder.RequireExtension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
++		// Descriptor indexing is optional (above): a Vulkan 1.1 driver without it (the Mali-G52 of a Redmi 13) runs the path
++		// without bindless textures.
+ 		deviceBuilder.RequireExtension(VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME);
+ 		deviceBuilder.SelectDevice(VkDeviceIndex);
+ 		Device = deviceBuilder.Create(surface->Instance);
+@@ -41,8 +45,13 @@
  			Device->EnabledFeatures.DescriptorIndexing.runtimeDescriptorArray &&
  			Device->EnabledFeatures.DescriptorIndexing.shaderSampledImageArrayNonUniformIndexing;
  
@@ -596,7 +606,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  
  		Commands.reset(new CommandBufferManager(this));
  		Samplers.reset(new SamplerManager(this));
-@@ -73,6 +81,7 @@
+@@ -73,6 +82,7 @@
  		LogMessage(std::string("Vulkan device: ") + props.deviceName);
  		LogMessage("Vulkan device type: " + deviceType);
  		LogMessage("Vulkan version: " + apiVersion + " (api) " + driverVersion + " (driver)");
@@ -604,7 +614,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  	}
  	catch (const std::exception& e)
  	{
-@@ -113,6 +122,8 @@
+@@ -113,6 +123,8 @@
  	DescriptorSets->UpdateBindlessSet();
  
  	Commands->SubmitCommands(present, presentWidth, presentHeight, presentFullscreen);
@@ -613,7 +623,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  
  	Batch.SceneIndexStart = 0;
  	SceneVertexPos = 0;
-@@ -336,6 +347,37 @@
+@@ -336,6 +348,37 @@
  	Textures->UpdateTextureRect(&Info, U, V, UL, VL);
  }
  
@@ -651,7 +661,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  void VulkanRenderDevice::DrawBatch(VulkanCommandBuffer* cmdbuffer)
  {
  	size_t icount = SceneIndexPos - Batch.SceneIndexStart;
-@@ -350,7 +392,15 @@
+@@ -350,7 +393,15 @@
  
  		auto layout = RenderPasses->Scene.BindlessPipelineLayout.get();
  		cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, Batch.Pipeline->Pipeline.get());
@@ -668,7 +678,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  		cmdbuffer->pushConstants(layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ScenePushConstants), &pushconstants);
  		cmdbuffer->setBlendConstants(Batch.BlendConstants);
  		cmdbuffer->drawIndexed((uint32_t)icount, 1, (uint32_t)Batch.SceneIndexStart, 0, 0);
-@@ -1437,3 +1487,13 @@
+@@ -1437,3 +1488,13 @@
  		.AddImage(Commands->SwapChain->GetImage(Commands->PresentImageIndex), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0)
  		.Execute(cmdbuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
  }

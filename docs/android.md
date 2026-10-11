@@ -96,7 +96,8 @@ which path a phone took. Creating `/sdcard/FlipendoHP/no_bindless.txt` forces th
 Device selection (`VulkanDeviceBuilder::FindDevices`) only insists on `independentBlend` (the renderer never draws indirectly,
 never writes storage or atomics from a fragment shader and creates samplers without anisotropy), accepts the Vulkan 1.2
 core versions of descriptor indexing and mirror clamp when the extension is not listed, and when no device fits, the fatal
-message names each GPU and what it lacks.
+message names each GPU and what it lacks. The descriptor indexing extension itself is optional: a Vulkan 1.1 driver without it
+(the Mali-G52 MC2 of a Redmi 13, Helio G88) gets the path without bindless textures instead of being rejected.
 
 ## First-run problems
 
