@@ -103,10 +103,27 @@ final class LogReport {
         zip.closeEntry();
     }
 
+    static final long CRASH_LIMIT = 256 * 1024, LOG_LIMIT = 8 * 1024 * 1024;
+
+    /** A file into the report, at most so big: a crash file keeps its start (the first crash), a log its end (the last run's last lines). */
     private static void addFile(ZipOutputStream zip, String name, File file) throws IOException {
+        boolean crash = name.startsWith("crash");
+        long limit = crash ? CRASH_LIMIT : LOG_LIMIT, size = file.length();
         zip.putNextEntry(new ZipEntry(name));
-        try (InputStream in = new FileInputStream(file)) {
-            copy(in, zip);
+        try (java.io.RandomAccessFile in = new java.io.RandomAccessFile(file, "r")) {
+            if (size > limit && !crash) {
+                in.seek(size - limit);
+            }
+            byte[] buffer = new byte[1 << 16];
+            long left = Math.min(size, limit);
+            int n;
+            while (left > 0 && (n = in.read(buffer, 0, (int) Math.min(buffer.length, left))) > 0) {
+                zip.write(buffer, 0, n);
+                left -= n;
+            }
+        }
+        if (size > limit) {
+            zip.write(("\n[cut: the file has " + size + " bytes, " + (crash ? "its first " : "its last ") + limit + " are here]\n").getBytes("UTF-8"));
         }
         zip.closeEntry();
     }

@@ -1,4 +1,3 @@
-
 #include "Precomp.h"
 #include "GameApp.h"
 #include <android/log.h>
@@ -18,6 +17,8 @@
 #include <unwind.h>
 #include <dlfcn.h>
 #include <signal.h>
+#include <ucontext.h>
+#include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
@@ -163,35 +164,93 @@ static void WriteCrashText(const char* text)
 		(void)!write(g_crashFd, text, strlen(text));
 }
 
-static void CrashHandler(int sig, siginfo_t* info, void*)
+static void WriteFrame(const char* label, uintptr_t pc)
 {
+	char line[512];
+	Dl_info dl = {};
+	if (pc != 0 && dladdr(reinterpret_cast<void*>(pc), &dl) && dl.dli_fname)
+	{
+		uintptr_t offset = pc - reinterpret_cast<uintptr_t>(dl.dli_fbase);
+		snprintf(line, sizeof(line), "%s pc %016llx %s (%s)\n", label, (unsigned long long)offset, dl.dli_fname, dl.dli_sname ? dl.dli_sname : "?");
+	}
+	else
+	{
+		snprintf(line, sizeof(line), "%s pc %p\n", label, reinterpret_cast<void*>(pc));
+	}
+	WriteCrashText(line);
+}
+
+static std::atomic<int> g_crashEntries{ 0 };
+
+static void ResetCrashSignals()
+{
+	struct sigaction action = {};
+	action.sa_handler = SIG_DFL;
+	sigemptyset(&action.sa_mask);
+	for (int sig : { SIGSEGV, SIGABRT, SIGBUS, SIGFPE, SIGILL, SIGSYS })
+		sigaction(sig, &action, nullptr);
+}
+
+static void CrashHandler(int sig, siginfo_t* info, void* context)
+{
+	// Once only. ART's signal chain ignores SA_RESETHAND for our handler: returning re-runs the faulting instruction and
+	// lands here again, forever (a Redmi Note 9 Pro wrote a 1 GB crash.txt that way). A second entry ends the process.
+	if (g_crashEntries.fetch_add(1) > 0)
+	{
+		WriteCrashText("(the crash handler was entered again: exiting)\n");
+		_exit(128 + sig);
+	}
 	char line[512];
 	snprintf(line, sizeof(line), "signal %d (%s), code %d, fault addr %p, tid %d\n", sig, strsignal(sig), info ? info->si_code : 0, info ? info->si_addr : nullptr, (int)gettid());
 	WriteCrashText(line);
 
+#if defined(__aarch64__)
+	// Where it crashed, from the signal's context: _Unwind_Backtrace stops at the kernel's sigreturn frame on many phones.
+	// Then the caller chain through the frame pointers (x29), which arm64 Android code keeps.
+	if (context)
+	{
+		const mcontext_t& mc = static_cast<ucontext_t*>(context)->uc_mcontext;
+		WriteFrame("crash", mc.pc);
+		WriteFrame("lr   ", mc.regs[30]);
+		uintptr_t sp = mc.sp, fp = mc.regs[29];
+		for (int i = 0; i < 32; i++)
+		{
+			// a frame record is {previous fp, return address}, above the stack pointer and within 8 MB of it
+			if (fp < sp || fp - sp > (8u << 20) || (fp & 15) != 0)
+				break;
+			const uintptr_t* record = reinterpret_cast<const uintptr_t*>(fp);
+			uintptr_t next = record[0], ret = record[1];
+			if (ret == 0)
+				break;
+			snprintf(line, sizeof(line), "#%02d", i);
+			WriteFrame(line, ret);
+			if (next <= fp)
+				break;
+			fp = next;
+		}
+	}
+#endif
+
 	Backtrace bt;
 	_Unwind_Backtrace(CollectFrame, &bt);
+	WriteCrashText("unwinder:\n");
 	for (int i = 0; i < bt.count; i++)
 	{
-		Dl_info dl = {};
-		if (dladdr(bt.frames[i], &dl) && dl.dli_fname)
-		{
-			uintptr_t offset = reinterpret_cast<uintptr_t>(bt.frames[i]) - reinterpret_cast<uintptr_t>(dl.dli_fbase);
-			snprintf(line, sizeof(line), "#%02d pc %016llx %s (%s)\n", i, (unsigned long long)offset, dl.dli_fname, dl.dli_sname ? dl.dli_sname : "?");
-		}
-		else
-		{
-			snprintf(line, sizeof(line), "#%02d pc %p\n", i, bt.frames[i]);
-		}
-		WriteCrashText(line);
+		snprintf(line, sizeof(line), "u%02d", i);
+		WriteFrame(line, reinterpret_cast<uintptr_t>(bt.frames[i]));
 	}
-	// SA_RESETHAND restored the default action: returning re-runs the faulting instruction and ends the process
-	// (so Android still records its own tombstone/exit reason).
+	// Back to the default action, then returning re-runs the faulting instruction and the process ends with the signal
+	// (so Android still records its own tombstone and exit reason).
+	ResetCrashSignals();
 }
 
 static void InstallCrashHandler()
 {
 	rename("/sdcard/FlipendoHP/crash.txt", "/sdcard/FlipendoHP/crash.prev.txt");
+	// older builds could write a crash.txt of gigabytes (the handler looped): keep its start
+	struct stat prev = {};
+	if (stat("/sdcard/FlipendoHP/crash.prev.txt", &prev) == 0 && prev.st_size > 256 * 1024)
+		(void)!truncate("/sdcard/FlipendoHP/crash.prev.txt", 256 * 1024);
 	g_crashFd = open("/sdcard/FlipendoHP/crash.txt", O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
 	struct sigaction action = {};
