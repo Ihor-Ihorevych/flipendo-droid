@@ -73,6 +73,16 @@ disabled probes too (nearly always none, a mask of 0); read the new way, every a
 probes until its first GotoState (the camera stopped following Harry after a reload). It now writes the enabled
 ones, and Load takes a mask of 0 as nothing disabled, so saves from before still load.
 
+## Functions of an extended state
+
+`state Beater extends Fly` inherits Fly's functions. HP1's `UObject::FindObjectField` (Core 0x1015A650, called by
+`FindFunction` 0x1015A6C0) looks a name up in the current state's field hash, then the class's; UE1 builds a state's
+hash with the fields of the state it extends. SurrealEngine's `UState::GetFunction` only looked in the state's own
+functions, so an event like `BeginState` defined only in the super state never ran. In Lev3_Quid2 the beaters, goalies
+and chasers (`QuidPlayer` states `Beater`, `Goalie`, `Chaser`, all `extends Fly`) never got `Fly.BeginState`'s
+`LoopAnim('Fly')`: the beaters, whose state code only sleeps, flew in the mesh's bind pose (a T-pose). Fixed in
+`0010-engine-fixes.patch` (`GetFunction` walks `BaseStruct` through the super states, any game). HP2 not checked.
+
 ## Latent calls on other actors
 
 In HP1's Lev_Tut1, `SpellLearnTrigger` calls `Teacher.TurnToward(Cam)` on Quirrell, whose `Tut1Quirrell` `state idle {}` has no code.
