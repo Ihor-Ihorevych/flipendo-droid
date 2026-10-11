@@ -12,6 +12,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import android.graphics.Paint;
 import android.os.Bundle;
+import android.view.InputDevice;
+import android.view.InputEvent;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
@@ -195,6 +197,15 @@ public class FlipendoActivity extends SDLActivity {
     /** Frames the engine has drawn (android_main.cpp): the FPS counter. */
     static native int nativeFrameCount();
 
+    /** The game menu's items for the gamepad: per item left, top, right, bottom (0..1 of the view) and kind (android_main.cpp). */
+    static native float[] nativeMenuItems();
+
+    /** Moves the menu slider at that index one step left (-1) or right (1), on the game thread. */
+    static native void nativeMenuAdjust(int index, int dir);
+
+    /** Spell lessons give this much more drawing time (1.35 with a gamepad). */
+    static native void nativeSetLessonTimeScale(float scale);
+
     /** The FPS counter next to the toolbar (Settings > FPS counter), off by default. */
     static boolean showFps = false;
 
@@ -311,9 +322,35 @@ public class FlipendoActivity extends SDLActivity {
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         }
         if (mLayout != null) {
-            mLayout.addView(new Overlay(this), new RelativeLayout.LayoutParams(
+            overlay = new Overlay(this);
+            mLayout.addView(overlay, new RelativeLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         }
+    }
+
+    Overlay overlay;
+
+    /** A gamepad's buttons and sticks go to the overlay's pad mapping before SDL sees them (the engine has no gamepad input). */
+    static boolean fromPad(InputEvent e) {
+        int source = e.getSource();
+        return (source & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD
+                || (source & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK;
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (overlay != null && (fromPad(event) || KeyEvent.isGamepadButton(event.getKeyCode())) && overlay.padKey(event)) {
+            return true;
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
+    @Override
+    public boolean dispatchGenericMotionEvent(MotionEvent event) {
+        if (overlay != null && fromPad(event) && event.getAction() == MotionEvent.ACTION_MOVE) {
+            return overlay.padMotion(event);
+        }
+        return super.dispatchGenericMotionEvent(event);
     }
 
     static final class Overlay extends View {
@@ -348,6 +385,11 @@ public class FlipendoActivity extends SDLActivity {
                     openPrompt();
                 }
                 sampleFps();
+                if (!menuShown) {
+                    menuFocus = -1;
+                } else if (padActive && menuFocus >= 0 && (++focusChecks % 3) == 0) {
+                    checkMenuFocus();
+                }
                 postDelayed(this, 150);
             }
         };
@@ -369,6 +411,7 @@ public class FlipendoActivity extends SDLActivity {
             if (b == menu || b == gear) return true;
             if (b == skip) return cutsceneShown; // the skip button exists only in cutscenes
             if (cutsceneShown) return false;       // and they leave only the skip, settings and menu buttons
+            if (padActive && (b == cast || b == jump || isArrow(b))) return false; // a gamepad is in use
             boolean game = !(menuShown || lessonShown);
             for (Btn a : arrows) {
                 if (a == b) return dpadMode && game;
@@ -524,7 +567,7 @@ public class FlipendoActivity extends SDLActivity {
         };
 
         boolean aimVisible() {
-            return modOn && !settingsOpen && !menuShown && !lessonShown && !cutsceneShown;
+            return modOn && !padActive && !settingsOpen && !menuShown && !lessonShown && !cutsceneShown;
         }
 
         void setAim(float x, float y) {
@@ -543,7 +586,516 @@ public class FlipendoActivity extends SDLActivity {
             aimDx = aimDy = 0;
         }
 
+        // An Xbox-style gamepad, mapped onto what the touch controls send:
+        //   left stick / d-pad: walk (arrow keys)        right stick: camera (relative mouse); the cursor in menus; the wand in lessons
+        //   A, LB or LT: jump (A: click in menus); skip a cutscene    X, RB or RT: the wand (held)    Y: save    B or Start: Esc
+        // While a pad is in use the on-screen arrows, wand and jump are hidden; a touch brings them back.
+        boolean padActive;
+        float padLx, padLy, padRx, padRy, padHatX, padHatY;
+        boolean padCastKey, padCastBumper, padCastTrigger, padCasting;
+        boolean padA, padJumpBumper, padJumpTrigger, padJumping; // A, LB, LT: the jump group
+        float padCursorX = -1, padCursorY = -1;   // the menu cursor, in view pixels
+        static final float PAD_DEADZONE = 0.18f, PAD_WALK = 0.4f, PAD_LOOK = 34f, PAD_DRAW = 4f;
+        float padDrawX, padDrawY; // the lesson wand's mouse counts not sent yet (fractions)
+
+        static void setLessonTimeScale(float scale) {
+            try {
+                nativeSetLessonTimeScale(scale);
+            } catch (UnsatisfiedLinkError ignored) {
+            }
+        }
+
+        void padUsed() {
+            if (!padActive) {
+                padActive = true;
+                setLessonTimeScale(1.35f); // drawing a spell with a stick takes longer than with a finger
+                releaseStick();
+                for (Btn a : arrows) {
+                    if (a.down) setButton(a, false);
+                    a.pointer = -1;
+                }
+                invalidate();
+            }
+        }
+
+        static float deadzone(float v) {
+            float a = Math.abs(v);
+            if (a < PAD_DEADZONE) return 0f;
+            return Math.signum(v) * (a - PAD_DEADZONE) / (1f - PAD_DEADZONE);
+        }
+
+        /** Sticks, triggers and the d-pad hat. */
+        boolean padMotion(MotionEvent e) {
+            padUsed();
+            padLx = deadzone(e.getAxisValue(MotionEvent.AXIS_X));
+            padLy = deadzone(e.getAxisValue(MotionEvent.AXIS_Y));
+            padRx = deadzone(e.getAxisValue(MotionEvent.AXIS_Z));
+            padRy = deadzone(e.getAxisValue(MotionEvent.AXIS_RZ));
+            padHatX = e.getAxisValue(MotionEvent.AXIS_HAT_X);
+            padHatY = e.getAxisValue(MotionEvent.AXIS_HAT_Y);
+            float rt = Math.max(e.getAxisValue(MotionEvent.AXIS_RTRIGGER), e.getAxisValue(MotionEvent.AXIS_GAS));
+            float lt = Math.max(e.getAxisValue(MotionEvent.AXIS_LTRIGGER), e.getAxisValue(MotionEvent.AXIS_BRAKE));
+            padCastTrigger = rt > 0.5f;
+            padJumpTrigger = lt > 0.5f;
+            updatePadCast();
+            updatePadJump();
+            updatePadWalk();
+            updatePadNav();
+            removeCallbacks(padTick);
+            post(padTick);
+            return true;
+        }
+
+        /** Buttons. Returns true when the key was the pad's. */
+        boolean padKey(KeyEvent e) {
+            int code = e.getKeyCode();
+            boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
+            if (e.getAction() != KeyEvent.ACTION_DOWN && e.getAction() != KeyEvent.ACTION_UP) return false;
+            if (down && e.getRepeatCount() > 0) return true;
+            padUsed();
+            switch (code) {
+                case KeyEvent.KEYCODE_DPAD_UP: padHatY = down ? -1 : 0; updatePadWalk(); updatePadNav(); return true;
+                case KeyEvent.KEYCODE_DPAD_DOWN: padHatY = down ? 1 : 0; updatePadWalk(); updatePadNav(); return true;
+                case KeyEvent.KEYCODE_DPAD_LEFT: padHatX = down ? -1 : 0; updatePadWalk(); updatePadNav(); return true;
+                case KeyEvent.KEYCODE_DPAD_RIGHT: padHatX = down ? 1 : 0; updatePadWalk(); updatePadNav(); return true;
+                case KeyEvent.KEYCODE_BUTTON_A:
+                case KeyEvent.KEYCODE_DPAD_CENTER:
+                    padButtonA(down);
+                    return true;
+                case KeyEvent.KEYCODE_BUTTON_X:
+                    padCastKey = down;
+                    updatePadCast();
+                    return true;
+                case KeyEvent.KEYCODE_BUTTON_Y:
+                    if (down && !menuShown && !lessonShown && !cutsceneShown) nativeRequestSave();
+                    return true;
+                case KeyEvent.KEYCODE_BUTTON_B:
+                case KeyEvent.KEYCODE_BACK:
+                case KeyEvent.KEYCODE_BUTTON_START:
+                case KeyEvent.KEYCODE_MENU:
+                    if (settingsOpen || promptOpen) {
+                        if (!down) {
+                            if (promptOpen) {
+                                promptOpen = false; // B on the Devil's Snare prompt: keep the mod
+                                promptDeclinedLevel = levelShown;
+                            }
+                            settingsOpen = false;
+                            invalidate();
+                        }
+                        return true;
+                    }
+                    key(KeyEvent.KEYCODE_ESCAPE, down);
+                    return true;
+                case KeyEvent.KEYCODE_BUTTON_R2:
+                    padCastTrigger = down;
+                    updatePadCast();
+                    return true;
+                case KeyEvent.KEYCODE_BUTTON_R1:
+                    padCastBumper = down;
+                    updatePadCast();
+                    return true;
+                case KeyEvent.KEYCODE_BUTTON_L1:
+                    padJumpBumper = down;
+                    updatePadJump();
+                    return true;
+                case KeyEvent.KEYCODE_BUTTON_L2:
+                    padJumpTrigger = down;
+                    updatePadJump();
+                    return true;
+                case KeyEvent.KEYCODE_BUTTON_SELECT:
+                    // View: the port's settings panel, steered with the d-pad
+                    if (!down && !promptOpen) {
+                        if (settingsOpen) {
+                            settingsOpen = false;
+                        } else {
+                            openSettings();
+                            settingsFocus = 0;
+                        }
+                        invalidate();
+                    }
+                    return true;
+                case KeyEvent.KEYCODE_BUTTON_THUMBL:
+                case KeyEvent.KEYCODE_BUTTON_THUMBR:
+                    return true; // not used: keep them away from the game
+                default:
+                    return false;
+            }
+        }
+
+        boolean padClicking; // A is clicking in a menu (pressed after the cursor moved there)
+
+        /** A: a click in menus (the cursor goes there first, the press follows a frame later, as the menus need); else the jump group. */
+        void padButtonA(boolean down) {
+            if (padA == down) return;
+            padA = down;
+            if (settingsOpen) {
+                if (down) settingsActivate();
+                return;
+            }
+            if (promptOpen) {
+                if (down) acceptPrompt(); // A on the Devil's Snare prompt: switch the mod off
+                return;
+            }
+            if (menuShown || padClicking) {
+                ensurePadCursor();
+                final float x = padCursorX * surfaceScale, y = padCursorY * surfaceScale;
+                if (down) {
+                    padClicking = true;
+                    SDLActivity.onNativeMouse(0, MotionEvent.ACTION_MOVE, x, y, false);
+                    postDelayed(new Runnable() { public void run() {
+                        if (padA) SDLActivity.onNativeMouse(MotionEvent.BUTTON_PRIMARY, MotionEvent.ACTION_DOWN, x, y, false);
+                    } }, 60);
+                } else {
+                    postDelayed(new Runnable() { public void run() {
+                        padClicking = false;
+                        SDLActivity.onNativeMouse(0, MotionEvent.ACTION_UP, x, y, false);
+                    } }, 120);
+                }
+                return;
+            }
+            updatePadJump();
+        }
+
+        /** A, LB or LT held: Space in cutscenes (skip), the jump in the game. */
+        void updatePadJump() {
+            boolean want = ((padA && !menuShown) || padJumpBumper || padJumpTrigger) && !settingsOpen && !promptOpen;
+            if (menuShown && !padJumping) want = false;
+            if (want == padJumping) return;
+            padJumping = want;
+            if (want) padJumpIsSkip = cutsceneShown; // released the way it was pressed, even when the cutscene ended meanwhile
+            if (padJumpIsSkip) {
+                key(KeyEvent.KEYCODE_SPACE, want);
+            } else {
+                setButton(jump, want);
+            }
+        }
+
+        boolean padJumpIsSkip;
+
+        /** The menu cursor while a pad drives it: the game's menus draw none on a touch screen. */
+        void drawPadCursor(Canvas c) {
+            if (!padActive || !menuShown || settingsOpen) return;
+            if (menuFocus >= 0) drawPadFocus(c, menuFocusRect);
+            ensurePadCursor();
+            float u = Math.min(getWidth(), getHeight()), s = 0.05f * u;
+            float x = padCursorX, y = padCursorY;
+            arrowPath.reset();
+            arrowPath.moveTo(x, y);
+            arrowPath.lineTo(x, y + s);
+            arrowPath.lineTo(x + 0.28f * s, y + 0.74f * s);
+            arrowPath.lineTo(x + 0.5f * s, y + 1.12f * s);
+            arrowPath.lineTo(x + 0.66f * s, y + 1.04f * s);
+            arrowPath.lineTo(x + 0.46f * s, y + 0.68f * s);
+            arrowPath.lineTo(x + 0.8f * s, y + 0.68f * s);
+            arrowPath.close();
+            fill.setColor(padA ? GOLD : 0xFFFFFFFF);
+            c.drawPath(arrowPath, fill);
+            line.setColor(0xFF1A1A1A);
+            line.setStrokeWidth(0.004f * u);
+            line.setStrokeJoin(Paint.Join.ROUND);
+            c.drawPath(arrowPath, line);
+            line.setStrokeJoin(Paint.Join.MITER);
+        }
+
+        /** X, RB or RT held: the wand; in a lesson it draws at the pad's wand point. */
+        void updatePadCast() {
+            boolean want = (padCastKey || padCastBumper || padCastTrigger) && !menuShown && !settingsOpen && !promptOpen;
+            if (want == padCasting) return;
+            padCasting = want;
+            if (lessonShown) {
+                // the lesson's own wand: the script moves it from the mouse (padTick) and draws while AltFire is held, from
+                // the symbol's first point; no finger position is set
+                SDLActivity.onNativeMouse(want ? MotionEvent.BUTTON_PRIMARY : 0, want ? MotionEvent.ACTION_DOWN : MotionEvent.ACTION_UP, 0f, 0f, true);
+            } else {
+                setButton(cast, want);
+            }
+        }
+
+        void updatePadWalk() {
+            float x = padHatX != 0 ? padHatX : padLx, y = padHatY != 0 ? padHatY : padLy;
+            // not in a lesson either: the lesson moves the wand with the walking keys too, at full speed
+            boolean walk = !menuShown && !cutsceneShown && !lessonShown && !settingsOpen && !promptOpen;
+            setDir(0, walk && y < -PAD_WALK);
+            setDir(1, walk && y > PAD_WALK);
+            setDir(2, walk && x < -PAD_WALK);
+            setDir(3, walk && x > PAD_WALK);
+        }
+
+        void ensurePadCursor() {
+            if (padCursorX < 0) {
+                padCursorX = getWidth() / 2f;
+                padCursorY = getHeight() / 2f;
+            }
+        }
+
+        /** 60 times a second while the right stick is out: the camera, the menu cursor or the lesson's wand. */
+        final Runnable padTick = new Runnable() {
+            public void run() {
+                if (padRx == 0f && padRy == 0f) return;
+                float speed = (float) Math.hypot(padRx, padRy);
+                float curve = speed * speed / Math.max(speed, 1e-3f); // squared response: fine aim near the centre
+                float dx = padRx * curve, dy = padRy * curve;
+                if (settingsOpen || promptOpen) {
+                    // panels are steered with the d-pad / left stick
+                } else if (menuShown) {
+                    ensurePadCursor();
+                    if (menuFocus >= 0) {
+                        menuFocus = -1; // the stick takes over from the item highlight
+                    }
+                    float step = 0.025f * Math.min(getWidth(), getHeight());
+                    padCursorX = Math.max(0, Math.min(getWidth() - 1, padCursorX + dx * step));
+                    padCursorY = Math.max(0, Math.min(getHeight() - 1, padCursorY + dy * step));
+                    SDLActivity.onNativeMouse(padA ? MotionEvent.BUTTON_PRIMARY : 0, MotionEvent.ACTION_MOVE,
+                            padCursorX * surfaceScale, padCursorY * surfaceScale, false);
+                    invalidate(); // the cursor is drawn by the overlay
+                } else if (lessonShown) {
+                    // the lesson moves its wand by SmoothMouse * 30 * dt / 64000: 4 counts a frame at full tilt, slow and precise
+                    // (the stick's squared response makes small tilts slower still)
+                    // the engine takes whole mouse counts: the fractions add up here, so a slow stick still moves the wand
+                    padDrawX += dx * PAD_DRAW;
+                    padDrawY += dy * PAD_DRAW;
+                    int sx = (int) padDrawX, sy = (int) padDrawY;
+                    padDrawX -= sx;
+                    padDrawY -= sy;
+                    if (sx != 0 || sy != 0) SDLActivity.onNativeMouse(0, MotionEvent.ACTION_MOVE, sx, sy, true);
+                } else if (!cutsceneShown) {
+                    SDLActivity.onNativeMouse(0, MotionEvent.ACTION_MOVE, dx * PAD_LOOK, dy * PAD_LOOK, true);
+                }
+                postDelayed(this, 16);
+            }
+        };
+
+        // Directions for menus and the settings panel: the d-pad or the left stick, one step per press, repeating while held.
+        int navX, navY;
+        static final float PAD_NAV = 0.6f;
+
+        final Runnable navRepeat = new Runnable() {
+            public void run() {
+                if (navX == 0 && navY == 0) return;
+                padNav(navX, navY);
+                postDelayed(this, 150);
+            }
+        };
+
+        boolean navigating() {
+            return menuShown || settingsOpen || promptOpen;
+        }
+
+        void updatePadNav() {
+            int x = 0, y = 0;
+            if (navigating()) {
+                float sx = padHatX != 0 ? padHatX : padLx, sy = padHatY != 0 ? padHatY : padLy;
+                if (Math.abs(sx) >= Math.abs(sy)) {
+                    x = sx > PAD_NAV ? 1 : sx < -PAD_NAV ? -1 : 0;
+                } else {
+                    y = sy > PAD_NAV ? 1 : sy < -PAD_NAV ? -1 : 0;
+                }
+            }
+            if (x == navX && y == navY) return;
+            navX = x;
+            navY = y;
+            removeCallbacks(navRepeat);
+            if (x != 0 || y != 0) {
+                padNav(x, y);
+                postDelayed(navRepeat, 380);
+            }
+        }
+
+        void padNav(int dx, int dy) {
+            if (settingsOpen) {
+                settingsNav(dx, dy);
+            } else if (menuShown && !promptOpen) {
+                menuNav(dx, dy);
+            }
+        }
+
+        /**
+         * The next rectangle in a direction from a point: ahead of it along the direction, the closest with sideways distance
+         * counting more. Returns its index, or -1.
+         */
+        static int nextInDirection(java.util.List<android.graphics.RectF> rects, float ox, float oy, int dx, int dy, int skip) {
+            int best = -1;
+            float bestScore = Float.MAX_VALUE;
+            for (int i = 0; i < rects.size(); i++) {
+                if (i == skip) continue;
+                android.graphics.RectF r = rects.get(i);
+                float vx = r.centerX() - ox, vy = r.centerY() - oy;
+                float ahead = vx * dx + vy * dy, side = Math.abs(vx * dy - vy * dx);
+                if (ahead <= 8f) continue;
+                float score = ahead + 2.5f * side;
+                if (score < bestScore) {
+                    bestScore = score;
+                    best = i;
+                }
+            }
+            return best;
+        }
+
+        // The game's menu: the item the pad is on (index into the last list), its rectangle in view pixels and kind
+        int menuFocus = -1;
+        int menuFocusKind;
+        int focusChecks;
+        final android.graphics.RectF menuFocusRect = new android.graphics.RectF();
+        final java.util.List<android.graphics.RectF> menuRects = new java.util.ArrayList<>();
+        final java.util.List<Integer> menuKinds = new java.util.ArrayList<>();
+
+        boolean readMenuItems() {
+            float[] items;
+            try {
+                items = nativeMenuItems();
+            } catch (UnsatisfiedLinkError e) {
+                return false;
+            }
+            menuRects.clear();
+            menuKinds.clear();
+            if (items == null) return false;
+            float w = getWidth(), h = getHeight();
+            for (int i = 0; i + 4 < items.length; i += 5) {
+                menuRects.add(new android.graphics.RectF(items[i] * w, items[i + 1] * h, items[i + 2] * w, items[i + 3] * h));
+                menuKinds.add((int) items[i + 4]);
+            }
+            return !menuRects.isEmpty();
+        }
+
+        void menuNav(int dx, int dy) {
+            if (!readMenuItems()) return;
+            if (menuFocus >= 0 && menuFocus < menuKinds.size() && menuKinds.get(menuFocus) == 1 && dx != 0 && dy == 0
+                    && menuRects.get(menuFocus).equals(menuFocusRect)) {
+                nativeMenuAdjust(menuFocus, dx); // left / right on a slider moves it
+                return;
+            }
+            int next;
+            ensurePadCursor();
+            if (menuFocus < 0 || menuFocus >= menuRects.size() || !menuRects.get(menuFocus).equals(menuFocusRect)) {
+                // no item yet (or the page changed): the one nearest the cursor
+                next = -1;
+                float bestDistance = Float.MAX_VALUE;
+                for (int i = 0; i < menuRects.size(); i++) {
+                    float d = (float) Math.hypot(menuRects.get(i).centerX() - padCursorX, menuRects.get(i).centerY() - padCursorY);
+                    if (d < bestDistance) {
+                        bestDistance = d;
+                        next = i;
+                    }
+                }
+            } else {
+                next = nextInDirection(menuRects, menuFocusRect.centerX(), menuFocusRect.centerY(), dx, dy, menuFocus);
+            }
+            if (next < 0) return;
+            menuFocus = next;
+            menuFocusKind = menuKinds.get(next);
+            menuFocusRect.set(menuRects.get(next));
+            padCursorX = menuFocusRect.centerX();
+            padCursorY = menuFocusRect.centerY();
+            SDLActivity.onNativeMouse(0, MotionEvent.ACTION_MOVE, padCursorX * surfaceScale, padCursorY * surfaceScale, false);
+            invalidate();
+        }
+
+        /** The item the pad is on is gone (another page): drop the highlight. */
+        void checkMenuFocus() {
+            if (menuFocus < 0) return;
+            if (!menuShown || !readMenuItems() || menuFocus >= menuRects.size() || !menuRects.get(menuFocus).equals(menuFocusRect)) {
+                boolean found = false;
+                for (int i = 0; i < menuRects.size(); i++) {
+                    if (menuRects.get(i).equals(menuFocusRect)) {
+                        menuFocus = i;
+                        found = true;
+                    }
+                }
+                if (!found) menuFocus = -1;
+                invalidate();
+            }
+        }
+
+        // The port's settings panel: the entry the pad is on
+        static final int SET_RENDER = 0, SET_UI = 1, SET_FOV = 2, SET_FPS = 3, SET_SEG = 4, SET_JUMP = 5, SET_LANG = 6, SET_MOD = 7,
+                SET_DEBUG = 8, SET_TELEGRAM = 9, SET_DONE = 10;
+        int settingsFocus = -1;
+        final java.util.List<android.graphics.RectF> setRects = new java.util.ArrayList<>();
+        final java.util.List<Integer> setIds = new java.util.ArrayList<>();
+
+        void buildSettingsEntries() {
+            setRects.clear();
+            setIds.clear();
+            float h = getHeight();
+            for (int i = 0; i < 3; i++) {
+                setRects.add(new android.graphics.RectF(colL0 - 0.01f * h, sliderLabelY[i] - 0.05f * h, colL1 + 0.01f * h, sliderY[i] + 0.035f * h));
+                setIds.add(i);
+            }
+            setRects.add(new android.graphics.RectF(fpsBtn)); setIds.add(SET_FPS);
+            setRects.add(new android.graphics.RectF(segStick.left, segStick.top, segDpad.right, segDpad.bottom)); setIds.add(SET_SEG);
+            setRects.add(new android.graphics.RectF(autoJumpBtn)); setIds.add(SET_JUMP);
+            if (languages.size() > 1) { setRects.add(new android.graphics.RectF(languageBtn)); setIds.add(SET_LANG); }
+            if (!mods.isEmpty()) { setRects.add(new android.graphics.RectF(modBtn)); setIds.add(SET_MOD); }
+            setRects.add(new android.graphics.RectF(debugBtn)); setIds.add(SET_DEBUG);
+            setRects.add(new android.graphics.RectF(telegramBtn)); setIds.add(SET_TELEGRAM);
+            setRects.add(new android.graphics.RectF(closeBtn)); setIds.add(SET_DONE);
+        }
+
+        int focusedSetting() {
+            return settingsFocus >= 0 && settingsFocus < setIds.size() ? setIds.get(settingsFocus) : -1;
+        }
+
+        void settingsNav(int dx, int dy) {
+            buildSettingsEntries();
+            int id = focusedSetting();
+            if (id < 0) {
+                settingsFocus = 0;
+                invalidate();
+                return;
+            }
+            if (dx != 0 && dy == 0 && id <= SET_FOV) {
+                // left / right on a slider changes it by its step
+                float v = Math.max(sliderMin(id), Math.min(sliderMax(id), sliderValue(id) + dx * sliderStep(id)));
+                FlipendoActivity activity = (FlipendoActivity) getContext();
+                if (id == SET_UI) activity.applyUiScale(v, true);
+                else if (id == SET_FOV) activity.applyFovOffset(v, true);
+                else activity.applyRenderScale(v);
+                invalidate();
+                return;
+            }
+            android.graphics.RectF from = setRects.get(settingsFocus);
+            int next = nextInDirection(setRects, from.centerX(), from.centerY(), dx, dy, settingsFocus);
+            if (next >= 0) {
+                settingsFocus = next;
+                invalidate();
+            }
+        }
+
+        /** A on a settings entry: what a tap on it does. */
+        void settingsActivate() {
+            buildSettingsEntries();
+            FlipendoActivity activity = (FlipendoActivity) getContext();
+            switch (focusedSetting()) {
+                case SET_FPS: showFps = !showFps; fpsFrames = -1; activity.saveScales(); break;
+                case SET_SEG: setDpadMode(!dpadMode); break;
+                case SET_JUMP: activity.applyAutoJump(!autoJump, true); break;
+                case SET_LANG: languageTap(); break;
+                case SET_MOD: modTap(); break;
+                case SET_DEBUG: activity.applyDebugMode(!debugMode, true); break;
+                case SET_TELEGRAM:
+                    try {
+                        getContext().startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(SetupActivity.CHANNEL_URL)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                    } catch (RuntimeException ignored) {
+                    }
+                    break;
+                case SET_DONE: settingsOpen = false; break;
+                default: break;
+            }
+            invalidate();
+        }
+
+        /** The gold ring around what the pad is on (settings entry or menu item), only while a pad is in use. */
+        void drawPadFocus(Canvas c, android.graphics.RectF r) {
+            float u = Math.min(getWidth(), getHeight());
+            line.setColor(GOLD);
+            line.setStrokeWidth(0.006f * u);
+            float rr = Math.min(r.height() / 2f, 0.03f * u);
+            c.drawRoundRect(r.left - 0.006f * u, r.top - 0.006f * u, r.right + 0.006f * u, r.bottom + 0.006f * u, rr, rr, line);
+            line.setStrokeWidth(4f);
+        }
+
         void openSettings() {
+            settingsFocus = -1; // the pad's View button puts it on the first entry
             releaseStick();
             for (Btn a : arrows) {
                 if (a.down) setButton(a, false);
@@ -942,6 +1494,10 @@ public class FlipendoActivity extends SDLActivity {
             c.drawText("Done", closeBtn.centerX(), closeBtn.centerY() + rowPaint.getTextSize() * 0.35f, rowPaint);
             rowPaint.setColor(0xFFFFFFFF);
             rowPaint.setTextAlign(Paint.Align.LEFT);
+            if (padActive && settingsFocus >= 0) {
+                buildSettingsEntries();
+                if (focusedSetting() >= 0) drawPadFocus(c, setRects.get(settingsFocus));
+            }
         }
 
         void drawSection(Canvas c, String name, float x, float y) {
@@ -1122,6 +1678,13 @@ public class FlipendoActivity extends SDLActivity {
                 case MotionEvent.ACTION_DOWN:
                 case MotionEvent.ACTION_POINTER_DOWN: {
                     float x = e.getX(idx), y = e.getY(idx);
+                    if (padActive) {
+                        padActive = false; // a touch: the on-screen controls are back
+                        setLessonTimeScale(1f);
+                        menuFocus = -1;
+                        settingsFocus = -1;
+                        invalidate();
+                    }
                     if (promptOpen) {
                         // the prompt takes every touch
                         if (promptYes.contains(x, y)) {
@@ -1513,6 +2076,7 @@ public class FlipendoActivity extends SDLActivity {
                 fill.setColor(0xCCE8C15A);
                 c.drawCircle(knobX, knobY, r * 0.4f, fill);
             }
+            drawPadCursor(c);
             drawSettings(c);
             drawPrompt(c);
         }

@@ -36,6 +36,7 @@ namespace HP1
 	void SetCanvasArea(SceneNode& frame, float uiscale, bool menuArea);
 	// Engine::OnWindowMouseMove: OS mouse position (pixels) to menu canvas units, for HPConsole's WindowsMouseX/Y.
 	void MenuMousePosition(float& x, float& y);
+	void MenuToPixels(float& x, float& y); // the inverse: a point of the menu canvas to viewport pixels
 	// --level=<map> (src/hp1/HP1LevelStart.cpp). Engine::LoginPlayer, before Possess: the first level started with
 	// --level gets the story flow and the state a player carries in.
 	void LevelStartPlayer(UPlayerPawn* pawn, const std::string& map);

@@ -61,6 +61,39 @@ extern "C" JNIEXPORT void JNICALL Java_io_github_flipendo_spike_FlipendoActivity
 std::atomic<bool> g_touchDown{false};
 std::atomic<float> g_touchX{0.5f}, g_touchY{0.5f};
 
+// Gamepad support for the game's menus (HP1::TickMenuItems): the game thread lists the menu items it can see, the overlay
+// moves the cursor between them; a slider is changed on the game thread at the overlay's request.
+static std::mutex g_menuItemsMutex;
+static std::vector<float> g_menuItems; // per item: left, top, right, bottom (0..1 of the viewport), kind (0 button, 1 slider)
+std::atomic<int> g_menuAdjustIndex{-1}, g_menuAdjustDir{0};
+std::atomic<float> g_lessonTimeScale{1.0f}; // spell lessons give this much more drawing time (with a gamepad)
+
+void AndroidSetMenuItems(std::vector<float>&& items)
+{
+	std::lock_guard<std::mutex> lock(g_menuItemsMutex);
+	g_menuItems = std::move(items);
+}
+
+extern "C" JNIEXPORT jfloatArray JNICALL Java_io_github_flipendo_spike_FlipendoActivity_nativeMenuItems(JNIEnv* env, jclass)
+{
+	std::lock_guard<std::mutex> lock(g_menuItemsMutex);
+	jfloatArray out = env->NewFloatArray((jsize)g_menuItems.size());
+	if (out && !g_menuItems.empty())
+		env->SetFloatArrayRegion(out, 0, (jsize)g_menuItems.size(), g_menuItems.data());
+	return out;
+}
+
+extern "C" JNIEXPORT void JNICALL Java_io_github_flipendo_spike_FlipendoActivity_nativeMenuAdjust(JNIEnv*, jclass, jint index, jint dir)
+{
+	g_menuAdjustDir = dir;
+	g_menuAdjustIndex = index;
+}
+
+extern "C" JNIEXPORT void JNICALL Java_io_github_flipendo_spike_FlipendoActivity_nativeSetLessonTimeScale(JNIEnv*, jclass, jfloat scale)
+{
+	g_lessonTimeScale = scale;
+}
+
 static std::mutex g_levelMutex;
 static std::string g_levelName; // the map being played (HP1::TickLessonTouch), for the overlay's prompts
 

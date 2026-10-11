@@ -91,6 +91,12 @@ namespace HP1
 		y = y / MenuUIScale;
 	}
 
+	void MenuToPixels(float& x, float& y)
+	{
+		x = MenuLeftPixels + x * MenuUIScale;
+		y = y * MenuUIScale;
+	}
+
 	static void NIsSupportedResolution(UObject* self, const std::string& TempStr, BitfieldBool& ReturnValue)
 	{
 		int width = 0, height = 0;

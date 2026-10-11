@@ -137,6 +137,24 @@ namespace KW
 			float result = 1.0f - (float)((double)bad / (double)total);
 			return std::clamp(result, 0.0f, 1.0f);
 		}
+
+#ifdef __ANDROID__
+		// Android (a finger or a gamepad stick wobbles where a mouse does not): the score only asks that the symbol was covered:
+		// the share of template samples with a drawn point within twice the accuracy. Strokes beside the symbol cost nothing;
+		// a stroke of fewer than 10 points still scores 0.
+		float ScoreGestureGentle(const std::vector<Point2>& drawn, const std::vector<Point2>& samples, float accuracy)
+		{
+			if (drawn.size() < 10 || samples.empty())
+				return 0.0f;
+			int covered = 0;
+			for (const Point2& s : samples)
+			{
+				if (NearestDistance(s, drawn) <= accuracy * 2.0f)
+					covered++;
+			}
+			return (float)covered / (float)samples.size();
+		}
+#endif
 	}
 
 	// Returns a match quality in 0..1 for the drawn points (screen 0..1 units; Z = -1 marks a point to skip).
@@ -156,7 +174,11 @@ namespace KW
 			if (p.z != -1.0f)
 				drawn.push_back({ p.x, p.y });
 		}
+#ifdef __ANDROID__
+		ReturnValue = ScoreGestureGentle(drawn, SampleTemplate(Self), fAccuracy);
+#else
 		ReturnValue = ScoreGesture(drawn, SampleTemplate(Self), fAccuracy);
+#endif
 	}
 
 	// Distance (capped at 1) from the point to the nearest template sample. fAccuracy is read but unused.

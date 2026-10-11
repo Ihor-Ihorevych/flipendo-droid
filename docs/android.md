@@ -182,3 +182,22 @@ Devil's Snare (`Lev5_Snare`) fixes the camera and aims with its own cursor; the 
 The settings panel is a card: Display on the left (render scale, subtitles and HUD size, field of view, **FPS counter**), Controls and Game on the right (movement style, Auto jump, Language, Movement mod, Debug mode), the Telegram channel and Done at the bottom. The on-screen controls use the same colours: the settings, save (or SKIP in cutscenes) and menu buttons sit in one toolbar at the top right (30% visible), the arrows on one round pad, the wand and jump on dark discs that turn gold while pressed.
 
 The FPS counter (off by default) shows the frames the engine drew over the last half second next to the toolbar: the engine counts one per frame (`HP1::TickTouchDefaults`, `g_frameCount`) and the overlay reads it (`nativeFrameCount`).
+
+## Gamepad (Xbox layout)
+
+A gamepad works without setup: its events are taken in `FlipendoActivity.dispatchKeyEvent` / `dispatchGenericMotionEvent` before SDL (the engine has no gamepad input) and turned into what the touch controls send.
+
+| Pad | In the game | In menus | In a spell lesson |
+|---|---|---|---|
+| Left stick / d-pad | walk (arrow keys) | | |
+| Right stick | camera (relative mouse); aims with the movement mod | moves the cursor | moves the wand |
+| A, LB or LT | jump; skips a cutscene | A: click | |
+| X, RB or RT (held) | the wand | | draws |
+| Y | save | | |
+| B or Start | Esc (pause menu) | back | |
+
+While the pad is in use the on-screen arrows, wand and jump are hidden; touching the screen brings them back. B also closes the settings panel. In menus the overlay draws a cursor (the game draws none on a touch screen) and A moves the game's cursor there before it presses, a frame later, as the menus need.
+
+### Spell lessons on Android
+
+The drawing is judged more gently than on the PC (`KWGesture.cpp`, `ScoreGestureGentle`), for a finger and a stick alike: only coverage counts, the share of the symbol's template samples with a drawn point within twice the lesson's accuracy; strokes beside the symbol cost nothing, and a stroke of fewer than 10 points still scores 0. The lesson's pass mark is unchanged. With a gamepad the lesson also gives 35% more time (`DrawTime`, once per lesson, `HP1::TickLessonTouch`), the wand moves with the right stick through the lesson's own mouse input (slowly, fractions of a mouse count add up), and the left stick does nothing there.

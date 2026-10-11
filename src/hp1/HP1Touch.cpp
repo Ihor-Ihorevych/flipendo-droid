@@ -18,6 +18,8 @@
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include <atomic>
 #include <cmath>
+#include <map>
+#include <vector>
 
 // Touch-screen defaults for the Android build (spike). The key bindings can't be changed on a phone, so the
 // Options page's Controls column is hidden, and Auto Jump (a checkbox in that column) is on from the start.
@@ -33,6 +35,10 @@ extern std::atomic<int> g_frameCount; // frames drawn, for the overlay's FPS cou
 void AndroidSetLevelName(const std::string& name); // the map being played: the overlay's prompts (android_main.cpp)
 extern std::atomic<bool> g_touchDown;
 extern std::atomic<float> g_touchX, g_touchY; // finger position, 0..1 of the view
+extern std::atomic<bool> g_androidMenuActive; // a menu takes the cursor (Engine.cpp)
+extern std::atomic<int> g_menuAdjustIndex, g_menuAdjustDir; // the overlay asks to move a menu slider
+extern std::atomic<float> g_lessonTimeScale; // more drawing time in spell lessons (with a gamepad)
+void AndroidSetMenuItems(std::vector<float>&& items); // the menu items the overlay moves the pad cursor between
 #else
 static std::atomic<bool> g_debugMode{false}; // no settings panel off Android: debug mode stays off
 static std::atomic<bool> g_autoJump{true};
@@ -77,6 +83,9 @@ namespace HP1
 		}
 	}
 
+#ifdef __ANDROID__
+	void TickMenuItems(); // below: the menu items for the gamepad cursor
+#endif
 	// --autoload=<slot>: once the main menu is up, load that save slot as Start Game's Load does (FESlotPage.nSelectedSlot, then
 	// HPConsole.LoadSelectedSlot). The Android app passes it after switching the movement mod, to go back to the save it made.
 	static void TickAutoLoad()
@@ -106,6 +115,7 @@ namespace HP1
 		TickAutoLoad();
 #ifdef __ANDROID__
 		g_frameCount.fetch_add(1, std::memory_order_relaxed); // one tick per frame: the overlay's FPS counter
+		TickMenuItems();
 #endif
 
 
@@ -166,14 +176,33 @@ namespace HP1
 			AndroidSetLevelName(levelName);
 		}
 
+		// With a gamepad a lesson gives more time to draw: DrawTime (the Draw state samples 500 points over it, and each spell
+		// level takes 5% off it) is scaled once per lesson actor, never while the symbol is being drawn.
+		static ULevel* timeLevel = nullptr;
+		static std::map<UActor*, float> timeScaled;
+		if (timeLevel != engine->Level)
+		{
+			timeLevel = engine->Level;
+			timeScaled.clear();
+		}
+		float timeWanted = g_lessonTimeScale.load();
+
 		UActor* lesson = nullptr;
 		for (UActor* a : engine->Level->Actors)
 		{
-			if (a && a->IsA("SpellLearnTrigger") && a->GetStateName() == "Draw")
+			if (!a || !a->IsA("SpellLearnTrigger"))
+				continue;
+			bool drawing = a->GetStateName() == "Draw";
+			auto it = timeScaled.find(a);
+			float timeHave = it != timeScaled.end() ? it->second : 1.0f;
+			if (!drawing && timeHave != timeWanted)
 			{
-				lesson = a;
-				break;
+				if (float* drawTime = static_cast<float*>(a->GetProperty(NameString("DrawTime"))))
+					*drawTime *= timeWanted / timeHave;
+				timeScaled[a] = timeWanted;
 			}
+			if (drawing && !lesson)
+				lesson = a;
 		}
 
 		g_lessonDrawing = lesson != nullptr;
@@ -194,6 +223,125 @@ namespace HP1
 		float px = g_touchX * width, py = g_touchY * height;
 		*wandX = std::clamp((px - width * 0.5f) / pixelsPerUnit, -1.0f, 1.0f);
 		*wandY = std::clamp((height * 0.5f - py) / pixelsPerUnit, -1.0f, 1.0f);
+	}
+}
+#endif
+
+#ifdef __ANDROID__
+namespace HP1
+{
+	// Gamepad support for the menus (UWindow, HPMenu's FEBook pages): the visible buttons, checkboxes and sliders, in the
+	// order the window tree has them, as viewport rectangles for the overlay, which moves the pad's cursor between them.
+	// A window's position is its WinLeft/WinTop added up to the root, in UWindow units: Root.GUIScale of them make one
+	// unit of the menu canvas (HPConsole sets GUIScale to the canvas width / 640), and MenuToPixels places the canvas.
+	namespace
+	{
+		struct MenuItem
+		{
+			UObject* window;
+			float x0, y0, x1, y1;
+			int kind; // 0 button, 1 slider
+		};
+
+		float FloatOf(UObject* obj, const char* name)
+		{
+			float* f = static_cast<float*>(obj->GetProperty(NameString(name)));
+			return f ? *f : 0.0f;
+		}
+
+		void CollectMenuItems(UObject* window, float left, float top, float scale, std::vector<MenuItem>& out, int depth)
+		{
+			if (!window || depth > 32 || !KW::BoolProperty(window, "bWindowVisible"))
+				return;
+			left += FloatOf(window, "WinLeft");
+			top += FloatOf(window, "WinTop");
+			float width = FloatOf(window, "WinWidth"), height = FloatOf(window, "WinHeight");
+			int kind = -1;
+			if (window->IsA("UWindowHSliderControl"))
+				kind = 1;
+			else if (window->IsA("UWindowButton") && !KW::BoolProperty(window, "bDisabled"))
+				kind = 0;
+			if (kind >= 0 && width > 2.0f && height > 2.0f)
+			{
+				float x0 = left * scale, y0 = top * scale, x1 = (left + width) * scale, y1 = (top + height) * scale;
+				MenuToPixels(x0, y0);
+				MenuToPixels(x1, y1);
+				out.push_back({ window, x0, y0, x1, y1, kind });
+			}
+			if (kind == 1)
+				return; // a slider's own parts are not items
+			for (UObject* child = KW::ObjectProperty(window, "FirstChildWindow"); child; child = KW::ObjectProperty(child, "NextSiblingWindow"))
+				CollectMenuItems(child, left, top, scale, out, depth + 1);
+		}
+
+		std::vector<MenuItem> FindMenuItems()
+		{
+			std::vector<MenuItem> items;
+			UObject* root = engine->console ? KW::ObjectProperty(engine->console, "Root") : nullptr;
+			if (!root || !engine->viewport)
+				return items;
+			float scale = FloatOf(root, "GUIScale");
+			if (scale <= 0.0f)
+				scale = 1.0f;
+			for (UObject* child = KW::ObjectProperty(root, "FirstChildWindow"); child; child = KW::ObjectProperty(child, "NextSiblingWindow"))
+				CollectMenuItems(child, 0.0f, 0.0f, scale, items, 1);
+			// only what is on the screen (the Options page parks its hidden key buttons far to the right)
+			float w = (float)engine->viewport->ViewportWidth(), h = (float)engine->viewport->ViewportHeight();
+			std::vector<MenuItem> onScreen;
+			for (const MenuItem& item : items)
+			{
+				if (item.x1 > 0.0f && item.y1 > 0.0f && item.x0 < w && item.y0 < h)
+					onScreen.push_back(item);
+			}
+			return onScreen;
+		}
+	}
+
+	void TickMenuItems()
+	{
+		static int ticks = 0;
+		static bool published = false;
+
+		// a slider the overlay wants moved: a tenth of its range (or its step) per press, through its own SetValue
+		int index = g_menuAdjustIndex.exchange(-1);
+		if (index >= 0)
+		{
+			std::vector<MenuItem> items = FindMenuItems();
+			if (index < (int)items.size() && items[index].kind == 1)
+			{
+				UObject* slider = items[index].window;
+				float minValue = FloatOf(slider, "MinValue"), maxValue = FloatOf(slider, "MaxValue"), value = FloatOf(slider, "Value");
+				int* step = static_cast<int*>(slider->GetProperty(NameString("Step")));
+				float delta = std::max((maxValue - minValue) / 10.0f, step && *step > 0 ? (float)*step : 0.0f);
+				float newValue = std::clamp(value + delta * (g_menuAdjustDir.load() < 0 ? -1.0f : 1.0f), std::min(minValue, maxValue), std::max(minValue, maxValue));
+				CallEvent(slider, NameString("SetValue"), { ExpressionValue::FloatValue(newValue) });
+			}
+			ticks = 0; // publish the new state right away
+		}
+
+		if (!g_androidMenuActive.load())
+		{
+			if (published)
+			{
+				AndroidSetMenuItems({});
+				published = false;
+			}
+			return;
+		}
+		if (ticks++ % 6 != 0)
+			return;
+		std::vector<float> out;
+		float w = (float)engine->viewport->ViewportWidth(), h = (float)engine->viewport->ViewportHeight();
+		for (const MenuItem& item : FindMenuItems())
+		{
+			out.push_back(item.x0 / w);
+			out.push_back(item.y0 / h);
+			out.push_back(item.x1 / w);
+			out.push_back(item.y1 / h);
+			out.push_back((float)item.kind);
+		}
+		AndroidSetMenuItems(std::move(out));
+		published = true;
 	}
 }
 #endif
