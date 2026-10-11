@@ -112,6 +112,7 @@ namespace HP1
 		if (!engine->viewport)
 			return;
 
+		InitCyrillic();
 		TickAutoLoad();
 #ifdef __ANDROID__
 		g_frameCount.fetch_add(1, std::memory_order_relaxed); // one tick per frame: the overlay's FPS counter

@@ -138,12 +138,60 @@ public class SetupActivity extends Activity {
     private void begin() {
         new Thread(new Runnable() {
             public void run() {
+                // the in-game language switch's wish becomes the choice
+                File wish = new File(FlipendoActivity.GAME_DIR, LANG_WANT);
+                String wished = readSmallFile(wish);
+                if (wished != null && !wished.isEmpty()) {
+                    try {
+                        writeSmallFile(new File(FlipendoActivity.GAME_DIR, CHOSEN_LANG), wished);
+                    } catch (IOException e) {
+                        android.util.Log.e("flipendo", "could not keep the language choice: " + e);
+                    }
+                }
+                wish.delete();
+                boolean text = TEXT_LANG.equals(chosenLanguage(SetupActivity.this));
+                if (!text) {
+                    // before a self pack puts its editions' files in: the originals the translation replaced go back first
+                    try {
+                        removeTextTranslation(new File(FlipendoActivity.GAME_DIR));
+                    } catch (IOException e) {
+                        android.util.Log.e("flipendo", "removing the text translation failed: " + e);
+                    }
+                }
                 installGameData();
                 // the default place first (a self pack unpacks there), else the folder the player picked
                 File found = findGame(new File(FlipendoActivity.GAME_DIR), 2);
                 final String picked = getSharedPreferences("setup", MODE_PRIVATE).getString(PREF_GAME_DIR, null);
                 if (found == null && picked != null) {
                     found = findGame(new File(picked), 2);
+                }
+                if (found != null) {
+                    try {
+                        if (text) {
+                            applyTextTranslation(found);
+                        } else {
+                            removeTextTranslation(found);
+                        }
+                    } catch (IOException e) {
+                        android.util.Log.e("flipendo", "the text translation failed: " + e);
+                    }
+                    // the mod to have: the in-game wish, else what is installed
+                    File modWish = new File(FlipendoActivity.GAME_DIR, MOD_WANT);
+                    String modWanted = readSmallFile(modWish);
+                    if (modWanted == null || modWanted.isEmpty()) {
+                        modWanted = readSmallFile(new File(found, MOD_MARKER));
+                    }
+                    try {
+                        applyMod(found, modWanted, new byte[1 << 20]);
+                    } catch (IOException e) {
+                        android.util.Log.e("flipendo", "switching the mod failed: " + e);
+                        say("Switching the mod failed: " + e.getMessage(), 0, 1);
+                        try {
+                            Thread.sleep(6000);
+                        } catch (InterruptedException ignored) {
+                        }
+                    }
+                    modWish.delete();
                 }
                 final File game = found;
                 ui.post(new Runnable() {
@@ -525,14 +573,327 @@ public class SetupActivity extends Activity {
     static final String MOD_WANT = ".selfpack-mod-want";    // written by the in-game switch: the mod to have next
     static final String MOD_BACKUP = ".mod-backup";         // the original packages a mod replaced, per mod
 
-    /** The languages this APK carries as {code, label} (the first is the base install); empty for a single-language build. */
-    static List<String[]> readLanguages(android.content.Context context) {
+    /** The editions a self pack carries as {code, label} (the first is the base install); empty for other builds. */
+    static List<String[]> readPackLanguages(android.content.Context context) {
         return readPairs(context, LANG_DIR + "/langs.txt");
     }
 
-    /** The mods this APK carries as {id, label}; empty when it has none. */
+    // The Russian text translation, in every APK (assets/rutext: the game's .int files in Windows-1251)
+    static final String TEXT_LANG = "rutext";
+    static final String TEXT_DIR = "rutext";
+    static final String TEXT_MARKER = ".flipendo-text";     // in the game folder: the translation is in its System folder
+    static final String TEXT_BACKUP = ".text-backup";       // in the game folder: the .int files the translation replaced
+    static final String CHOSEN_LANG = ".flipendo-language"; // in FlipendoHP: the language the player chose
+
+    static boolean hasTextTranslation(android.content.Context context) {
+        try {
+            String[] files = context.getAssets().list(TEXT_DIR);
+            return files != null && files.length > 0;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    /** Every language the player can choose: the self pack's editions (or the installed game's own), then the text translation. */
+    static List<String[]> readLanguages(android.content.Context context) {
+        List<String[]> out = new ArrayList<>(readPackLanguages(context));
+        if (out.isEmpty()) {
+            out.add(new String[] { "en", "English" });
+        }
+        if (hasTextTranslation(context)) {
+            out.add(new String[] { TEXT_LANG, "Русский (текст)" }); // Русский (текст)
+        }
+        return out;
+    }
+
+    /** The language the player chose; before any choice the self pack's installed edition, else the base one. */
+    static String chosenLanguage(android.content.Context context) {
+        String chosen = readSmallFile(new File(FlipendoActivity.GAME_DIR, CHOSEN_LANG));
+        if (chosen == null || chosen.isEmpty()) {
+            chosen = readSmallFile(new File(FlipendoActivity.GAME_DIR, LANG_MARKER));
+        }
+        List<String[]> languages = readLanguages(context);
+        for (String[] l : languages) {
+            if (l[0].equals(chosen)) {
+                return chosen;
+            }
+        }
+        return languages.get(0)[0];
+    }
+
+    private static File findIgnoringCase(File dir, String name) {
+        File[] children = dir.listFiles();
+        if (children != null) {
+            for (File child : children) {
+                if (child.getName().equalsIgnoreCase(name)) {
+                    return child;
+                }
+            }
+        }
+        return new File(dir, name);
+    }
+
+    private static byte[] readAll(InputStream in) throws IOException {
+        java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+        byte[] buffer = new byte[1 << 16];
+        int n;
+        while ((n = in.read(buffer)) > 0) {
+            bytes.write(buffer, 0, n);
+        }
+        return bytes.toByteArray();
+    }
+
+    /**
+     * The translated .int file with the original's lines it lacks added at its end (under their sections), so a key the
+     * translation doesn't have shows the English text instead of an error. Both are single-byte text.
+     */
+    static byte[] mergeIni(byte[] translated, byte[] original) throws IOException {
+        if (original == null) {
+            return translated;
+        }
+        java.nio.charset.Charset latin = java.nio.charset.StandardCharsets.ISO_8859_1;
+        java.util.Set<String> have = new java.util.HashSet<>();
+        String section = "";
+        for (String line : new String(translated, latin).split("\r?\n")) {
+            String t = line.trim();
+            if (t.startsWith("[") && t.endsWith("]")) {
+                section = t.toLowerCase();
+            } else if (t.indexOf('=') > 0) {
+                have.add(section + "|" + t.substring(0, t.indexOf('=')).trim().toLowerCase());
+            }
+        }
+        java.util.LinkedHashMap<String, StringBuilder> missing = new java.util.LinkedHashMap<>();
+        section = "";
+        String header = "";
+        for (String line : new String(original, latin).split("\r?\n")) {
+            String t = line.trim();
+            if (t.startsWith("[") && t.endsWith("]")) {
+                section = t.toLowerCase();
+                header = t;
+            } else if (t.indexOf('=') > 0 && !have.contains(section + "|" + t.substring(0, t.indexOf('=')).trim().toLowerCase())) {
+                StringBuilder lines = missing.get(header);
+                if (lines == null) {
+                    lines = new StringBuilder();
+                    missing.put(header, lines);
+                }
+                lines.append(line).append("\r\n");
+            }
+        }
+        if (missing.isEmpty()) {
+            return translated;
+        }
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        out.write(translated);
+        for (java.util.Map.Entry<String, StringBuilder> e : missing.entrySet()) {
+            out.write(("\r\n" + e.getKey() + "\r\n" + e.getValue()).getBytes(latin));
+        }
+        return out.toByteArray();
+    }
+
+    /** Puts the text translation into the game folder's System folder, keeping the originals it replaces. */
+    private void applyTextTranslation(File gameDir) throws IOException {
+        File system = systemDir(gameDir);
+        File backups = new File(gameDir, TEXT_BACKUP);
+        List<String> files = new ArrayList<>();
+        collect(TEXT_DIR, files);
+        byte[] buffer = new byte[1 << 16];
+        int done = 0;
+        for (String path : files) {
+            String name = path.substring(path.lastIndexOf('/') + 1);
+            say("Installing the Russian translation " + (done + 1) + " / " + files.size() + "\n" + name, done, files.size());
+            File target = findIgnoringCase(system, name);
+            File backup = new File(backups, target.getName());
+            if (target.exists() && !backup.exists()) {
+                copyFile(target, backup, buffer);
+            }
+            byte[] translated;
+            try (InputStream in = getAssets().open(path)) {
+                translated = readAll(in);
+            }
+            byte[] original = null;
+            if (backup.exists()) {
+                try (InputStream in = new java.io.FileInputStream(backup)) {
+                    original = readAll(in);
+                }
+            }
+            File temp = new File(target.getPath() + ".part");
+            try (OutputStream os = new FileOutputStream(temp)) {
+                os.write(mergeIni(translated, original));
+            }
+            if (target.exists()) {
+                target.delete();
+            }
+            temp.renameTo(target);
+            done++;
+        }
+        writeSmallFile(new File(gameDir, TEXT_MARKER), TEXT_LANG);
+    }
+
+    /** Takes the text translation out of a game folder: its originals back, the marker gone. */
+    private void removeTextTranslation(File gameDir) throws IOException {
+        File backups = new File(gameDir, TEXT_BACKUP);
+        File marker = new File(gameDir, TEXT_MARKER);
+        File[] originals = backups.listFiles();
+        if (originals != null && originals.length > 0) {
+            File system = systemDir(gameDir);
+            byte[] buffer = new byte[1 << 16];
+            for (File original : originals) {
+                say("Restoring " + original.getName(), 0, 1);
+                copyFile(original, findIgnoringCase(system, original.getName()), buffer);
+                original.delete();
+            }
+        }
+        backups.delete();
+        if (marker.exists()) {
+            marker.delete();
+        }
+    }
+
+    /** The mods the player can switch on as {id, label}: the ones this APK carries, then the ones imported from a file. */
     static List<String[]> readMods(android.content.Context context) {
-        return readPairs(context, MOD_DIR + "/mods.txt");
+        List<String[]> out = readPairs(context, MOD_DIR + "/mods.txt");
+        File[] imported = new File(context.getFilesDir(), MOD_DIR).listFiles();
+        if (imported != null) {
+            for (File dir : imported) {
+                String[] packages = dir.list();
+                if (!dir.isDirectory() || dir.getName().endsWith(".part") || packages == null || packages.length < 2) {
+                    continue; // label.txt and at least one package
+                }
+                boolean carried = false;
+                for (String[] m : out) {
+                    carried |= m[0].equals(dir.getName());
+                }
+                if (!carried) {
+                    String label = readSmallFile(new File(dir, MOD_LABEL));
+                    out.add(new String[] { dir.getName(), label != null && !label.isEmpty() ? label : dir.getName() });
+                }
+            }
+        }
+        return out;
+    }
+
+    // A mod imported from a file the player picked (the light APK can't carry one: a mod is the game's own scripts, changed):
+    // its packages are kept in the app's private files, <files>/mods/<id>/*.u, with label.txt
+    static final String MOD_LABEL = "label.txt";
+    static final String IMPORTED_MOD = "movement";
+
+    /** The packages of a mod: the APK's assets, else the imported copy. Each entry is {file name, asset path or file path}. */
+    private List<String[]> modPackages(String id) throws IOException {
+        List<String[]> out = new ArrayList<>();
+        List<String> assets = new ArrayList<>();
+        collect(MOD_DIR + "/" + id, assets);
+        for (String path : assets) {
+            out.add(new String[] { path.substring(path.lastIndexOf('/') + 1), path, "asset" });
+        }
+        if (out.isEmpty()) {
+            File[] files = new File(new File(getFilesDir(), MOD_DIR), id).listFiles();
+            if (files != null) {
+                for (File f : files) {
+                    if (f.getName().toLowerCase().endsWith(".u")) {
+                        out.add(new String[] { f.getName(), f.getPath(), "file" });
+                    }
+                }
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Imports a mod from what the player picked: zip archives (their .u files, at any depth) or .u files themselves. The
+     * packages must replace ones the game has (HarryPotter.u, HPBase.u, ...), so a wrong file is turned down. Returns
+     * null when it worked, else what is wrong, for the player.
+     */
+    static String importMod(android.content.Context context, List<Uri> picked, File gameDir) {
+        File mods = new File(context.getFilesDir(), MOD_DIR);
+        File temp = new File(mods, IMPORTED_MOD + ".part");
+        deleteTree(temp);
+        temp.mkdirs();
+        File system = gameDir != null ? systemDir(gameDir) : null;
+        int packages = 0;
+        List<String> unknown = new ArrayList<>();
+        byte[] buffer = new byte[1 << 16];
+        try {
+            for (Uri uri : picked) {
+                String name = displayName(context, uri);
+                try (InputStream in = context.getContentResolver().openInputStream(uri)) {
+                    if (in == null) {
+                        return "Could not open " + name;
+                    }
+                    if (name.toLowerCase().endsWith(".u")) {
+                        packages += keepPackage(name, in, temp, system, unknown, buffer);
+                        continue;
+                    }
+                    java.util.zip.ZipInputStream zip = new java.util.zip.ZipInputStream(in);
+                    java.util.zip.ZipEntry entry;
+                    boolean anyEntry = false;
+                    while ((entry = zip.getNextEntry()) != null) {
+                        anyEntry = true;
+                        String entryName = entry.getName().replace('\\', '/');
+                        entryName = entryName.substring(entryName.lastIndexOf('/') + 1);
+                        if (!entry.isDirectory() && entryName.toLowerCase().endsWith(".u")) {
+                            packages += keepPackage(entryName, zip, temp, system, unknown, buffer);
+                        }
+                    }
+                    if (!anyEntry) {
+                        return name + " is not a zip archive or a .u package";
+                    }
+                }
+            }
+            if (packages == 0) {
+                return unknown.isEmpty() ? "No .u packages in what you picked: choose the mod's zip (or its .u files)"
+                        : "These packages are not the game's own: " + android.text.TextUtils.join(", ", unknown)
+                        + ". Choose a mod that replaces the game's scripts (HarryPotter.u, HPBase.u, ...).";
+            }
+            writeSmallFile(new File(temp, MOD_LABEL), "Movement mod (your file)");
+            File target = new File(mods, IMPORTED_MOD);
+            deleteTree(target);
+            if (!temp.renameTo(target)) {
+                return "Could not keep the mod in the app's files";
+            }
+            return null;
+        } catch (IOException e) {
+            return "Could not read the file: " + e.getMessage();
+        } finally {
+            deleteTree(temp);
+        }
+    }
+
+    /** Copies one package into the import folder when the game has a package by that name (1), else notes it (0). */
+    private static int keepPackage(String name, InputStream in, File dir, File system, List<String> unknown, byte[] buffer) throws IOException {
+        if (system != null && !findIgnoringCase(system, name).exists()) {
+            unknown.add(name);
+            return 0;
+        }
+        File out = new File(dir, system != null ? findIgnoringCase(system, name).getName() : name);
+        try (OutputStream os = new FileOutputStream(out)) {
+            int n;
+            while ((n = in.read(buffer)) > 0) {
+                os.write(buffer, 0, n);
+            }
+        }
+        return 1;
+    }
+
+    private static String displayName(android.content.Context context, Uri uri) {
+        try (android.database.Cursor c = context.getContentResolver().query(uri,
+                new String[] { android.provider.OpenableColumns.DISPLAY_NAME }, null, null, null)) {
+            if (c != null && c.moveToFirst() && c.getString(0) != null) {
+                return c.getString(0);
+            }
+        } catch (RuntimeException ignored) {
+        }
+        String last = uri.getLastPathSegment();
+        return last != null ? last : "the file";
+    }
+
+    private static void deleteTree(File f) {
+        File[] children = f.listFiles();
+        if (children != null) {
+            for (File child : children) {
+                deleteTree(child);
+            }
+        }
+        f.delete();
     }
 
     /** Reads an asset made of "id|label" lines. */
@@ -636,9 +997,6 @@ public class SetupActivity extends Activity {
      */
     private void applyMod(File gameDir, String wanted, byte[] buffer) throws IOException {
         List<String[]> mods = readMods(this);
-        if (mods.isEmpty()) {
-            return;
-        }
         File marker = new File(gameDir, MOD_MARKER);
         String current = normalizeMod(readSmallFile(marker));
         wanted = normalizeMod(wanted);
@@ -649,32 +1007,52 @@ public class SetupActivity extends Activity {
         if (!known) {
             wanted = "none"; // a mod this APK doesn't carry
         }
+        File system = systemDir(gameDir);
+        File backups = new File(gameDir, MOD_BACKUP);
+        if (current.equals(wanted) && !wanted.equals("none")) {
+            // still in place? A game copied over again brings the originals back: then the mod goes in again
+            for (String[] p : modPackages(wanted)) {
+                File target = findIgnoringCase(system, p[0]);
+                long size = p[2].equals("file") ? new File(p[1]).length() : -1;
+                if (!target.exists() || (size >= 0 && target.length() != size)) {
+                    android.util.Log.i("flipendo", "mod " + wanted + ": " + p[0] + " was replaced, installing the mod again");
+                    deleteTree(new File(backups, wanted));
+                    current = "none";
+                    break;
+                }
+            }
+        }
         if (current.equals(wanted)) {
             return;
         }
-        File system = systemDir(gameDir);
-        File backups = new File(gameDir, MOD_BACKUP);
         if (!current.equals("none")) {
             File[] originals = new File(backups, current).listFiles();
             if (originals != null) {
                 for (File original : originals) {
                     say("Restoring " + original.getName(), 0, 1);
-                    copyFile(original, new File(system, original.getName()), buffer);
+                    copyFile(original, findIgnoringCase(system, original.getName()), buffer);
                 }
             }
         }
         if (!wanted.equals("none")) {
-            List<String> files = new ArrayList<>();
-            collect(MOD_DIR + "/" + wanted, files);
+            List<String[]> files = modPackages(wanted);
             int done = 0;
-            for (String path : files) {
-                String name = path.substring(path.lastIndexOf('/') + 1);
+            for (String[] p : files) {
+                String name = p[0];
                 say("Installing the mod " + (done + 1) + " / " + files.size() + "\n" + name, done, files.size());
-                File target = new File(system, name);
-                if (target.exists()) {
-                    copyFile(target, new File(new File(backups, wanted), name), buffer);
+                File target = findIgnoringCase(system, name);
+                File backup = new File(new File(backups, wanted), target.getName());
+                if (target.exists() && !backup.exists()) {
+                    copyFile(target, backup, buffer);
                 }
-                copyAsset(path, target, buffer);
+                if (p[2].equals("asset")) {
+                    copyAsset(p[1], target, buffer);
+                } else {
+                    File temp = new File(target.getPath() + ".part");
+                    copyFile(new File(p[1]), temp, buffer);
+                    target.delete();
+                    temp.renameTo(target);
+                }
                 done++;
             }
         }
@@ -694,11 +1072,12 @@ public class SetupActivity extends Activity {
         File gameDir = new File(FlipendoActivity.GAME_DIR);
         File marker = new File(gameDir, MARKER);
         try {
-            List<String[]> languages = readLanguages(this);
+            List<String[]> languages = readPackLanguages(this);
             String installed = readSmallFile(new File(gameDir, LANG_MARKER));
-            String wanted = readSmallFile(new File(gameDir, LANG_WANT));
-            if (wanted == null || wanted.isEmpty()) {
-                wanted = installed;
+            // the edition to have: the chosen one; the text translation goes over the base edition
+            String wanted = chosenLanguage(this);
+            if (TEXT_LANG.equals(wanted) && !languages.isEmpty()) {
+                wanted = languages.get(0)[0];
             }
             String label = wanted;
             boolean known = false;
@@ -713,12 +1092,6 @@ public class SetupActivity extends Activity {
                 label = languages.get(0)[1];
             }
             boolean dataCurrent = marker.exists() && stamp.equals(readSmallFile(marker));
-            // the mod to have: the in-game wish, else what is installed (new game data brings the originals' packages back)
-            String modWanted = readSmallFile(new File(gameDir, MOD_WANT));
-            File modMarker = new File(gameDir, MOD_MARKER);
-            if (modWanted == null || modWanted.isEmpty()) {
-                modWanted = readSmallFile(modMarker);
-            }
             byte[] buffer = new byte[1 << 20];
 
             if (!dataCurrent) {
@@ -743,22 +1116,22 @@ public class SetupActivity extends Activity {
                 if (!languages.isEmpty()) {
                     installLanguage(gameDir, wanted, label, buffer);
                 }
-                modMarker.delete(); // the mod's packages were just replaced by the originals
-                applyMod(gameDir, modWanted, buffer);
+                // the .int files were just replaced by the originals: the text translation is put in again after this
+                File[] stale = new File(gameDir, TEXT_BACKUP).listFiles();
+                if (stale != null) {
+                    for (File f : stale) {
+                        f.delete();
+                    }
+                }
+                new File(gameDir, TEXT_MARKER).delete();
+                // the mod's packages were just replaced by the originals: begin() puts the mod in again
+                new File(gameDir, MOD_MARKER).delete();
+                deleteTree(new File(gameDir, MOD_BACKUP));
                 writeSmallFile(marker, stamp);
             } else {
                 if (!languages.isEmpty() && !wanted.equals(installed)) {
                     installLanguage(gameDir, wanted, label, buffer);
                 }
-                applyMod(gameDir, modWanted, buffer);
-            }
-            File modWish = new File(gameDir, MOD_WANT);
-            if (modWish.exists()) {
-                modWish.delete();
-            }
-            File want = new File(gameDir, LANG_WANT);
-            if (want.exists()) {
-                want.delete();
             }
         } catch (IOException e) {
             android.util.Log.e("flipendo", "installing game data failed: " + e);

@@ -1,4 +1,4 @@
-flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CPU, per-frame command pool reset, no gl_ClipDistance, upright swapchain, absolute touch mouse, no backtrace(); Vulkan device choice needs only independentBlend and names why a device was rejected, descriptor indexing optional (Vulkan 1.1 Mali without it)
+flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CPU, per-frame command pool reset, no gl_ClipDistance, upright swapchain, absolute touch mouse, no backtrace(); Vulkan device choice needs only independentBlend and names why a device was rejected, descriptor indexing optional (Vulkan 1.1 Mali without it); fonts can take glyphs they lack from elsewhere (HP1 Cyrillic text)
 
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
@@ -1067,3 +1067,35 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  elseif(HAIKU)
  	set(SURREALWIDGETS_SOURCES ${SURREALWIDGETS_SOURCES} ${SURREALWIDGETS_UNIX_SOURCES})
  	set(SURREALWIDGETS_INCLUDE_DIRS ${SURREALWIDGETS_INCLUDE_DIRS} ${GLIB_INCLUDE_DIRS} ${FONTCONFIG_INCLUDE_DIRS})
+--- a/SurrealEngine/Packages/Engine/Resources/UFont.h
++++ b/SurrealEngine/Packages/Engine/Resources/UFont.h
+@@ -43,6 +43,10 @@
+ 
+ 	FontGlyph GetGlyph(char c) const;
+ 
++	// Glyphs a font lacks, from elsewhere (HP1's Cyrillic text draws them from a TrueType font): consulted first when set, an
++	// empty glyph (no texture) means the font's own.
++	static FontGlyph (*ExtraGlyph)(const UFont* font, unsigned char c);
++
+ private:
+ 	FontGlyph FindGlyph(char c) const;
+ 
+--- a/SurrealEngine/Packages/Engine/Resources/UFont.cpp
++++ b/SurrealEngine/Packages/Engine/Resources/UFont.cpp
+@@ -85,8 +85,16 @@
+ 	}
+ }
+ 
++FontGlyph (*UFont::ExtraGlyph)(const UFont* font, unsigned char c) = nullptr;
++
+ FontGlyph UFont::GetGlyph(char c) const
+ {
++	if (ExtraGlyph)
++	{
++		FontGlyph extra = ExtraGlyph(this, (unsigned char)c);
++		if (extra.Texture)
++			return extra;
++	}
+ 	FontGlyph glyph = FindGlyph(c);
+ 	if (glyph.USize == 0)
+ 	{

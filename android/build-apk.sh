@@ -100,6 +100,12 @@ paste -sd' ' android/dist/symbols/build-info.txt > "$A/assets/build-info.txt"
 jar --create --no-manifest --file "$A/assets/SurrealEngine.pk3" -C src/engine/Resources .
 # the touch buttons' icons (images/android/*.png) are loaded from assets/icons/ by the overlay
 mkdir -p "$A/assets/icons" && cp images/android/*.png "$A/assets/icons/"
+# the Russian text translation (android/lang/ru-text, UTF-16 .rus files): in every APK, as the game's .int files in
+# Windows-1251, whose Cyrillic the game draws with glyphs from Noto Sans (src/hp1/HP1Cyrillic.cpp)
+mkdir -p "$A/assets/rutext"
+for f in android/lang/ru-text/*.rus; do
+	iconv -f UTF-16 -t CP1251 "$f" > "$A/assets/rutext/$(basename "$f" .rus).int"
+done
 javac -Xlint:-options -source 8 -target 8 -cp "$AJ" -d "$A/classes" \
 	android/deps/SDL/android-project/app/src/main/java/org/libsdl/app/*.java android/java/io/github/flipendo/spike/*.java
 "$BT/d8.bat" --lib "$AJ" --output "$A" $(find "$A/classes" -name "*.class")

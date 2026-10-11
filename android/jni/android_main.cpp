@@ -346,6 +346,9 @@ extern "C" __attribute__((visibility("default"))) int SDL_main(int argc, char** 
 		std::string gameDir = argc > 1 && argv[1] && argv[1][0] ? FindGame(argv[1], 0) : std::string();
 		if (gameDir.empty())
 			gameDir = FindGameDir();
+		// the Russian text translation is installed in that folder (SetupActivity): its Cyrillic needs drawn glyphs
+		if (access((gameDir + "/.flipendo-text").c_str(), F_OK) == 0)
+			args.push_back("--cyrillic");
 		__android_log_print(ANDROID_LOG_INFO, "flipendo", "game folder: %s", gameDir.c_str());
 		args.push_back(gameDir);
 		GameApp app;

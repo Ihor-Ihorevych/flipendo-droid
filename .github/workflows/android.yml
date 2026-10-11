@@ -1,0 +1,71 @@
+# Builds the light Android APK (no game data) on a Windows runner with the same script as a local build
+# (android/build-apk.sh, Git Bash). A pushed tag android-* also publishes it as a GitHub release; a manual run keeps it as an
+# artifact of the run. See docs/android.md ("Builds on GitHub").
+name: Android APK
+
+on:
+  push:
+    tags: ['android-*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # build-info.txt names the commit with git describe
+
+      - name: Engine (SurrealEngine submodule)
+        run: git submodule update --init src/engine
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: microsoft
+          java-version: '21'
+
+      - name: Android SDK packages
+        run: |
+          SDKMANAGER="$(cygpath -u "$ANDROID_HOME")/cmdline-tools/latest/bin/sdkmanager.bat"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1" > /dev/null
+
+      # The APK must be signed with the same key every time, or a new build won't install over an older one. The key is the
+      # repository secret ANDROID_DEBUG_KEYSTORE (android/debug.keystore, base64); without it the build makes a throwaway key.
+      - name: Signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_DEBUG_KEYSTORE }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > android/debug.keystore
+          else
+            echo "::warning::No ANDROID_DEBUG_KEYSTORE secret: this APK is signed with a new key and won't update an installed one"
+          fi
+
+      - name: Build
+        run: android/build-apk.sh
+
+      - name: Keep the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: flipendo-droid
+          path: android/dist/flipendo-droid.apk
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: android/dist/flipendo-droid.apk
+          prerelease: true
+          generate_release_notes: true
+          body: |
+            The light build: **no game data inside**. You need your own copy of the PC game (2001): copy its folder to the phone
+            (Internal storage / FlipendoHP, or anywhere and pick it with Choose folder). Steps, controls and settings: README.
+            Android 10+, 64-bit. News and help: https://t.me/flipendodroid

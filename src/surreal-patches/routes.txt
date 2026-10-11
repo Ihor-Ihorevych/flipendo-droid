@@ -73,6 +73,7 @@ SurrealEngine/RenderDevice/Vulkan/ShaderManager.cpp
 SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
 SurrealEngine/RenderDevice/Vulkan/TextureUploader.*
 SurrealEngine/Render/RenderCanvas.cpp
+SurrealEngine/Packages/Engine/Resources/UFont.*
 SurrealEngine/UE1GameDatabase.h
 SurrealEngine/Utils/UTF16.cpp
 SurrealGPU/src/vulkanswapchain.cpp

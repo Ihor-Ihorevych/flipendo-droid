@@ -126,6 +126,8 @@ final class LogReport {
         s.append("model: ").append(Build.MODEL).append('\n');
         s.append("device: ").append(Build.DEVICE).append('\n');
         s.append("hardware: ").append(Build.HARDWARE).append('\n');
+        s.append("controls layout: ").append(context.getSharedPreferences("flipendo", Context.MODE_MULTI_PROCESS)
+                .getString("layoutInfo", "unknown")).append('\n');
         s.append("board: ").append(Build.BOARD).append('\n');
         if (Build.VERSION.SDK_INT >= 31) {
             s.append("soc: ").append(Build.SOC_MANUFACTURER).append(' ').append(Build.SOC_MODEL).append('\n');

@@ -87,7 +87,66 @@ public class FlipendoActivity extends SDLActivity {
         restartWith(SetupActivity.MOD_WANT, id);
     }
 
+    /** The game folder this run plays (found by the launcher or picked by the player); the default place if none was passed. */
+    String gameDir() {
+        String dir = getIntent() != null ? getIntent().getStringExtra(SetupActivity.EXTRA_GAME_DIR) : null;
+        return dir != null ? dir : GAME_DIR;
+    }
+
+    private static final int REQUEST_MOD_FILE = 11;
+
+    /** Lets the player pick the mod's zip (or its .u files) with the system file picker. */
+    void pickModFile() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+        try {
+            startActivityForResult(intent, REQUEST_MOD_FILE);
+        } catch (RuntimeException e) {
+            android.widget.Toast.makeText(this, "No file picker on this phone", android.widget.Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /** The picked mod is imported (SetupActivity.importMod) off the UI thread; when it worked the game restarts with it. */
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_MOD_FILE || resultCode != RESULT_OK || data == null) {
+            return;
+        }
+        final java.util.List<Uri> picked = new java.util.ArrayList<>();
+        if (data.getClipData() != null) {
+            for (int i = 0; i < data.getClipData().getItemCount(); i++) {
+                picked.add(data.getClipData().getItemAt(i).getUri());
+            }
+        } else if (data.getData() != null) {
+            picked.add(data.getData());
+        }
+        if (picked.isEmpty()) {
+            return;
+        }
+        android.widget.Toast.makeText(this, "Importing the mod...", android.widget.Toast.LENGTH_SHORT).show();
+        new Thread(new Runnable() {
+            public void run() {
+                final String problem = SetupActivity.importMod(FlipendoActivity.this, picked, new File(gameDir()));
+                runOnUiThread(new Runnable() {
+                    public void run() {
+                        if (problem != null) {
+                            android.util.Log.w("flipendo", "mod import: " + problem);
+                            android.widget.Toast.makeText(FlipendoActivity.this, problem, android.widget.Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        android.widget.Toast.makeText(FlipendoActivity.this, "Mod imported: restarting with it", android.widget.Toast.LENGTH_SHORT).show();
+                        switchMod(SetupActivity.IMPORTED_MOD);
+                    }
+                });
+            }
+        }).start();
+    }
+
     private void restartWith(String wishFile, String value) {
+        new File(GAME_DIR).mkdirs(); // the wish files live there even when the game was picked elsewhere
         try {
             SetupActivity.writeSmallFile(new File(GAME_DIR, wishFile), value);
         } catch (IOException e) {
@@ -165,6 +224,7 @@ public class FlipendoActivity extends SDLActivity {
                 if (modOffAfterSave) {
                     // the mod can't aim in this level: switch it off, restart, and the game loads this save by itself
                     modOffAfterSave = false;
+                    new File(GAME_DIR).mkdirs();
                     try {
                         SetupActivity.writeSmallFile(new File(GAME_DIR, ".selfpack-autoload"), String.valueOf(slot));
                     } catch (IOException e) {
@@ -404,6 +464,7 @@ public class FlipendoActivity extends SDLActivity {
         @Override
         protected void onAttachedToWindow() {
             super.onAttachedToWindow();
+            requestApplyInsets(); // the safe area (onApplyWindowInsets)
             post(poll);
         }
 
@@ -486,14 +547,16 @@ public class FlipendoActivity extends SDLActivity {
             }
         }
 
-        // Languages carried by this APK ({code, label}; only a self pack with several has more than one) and the Language button
+        // Languages carried by this APK ({code, label}) and the Language button, which opens them as a list
         final java.util.List<String[]> languages = SetupActivity.readLanguages(getContext());
-        int languageAsk = -1;       // the language a first tap asked for, until it is confirmed or times out
-        long languageAskTime;
+        boolean langListOpen;       // the list over the settings panel
+        int langFocus = -1;         // the row the pad is on
+        final java.util.List<android.graphics.RectF> langRows = new java.util.ArrayList<>();
+        final android.graphics.RectF langPanel = new android.graphics.RectF();
+        float langTitleY, langHintY;
 
         String currentLanguage() {
-            String code = SetupActivity.readSmallFile(new File(GAME_DIR, SetupActivity.LANG_MARKER));
-            return code == null || code.isEmpty() ? languages.get(0)[0] : code;
+            return SetupActivity.chosenLanguage(getContext());
         }
 
         int languageIndex(String code) {
@@ -503,23 +566,80 @@ public class FlipendoActivity extends SDLActivity {
             return 0;
         }
 
-        /** First tap: picks the next language and asks to confirm; a second tap within 5 s switches (the game restarts). */
+        /** The Language row: opens the list of languages, the pad on the current one. */
         void languageTap() {
-            long now = android.os.SystemClock.uptimeMillis();
-            if (languageAsk >= 0 && now - languageAskTime < 5000) {
-                int target = languageAsk;
-                languageAsk = -1;
-                ((FlipendoActivity) getContext()).switchLanguage(languages.get(target)[0]);
-                return;
+            langListOpen = true;
+            langFocus = languageIndex(currentLanguage());
+            layoutLanguageList();
+            invalidate();
+        }
+
+        /** A language picked from the list: another one restarts the game in it; the current one just closes the list. */
+        void pickLanguage(int index) {
+            langListOpen = false;
+            invalidate();
+            if (index >= 0 && index < languages.size() && index != languageIndex(currentLanguage())) {
+                ((FlipendoActivity) getContext()).switchLanguage(languages.get(index)[0]);
             }
-            languageAsk = (languageIndex(currentLanguage()) + 1) % languages.size();
-            languageAskTime = now;
-            postDelayed(new Runnable() { public void run() {
-                if (languageAsk >= 0 && android.os.SystemClock.uptimeMillis() - languageAskTime >= 5000) {
-                    languageAsk = -1;
-                    invalidate();
-                }
-            } }, 5100);
+        }
+
+        /** The list's card: centred on the settings panel, one row per language, as tall as the rows need (at most the panel). */
+        void layoutLanguageList() {
+            float h = getHeight();
+            int n = languages.size();
+            float rowH = languageBtn.isEmpty() ? 0.11f * h : languageBtn.height();
+            float gap = 0.2f * rowH, titleH = 1.3f * rowH, hintH = 0.9f * rowH;
+            float avail = panel.height() - 0.04f * h;
+            float need = titleH + n * rowH + (n - 1) * gap + hintH;
+            if (need > avail) {
+                float k = avail / need;
+                rowH *= k; gap *= k; titleH *= k; hintH *= k;
+                need = avail;
+            }
+            float pw = Math.min(panel.width() - 0.04f * h, Math.max(colR1 - colR0, 0.5f * panel.width()));
+            float pad = 0.05f * pw;
+            langPanel.set(panel.centerX() - pw / 2f, panel.centerY() - need / 2f, panel.centerX() + pw / 2f, panel.centerY() + need / 2f);
+            langTitleY = langPanel.top + 0.62f * titleH;
+            langRows.clear();
+            float y = langPanel.top + titleH;
+            for (int i = 0; i < n; i++) {
+                langRows.add(new android.graphics.RectF(langPanel.left + pad, y, langPanel.right - pad, y + rowH));
+                y += rowH + gap;
+            }
+            langHintY = y - gap + 0.55f * hintH;
+        }
+
+        void drawLanguageList(Canvas c) {
+            if (!langListOpen || !settingsOpen) return;
+            layoutLanguageList();
+            float u = Math.min(getWidth(), getHeight());
+            fill.setColor(0x99000000);
+            c.drawRect(0, 0, getWidth(), getHeight(), fill);
+            float r = 0.03f * u;
+            fill.setColor(CARD);
+            c.drawRoundRect(langPanel, r, r, fill);
+            line.setColor(0x55FFFFFF);
+            line.setStrokeWidth(2f);
+            c.drawRoundRect(langPanel, r, r, line);
+            float x0 = langRows.get(0).left;
+            fill.setColor(GOLD);
+            c.drawRoundRect(x0, langTitleY - 0.04f * getHeight(), x0 + 0.008f * u, langTitleY + 0.005f * getHeight(), 4f, 4f, fill);
+            titlePaint.setTextAlign(Paint.Align.LEFT);
+            c.drawText("Language", x0 + 0.025f * u, langTitleY, titlePaint);
+            int current = languageIndex(currentLanguage());
+            for (int i = 0; i < langRows.size(); i++) {
+                android.graphics.RectF row = langRows.get(i);
+                boolean on = i == current;
+                drawRowBase(c, row, on);
+                rowPaint.setTextAlign(Paint.Align.LEFT);
+                c.drawText(languages.get(i)[1], row.left + rowPad(row), row.centerY() + rowPaint.getTextSize() * 0.35f, rowPaint);
+                valuePaint.setTextAlign(Paint.Align.RIGHT);
+                c.drawText(on ? "✓ Current" : "Restart in it  ›", row.right - rowPad(row), row.centerY() + valuePaint.getTextSize() * 0.35f, valuePaint);
+                if (padActive && i == langFocus) drawPadFocus(c, row);
+            }
+            subPaint.setTextAlign(Paint.Align.CENTER);
+            c.drawText("Picking another language restarts the game (unsaved progress is lost)", langPanel.centerX(), langHintY, subPaint);
+            subPaint.setTextAlign(Paint.Align.LEFT);
         }
 
         // The movement mod (AdamJD): a replacement for the game's scripts that the APK can carry (self pack with --mod). While it is
@@ -530,7 +650,7 @@ public class FlipendoActivity extends SDLActivity {
         long modAskTime;
 
         {
-            String id = SetupActivity.readSmallFile(new File(GAME_DIR, SetupActivity.MOD_MARKER));
+            String id = SetupActivity.readSmallFile(new File(((FlipendoActivity) getContext()).gameDir(), SetupActivity.MOD_MARKER));
             modOn = id != null && !id.isEmpty() && !id.equals("none");
         }
 
@@ -539,7 +659,12 @@ public class FlipendoActivity extends SDLActivity {
             long now = android.os.SystemClock.uptimeMillis();
             if (modAsk && now - modAskTime < 5000) {
                 modAsk = false;
-                ((FlipendoActivity) getContext()).switchMod(modOn ? "none" : mods.get(0)[0]);
+                if (mods.isEmpty()) {
+                    ((FlipendoActivity) getContext()).pickModFile(); // no mod yet: import one, then restart with it
+                } else {
+                    ((FlipendoActivity) getContext()).switchMod(modOn ? "none" : mods.get(0)[0]);
+                }
+                invalidate();
                 return;
             }
             modAsk = true;
@@ -682,6 +807,11 @@ public class FlipendoActivity extends SDLActivity {
                 case KeyEvent.KEYCODE_MENU:
                     if (settingsOpen || promptOpen) {
                         if (!down) {
+                            if (settingsOpen && langListOpen) {
+                                langListOpen = false; // B closes the language list, the settings stay
+                                invalidate();
+                                return true;
+                            }
                             if (promptOpen) {
                                 promptOpen = false; // B on the Devil's Snare prompt: keep the mod
                                 promptDeclinedLevel = levelShown;
@@ -909,7 +1039,12 @@ public class FlipendoActivity extends SDLActivity {
         }
 
         void padNav(int dx, int dy) {
-            if (settingsOpen) {
+            if (settingsOpen && langListOpen) {
+                if (dy != 0) {
+                    langFocus = Math.max(0, Math.min(languages.size() - 1, (langFocus < 0 ? 0 : langFocus) + dy));
+                    invalidate();
+                }
+            } else if (settingsOpen) {
                 settingsNav(dx, dy);
             } else if (menuShown && !promptOpen) {
                 menuNav(dx, dy);
@@ -1032,7 +1167,7 @@ public class FlipendoActivity extends SDLActivity {
             setRects.add(new android.graphics.RectF(segStick.left, segStick.top, segDpad.right, segDpad.bottom)); setIds.add(SET_SEG);
             setRects.add(new android.graphics.RectF(autoJumpBtn)); setIds.add(SET_JUMP);
             if (languages.size() > 1) { setRects.add(new android.graphics.RectF(languageBtn)); setIds.add(SET_LANG); }
-            if (!mods.isEmpty()) { setRects.add(new android.graphics.RectF(modBtn)); setIds.add(SET_MOD); }
+            setRects.add(new android.graphics.RectF(modBtn)); setIds.add(SET_MOD);
             setRects.add(new android.graphics.RectF(debugBtn)); setIds.add(SET_DEBUG);
             setRects.add(new android.graphics.RectF(telegramBtn)); setIds.add(SET_TELEGRAM);
             setRects.add(new android.graphics.RectF(closeBtn)); setIds.add(SET_DONE);
@@ -1070,6 +1205,10 @@ public class FlipendoActivity extends SDLActivity {
 
         /** A on a settings entry: what a tap on it does. */
         void settingsActivate() {
+            if (langListOpen) {
+                pickLanguage(langFocus); // A on a language: restart in it (the current one just closes the list)
+                return;
+            }
             buildSettingsEntries();
             FlipendoActivity activity = (FlipendoActivity) getContext();
             switch (focusedSetting()) {
@@ -1103,6 +1242,7 @@ public class FlipendoActivity extends SDLActivity {
 
         void openSettings() {
             settingsFocus = -1; // the pad's View button puts it on the first entry
+            langListOpen = false;
             releaseStick();
             for (Btn a : arrows) {
                 if (a.down) setButton(a, false);
@@ -1287,28 +1427,33 @@ public class FlipendoActivity extends SDLActivity {
         @Override
         protected void onSizeChanged(int w, int h, int ow, int oh) {
             float u = Math.min(w, h);
-            // Controls, in the settings card's style, with one margin from every edge:
+            float dp = getResources().getDisplayMetrics().density;
+            // the safe area: no control under a camera cutout, a visible system bar or the top edge's swipe zone (onApplyWindowInsets)
+            float sl = insL, st = insT, sr = w - insR, sb = h - insB;
+            // Controls, in the settings card's style, with one margin from every edge of the safe area; sizes follow the screen but
+            // never get smaller than a fingertip
             float m = 0.05f * u;
             // top right: a toolbar (settings | save or skip | menu), three slots in one pill
-            float barSlot = 0.12f * u, barY = m + 0.04f * u;
-            menu.cx = w - m - barSlot / 2f; menu.cy = barY; menu.r = 0.05f * u;
-            save.cx = menu.cx - barSlot; save.cy = barY; save.r = 0.05f * u;
+            float barR = Math.max(0.05f * u, 22f * dp), barSlot = Math.max(0.12f * u, 54f * dp), barHalf = Math.max(0.055f * u, 25f * dp);
+            float barY = st + m * 0.6f + barHalf;
+            menu.cx = sr - m - barSlot / 2f; menu.cy = barY; menu.r = barR;
+            save.cx = menu.cx - barSlot; save.cy = barY; save.r = barR;
             skip.cx = save.cx; skip.cy = save.cy; skip.r = save.r; // the book's place: the book is hidden in cutscenes
-            gear.cx = save.cx - barSlot; gear.cy = barY; gear.r = 0.05f * u;
-            toolbar.set(gear.cx - barSlot / 2f, barY - 0.055f * u, menu.cx + barSlot / 2f, barY + 0.055f * u);
+            gear.cx = save.cx - barSlot; gear.cy = barY; gear.r = barR;
+            toolbar.set(gear.cx - barSlot / 2f, barY - barHalf, menu.cx + barSlot / 2f, barY + barHalf);
             // bottom right: the wand, and the jump to its lower left; with the mod the wand is a stick whose range ring must
             // clear the jump button: it sits higher
-            cast.r = 0.104f * u;
-            cast.cx = w - m - cast.r - 0.03f * u; cast.cy = h - (modOn ? 0.40f : 0.21f) * u;
-            jump.r = 0.08f * u;
-            jump.cx = cast.cx - 0.23f * u; jump.cy = h - m - jump.r;
+            cast.r = Math.max(0.104f * u, 40f * dp);
+            cast.cx = sr - m - cast.r - 0.03f * u; cast.cy = sb - (modOn ? 0.40f : 0.21f) * u;
+            jump.r = Math.max(0.08f * u, 32f * dp);
+            jump.cx = cast.cx - cast.r - jump.r - 0.04f * u; jump.cy = sb - m - jump.r;
             text.setTextSize(0.035f * u);
             aimR = 0.12f * u; // how far the wand button follows the finger
 
             // bottom left: the arrows on one round pad
             float ad = 0.15f * u;
             padR = ad + 0.085f * u;
-            padX = m + padR; padY = h - m - padR;
+            padX = sl + m + padR; padY = sb - m - padR;
             arrows[0].cx = padX; arrows[0].cy = padY - ad;
             arrows[1].cx = padX; arrows[1].cy = padY + ad;
             arrows[2].cx = padX - ad; arrows[2].cy = padY;
@@ -1316,9 +1461,10 @@ public class FlipendoActivity extends SDLActivity {
             for (Btn a : arrows) a.r = 0.08f * u;
 
             // The settings panel: a card with a header, two columns (Display: the sliders | Controls and Game: switches) and a footer.
-            float pw = Math.min(0.94f * w, 2.1f * h);
-            float ph = 0.9f * h;
-            panel.set((w - pw) / 2f, (h - ph) / 2f, (w + pw) / 2f, (h + ph) / 2f);
+            float pw = Math.min(0.94f * (sr - sl), 2.1f * h);
+            float ph = Math.min(0.9f * h, sb - st);
+            float pcx = (sl + sr) / 2f, pcy = (st + sb) / 2f;
+            panel.set(pcx - pw / 2f, pcy - ph / 2f, pcx + pw / 2f, pcy + ph / 2f);
             float pad = 0.035f * pw;
             float gap = 0.02f * pw;
             headerY = panel.top + 0.1f * h;
@@ -1360,12 +1506,8 @@ public class FlipendoActivity extends SDLActivity {
             } else {
                 languageBtn.setEmpty();
             }
-            if (!mods.isEmpty()) {
-                modBtn.set(colR0, y, colR1, y + rowH);
-                y += rowH + rowGap;
-            } else {
-                modBtn.setEmpty();
-            }
+            modBtn.set(colR0, y, colR1, y + rowH); // always: without a mod it imports one from a file
+            y += rowH + rowGap;
             debugBtn.set(colR0, y, colR1, y + rowH);
 
             // footer: the channel on the left, Done on the right
@@ -1476,13 +1618,13 @@ public class FlipendoActivity extends SDLActivity {
             drawSection(c, "GAME", colR0, secGameY);
             if (languages.size() > 1) {
                 String current = languages.get(languageIndex(currentLanguage()))[1];
-                if (languageAsk >= 0) {
-                    drawValueRow(c, languageBtn, "Language", "Tap again: restart in " + languages.get(languageAsk)[1], "Restart", true);
-                } else {
-                    drawValueRow(c, languageBtn, "Language", "Voices, texts and fonts", current, false);
-                }
+                drawValueRow(c, languageBtn, "Language", "Game texts (and voices, where the build has them)", current, langListOpen);
             }
-            if (!mods.isEmpty()) {
+            if (mods.isEmpty()) {
+                drawValueRow(c, modBtn, "Movement mod", modAsk
+                        ? "Tap again: pick the mod's zip, the game restarts (unsaved progress is lost)"
+                        : "By AdamJD: camera, climbing, aim. Pick its zip (or .u files)", "Choose file", modAsk);
+            } else {
                 drawSwitchRow(c, modBtn, "Movement mod",
                         modAsk ? "Tap again to restart " + (modOn ? "without" : "with") + " it (unsaved progress is lost)" : "By AdamJD: camera, climbing, aim",
                         modOn, modAsk);
@@ -1501,7 +1643,7 @@ public class FlipendoActivity extends SDLActivity {
             c.drawText("Done", closeBtn.centerX(), closeBtn.centerY() + rowPaint.getTextSize() * 0.35f, rowPaint);
             rowPaint.setColor(0xFFFFFFFF);
             rowPaint.setTextAlign(Paint.Align.LEFT);
-            if (padActive && settingsFocus >= 0) {
+            if (padActive && settingsFocus >= 0 && !langListOpen) {
                 buildSettingsEntries();
                 if (focusedSetting() >= 0) drawPadFocus(c, setRects.get(settingsFocus));
             }
@@ -1702,6 +1844,20 @@ public class FlipendoActivity extends SDLActivity {
                         }
                         break;
                     }
+                    if (settingsOpen && langListOpen) {
+                        // the language list takes every touch: a row picks it, outside closes the list
+                        int picked = -1;
+                        for (int i = 0; i < langRows.size(); i++) {
+                            if (langRows.get(i).contains(x, y)) picked = i;
+                        }
+                        if (picked >= 0) {
+                            pickLanguage(picked);
+                        } else if (!langPanel.contains(x, y)) {
+                            langListOpen = false;
+                        }
+                        invalidate();
+                        break;
+                    }
                     if (settingsOpen) {
                         // the panel takes every touch
                         if (hitSlider(x, y) >= 0) {
@@ -1721,7 +1877,7 @@ public class FlipendoActivity extends SDLActivity {
                             ((FlipendoActivity) getContext()).saveScales();
                         } else if (debugBtn.contains(x, y)) {
                             ((FlipendoActivity) getContext()).applyDebugMode(!debugMode, true);
-                        } else if (!mods.isEmpty() && modBtn.contains(x, y)) {
+                        } else if (modBtn.contains(x, y)) {
                             modTap();
                         } else if (languages.size() > 1 && languageBtn.contains(x, y)) {
                             languageTap();
@@ -1934,6 +2090,42 @@ public class FlipendoActivity extends SDLActivity {
             valuePaint.setTextAlign(Paint.Align.RIGHT);
         }
 
+        // The safe area's insets, in pixels: a camera cutout, a visible system bar, the top edge's swipe-down zone. SDL draws under
+        // the cutout (fullscreen), so without them a control can sit where the phone takes the touches (the toolbar on a Redmi 13).
+        float insL, insT, insR, insB;
+
+        @Override
+        public android.view.WindowInsets onApplyWindowInsets(android.view.WindowInsets in) {
+            float dp = getResources().getDisplayMetrics().density;
+            int l = in.getSystemWindowInsetLeft(), t = in.getSystemWindowInsetTop(), r = in.getSystemWindowInsetRight(), b = in.getSystemWindowInsetBottom();
+            android.view.DisplayCutout cutout = in.getDisplayCutout();
+            if (cutout != null) {
+                l = Math.max(l, cutout.getSafeInsetLeft());
+                t = Math.max(t, cutout.getSafeInsetTop());
+                r = Math.max(r, cutout.getSafeInsetRight());
+                b = Math.max(b, cutout.getSafeInsetBottom());
+            }
+            android.graphics.Insets gestures = in.getMandatorySystemGestureInsets();
+            t = Math.max(t, Math.min(gestures.top, (int) (32 * dp)));
+            b = Math.max(b, Math.min(gestures.bottom, (int) (24 * dp)));
+            if (l != insL || t != insT || r != insR || b != insB) {
+                insL = l;
+                insT = t;
+                insR = r;
+                insB = b;
+                String info = "screen " + getWidth() + "x" + getHeight() + ", density " + dp + ", safe insets l" + l + " t" + t + " r" + r + " b" + b
+                        + (cutout != null ? ", cutout " + cutout.getBoundingRects() : ", no cutout")
+                        + ", gesture insets " + gestures;
+                android.util.Log.i("flipendo", "layout: " + info);
+                getContext().getSharedPreferences("flipendo", MODE_PRIVATE).edit().putString("layoutInfo", info).apply();
+                if (getWidth() > 0) {
+                    onSizeChanged(getWidth(), getHeight(), getWidth(), getHeight());
+                    invalidate();
+                }
+            }
+            return super.onApplyWindowInsets(in);
+        }
+
         // the controls' geometry (onSizeChanged) and look: the settings card's colours on the game
         final android.graphics.RectF toolbar = new android.graphics.RectF();
         float padR, padX, padY;
@@ -2085,6 +2277,7 @@ public class FlipendoActivity extends SDLActivity {
             }
             drawPadCursor(c);
             drawSettings(c);
+            drawLanguageList(c);
             drawPrompt(c);
         }
     }

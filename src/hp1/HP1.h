@@ -37,6 +37,7 @@ namespace HP1
 	// Engine::OnWindowMouseMove: OS mouse position (pixels) to menu canvas units, for HPConsole's WindowsMouseX/Y.
 	void MenuMousePosition(float& x, float& y);
 	void MenuToPixels(float& x, float& y); // the inverse: a point of the menu canvas to viewport pixels
+	void InitCyrillic(); // --cyrillic: Russian text in Windows-1251, glyphs drawn from Noto Sans (HP1Cyrillic.cpp)
 	// --level=<map> (src/hp1/HP1LevelStart.cpp). Engine::LoginPlayer, before Possess: the first level started with
 	// --level gets the story flow and the state a player carries in.
 	void LevelStartPlayer(UPlayerPawn* pawn, const std::string& map);
