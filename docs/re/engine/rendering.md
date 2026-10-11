@@ -41,6 +41,12 @@ SurrealEngine's vertex and LOD mesh paths. SurrealEngine's devices blend `PF_Hig
 by Opacity and vertex alpha Opacity (`GouraudVertex::Alpha`, passed through by the three devices): the same result.
 Not ported: the back-to-front face sort inside one mesh, so a translucent character shows its inner faces.
 
+Deliberately unlike HP1: Flipendo keeps `PF_Masked` on a faded mesh. HP1 drops it, so the masked parts draw as solid
+texels: Harry's glasses (`skharryMesh` material 2, `skharryTex2`, PF_Masked on the material only) show their lens
+texture whenever he is under the cloak (Lev4_Sneak's intro, `Opacity` 0.5). The devices' alpha test (`ALPHATEST` in
+the Vulkan, D3D11 and OpenGL scene shaders) tests the texel's own alpha instead of the alpha after the vertex colour,
+which would cut a mesh faded below 0.5 entirely.
+
 ## The loading screen (`UGameEngine::LoadMap` [HP1 0x1039C3D0])
 
 1. **Fade out.** With a level loaded, LoadMap first clears `LevelInfo.Pauser`, the player's `bShowMenu` and

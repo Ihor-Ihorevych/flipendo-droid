@@ -97,6 +97,9 @@ namespace KW
 	// SurrealEngine's devices blend PF_Highlighted as premultiplied alpha (ONE / INVSRCALPHA) and let PF_Translucent
 	// win over it, so here the face is PF_Highlighted only and light and fog are scaled by Opacity, which is the same
 	// blend (the software path of DrawLodMesh scales the light the same way).
+	// Deliberately unlike HP1: PF_Masked is kept. HP1 drops it, so the masked parts of a faded mesh draw as solid texels
+	// (Harry's glasses show their lens texture under the cloak, as in the Lev4_Sneak intro). The devices' alpha test
+	// looks at the texel's alpha, not at the vertex alpha, so the masked texels are cut and the rest still fades.
 	// Not ported: DrawLodMesh's back-to-front sort of the faces of a translucent mesh.
 	// IDA Render.dll: ?DrawLodMesh@URender@@QAEXPAUFSceneNode@@PAUFDynamicSprite@@PAVAActor@@ABVFCoords@@K@Z [HP1 Render 0x10B0FF00] (Opacity < 1: the extra flags, vertex Light.W)
 	float MeshOpacity(UActor* actor)
@@ -107,7 +110,7 @@ namespace KW
 	void ApplyOpacityFlags(float opacity, uint32_t& polyFlags)
 	{
 		if (opacity < 1.0f)
-			polyFlags = (polyFlags & ~(PF_Translucent | PF_Modulated | PF_Masked)) | PF_Highlighted;
+			polyFlags = (polyFlags & ~(PF_Translucent | PF_Modulated)) | PF_Highlighted;
 	}
 
 	void ApplyOpacityVertices(float opacity, GouraudVertex* vertices, int count)

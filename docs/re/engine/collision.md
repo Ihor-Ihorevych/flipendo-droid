@@ -99,7 +99,12 @@ at edges and corners.
   starting inside only blocks when it moves towards the axis. Points: strictly inside; the hit location is odd but kept
   as in the original (a cap gives (x, y, Location.Z - Extent.Z), the side adds the point's Z onto Location.Z);
 - the oriented cylinder (0x103FBC50 / 0x103FB7A0): the same in the actor's rotated frame;
-- the box (CT_Box, above); meshes use the cylinder; brushes their BSP.
+- the box (CT_Box, above), and meshes too: UMesh, ULodMesh and USkeletalMesh have `UBox::PointCheck` / `LineCheck`
+  in their vtables (slots 22 and 23, read 2026-10-11), so a CT_Shape actor with a Mesh checks as the oriented box of
+  CollisionRadius / CollisionWidth / CollisionHeight (only its hash box comes from the mesh). Flipendo used the raised
+  cylinder for meshes until then: Lev3_Quid2's common room table (`GryfTable2`, CollisionWidth 76.5) blocked from
+  Z 77 to 127 instead of up to its top at 50, and Norbert, set down at Z 101.6 by the cloak cutscene, started inside
+  it and fell to the floor. Brushes use their BSP.
 
 The actor hash (`FCollisionHash`, 256-unit cells by each actor's world collision box) is SurrealEngine's bucket grid,
 filled with HP1's boxes; candidates are then tested with their own primitive.
