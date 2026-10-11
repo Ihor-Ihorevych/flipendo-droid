@@ -1,4 +1,4 @@
-flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files, packages (Unicode strings), crash reports, music streaming and following the default audio device (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties
+flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files, packages (Unicode strings), crash reports, music streaming and following the default audio device (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties; a GotoState from inside EndState sends no second EndState and the outer call stops (movement mod: Wingardium release overflowed the stack)
 
 diff --git a/SurrealEngine/Audio/AudioDevice.cpp b/SurrealEngine/Audio/AudioDevice.cpp
 index 03e82566..64fef794 100644
@@ -414,29 +414,26 @@ index 2f91f141..e3a86d3f 100644
  				}
  			}
  		}
-diff --git a/SurrealEngine/Packages/Core/UObject.cpp b/SurrealEngine/Packages/Core/UObject.cpp
-index 2b855f33..805ade6d 100644
 --- a/SurrealEngine/Packages/Core/UObject.cpp
 +++ b/SurrealEngine/Packages/Core/UObject.cpp
-@@ -110,9 +110,14 @@ void UObject::Load(ObjectStream* stream)
+@@ -110,9 +110,14 @@
  			LogMessage("UObject::Load encountered object with a state object but no function");
  		}
  
 -		for (int i = 0; i < 64; i++)
--		{
--			if ((probeMask >> i) & 1)
 +		// A set bit in the saved probe mask is an enabled probe (HP1's UObject::IsProbing tests the bit, Disable clears
 +		// it); a map actor saves them all set. Read as disabled, an actor ignored script calls of its probe functions
 +		// until its first GotoState: Lev2_RemChase's referee triggers its intro cutscene from SetInitialState.
 +		// Saves from older builds of this engine wrote the disabled probes instead, nearly always none: a mask of 0,
 +		// which the original never saves (it starts with every bit set), so 0 disables nothing.
 +		for (int i = 0; i < 64 && probeMask != 0; i++)
-+		{
+ 		{
+-			if ((probeMask >> i) & 1)
 +			if (((probeMask >> i) & 1) == 0)
  			{
  				DisableEvent(ToNameString((EventName)i));
  			}
-@@ -144,10 +149,11 @@ void UObject::Save(PackageStreamWriter* stream)
+@@ -144,10 +149,11 @@
  		int32_t latentAction = 0;
  		int offset = -1;
  
@@ -449,7 +446,36 @@ index 2b855f33..805ade6d 100644
  			{
  				probeMask |= 1ULL << (uint64_t)i;
  			}
-@@ -532,6 +538,11 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
+@@ -526,12 +532,39 @@
+ 
+ 	UState* oldState = (UState*)StateFrame->Func;
+ 
+-	if (oldState && oldState != newState)
++	// A GotoState made from inside EndState (AdamJD's movement mod: baseHarry.wingspell.EndState calls freeHarry(), which
++	// is GotoState('playerWalking')) does not send EndState again: the object is still in the old state while EndState runs,
++	// so every nested call would send it once more and the stack ran out when Wingardium Leviosa was released. The nested
++	// call switches the state, and the outer one, back from EndState, finds it already changed and stops.
++	// Not yet verified against HP1 (UObject::GotoState, Core 0x10131BB0): written from how UE1 scripts behave.
++	if (oldState && oldState != newState && !InEndState)
++	{
++		struct EndStateScope
++		{
++			UObject* object;
++			EndStateScope(UObject* object) : object(object) { object->StateChangedInEndState = false; object->InEndState = true; }
++			~EndStateScope() { object->InEndState = false; }
++		} scope(this);
+ 		CallEvent(this, EventName::EndState);
++		if (StateChangedInEndState)
++		{
++			StateChangedInEndState = false;
++			return;
++		}
++	}
++	else if (InEndState && oldState != newState)
++	{
++		StateChangedInEndState = true;
++	}
+ 
  	if (oldState != newState)
  		StateFrame->SetState(newState);
  
@@ -461,7 +487,7 @@ index 2b855f33..805ade6d 100644
  	if (newState)
  	{
  		// HasStack is otherwise only ever inherited from the original package's export table at
-@@ -758,7 +769,9 @@ ScriptArray::ScriptArray(UProperty* type) : Type(type)
+@@ -758,7 +791,9 @@
  {
  }
  
@@ -472,7 +498,7 @@ index 2b855f33..805ade6d 100644
  {
  	Reserve(other.Size);
  	try
-@@ -778,7 +791,7 @@ ScriptArray::ScriptArray(const ScriptArray& other)
+@@ -778,7 +813,7 @@
  	}
  }
  
@@ -646,3 +672,17 @@ index 042d00a6..cf90cf4b 100644
  				VisibleActors.push_back(levelActor);
  		}
  	}
+--- a/SurrealEngine/Packages/Core/UObject.h
++++ b/SurrealEngine/Packages/Core/UObject.h
+@@ -335,6 +335,11 @@
+ 
+ 	std::map<NameString, std::set<NameString>> DisabledEvents;
+ 
++	// UObject::GotoState while the state's EndState is running: the nested call sends no second EndState, and the outer call
++	// does not switch the state again (the state was changed from inside EndState).
++	bool InEndState = false;
++	bool StateChangedInEndState = false;
++
+ 	std::unique_ptr<ObjectDelayLoad> DelayLoad;
+ 
+ 	NameString Name;

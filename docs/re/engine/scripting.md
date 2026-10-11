@@ -89,3 +89,17 @@ In HP1's Lev_Tut1, `SpellLearnTrigger` calls `Teacher.TurnToward(Cam)` on Quirre
 `execTurnToward` (0x103D9130) sets the *target's* `StateFrame->LatentAction` (511), but UE1 only processes state
 frames that have code, so a pawn in a code-less state never polls it and never turns. SurrealEngine resumed that
 frame and ran off the end of the empty state. (HP1's Engine.dll; HP2 not checked.)
+
+## GotoState from inside EndState
+
+`UObject::GotoState` sends EndState to the old state before it switches, so while EndState runs the object is still in the
+old state. A script that calls `GotoState` from there (AdamJD's movement mod: `baseHarry.wingspell.EndState` calls
+`freeHarry()`, which is `GotoState('playerWalking')`, to let go of a levitated object) made SurrealEngine send EndState again,
+and again: the stack ran out on releasing Wingardium Leviosa (SIGSEGV on the guard page; 512 identical frames in the
+Android log). The vanilla scripts never do it.
+
+`UObject` now has an `InEndState` flag: a nested `GotoState` sends no second EndState, switches the state, and marks the
+outer call, which on return from EndState sees the state already changed and stops (the outer target is dropped). UActor's
+destroy path (KnowWonder, EndState before the actor is deleted) sets the flag too. Written from how UE1 behaves, **not yet
+checked against HP1's `UObject::GotoState` (Core 0x10131BB0)**: confirm the flag handling and the "outer call stops" part
+there. In `0010-engine-fixes.patch` (UObject) and `0120-knowwonder-actors.patch` (UActor).
