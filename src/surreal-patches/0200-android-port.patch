@@ -886,6 +886,15 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
 --- a/SurrealGPU/src/vulkanbuilders.cpp
 +++ b/SurrealGPU/src/vulkanbuilders.cpp
+@@ -1236,7 +1236,7 @@
+ 
+ 	VkPipeline pipeline = 0;
+ 	VkResult result = vkCreateGraphicsPipelines(device->device, cache ? cache->cache : VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline);
+-	device->CheckVulkanError(result, "Could not create graphics pipeline");
++	device->CheckVulkanError(result, debugName ? (std::string("Could not create graphics pipeline ") + debugName).c_str() : "Could not create graphics pipeline");
+ 	auto obj = std::make_unique<VulkanPipeline>(device, pipeline);
+ 	if (debugName)
+ 		obj->SetDebugName(debugName);
 @@ -1835,23 +1835,40 @@
  	{
  		const auto& info = instance->PhysicalDevices[idx];
@@ -969,6 +978,17 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  
  	size_t selected = deviceIndex;
  	if (selected >= supportedDevices.size())
+--- a/SurrealGPU/src/gpupipeline.cpp
++++ b/SurrealGPU/src/gpupipeline.cpp
+@@ -365,7 +365,7 @@
+ 
+ 	VkPipeline vkpipeline = 0;
+ 	VkResult result = vkCreateGraphicsPipelines(device->getVulkanDevice()->device, cache ? cache->cache : VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &vkpipeline);
+-	device->getVulkanDevice()->CheckVulkanError(result, "Could not create graphics pipeline");
++	device->getVulkanDevice()->CheckVulkanError(result, ("Could not create graphics pipeline " + desc.label).c_str());
+ 	pipeline = std::make_unique<VulkanPipeline>(device->getVulkanDevice(), vkpipeline);
+ 	if (!desc.label.empty())
+ 		pipeline->SetDebugName(desc.label.c_str());
 --- a/SurrealGPU/src/vulkanswapchain.cpp
 +++ b/SurrealGPU/src/vulkanswapchain.cpp
 @@ -167,6 +167,11 @@
