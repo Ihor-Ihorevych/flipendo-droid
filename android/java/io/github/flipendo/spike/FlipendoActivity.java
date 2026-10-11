@@ -362,6 +362,7 @@ public class FlipendoActivity extends SDLActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        android.util.Log.i("flipendo", "Flipendo for Android " + LogReport.version(this));
         if (ensureStorageAccess()) {
             installResources();
         }
@@ -549,6 +550,7 @@ public class FlipendoActivity extends SDLActivity {
 
         // Languages carried by this APK ({code, label}) and the Language button, which opens them as a list
         final java.util.List<String[]> languages = SetupActivity.readLanguages(getContext());
+        final String appVersion = LogReport.version(getContext()); // in the settings header
         boolean langListOpen;       // the list over the settings panel
         int langFocus = -1;         // the row the pad is on
         final java.util.List<android.graphics.RectF> langRows = new java.util.ArrayList<>();
@@ -1599,7 +1601,7 @@ public class FlipendoActivity extends SDLActivity {
             titlePaint.setTextAlign(Paint.Align.LEFT);
             c.drawText("Settings", colL0 + 0.025f * u, headerY, titlePaint);
             subPaint.setTextAlign(Paint.Align.RIGHT);
-            c.drawText("Flipendo for Android", colR1, headerY, subPaint);
+            c.drawText("Flipendo for Android " + appVersion, colR1, headerY, subPaint);
             subPaint.setTextAlign(Paint.Align.LEFT);
             line.setColor(0x22FFFFFF);
             line.setStrokeWidth(2f);

@@ -93,7 +93,18 @@ done
 # keep the unstripped library: frames in a user's crash.txt are module+offset, symbolicate them against it
 mkdir -p android/dist/symbols
 cp "$BUILD/libmain.so" android/dist/symbols/libmain.unstripped.so
-git describe --always --dirty > android/dist/symbols/build-info.txt
+# The version (docs/android.md, "Versions"): android/VERSION is the release number; a build of its tag android-v<VERSION>
+# carries it as is, any other build adds -dev+<commit>. versionCode is the commit count, so every newer build counts higher.
+VERSION="$(tr -d ' \r\n' < android/VERSION)"
+VERSION_CODE="$(git rev-list --count HEAD)"
+if [ "$(git tag --points-at HEAD | grep -cx "android-v$VERSION")" = 1 ] && [ -z "$(git status --porcelain --untracked-files=no --ignore-submodules)" ]; then
+	VERSION_NAME="$VERSION"
+else
+	VERSION_NAME="$VERSION-dev+$(git rev-parse --short HEAD)"
+fi
+echo "version $VERSION_NAME (code $VERSION_CODE)"
+echo "$VERSION_NAME" > android/dist/symbols/build-info.txt
+git describe --always --dirty >> android/dist/symbols/build-info.txt
 date +%F >> android/dist/symbols/build-info.txt
 paste -sd' ' android/dist/symbols/build-info.txt > "$A/assets/build-info.txt"
 "$STRIP" --strip-unneeded "$A"/lib/arm64-v8a/*.so
@@ -121,7 +132,7 @@ package() {
 	# android/res: the launcher icon (mipmap-*/ic_launcher.png, scaled from images/branding/flipendo-icon.png)
 	"$BT/aapt2.exe" compile --dir android/res -o "$A/res.zip"
 	"$BT/aapt2.exe" link -o "$A/base.apk" --manifest android/AndroidManifest.xml -I "$AJ" -R "$A/res.zip" \
-		--min-sdk-version 29 --target-sdk-version 35
+		--min-sdk-version 29 --target-sdk-version 35 --version-code "$VERSION_CODE" --version-name "$VERSION_NAME"
 	local extra=()
 	[ $# -gt 0 ] && extra=(-C "$1" assets)
 	(cd "$A" && cp base.apk unsigned.apk && jar uf unsigned.apk classes.dex lib assets "${extra[@]/#$A\//}" && "$BT/zipalign.exe" -f -p 4 unsigned.apk aligned.apk)

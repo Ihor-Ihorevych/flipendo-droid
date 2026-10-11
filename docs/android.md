@@ -210,4 +210,18 @@ The drawing is judged more gently than on the PC (`KWGesture.cpp`, `ScoreGesture
 
 ## Builds on GitHub
 
-`.github/workflows/android.yml` builds the light APK on a Windows runner with `android/build-apk.sh`. Push a tag `android-<something>` (for example `git tag android-2026-10-12 && git push origin android-2026-10-12`) and the APK is published as a pre-release with notes from the commits; *Actions > Android APK > Run workflow* builds it without a release (the APK is in the run's artifacts). Every build must be signed with the same key, or it won't install over an older one: the key is the repository secret `ANDROID_DEBUG_KEYSTORE`, the base64 of `android/debug.keystore` (*Settings > Secrets and variables > Actions*). The self pack is never built there: it carries the game.
+`.github/workflows/android.yml` builds the light APK on a Windows runner with `android/build-apk.sh`. Push the release tag `android-v<VERSION>` (below) and the APK is published as a pre-release named after the version, with notes from the commits; a tag that doesn't match `android/VERSION` fails the run; *Actions > Android APK > Run workflow* builds it without a release (the APK is in the run's artifacts). Every build must be signed with the same key, or it won't install over an older one: the key is the repository secret `ANDROID_DEBUG_KEYSTORE`, the base64 of `android/debug.keystore` (*Settings > Secrets and variables > Actions*). The self pack is never built there: it carries the game.
+
+## Versions
+
+The Android port is numbered `0.MINOR.PATCH` until the whole game can be played through: new features raise MINOR, fixes
+alone raise PATCH. The number is in `android/VERSION`, and its release is the tag `android-v<number>` (`android-v0.2.0`;
+the `android-` prefix leaves room for desktop releases of Flipendo). To release: raise `android/VERSION`, commit, then
+`git tag android-v0.2.1 && git push origin master android-v0.2.1`.
+
+`build-apk.sh` writes it into the APK: `versionName` is the number for a build of exactly that tag (and no local changes),
+else `<number>-dev+<commit>`; `versionCode` is the commit count of the branch, so a newer build always counts higher and
+installs over an older one. The version shows in the settings header and on the problem cards ("Flipendo for Android
+0.2.0"), in `device-info.txt` of a log report and in logcat when the game starts.
+
+Releases before the numbering: `android-2026-10-11` is 0.1.0 (problem cards, gamepad, folder picker).

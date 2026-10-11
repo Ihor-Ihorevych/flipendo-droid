@@ -119,8 +119,19 @@ final class LogReport {
         }
     }
 
+    /** The app's version (android/VERSION, set by build-apk.sh): "0.2.0", or "0.2.0-dev+<commit>" between releases. */
+    static String version(Context context) {
+        try {
+            String name = context.getPackageManager().getPackageInfo(context.getPackageName(), 0).versionName;
+            return name != null ? name : "unknown";
+        } catch (android.content.pm.PackageManager.NameNotFoundException e) {
+            return "unknown";
+        }
+    }
+
     private static String deviceInfo(Context context) {
         StringBuilder s = new StringBuilder();
+        s.append("version: ").append(version(context)).append('\n');
         s.append("manufacturer: ").append(Build.MANUFACTURER).append('\n');
         s.append("brand: ").append(Build.BRAND).append('\n');
         s.append("model: ").append(Build.MODEL).append('\n');

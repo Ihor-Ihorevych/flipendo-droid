@@ -323,7 +323,7 @@ public class SetupActivity extends Activity {
         titleView.setPadding(dp(12), 0, dp(12), 0);
         header.addView(titleView, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         TextView app = new TextView(this);
-        app.setText("Flipendo for Android");
+        app.setText("Flipendo for Android " + LogReport.version(this));
         app.setTextColor(MUTED);
         app.setTextSize(13);
         header.addView(app);

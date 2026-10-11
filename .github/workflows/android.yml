@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # build-info.txt names the commit with git describe
+          fetch-depth: 0 # the version code is the commit count; build-info.txt names the commit
 
       - name: Engine (SurrealEngine submodule)
         run: git submodule update --init src/engine
@@ -49,6 +49,18 @@ jobs:
             echo "::warning::No ANDROID_DEBUG_KEYSTORE secret: this APK is signed with a new key and won't update an installed one"
           fi
 
+      # a release tag is android-v<android/VERSION>: a tag that doesn't match would publish an APK with another number inside
+      - name: Version
+        id: version
+        run: |
+          VERSION="$(tr -d ' \r\n' < android/VERSION)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "date=$(date +%F)" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF" == refs/tags/* ]] && [ "$GITHUB_REF_NAME" != "android-v$VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match android/VERSION ($VERSION): tag android-v$VERSION"
+            exit 1
+          fi
+
       - name: Build
         run: android/build-apk.sh
 
@@ -62,6 +74,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          name: Flipendo Droid ${{ steps.version.outputs.version }} (${{ steps.version.outputs.date }})
           files: android/dist/flipendo-droid.apk
           prerelease: true
           generate_release_notes: true
