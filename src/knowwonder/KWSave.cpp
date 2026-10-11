@@ -353,6 +353,10 @@ namespace KW
 		float* fog = &player->FlashFog().x; // FPlane: X, Y, Z, W
 		float saved[4] = { fog[0], fog[1], fog[2], fog[3] };
 		fog[0] = 0.0f; fog[1] = 0.1f; fog[2] = 0.25f; fog[3] = 0.2f;
+		// UGameEngine::Draw [HP1 0x1039FA40] calls PlayerCalcView for each frame. The level-start save runs from HPConsole.Tick before the
+		// main loop's view of the new level exists; without this the frame was drawn from the last level's camera spot
+		// (views from outside the map).
+		engine->CalcView();
 		engine->render->DrawGame(0.0f);
 		for (int i = 0; i < 4; i++)
 			fog[i] = saved[i];

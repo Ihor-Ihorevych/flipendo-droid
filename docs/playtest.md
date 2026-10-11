@@ -52,14 +52,14 @@ to test with an exact state.
 | 15 | `Lev2_Fire2` | Forest Edge | yes | Started with `--level` or `--url` the screen stays black (entered by a level change it draws; not looked into). Jelly beans fall out of the world. As in the map: the first log bridge's Flipendo trigger (`spellTrigger0`, event `logbridge`) sits on the west face of the standing log (`Mover7`), so a cast from the side hits the log's brush first and explodes; cast from the west, facing the gap. The target still locks on from the side (whether the original does is not checked). `rolllog5` is saved inside solid (its point check is blocked) and falls out of the world at load. A Flipendo at the fire crab can hit the fireball it throws (spells touch each other, `Projectile.Touch`); not compared with the original |
 | 16 | `Lev2_fire1` | Fire Seed Caves | yes | Once the chest by the exit (`WoodChest3`) was drawn black from every side, closed, the other chests fine; a new start draws it lit. Likely a mover blocking every light's visibility test (the original tests the level's BSP only); fixed in `KW::SetupMeshLighting`, not checked in play yet. A `baseChar` in `patrol` logs `PlayAnim: Sequence 'Break' not found in Mesh 'skNorbertEggMesh'` twice a second (not looked into) |
 | 17 | `Lev2_Quid1` | Quidditch Match: Gryffindor vs. Slytherin | yes | |
-| 18 | `Lev3_Intro` | Hogwarts Main Entrance (also 19 Lumos Lesson) | being played | |
-| 20 | `Lev3_Lumos` | Lumos Challenge | no | |
-| 21 | `Lev3_PreDungeon` | Second Floor Landing | no | |
-| 22 | `Lev3_Dungeon` | Potions Lesson | no | |
-| 23 | `Lev3_DungeonB` | Potions Challenge | no | |
-| 24 | `Lev3_PreTroll` | Hogwarts Main Entrance | no | |
-| 25 | `Lev3_Troll` | Corridor To The Girl's Washroom (also 26 Troll Battle) | no | |
-| 27 | `Lev3_Quid2` | Quidditch Match: Gryffindor vs. Ravenclaw | no | |
+| 18 | `Lev3_Intro` | Hogwarts Main Entrance (also 19 Lumos Lesson) | yes | |
+| 20 | `Lev3_Lumos` | Lumos Challenge | yes | As in the script: after Harry backs up, the bridges cutscene (Flipendo on `spellTrigger0`) ends before the bridges turn up, since `bMovingBackwards` stays set and triples the cutscene camera's speed ([re/hp1/cutscenes.md](re/hp1/cutscenes.md)); not compared with the original after backing up |
+| 21 | `Lev3_PreDungeon` | Second Floor Landing | yes | |
+| 22 | `Lev3_Dungeon` | Potions Lesson | yes | |
+| 23 | `Lev3_DungeonB` | Potions Challenge | yes | |
+| 24 | `Lev3_PreTroll` | Hogwarts Main Entrance | yes | |
+| 25 | `Lev3_Troll` | Corridor To The Girl's Washroom (also 26 Troll Battle) | yes | |
+| 27 | `Lev3_Quid2` | Quidditch Match: Gryffindor vs. Ravenclaw | no | One Ravenclaw player was seen in a T-pose on his broom (which one and why not looked into). A game started with a bare `open saveN.usa` (not the Load page) leaves `HPConsole.bInHubFlow` false, so the match runs in league mode: the story intro plays, but Harry never takes `IPGHarry_Intro` and flies on the ground with the world black behind the HUD |
 | 28 | `Lev4_Sneak` | Sneak Up To The Tower | no | |
 | 29 | `Lev4_Sneak2` | Sneak Down From The Tower (also 30 Gryffindor Common Room) | no | |
 | 31 | `Lev5_fluffy` | The Forbidden Corridor | no | |

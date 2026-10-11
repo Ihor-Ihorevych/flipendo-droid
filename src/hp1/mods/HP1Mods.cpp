@@ -102,6 +102,7 @@ namespace HP1
 	{
 		if (key == IK_Space)
 			Mods::SpaceQueued = true;
+		KW::DebugKeyDown(key);
 	}
 
 	void PostRenderMods(UCanvas* canvas)
