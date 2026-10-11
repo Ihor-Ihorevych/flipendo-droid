@@ -100,11 +100,16 @@ at edges and corners.
   as in the original (a cap gives (x, y, Location.Z - Extent.Z), the side adds the point's Z onto Location.Z);
 - the oriented cylinder (0x103FBC50 / 0x103FB7A0): the same in the actor's rotated frame;
 - the box (CT_Box, above), and meshes too: UMesh, ULodMesh and USkeletalMesh have `UBox::PointCheck` / `LineCheck`
-  in their vtables (slots 22 and 23, read 2026-10-11), so a CT_Shape actor with a Mesh checks as the oriented box of
-  CollisionRadius / CollisionWidth / CollisionHeight (only its hash box comes from the mesh). Flipendo used the raised
-  cylinder for meshes until then: Lev3_Quid2's common room table (`GryfTable2`, CollisionWidth 76.5) blocked from
+  in their vtables (slots 22 and 23, read 2026-10-11). Those take the box from the primitive's virtual
+  `GetCollisionBoundingBox` (vtable +96, bWorld false), which the mesh classes override: a CT_Shape actor with a Mesh
+  checks as the **mesh's own box**, (BoundingBox - Origin) * Scale * DrawScale (UMesh 0x103B84D0, USkeletalMesh
+  0x1041B8B0), turned and placed by `ToLocal` (Location, Rotation; not centred on the actor). Flipendo used the raised
+  cylinder for meshes at first: Lev3_Quid2's common room table (`GryfTable2`, CollisionWidth 76.5) blocked from
   Z 77 to 127 instead of up to its top at 50, and Norbert, set down at Z 101.6 by the cloak cutscene, started inside
-  it and fell to the floor. Brushes use their BSP.
+  it and fell to the floor. Then for a day it used CollisionRadius / Width / Height: Lev4_Sneak2's vase tables
+  (`RectangleWoodTable`, CollisionHeight 53 around Z 1046.5) reached Z 1100 and swallowed the vases standing on them
+  (centre Z 1059), so Harry's aim (`Target.setTarget`, the first blocking actor along the line) and the spell stopped at
+  the table and Mrs Norris couldn't be distracted. Brushes use their BSP.
 
 The actor hash (`FCollisionHash`, 256-unit cells by each actor's world collision box) is SurrealEngine's bucket grid,
 filled with HP1's boxes; candidates are then tested with their own primitive.

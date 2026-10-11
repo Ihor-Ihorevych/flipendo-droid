@@ -237,7 +237,8 @@ namespace KW
 				{
 					int turn = (newRotation.Yaw & 0xFFFC) - (actor->Rotation().Yaw & 0xFFFC);
 					vec3 arm = actor->Location() - other->Location();
-					Coords c = Coords::Rotation(Rotator(0, turn, 0));
+					// HP1 turns the arm by GMath.UnitCoords *= FRotator(turn): the inverse of Coords::Rotation (GetAxes' frame)
+					Coords c = Coords::Rotation(Rotator(0, turn, 0)).Inverse();
 					vec3 turned(dot(arm, c.XAxis), dot(arm, c.YAxis), dot(arm, c.ZAxis));
 					rotOffset = arm - turned;
 				}
