@@ -26,8 +26,15 @@ command list (`Cast0Script` .. `Cast6Script`, strings like `Moveto HpLoc`, `Talk
   next cutscene three times faster. Lev3_Lumos's bridges cutscene (`CutScene3`, from `Dispatcher2`) then lasts
   ~5.4 s instead of ~11.7 s and ends before the `Bridges` movers turn up at 7.2 s (measured 2026-10-11 with
   `HP1_KEYS` holding Down for 1 s before `@trigger BridgesSwitch`).
-- **CutSkip()** zeroes each cast member's next-action time; nothing in HP1 calls it (the CutsceneSkip mod does,
-  [modding.md](../../modding.md)).
+- **CutSkip()** zeroes each cast member's next-action time; nothing in HP1 calls it. Calling it breaks scenes: the cast
+  members keep in step only through their waits (`Sleep`, and `Talk`'s line length), not through cues. Lev3_Quid2's
+  common room scene (`CutScene3`, tag `Intro`) has the camera (cast 0) do `Sleep 9.0`, `Sleep 2.0`, `FadeOut 1.0`
+  while the narrator (cast 6) reads three lines and then does `Trigger QuidIntro`; the stadium scene (`CutScene0`)
+  begins with `Sleep 1.0`, `FadeIn 1.0`. Unskipped the camera's FadeOut comes first. With every wait zeroed the narrator
+  got there first, the FadeOut came after the stadium's FadeIn, and the match was played with `ConstantGlowFog.W` at -1:
+  a black world under the HUD. The CutsceneSkip mod ([modding.md](../../modding.md)) therefore cuts every timed wait
+  by the shortest one left, and nothing while a cast member is in a move or turn (waiting for a cue named after its
+  actor), which keeps the order (checked 2026-10-11 with `HP1_SKIPCUTS=1`).
 
 ## Lev_Tut1 after the jump room
 
