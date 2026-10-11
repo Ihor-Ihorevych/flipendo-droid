@@ -219,14 +219,20 @@ namespace KW
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// An actor's primitive
 
+	// A mesh primitive (CT_Shape with a Mesh, AActor::GetPrimitive 0x1037A880) checks as a UBox: UMesh, ULodMesh and
+	// USkeletalMesh have UBox::PointCheck / LineCheck in their vtable slots (22, 23), so the oriented box of
+	// CollisionRadius / CollisionWidth / CollisionHeight, not UPrimitive's cylinder raised by CollisionWidth. Lev3_Quid2's
+	// common room table (GryfTable2, CollisionRadius = CollisionWidth = 76.5) had its cylinder 76 units above the table
+	// top, and Norbert, teleported inside it, fell through to the floor.
 	bool PrimitiveLineCheck(CheckResult& hit, UActor* actor, const vec3& end, const vec3& start, const vec3& extent, uint8_t extraNodeFlags)
 	{
 		switch (ActorPrimitive(actor))
 		{
 		case PrimitiveKind::Brush: return ModelLineCheck(hit, ModelFrame::Brush(actor), end, start, extent, extraNodeFlags);
-		case PrimitiveKind::Box: return BoxLineCheck(hit, actor, end, start, extent);
+		case PrimitiveKind::Box:
+		case PrimitiveKind::Mesh: return BoxLineCheck(hit, actor, end, start, extent);
 		case PrimitiveKind::OrientedCylinder: return OrientedCylinderLineCheck(hit, actor, end, start, extent);
-		default: return CylinderLineCheck(hit, actor, end, start, extent); // meshes use UPrimitive's cylinder
+		default: return CylinderLineCheck(hit, actor, end, start, extent);
 		}
 	}
 
@@ -235,7 +241,8 @@ namespace KW
 		switch (ActorPrimitive(actor))
 		{
 		case PrimitiveKind::Brush: return ModelPointCheck(hit, ModelFrame::Brush(actor), location, extent, extraNodeFlags);
-		case PrimitiveKind::Box: return BoxPointCheck(hit, actor, location, extent);
+		case PrimitiveKind::Box:
+		case PrimitiveKind::Mesh: return BoxPointCheck(hit, actor, location, extent);
 		case PrimitiveKind::OrientedCylinder: return OrientedCylinderPointCheck(hit, actor, location, extent);
 		default: return CylinderPointCheck(hit, actor, location, extent);
 		}
