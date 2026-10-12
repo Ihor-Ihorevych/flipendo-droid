@@ -52,14 +52,14 @@ A note that says "HP2 not checked" means exactly that: don't assume HP2 is the s
 
 ## Generated reports (`reports/`)
 
-Rerun the tool after changes:
+Regenerated after changes:
 
-| Report | What's in it | Tool |
-|---|---|---|
-| [dlls.md](reports/dlls.md) | every DLL of HP1 and HP2: what it does, its exports and classes, who provides it in Flipendo, every function we reimplemented and whether HP2 has the same code, script native counts | `tools/dll_report.py` |
-| [hp2_compare.md](reports/hp2_compare.md) | HP1 vs HP2 code, export by export, and which ported functions carry over | `tools/hp2_compare.py` |
-| [native_audit_hp1.md](reports/native_audit_hp1.md) | every native HP1's scripts declare: OK / STUB / MISSING / INDEX | `tools/native_audit.py hp1` |
-| [native_audit_hp2.md](reports/native_audit_hp2.md) | the same for HP2; HP1_PORT = covered by a `src/knowwonder/` port gated to HP1 | `tools/native_audit.py hp2` |
+| Report | What's in it |
+|---|---|
+| [dlls.md](reports/dlls.md) | every DLL of HP1 and HP2: what it does, its exports and classes, who provides it in Flipendo, every function we reimplemented and whether HP2 has the same code, script native counts |
+| [hp2_compare.md](reports/hp2_compare.md) | HP1 vs HP2 code, export by export, and which ported functions carry over |
+| [native_audit_hp1.md](reports/native_audit_hp1.md) | every native HP1's scripts declare: OK / STUB / MISSING / INDEX |
+| [native_audit_hp2.md](reports/native_audit_hp2.md) | the same for HP2; HP1_PORT = covered by a `src/knowwonder/` port gated to HP1 |
 
 ## Adding a note
 

@@ -33,8 +33,8 @@ behind `IsHarryPotter1()`, so other UE1 games keep working. Fixes to SurrealEngi
 ### Changing a hook
 
 1. Edit the patched file under `src/engine/` (the patches are already applied after a build).
-2. `tools/refresh_patches.sh` regenerates `src/surreal-patches/` from the working tree. `src/surreal-patches/routes.txt` decides which patch
-   a file goes to; a newly touched file with no route stops the refresh until you add one. New source files belong in
+2. Regenerate `src/surreal-patches/` from the working tree's diff. `src/surreal-patches/routes.txt` decides which patch
+   a file goes to; a newly touched file needs a route there first. New source files belong in
    `src/knowwonder/` or `src/hp1/`, not `src/engine/`.
 3. Rebuild, then commit `src/surreal-patches/` (never `src/engine/` itself) and add the hook to the table below.
 
@@ -43,14 +43,9 @@ contain yet. Temporary debug edits must be reverted (`tools/apply_patches.sh --r
 
 ### Moving to a newer SurrealEngine
 
-```sh
-tools/update_engine.sh --check   # new SurrealEngine commits + which patched files they touch
-tools/update_engine.sh           # move src/engine/ to SurrealEngine master and re-apply src/surreal-patches/
-tools/update_engine.sh <sha>     # or a specific commit
-```
-
-If a patch no longer applies, `apply_patches.sh` reports `CONFLICT`: redo that hook by hand in `src/engine/`, run
-`tools/refresh_patches.sh`, rebuild, and commit `src/surreal-patches/` together with the new `engine` submodule pointer.
+Fetch SurrealEngine in `src/engine/`, check out the new commit and run `tools/apply_patches.sh`. If a patch no longer
+applies, it reports `CONFLICT`: redo that hook by hand in `src/engine/`, regenerate `src/surreal-patches/`, rebuild,
+and commit `src/surreal-patches/` together with the new `engine` submodule pointer.
 
 ## Hooks by file
 

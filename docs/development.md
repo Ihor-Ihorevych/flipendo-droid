@@ -13,13 +13,12 @@ basics are in [CONTRIBUTING.md](../CONTRIBUTING.md#building).
 | `src/flipendo.cmake` | Adds `src/knowwonder/`, `src/hp1/` and `src/hp2/` to SurrealEngine's build (one line in `src/engine/CMakeLists.txt`). |
 | `src/engine/` | [SurrealEngine](https://github.com/dpjudas/SurrealEngine), our engine dependency, as a git submodule. Never committed to. |
 | `src/surreal-patches/` | Our changes to SurrealEngine, applied to `src/engine/` by the build, split by topic ([engine-hooks.md](engine-hooks.md)). |
-| `tools/` | Build, run, extraction, audit and comparison scripts. |
+| `tools/` | The build scripts (`build.sh`, `apply_patches.sh`). |
 | `docs/` | This documentation ([index](README.md)); [`docs/re/`](re/) holds the reverse-engineering notes and reports. |
 | `images/` | Logos (`images/branding/`) and the README screenshots (`images/screenshots/`). |
-| `reference/` | Scripts and map dumps extracted from your own installs (`reference/hp1/`, `reference/hp2/`). **Gitignored**. |
 
 Next to the repository (not in it): `../eagames/hp1` and `../eagames/hp2` are the retail game folders (never modified),
-`../eagames/hp1-work` the disposable copy runs use (made by `tools/run_hp1.sh`), and `../ida/` the IDA databases (`hp1/` and `hp2/`, never mixed: `../ida/README.md`).
+`../eagames/hp1-work` the disposable copy runs use, and `../ida/` the IDA databases (`hp1/` and `hp2/`, never mixed: `../ida/README.md`).
 
 How code is split between `src/knowwonder/`, `src/hp1/` and `src/hp2/` so that each behaviour exists once: [one-engine.md](one-engine.md).
 
@@ -47,17 +46,11 @@ comments or stock UE1 behaviour instead of reversing says so in the tag.
 
 ## Reference material
 
-```sh
-tools/extract_scripts.sh [hp1|hp2]      # -> reference/<game>/ScriptSource/ (needs the .NET 10 SDK)
-python tools/native_audit.py [hp1|hp2]  # -> docs/re/reports/native_audit_<game>.md
-python tools/dll_report.py              # -> docs/re/reports/dlls.md
-```
-
 - **The games' own scripts.** All gameplay packages are pure UnrealScript. HP1's `.u` files embed their source text
   with KnowWonder's comments (1247 classes); HP2 stripped most of it, so those classes are decompiled from bytecode
-  (1749 classes, 1602 decompiled). `tools/extract_scripts.sh` uses [UELib](https://github.com/EliotVU/Unreal-Library)
-  (`tools/Unreal-Library` submodule, our extractor in `tools/uelib_dump/`). `tools/uelib_dump props <package> <file>`
-  dumps every object of a package with its properties (e.g. all actors of a map, cutscene scripts). Use the scripts
+  (1749 classes, 1602 decompiled). Extract them from your own install with
+  [UELib](https://github.com/EliotVU/Unreal-Library) (never commit them); UELib also dumps every object of a package with its properties (e.g. all actors of
+  a map, cutscene scripts). Use the scripts
   from your own disc, not other exports floating around (they are different builds).
 - **The DLLs.** [re/reports/dlls.md](re/reports/dlls.md): what each DLL does, its exports, what we reimplemented and
   HP2 status. The native code is in KnowWonder's `Engine.dll` (plus bits of `Core.dll`, `Fire.dll`, `Render.dll`); they aren't
@@ -73,8 +66,7 @@ python tools/dll_report.py              # -> docs/re/reports/dlls.md
 
 1. Find it in [native_audit_hp1.md](re/reports/native_audit_hp1.md) (or `_hp2`), or from an
    `Unimplemented: Class.Function` line in the log.
-2. Read its declaration and callers in `reference/hp1/ScriptSource/<Package>/Classes/`, and HP2's in
-   `reference/hp2/ScriptSource/`.
+2. Read its declaration and callers in HP1's extracted scripts, and HP2's.
 3. Reverse the original in `Engine.dll` by its decorated name (e.g. `?execPlayAnim@AActor@@QAEXAAUFFrame@@QAX@Z`).
    A script state that never gets entered is usually an event the engine doesn't raise: check
    [script_events.md](re/engine/script_events.md) first.
@@ -86,9 +78,8 @@ python tools/dll_report.py              # -> docs/re/reports/dlls.md
    - HP-only Actor properties: accessors in `src/knowwonder/KWActor.h` (offsets looked up by name);
    - only if there's no other way, a gated hook in an engine file, listed in [engine-hooks.md](engine-hooks.md);
    - the [IDA tag](#ida-tags) above every reimplemented function.
-5. Rebuild, run `tools/run_hp1.sh 60`, check the `Unimplemented:` summary, rerun the audits
-   (`python tools/native_audit.py hp1`, `hp2`, `tools/hp2_compare.py`, `tools/dll_report.py`), and note what you
-   learned in `docs/re/`.
+5. Rebuild, run the game with a log (`--autolaunch --logfile=<file>`), check its `Unimplemented:` lines, regenerate
+   the reports in [`re/reports/`](re/reports/), and note what you learned in `docs/re/`.
 
 ## Debug tools
 
@@ -97,21 +88,15 @@ set times, plus crash reports and the script debugger: [debug-tools.md](debug-to
 
 ## README screenshots
 
-`tools/readme_shots.sh` retakes every image in `images/screenshots/` (and `social-preview.jpg`) from fixed recipes:
-map, the second the shot is taken at, and whether it's cropped to the cutscene picture. Rerun it after a visual fix
-(`tools/readme_shots.sh dumbledore hagrid` for some). It uses its own game copy, `../eagames/hp1-shots`, set to a
-1920x1080 window, so `hp1-work` keeps its settings. To add or move a shot, film the level with `HP1_SHOTS` every second
-or two, pick the frame, and add a line to the script's list.
+The images in `images/screenshots/` (and `social-preview.jpg`) are taken in a 1920x1080 window. To retake or add one,
+film the level with `HP1_SHOTS` every second or two and pick the frame.
 
 ## Comparing with HP2
 
-HP2 (retail 1.0, `../eagames/hp2`) runs on the same engine build (433). To see which ports carry over:
-
-1. Open each DLL in IDA (HP1: `../ida/hp1/<Dll>.dll(.i64)`, HP2: copies in `../ida/hp2/`).
-2. In each database run `exec(open(r'<repo>/tools/ida_fingerprint.py').read()); fingerprint(r'../ida/fingerprints/<hp1|hp2>_<Dll>.json')`.
-3. `python tools/hp2_compare.py` writes [re/reports/hp2_compare.md](re/reports/hp2_compare.md): per DLL how many exports
-   are identical, differ only in struct offsets/constants, or changed, and the same for every `// IDA`-tagged function;
-   `python tools/dll_report.py` refreshes [re/reports/dlls.md](re/reports/dlls.md).
+HP2 (retail 1.0, `../eagames/hp2`) runs on the same engine build (433). Which ports carry over is in
+[re/reports/hp2_compare.md](re/reports/hp2_compare.md), made from IDA fingerprints of both games' DLLs (HP1:
+`../ida/hp1/<Dll>.dll(.i64)`, HP2: copies in `../ida/hp2/`): per DLL how many exports are identical, differ only in
+struct offsets/constants, or changed, and the same for every `// IDA`-tagged function.
 
 Native `exec*` wrappers mostly show as changed by about 29 bytes each: that is HP2's DebugInfo check after the
 parameters ([re/engine/scripting.md](re/engine/scripting.md#debuginfo-0x38)), not a behaviour change. Read the HP2 code

@@ -36,7 +36,8 @@ build/Release/SurrealEngine.exe "C:/Games/Harry Potter"            # opens the l
 ```
 
 `tools/build.sh [Release|Debug|RelWithDebInfo] [target]` applies our patches to `src/engine/` and builds.
-`tools/run_hp1.sh` launches straight into the game with a log ([docs/development.md](docs/development.md)).
+`build/Release/SurrealEngine.exe --autolaunch --logfile=hp1.log <game folder>` launches straight into the game with a
+log ([docs/development.md](docs/development.md)).
 
 ### Linux / macOS
 

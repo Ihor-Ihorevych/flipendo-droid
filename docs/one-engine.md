@@ -27,7 +27,7 @@ saving and spells ([re/hp2/gameplay.md](re/hp2/gameplay.md)).
 
 Because the engines are so close, by default **everything goes in `src/knowwonder/`**, and `src/hp1/` / `src/hp2/` stay small. Before
 putting anything in one game's folder, check the other game (`hp2_compare.md`, and its scripts in
-`reference/<game>/ScriptSource/`): if it has the same thing, it goes in `src/knowwonder/`.
+extracted scripts): if it has the same thing, it goes in `src/knowwonder/`.
 
 ## The rules that prevent duplication
 
@@ -46,13 +46,14 @@ putting anything in one game's folder, check the other game (`hp2_compare.md`, a
 5. **Registration order expresses it:** `KW::RegisterNatives()` registers every native with HP1's signature, then
    calls `HP2::RegisterNatives()` when HP2 runs, which adds HP2's natives and overrides only the changed ones.
    HP1-only natives that HP2 lacks are registered from `src/hp1/` (or gated `KW::IsHP1()`).
-6. **Check before porting.** `python tools/hp2_compare.py` says per function whether HP2's code is identical,
-   offsets-only or changed. `python tools/native_audit.py hp2` lists what HP2's scripts still miss. Read HP2's code
+6. **Check before porting.** [re/reports/hp2_compare.md](re/reports/hp2_compare.md) says per function whether HP2's
+   code is identical, offsets-only or changed. [native_audit_hp2.md](re/reports/native_audit_hp2.md) lists what HP2's
+   scripts still miss. Read HP2's code
    for every "changed" function before deciding it needs a branch: most are the same as HP1's apart from the
    DebugInfo check ([re/engine/scripting.md](re/engine/scripting.md#debuginfo-0x38)), which the bytecode reader handles
    once.
-7. **Keep the tools in sync.** After adding or moving a port, rerun `python tools/hp2_compare.py`,
-   `python tools/native_audit.py hp1`, `python tools/native_audit.py hp2` and `python tools/dll_report.py`. A duplicate
+7. **Keep the reports in sync.** After adding or moving a port, regenerate the reports in
+   [re/reports/](re/reports/). A duplicate
    shows up there as the same decorated name tagged in two folders.
 
 ## What `src/hp2/` has so far

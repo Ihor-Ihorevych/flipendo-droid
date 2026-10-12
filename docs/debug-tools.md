@@ -1,7 +1,7 @@
 # Debug tools
 
 For contributors and modders: drive the game from the command line, look inside it, and see what the scripts do.
-Use them with `tools/run_hp1.sh` ([development.md](development.md)). The variables are named `HP1_*` because HP1 is the
+Set them for `SurrealEngine.exe` ([development.md](development.md)). The variables are named `HP1_*` because HP1 is the
 game that runs today; the code behind them is in the shared `src/knowwonder/KWDebug.cpp`.
 
 ## Environment variables
@@ -47,7 +47,7 @@ Times are seconds since the first frame.
 
 ## Starting a level: `--level`
 
-Start a level with `tools/run_hp1.sh 0 --level=<map>`. It loads the map in the story flow (`HPConsole.bInHubFlow`,
+Start a level with `SurrealEngine.exe --autolaunch --level=<map> <game folder>`. It loads the map in the story flow (`HPConsole.bInHubFlow`,
 as New Game and Load set it) with what an average player carries in from the levels before
 (`src/hp1/HP1LevelStart.cpp`). Don't playtest with `--url`: it only loads the map, with a new game's state and outside
 the story, so the flying lesson runs as its menu replay (no beans or wizard card, the hoops loop, ESC to leave) and
@@ -71,7 +71,7 @@ the wand picks the spell from the target, `baseWand.ChooseSpell`):
 - **Save slot** 0, or `--slot=<0-5>`, selected as New Game does (`FESlotPage.SetSelectedSlot`), so the save books
   write a slot the Load page lists. Without a slot every save goes to slot 99, which the page never shows.
 
-The counts come from the maps' actors (`tools/uelib_dump props`). A save made in the level before is still the way
+The counts come from the maps' actors (dumped with UELib). A save made in the level before is still the way
 to test with an exact state.
 
 ### Automated route through Lev_Tut1
@@ -86,12 +86,12 @@ box D (3150,-3346,J; 3150,-3640) → south ledge (3150,-3748,J; 3150,-3930) → 
 
 ## Comparing with the original
 
-`tools/orig_shots.ps1 -Map Lev_Tut2 [-Seconds 28] [-Out dir]` runs the original `HP.exe` from `../eagames/hp1-orig`
-straight into a map and saves its window every second (PrintWindow: the game window only, never the desktop). Take
+Run the original `HP.exe` from a copy of its own (`../eagames/hp1-orig`) straight into a map and save its window
+every second (the game window only, never the desktop). Take
 ours at the same times with `HP1_SHOTS="1,2,3,..."`; the original loads a few seconds slower, so pair frames by
 content. `hp1-orig`'s `System/HP.ini` skips the first-run wizard (`FirstRun=433`), runs windowed (`StartupFullscreen`,
 D3DDrv `UseFullscreen` False) with Direct3D at Brightness 0.4 like ours. A `Running.ini` left by a killed run starts
-the original in Recovery Mode; the script deletes it. Its window takes the focus while it runs. The original's `shot`
+the original in Recovery Mode; delete it first. Its window takes the focus while it runs. The original's `shot`
 command wrote nothing (F9 bound in `User.ini`), hence the window capture.
 
 ## Crashes and the script debugger
@@ -102,7 +102,6 @@ disassembly) builds alongside the game.
 
 ## Script tools
 
-- `tools/uelib_dump props <package> <file>`: every object in a package with its properties (for example all actors of
-  a map, or the cutscene command lists).
-- `tools/extract_scripts.sh [hp1|hp2]`: the games' scripts with KnowWonder's comments (HP1) or decompiled (HP2), into
-  `reference/<game>/ScriptSource/`.
+[UELib](https://github.com/EliotVU/Unreal-Library) reads the packages: every object in a package with its properties
+(for example all actors of a map, or the cutscene command lists), and the games' scripts with KnowWonder's comments
+(HP1) or decompiled (HP2).

@@ -4,14 +4,14 @@ What's left to do on the HP1 port, and what's next. Only open work is listed: re
 was done is in the git history, how it works in `docs/`, [docs/README.md](docs/README.md)). Not repeated here:
 which code is still SurrealEngine's and what to
 reverse next ([docs/surrealengine-coverage.md](docs/surrealengine-coverage.md)), the native-level checklist
-([docs/re/reports/native_audit_hp1.md](docs/re/reports/native_audit_hp1.md), `python tools/native_audit.py`).
+([docs/re/reports/native_audit_hp1.md](docs/re/reports/native_audit_hp1.md)).
 
 Legend: [~] partly done / in progress · [ ] not started
 
 ## Next up (in order)
 1. **SurrealEngine's guesses, reversed in order**: the list is in
    [docs/surrealengine-coverage.md](docs/surrealengine-coverage.md#what-to-reverse-next-in-order).
-2. **Dark levels**: compare Lev5_FlyKeys' lighting with the original (`tools/orig_shots.ps1`).
+2. **Dark levels**: compare Lev5_FlyKeys' lighting with the original ([docs/debug-tools.md](docs/debug-tools.md#comparing-with-the-original)).
 3. **First prebuilt release** (see "Releases"): players can't try Flipendo without building it.
 
 Visual parity checks against the original, side by side, wait until the end (after gameplay works): mesh lighting
