@@ -73,7 +73,7 @@ All taken in Flipendo at 1920x1080 from the original game files.
 ## Status
 
 > **The whole story has been played through, start to finish, in Flipendo** (October 2026). There are no downloads
-> yet; for now you build it yourself (below). Follow progress on [Discord](#community) or in [`ROADMAP.md`](ROADMAP.md).
+> yet; for now you build it yourself (below). Follow progress in [`ROADMAP.md`](ROADMAP.md).
 
 | | |
 |---|---|
@@ -140,8 +140,6 @@ and [docs/modding.md](docs/modding.md) to write a mod today.
 
 ## Community
 
-- **Discord**: [join the server](https://discord.gg/tCJs6wmABw) to share screenshots, report bugs, talk modding
-  and reverse engineering.
 - **Bugs and ideas**: open an issue. Include your game version, what you did, and the log (`--logfile=...`).
 - **Help out**: playtesting, modding, reverse engineering, C++. Most of it needs no programming:
   [CONTRIBUTING.md](CONTRIBUTING.md).

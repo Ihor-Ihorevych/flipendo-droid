@@ -1,7 +1,6 @@
 # Contributing to Flipendo
 
-There's work for every skill level, and much of it needs no programming. Come say hi on
-[Discord](README.md#community) first if you're unsure where to start.
+There's work for every skill level, and much of it needs no programming.
 
 ## Ways to help
 
@@ -14,7 +13,7 @@ There's work for every skill level, and much of it needs no programming. Come sa
   [docs/re/](docs/re/README.md) has what's been learned so far, the shared engine and each game's own parts.
 - **C++ developers**: start with [docs/development.md](docs/development.md) (layout, ground rules, reference
   material), [docs/one-engine.md](docs/one-engine.md) (one code path for both games) and the [roadmap](ROADMAP.md).
-- **Writers and artists**: documentation, guides, screenshots and clips for the README and the Discord.
+- **Writers and artists**: documentation, guides, screenshots and clips for the README.
 
 ## Other game versions
 
