@@ -252,3 +252,15 @@ game without the problem card. Settings has a **Renderer** button in the footer 
 switched); a change asks for a second tap and restarts. The log report's `device-info.txt` has a `renderer:` line.
 `/sdcard/FlipendoHP/fail_vulkan.txt` makes Vulkan fail on purpose to try the switch. The manifest no longer requires Vulkan,
 only OpenGL ES 3.2.
+
+### Black level geometry on older Mali (Helio G91, Mali-G52 r32)
+
+The level's walls and floors were black while actors (Harry, Dumbledore, the armours, particles) drew fine: the surfaces are
+the textures with full mip chains (and the lightmaps), the actors' skins and the HUD mostly have a single level. The
+desktop device makes every texture mutable (`glTexImage2D` per level, nothing guaranteeing the chain reaches the sampler's
+base level range); the Mali-G52 r32p1 driver sampled such textures black while Mali-G615 (r44) and Adreno were fine. On
+Android a texture now gets immutable storage (`glTexStorage2D`) with `min(NumMips, levels down to 1x1)` levels and
+`GL_TEXTURE_MAX_LEVEL` set to the last; `UploadData` stops at the allocated levels (`GL_TEXTURE_IMMUTABLE_LEVELS`).
+The log has `OpenGL limits:` and `OpenGL extensions:` lines, and an incomplete scene framebuffer is reported by its status.
+Test aid: `/sdcard/FlipendoHP/gl_nomip.txt` makes every texture single-level (if the geometry then shows, mip chains are
+the culprit on that phone).

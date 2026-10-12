@@ -1155,7 +1155,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  	switch (AntialiasMode)
  	{
  	default:
-@@ -58,6 +75,13 @@
+@@ -58,6 +75,30 @@
  		if (result == ogl_LOAD_FAILED)
  			throw std::runtime_error("ogl_LoadFunctions failed");
  
@@ -1163,13 +1163,30 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
 +		const char* glRenderer = (const char*)glGetString(GL_RENDERER);
 +		LogMessage(std::string("OpenGL renderer: ") + (glRenderer ? glRenderer : "?") + ", " + (glVersion ? glVersion : "?"));
 +#ifdef __ANDROID__
++		{
++			GLint count = 0, maxTexture = 0, maxUnits = 0;
++			glGetIntegerv(GL_NUM_EXTENSIONS, &count);
++			glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTexture);
++			glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &maxUnits);
++			std::string extensions;
++			for (GLint i = 0; i < count; i++)
++			{
++				const char* ext = (const char*)glGetStringi(GL_EXTENSIONS, (GLuint)i);
++				if (ext)
++					extensions += std::string(extensions.empty() ? "" : " ") + (strncmp(ext, "GL_", 3) == 0 ? ext + 3 : ext);
++			}
++			LogMessage("OpenGL limits: max texture size " + std::to_string(maxTexture) + ", texture units " + std::to_string(maxUnits));
++			LogMessage("OpenGL extensions: " + extensions);
++		}
++#endif
++#ifdef __ANDROID__
 +		LogMessage(std::string("OpenGL scene buffer: ") + (SceneColorFormat() == GL_RGBA16F ? "half float" : "RGBA8 (no half float render targets)"));
 +#endif
 +
  		CreateScenePass();
  		CreatePresentPass();
  		CreateBloomPass();
-@@ -145,7 +169,7 @@
+@@ -145,7 +186,7 @@
  	{
  		glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, SceneBuffers.ColorBuffer->Handle);
  		SetDebugName(SceneBuffers.ColorBuffer, "SceneBuffers.ColorBuffer");
@@ -1178,7 +1195,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  		glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAX_LEVEL, 0);
  		ThrowIfGLError("glTexStorage2DMultisample(SceneBuffers.ColorBuffer) failed");
  	}
-@@ -153,7 +177,7 @@
+@@ -153,7 +194,7 @@
  	{
  		glBindTexture(GL_TEXTURE_2D, SceneBuffers.ColorBuffer->Handle);
  		SetDebugName(SceneBuffers.ColorBuffer, "SceneBuffers.ColorBuffer");
@@ -1187,7 +1204,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
  		ThrowIfGLError("glTexImage2D(SceneBuffers.ColorBuffer) failed");
  	}
-@@ -214,7 +238,7 @@
+@@ -214,7 +255,7 @@
  		SceneBuffers.PPImage[i] = std::make_shared<GLTexture2D>();
  		glBindTexture(GL_TEXTURE_2D, SceneBuffers.PPImage[i]->Handle);
  		SetDebugName(SceneBuffers.PPImage[i], "SceneBuffers.PPImage");
@@ -1196,7 +1213,22 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
  		ThrowIfGLError("glTexImage2D(SceneBuffers.PPImage) failed");
  	}
-@@ -258,14 +282,14 @@
+@@ -227,6 +268,14 @@
+ 	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, SceneBuffers.DepthBuffer->Handle, 0);
+ 	ThrowIfGLError("Creating SceneBuffers.Framebuffer failed");
+ 
++#ifdef __ANDROID__
++	{
++		glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.Framebuffer->Handle);
++		GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
++		if (status != GL_FRAMEBUFFER_COMPLETE)
++			throw std::runtime_error("The scene framebuffer is incomplete (status 0x" + std::to_string((int)status) + ")");
++	}
++#endif
+ 	SceneBuffers.HitFramebuffer = std::make_shared<GLFramebuffer>();
+ 	glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.HitFramebuffer->Handle);
+ 	SetDebugName(SceneBuffers.HitFramebuffer, "SceneBuffers.HitFramebuffer");
+@@ -258,14 +307,14 @@
  		level.VTexture = std::make_shared<GLTexture2D>();
  		glBindTexture(GL_TEXTURE_2D, level.VTexture->Handle);
  		SetDebugName(level.VTexture, "SceneBuffers.BlurLevels.VTexture");
@@ -1213,7 +1245,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
  		ThrowIfGLError("glTexImage2D(SceneBuffers.BlurLevels.HTexture) failed");
  
-@@ -486,7 +510,11 @@
+@@ -486,7 +535,11 @@
  		GLuint sampler = ScenePass.Samplers[i]->Handle;
  
  		int dummyMipmapCount = (i >> 2) & 3;
@@ -1225,7 +1257,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  
  #if 0
  		glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, (i & 1) ? GL_NEAREST : GL_LINEAR);
-@@ -494,14 +522,20 @@
+@@ -494,14 +547,20 @@
  #else
  		glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, (i & 1) ? GL_NEAREST_MIPMAP_NEAREST : GL_LINEAR_MIPMAP_LINEAR);
  		glSamplerParameteri(sampler, GL_TEXTURE_MAG_FILTER, (i & 1) ? GL_NEAREST : GL_LINEAR);
@@ -1246,7 +1278,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  
  		ThrowIfGLError("Could not create sampler");
  	}
-@@ -866,7 +900,11 @@
+@@ -866,7 +925,11 @@
  	PresentPass.DitherTexture = std::make_shared<GLTexture>();
  	glBindTexture(GL_TEXTURE_2D, PresentPass.DitherTexture->Handle);
  	SetDebugName(PresentPass.DitherTexture, "PresentPass.DitherTexture");
@@ -1258,7 +1290,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
  	ThrowIfGLError("CreateTexture2D(DitherTexture) failed");
  
-@@ -2014,6 +2052,10 @@
+@@ -2014,6 +2077,10 @@
  
  	glFrontFace(rasterizerState->desc.FrontCounterClockwise ? GL_CCW : GL_CW);
  
@@ -1269,7 +1301,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  	if (rasterizerState->desc.DepthClipEnable)
  		glEnable(GL_DEPTH_CLAMP);
  	else
-@@ -2221,7 +2263,12 @@
+@@ -2221,7 +2288,12 @@
  
  void GLRenderDevice::CompileGlsl(GLShader* shader, const std::string& filename, const std::vector<std::string> defines)
  {
@@ -2345,7 +2377,17 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  void SDL3DisplayWindow::MakeGLContextCurrent()
 --- a/SurrealEngine/RenderDevice/OpenGL/GLUploadManager.cpp
 +++ b/SurrealEngine/RenderDevice/OpenGL/GLUploadManager.cpp
-@@ -52,6 +52,11 @@
+@@ -3,6 +3,9 @@
+ #include "GLUploadManager.h"
+ #include "GLRenderDevice.h"
+ #include "GLCachedTexture.h"
++#ifdef __ANDROID__
++#include <unistd.h>
++#endif
+ 
+ GLUploadManager::GLUploadManager(GLRenderDevice* renderer) : renderer(renderer)
+ {
+@@ -52,6 +55,11 @@
  	// We fix this by creating 1 or 2 additional mipmap levels that are empty.
  
  	int minSize = Info.Format == TextureFormat::BC1 || (Info.Format >= TextureFormat::BC2 && Info.Format <= TextureFormat::BC6H) ? 4 : 0;
@@ -2357,7 +2399,39 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  
  	if (!tex->Texture)
  	{
-@@ -97,6 +102,9 @@
+@@ -75,6 +83,23 @@
+ 
+ 		tex->Texture = std::make_shared<GLTexture2D>();
+ 		glBindTexture(GL_TEXTURE_2D, tex->Texture->Handle);
++#ifdef __ANDROID__
++		// OpenGL ES: immutable storage with a mip chain that is complete by construction (levels down to 1x1 at most). The
++		// mutable glTexImage2D-per-level texture the desktop device makes is mipmap-incomplete on some drivers (Mali-G52 r32:
++		// every mipmapped texture, the level's walls and floors, sampled black while single-level ones were fine).
++		{
++			static const bool noMips = access("/sdcard/FlipendoHP/gl_nomip.txt", F_OK) == 0; // test aid: no mip chains at all
++			int possible = 1;
++			for (int size = std::max(width, height); size > 1; size >>= 1)
++				possible++;
++			mipcount = std::max(1, std::min(mipcount, possible));
++			if (noMips)
++				mipcount = 1;
++			glTexStorage2D(GL_TEXTURE_2D, mipcount, internalFormat, width, height);
++			ThrowIfGLError("UploadTexture (glTexStorage2D) failed");
++			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, mipcount - 1);
++		}
++#else
+ 		int mipwidth = width;
+ 		int mipheight = height;
+ 		for (int miplevel = 0; miplevel < mipcount; miplevel++)
+@@ -85,6 +110,7 @@
+ 			mipheight = std::max(mipheight >> 1, 1);
+ 		}
+ 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, std::max(mipcount - 1, 0));
++#endif
+ 	}
+ 
+ 	if (uploader)
+@@ -97,6 +123,9 @@
  
  void GLUploadManager::UploadTextureRect(GLCachedTexture* tex, const TextureInfo& Info, int x, int y, int w, int h)
  {
@@ -2367,16 +2441,25 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  	GLTextureUploader* uploader = GLTextureUploader::GetUploader(Info.Format);
  	if (!uploader || Info.NumMips < 1 || x < 0 || y < 0 || w <= 0 || h <= 0 || x + w > Info.Mips[0].Width || y + h > Info.Mips[0].Height || Info.Mips[0].Data.empty())
  		return;
-@@ -121,6 +129,9 @@
+@@ -121,8 +150,18 @@
  
  void GLUploadManager::UploadData(GLTexture2D* image, const TextureInfo& Info, bool masked, GLTextureUploader* uploader, int dummyMipmapCount, int minSize)
  {
 +#ifdef __ANDROID__
 +	glPixelStorei(GL_UNPACK_ALIGNMENT, 1); // the upload buffers are tightly packed rows (RGB565 with an odd width, ...)
++	GLint levelsAllocated = 0; // the texture is immutable storage: levels past its chain are not uploaded
++	glBindTexture(GL_TEXTURE_2D, image->Handle);
++	glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_IMMUTABLE_LEVELS, &levelsAllocated);
 +#endif
  	for (int level = 0; level < Info.NumMips; level++)
  	{
++#ifdef __ANDROID__
++		if (level + dummyMipmapCount >= levelsAllocated)
++			break;
++#endif
  		UnrealMipmap* Mip = &Info.Mips[level];
+ 		if (!Mip->Data.empty())
+ 		{
 --- a/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.h
 +++ b/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.h
 @@ -439,5 +439,5 @@
