@@ -116,9 +116,7 @@ Each file has one job; keep them apart:
   and free of developer detail; link to `CONTRIBUTING.md` and `docs/`.
 - `CONTRIBUTING.md`: for contributors (ways to help, building, developer flags, ground rules, the AI/SurrealEngine note).
 - `ROADMAP.md`: the phase checklist of open work and what's next. Remove an item when it lands (no done items). No how-it-works detail.
-  Per-level status and bugs are not repeated there, nor the reversing order (`docs/surrealengine-coverage.md`).
-- `docs/playtest.md`: the only place for per-level status; notes hold only what is still open in a level and the
-  original's own quirks. A fixed bug leaves it (how the fix works goes in `docs/re/`).
+  The reversing order is not repeated there (`docs/surrealengine-coverage.md`).
 - `docs/`: all other documentation, how things work (index: `docs/README.md`). Player-facing error messages in
   `docs/troubleshooting.md`; modding in `docs/modding.md`, debug env vars in `docs/debug-tools.md`; workflow in
   `docs/development.md`, the src/knowwonder/hp1/hp2 split in `docs/one-engine.md`, every SurrealEngine hook in

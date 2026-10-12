@@ -14,8 +14,7 @@ Secrets) is being ported onto the same engine. The documents below say when some
 | Document | What's in it |
 |---|---|
 | [modding.md](modding.md) | the built-in mods, writing your own, where modding is going |
-| [debug-tools.md](debug-tools.md) | environment variables to script input, dump and trace actors, call script functions; crash reports, the script debugger |
-| [playtest.md](playtest.md) | every HP1 level in story order and whether it has been played through in Flipendo, with what was seen |
+| [debug-tools.md](debug-tools.md) | environment variables to script input, dump and trace actors, call script functions; starting a level with `--level`; crash reports, the script debugger |
 
 ## Developing
 

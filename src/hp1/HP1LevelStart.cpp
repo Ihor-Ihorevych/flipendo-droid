@@ -13,11 +13,11 @@
 #include <cmath>
 #include <vector>
 
-// --level=<map> (developer launch flag, docs/playtest.md): start in a level as a player arrives there in the story.
+// --level=<map> (developer launch flag, docs/debug-tools.md): start in a level as a player arrives there in the story.
 // --url only loads the map: HPConsole.bInHubFlow stays false (the flying lesson runs as its menu replay, the
 // Quidditch matches as League matches) and Harry has a new game's defaults. --level also sets bInHubFlow, as
 // New Game and Load do (FEBook, FESlotPage), and gives Harry the travel state (baseHarry's `travel` properties) an
-// average player carries in from the levels before, counted from the maps (docs/playtest.md):
+// average player carries in from the levels before, counted from the maps (docs/debug-tools.md):
 // - wizard cards: every card of the earlier levels (docs/re/hp1/collectibles.md);
 // - beans: 80% of the beans placed and in chests in the earlier levels, less 25 for each card Fred sold
 //   (WizardCardCut) and the 25 TakeAllBeansTrigger takes in Lev4_Sneak2;

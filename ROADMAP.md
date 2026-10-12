@@ -2,19 +2,17 @@
 
 What's left to do on the HP1 port, and what's next. Only open work is listed: remove an item when it lands (what
 was done is in the git history, how it works in `docs/`, [docs/README.md](docs/README.md)). Not repeated here:
-per-level status and bugs ([docs/playtest.md](docs/playtest.md)), which code is still SurrealEngine's and what to
+which code is still SurrealEngine's and what to
 reverse next ([docs/surrealengine-coverage.md](docs/surrealengine-coverage.md)), the native-level checklist
 ([docs/re/reports/native_audit_hp1.md](docs/re/reports/native_audit_hp1.md), `python tools/native_audit.py`).
 
 Legend: [~] partly done / in progress · [ ] not started
 
 ## Next up (in order)
-1. **Play the game through in story order** and fix what breaks: the next level and every level's open issues are in
-   [docs/playtest.md](docs/playtest.md).
-2. **SurrealEngine's guesses, reversed in order**: the list is in
+1. **SurrealEngine's guesses, reversed in order**: the list is in
    [docs/surrealengine-coverage.md](docs/surrealengine-coverage.md#what-to-reverse-next-in-order).
-3. **Dark levels**: compare Lev5_FlyKeys' lighting with the original (`tools/orig_shots.ps1`).
-4. **First prebuilt release** (see "Releases"): players can't try Flipendo without building it.
+2. **Dark levels**: compare Lev5_FlyKeys' lighting with the original (`tools/orig_shots.ps1`).
+3. **First prebuilt release** (see "Releases"): players can't try Flipendo without building it.
 
 Visual parity checks against the original, side by side, wait until the end (after gameplay works): mesh lighting
 (brightness, specular highlights, light fades), animations (walk/run/breathe, tween blends, aux channels) and

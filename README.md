@@ -72,16 +72,16 @@ All taken in Flipendo at 1920x1080 from the original game files.
 
 ## Status
 
-> **Early work in progress: the game can't be played start to finish yet.** There are no downloads yet; for now
-> you build it yourself (below). Follow progress on [Discord](#community) or in [`ROADMAP.md`](ROADMAP.md).
+> **The whole story has been played through, start to finish, in Flipendo** (October 2026). There are no downloads
+> yet; for now you build it yourself (below). Follow progress on [Discord](#community) or in [`ROADMAP.md`](ROADMAP.md).
 
 | | |
 |---|---|
-| ✅ Works | Menus and options (incl. key rebinding), widescreen at any resolution, music, cutscenes, characters and their animations, doors, NPCs, Peeves, jelly beans, wizard cards, saving and loading |
-| 🟡 Partly | The story levels, played through in order: how far that has got is in [docs/playtest.md](docs/playtest.md). Spell casting and particle effects mostly work |
-| ❌ Not yet | The whole game start to finish, the Quidditch League, Linux / macOS builds, prebuilt downloads |
+| ✅ Works | The whole story, every level from the first lesson to the final encounter with Voldemort, tested by playing it through. Menus and options (incl. key rebinding), widescreen at any resolution, music, cutscenes, characters and their animations, doors, NPCs, Peeves, jelly beans, wizard cards, saving and loading |
+| 🟡 Partly | Spell casting and particle effects mostly work; side-by-side comparison with the original (lighting, animations) is still to do |
+| ❌ Not yet | The Quidditch League, Linux / macOS builds, prebuilt downloads |
 
-Playtesters are welcome; a level that hasn't been played yet is the most useful bug report.
+Playtesters are welcome: anything that looks or behaves differently from the original is a useful bug report.
 
 Harry Potter and the Chamber of Secrets (2002) runs on the same engine and is next once the first game is finished.
 
