@@ -100,6 +100,6 @@ sounds; ambient sounds out of range are stopped instead of left to the priority;
 
 HP2's `PlaySound` adds `optional bool Disable3D, optional bool Loop`, and HP2 plays through ALAudio.dll (OpenAL)
 instead of Galaxy. `KW::PlaySound` takes both parameters for HP2's adapter but ignores them so far. In
-[hp2_compare.md](../reports/hp2_compare.md) HP2's `execPlaySound`, `execPlayOwnedSound` and `execClientHearSound` are
+the HP1 vs HP2 code comparison HP2's `execPlaySound`, `execPlayOwnedSound` and `execClientHearSound` are
 "changed" and `CheckHearSound` isn't exported (inlined or rewritten); none of it, nor ALAudio.dll's mixing, has been
 read yet.

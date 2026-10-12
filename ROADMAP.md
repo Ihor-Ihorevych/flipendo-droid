@@ -1,18 +1,13 @@
 # Roadmap
 
 What's left to do on the HP1 port, and what's next. Only open work is listed: remove an item when it lands (what
-was done is in the git history, how it works in `docs/`, [docs/README.md](docs/README.md)). Not repeated here:
-which code is still SurrealEngine's and what to
-reverse next ([docs/surrealengine-coverage.md](docs/surrealengine-coverage.md)), the native-level checklist
-([docs/re/reports/native_audit_hp1.md](docs/re/reports/native_audit_hp1.md)).
+was done is in the git history, how it works in `docs/`, [docs/README.md](docs/README.md)).
 
 Legend: [~] partly done / in progress · [ ] not started
 
 ## Next up (in order)
-1. **SurrealEngine's guesses, reversed in order**: the list is in
-   [docs/surrealengine-coverage.md](docs/surrealengine-coverage.md#what-to-reverse-next-in-order).
-2. **Dark levels**: compare Lev5_FlyKeys' lighting with the original ([docs/debug-tools.md](docs/debug-tools.md#comparing-with-the-original)).
-3. **First prebuilt release** (see "Releases"): players can't try Flipendo without building it.
+1. **Dark levels**: compare Lev5_FlyKeys' lighting with the original ([docs/debug-tools.md](docs/debug-tools.md#comparing-with-the-original)).
+2. **First prebuilt release** (see "Releases"): players can't try Flipendo without building it.
 
 Visual parity checks against the original, side by side, wait until the end (after gameplay works): mesh lighting
 (brightness, specular highlights, light fades), animations (walk/run/breathe, tween blends, aux channels) and
@@ -39,8 +34,6 @@ particle effects.
       while the camera moves
 
 ## 5. Remaining native classes and polish
-- [~] SurrealEngine's guesses replaced with HP1's code, in the order of
-      [docs/surrealengine-coverage.md](docs/surrealengine-coverage.md#what-to-reverse-next-in-order)
 - [ ] Bugs of the original to fix, not reproduce: [docs/re/hp1/original_bugs.md](docs/re/hp1/original_bugs.md)
 - [ ] Console.CreateNativeFont for the Asian languages (WinDrv.dll's GDI font rasterizer)
 - [ ] `Actor.Fatness`: not ported; only matters if a map or script changes it from 128
@@ -80,7 +73,7 @@ particle effects.
 - [ ] Linux / Steam Deck build tested with Flipendo
 
 ## Later: the other KnowWonder games
-- [~] HP2 (Chamber of Secrets, UE1 build 433): port after HP1 (groundwork: [docs/one-engine.md](docs/one-engine.md), [docs/re/reports/hp2_compare.md](docs/re/reports/hp2_compare.md)).
+- [~] HP2 (Chamber of Secrets, UE1 build 433): port after HP1 (groundwork: [docs/one-engine.md](docs/one-engine.md)).
   - [ ] Hook HP2's token table into SurrealEngine's `BytecodeStream` (skip DebugInfo, `HP2::ToStockToken`)
   - [ ] Check the remaining "changed" ports for real behaviour differences (beyond the DebugInfo check)
   - [ ] HP2 music natives: `PlayMusic` / `StopMusic` / `StopAllMusic` (ALAudio.dll), `StopSound` fade-out

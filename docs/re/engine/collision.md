@@ -20,7 +20,7 @@ Flipendo's port is `src/knowwonder/KWCollision.cpp` (hooks in SurrealEngine's Tr
 (From each game's `Actor.uc`.) The two oval types are probably why HP2's `AActor::GetPrimitive` grew from 82 to 117
 bytes; not reversed yet. `UBox::LineCheck` / `PointCheck` and `UBoxPrim::GetCollisionBoundingBox` are identical in
 HP2, `ToLocal` and `SetCollisionSize` differ only in offsets, the other `GetCollisionBoundingBox` overrides changed
-(HP2 code not read yet; [hp2_compare.md](../reports/hp2_compare.md)).
+(HP2 code not read yet; the HP1 vs HP2 code comparison).
 
 ## The box
 

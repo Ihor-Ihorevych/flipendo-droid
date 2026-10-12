@@ -11,14 +11,14 @@ Every change keeps the three apart and never creates a second copy of a behaviou
 written for HP1 today is the code HP2 runs tomorrow. The rules with examples: `docs/one-engine.md`. In short:
 
 - `src/knowwonder/` (`KW`) is the default home: everything both games do. `src/hp1/` / `src/hp2/` only for what the
-  other game lacks; check first (`docs/re/reports/hp2_compare.md`, the other game's scripts).
+  other game lacks; check first (the HP1/HP2 comparison, `CLAUDE.local.md`; the other game's scripts).
 - One implementation per behaviour. Never read fields at fixed offsets (script properties by name, `KWActor.h`).
 - A real difference is a `KW::IsHP1()` / `KW::IsHP2()` branch at the line that differs, never a copied function; a
   changed script signature gets a thin adapter calling the shared body.
-- Most "changed" functions in `hp2_compare.md` differ only by HP2's DebugInfo check: read the code before branching.
+- Most "changed" functions in the HP1/HP2 comparison differ only by HP2's DebugInfo check: read the code before branching.
 - Game checks: `KW::IsHP1/IsHP2()` inside `src/knowwonder/`; engine hooks gated by `IsKnowWonder()` (into
   `src/knowwonder/`), `IsHarryPotter1()` / `IsHarryPotter2()` (into `src/hp1/` / `src/hp2/`). None spread through `src/engine/`.
-- After adding or moving a port, regenerate the reports in `docs/re/reports/` (local tools, `CLAUDE.local.md`); a
+- After adding or moving a port, regenerate the local reports (`CLAUDE.local.md`); a
   decorated name tagged in two folders is a duplicate to fix.
 - Never mix the games' binaries or IDA databases (`../eagames/hp1|hp2/System`, `../ida/hp1|hp2/`, fingerprints
   `hp1_` / `hp2_`); check which database is open before reading an address.
@@ -56,7 +56,7 @@ written for HP1 today is the code HP2 runs tomorrow. The rules with examples: `d
 - **No `flipendo:` markers in engine code.** Our engine changes exist only as `src/surreal-patches/*.patch`, each headed
   `flipendo: ...` (from `src/surreal-patches/routes.txt`); that marks the altered source as the zlib licence requires. Comments in
   engine changes explain the code like any other comment. Gate hooks into `src/knowwonder/` behind `engine->LaunchInfo.IsKnowWonder()` (HP1 only for now; HP2
-  joins when its differences are handled, `docs/re/reports/hp2_compare.md`), HP1-only behaviour behind
+  joins when its differences are handled), HP1-only behaviour behind
   `IsHarryPotter1()` and HP2-only behaviour behind `IsHarryPotter2()`, so other UE1 games keep working. Fixes to SurrealEngine bugs that affect every game go
   ungated in `src/surreal-patches/0010-engine-fixes.patch` (`src/surreal-patches/routes.txt` assigns files to patches).
 - **Never commit extracted scripts, map dumps or game data** (`*.u *.unr *.utx *.uax *.umx`, exes, DLLs).
@@ -102,7 +102,7 @@ written for HP1 today is the code HP2 runs tomorrow. The rules with examples: `d
 - HP1 uses its own native indices in places (e.g. `Actor.PlayAnim` = 259, `TraceTexture` = 285).
 - **HP2** (retail 1.0, `../eagames/hp2`, `System/Game.exe`): same engine build 433, recognised by SurrealEngine. Its
   DLLs are HP1's with additions: Fire.dll 100% identical code, Core 82%, Engine 62% identical + 14% differing only in
-  struct offsets (`docs/re/reports/hp2_compare.md`). Galaxy audio is replaced by OpenAL (`ALAudio.dll`) + Ogg Vorbis. Its
+  struct offsets. Galaxy audio is replaced by OpenAL (`ALAudio.dll`) + Ogg Vorbis. Its
   `.u` files ship with most script source stripped (only ~150 of 827 `hgame` classes keep it); the rest is decompiled
   (UELib). Game code package: `hgame`.
 
@@ -114,15 +114,11 @@ Each file has one job; keep them apart:
   and free of developer detail; link to `CONTRIBUTING.md` and `docs/`.
 - `CONTRIBUTING.md`: for contributors (ways to help, building, developer flags, ground rules, the AI/SurrealEngine note).
 - `ROADMAP.md`: the phase checklist of open work and what's next. Remove an item when it lands (no done items). No how-it-works detail.
-  The reversing order is not repeated there (`docs/surrealengine-coverage.md`).
 - `docs/`: all other documentation, how things work (index: `docs/README.md`). Player-facing error messages in
   `docs/troubleshooting.md`; modding in `docs/modding.md`, debug env vars in `docs/debug-tools.md`; workflow in
   `docs/development.md`, the src/knowwonder/hp1/hp2 split in `docs/one-engine.md`, every SurrealEngine hook in
   `docs/engine-hooks.md`; reverse-engineering notes in `docs/re/` (`engine/`, `hp1/`, `hp2/`). No READMEs or docs in
   code folders.
-- Generated reports in `docs/re/reports/` (regenerate, don't edit by hand; generators in
-  `CLAUDE.local.md`): `dlls.md` (every DLL, its exports, our ports, HP2 status), `native_audit_hp1.md` /
-  `native_audit_hp2.md`, `hp2_compare.md`.
 - `images/`: `branding/` (logo, icon) and `screenshots/` (README gallery, social preview).
 
 ## IDA
@@ -144,8 +140,8 @@ Each file has one job; keep them apart:
 
 ## Workflow for porting a native
 
-The steps (audit, scripts, IDA, HP2 check, registration, tag, rerun the audits): `docs/development.md`
-("Porting a native"). Start from `docs/re/reports/native_audit_hp1.md` or an `Unimplemented:` line in the log.
+The steps (audit, scripts, IDA, HP2 check, registration, tag, rerun the audits): `CLAUDE.local.md`
+("Porting a native"). Start from the native audit or an `Unimplemented:` line in the log.
 
 ## Where things are in SurrealEngine
 

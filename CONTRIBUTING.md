@@ -12,7 +12,7 @@ There's work for every skill level, and much of it needs no programming.
   material), [docs/one-engine.md](docs/one-engine.md) (one code path for both games) and the [roadmap](ROADMAP.md).
 - **Writers and artists**: documentation, guides, screenshots and clips for the README.
 
-The reverse engineering is done: no help is needed there. What was learned is in [docs/re/](docs/re/README.md).
+Reverse engineering isn't open to outside help. What was learned is in [docs/re/](docs/re/README.md).
 
 ## Other game versions
 
@@ -65,9 +65,6 @@ The debug environment variables (screenshots, actor dumps, fixed cameras, script
    with `--vanilla`.
 4. **One implementation for both games**: KnowWonder's engine goes in `src/knowwonder/`, only what one game lacks goes in `src/hp1/`
    or `src/hp2/` ([docs/one-engine.md](docs/one-engine.md)).
-5. **Write down what you learn** in `docs/re/` in the same change.
-6. **Tag every reimplemented function** with the original's decorated name and address
-   ([docs/development.md](docs/development.md#ida-tags)).
 
 [`CLAUDE.md`](CLAUDE.md) is the full rule set (it doubles as the guide for AI assistants).
 

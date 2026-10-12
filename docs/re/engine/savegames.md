@@ -35,7 +35,7 @@ Read from HP2's decompiled scripts only; HP2's native side isn't reversed yet.
 - `SavePoint.OnSaveGame` raises Harry's health to `iMinHealthAfterDeath` for the save and restores it afterwards.
 - Loading after death is `ConsoleCommand("LoadGame 0")` (`harry`, `SleepingGoyle`), a console command HP1 doesn't have.
 
-In [hp2_compare.md](../reports/hp2_compare.md) `UViewport::Exec` grew from 4000 to 5271 bytes (probably the new
+In the HP1 vs HP2 code comparison `UViewport::Exec` grew from 4000 to 5271 bytes (probably the new
 commands) and `LoadMap` changed by 8 bytes; the four save natives below grew by the DebugInfo check only in size, HP2
 code not read yet. The `FString` serializer in Core.dll is identical.
 

@@ -10,7 +10,7 @@ natives and the bytecode difference are reversed and written; the hooks that tur
 
 ## How alike the games are
 
-HP2's engine DLLs are HP1's with additions ([hp2_compare.md](re/reports/hp2_compare.md)): Fire.dll is 100% identical
+HP2's engine DLLs are HP1's with additions: Fire.dll is 100% identical
 code, Core 82%, Engine 62% identical plus 14% that differs only in struct offsets. Galaxy audio is replaced by OpenAL
 (`ALAudio.dll`) + Ogg Vorbis. The gameplay scripts are a different story: HP2's `hgame` package rewrote cutscenes,
 saving and spells ([re/hp2/gameplay.md](re/hp2/gameplay.md)).
@@ -26,8 +26,7 @@ saving and spells ([re/hp2/gameplay.md](re/hp2/gameplay.md)).
 | `src/hp2/` | what only HP2 has | HP2-only natives, HP2's bytecode tokens, OpenAL music |
 
 Because the engines are so close, by default **everything goes in `src/knowwonder/`**, and `src/hp1/` / `src/hp2/` stay small. Before
-putting anything in one game's folder, check the other game (`hp2_compare.md`, and its scripts in
-extracted scripts): if it has the same thing, it goes in `src/knowwonder/`.
+putting anything in one game's folder, check the other game (its code and its scripts): if it has the same thing, it goes in `src/knowwonder/`.
 
 ## The rules that prevent duplication
 
@@ -46,15 +45,9 @@ extracted scripts): if it has the same thing, it goes in `src/knowwonder/`.
 5. **Registration order expresses it:** `KW::RegisterNatives()` registers every native with HP1's signature, then
    calls `HP2::RegisterNatives()` when HP2 runs, which adds HP2's natives and overrides only the changed ones.
    HP1-only natives that HP2 lacks are registered from `src/hp1/` (or gated `KW::IsHP1()`).
-6. **Check before porting.** [re/reports/hp2_compare.md](re/reports/hp2_compare.md) says per function whether HP2's
-   code is identical, offsets-only or changed. [native_audit_hp2.md](re/reports/native_audit_hp2.md) lists what HP2's
-   scripts still miss. Read HP2's code
-   for every "changed" function before deciding it needs a branch: most are the same as HP1's apart from the
+6. **Read HP2's code before branching.** Most functions that differ are the same as HP1's apart from the
    DebugInfo check ([re/engine/scripting.md](re/engine/scripting.md#debuginfo-0x38)), which the bytecode reader handles
    once.
-7. **Keep the reports in sync.** After adding or moving a port, regenerate the reports in
-   [re/reports/](re/reports/). A duplicate
-   shows up there as the same decorated name tagged in two folders.
 
 ## What `src/hp2/` has so far
 
@@ -65,5 +58,5 @@ extracted scripts): if it has the same thing, it goes in `src/knowwonder/`.
 
 ## IDA tags
 
-The tag format, with the HP1 and HP2 addresses: [development.md](development.md#ida-tags). HP2's databases are in
+The tag format, with the HP1 and HP2 addresses: [`CLAUDE.md`](../CLAUDE.md). HP2's databases are in
 `../ida/hp2/`, never mixed with HP1's.

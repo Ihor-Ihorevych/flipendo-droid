@@ -31,7 +31,7 @@ namespace HP2
 	// does nothing), int32 line, int32 position, then a NUL-terminated ANSI string (the opcode name). The original
 	// hands it to GDebugger (vtable slot 0) if a debugger is attached; the game ignores it. Native wrappers check for
 	// a DebugInfo record right after EndFunctionParms, so it can follow any native call, not only statements. (That
-	// check is the "+29 bytes" in most HP2 exec* functions in docs/re/reports/hp2_compare.md, not a behaviour change.)
+	// check is the "+29 bytes" in most HP2 exec* functions in the HP1 vs HP2 code comparison, not a behaviour change.)
 	size_t DebugInfoSize(const uint8_t* data, size_t available)
 	{
 		if (available < 13 || data[0] != DebugInfoToken)

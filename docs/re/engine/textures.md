@@ -1,7 +1,7 @@
 # Procedural textures
 
 KnowWonder-specific behaviour of the Fire.dll procedural textures. HP2's Fire.dll is 100% identical code to HP1's
-([hp2_compare.md](../reports/hp2_compare.md)), so everything here holds for both games. Addresses are HP1's.
+(the HP1 vs HP2 code comparison), so everything here holds for both games. Addresses are HP1's.
 
 ## IceTexture (`src/knowwonder/KWIceTexture.cpp`)
 

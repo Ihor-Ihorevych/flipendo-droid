@@ -67,6 +67,6 @@ namespace HP2
 		KW::OverrideNative(329, [] { RegisterVMNativeFunc_1("Actor", "IsSoftwareRendering", &NIsSoftwareRendering, 329); });
 		KW::OverrideNative(330, [] { RegisterVMNativeFunc_2("Actor", "GetCurrentKeyState", &NGetCurrentKeyState, 330); });
 		KW::OverrideNative(568, [] { RegisterVMNativeFunc_3("Actor", "StopSound", &NStopSound, 568); });
-		// Still missing (docs/re/reports/native_audit_hp2.md): Actor.PlayMusic / StopMusic / StopAllMusic (ALAudio.dll).
+		// Still missing: Actor.PlayMusic / StopMusic / StopAllMusic (ALAudio.dll).
 	}
 }

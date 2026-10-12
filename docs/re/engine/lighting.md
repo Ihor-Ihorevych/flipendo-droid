@@ -8,7 +8,7 @@ all directions) and `LightRadiusInner` to UE1's light properties; outdoor maps l
 `LD_Plane` suns, brightness 80, radius 255, LightRadiusInner 255).
 
 **HP1 and HP2.** HP2's `Actor.uc` declares the same `LightSource` and `LightRadiusInner`, and `FGetHSV` (Engine.dll) is
-identical ([hp2_compare.md](../reports/hp2_compare.md)). The rest lives in Render.dll, which has no HP2 fingerprint yet,
+identical (the HP1 vs HP2 code comparison). The rest lives in Render.dll, which has no HP2 fingerprint yet,
 so whether HP2's renderer lights the same way is not checked. The map statistics at the end are HP1's.
 
 # Mesh lighting

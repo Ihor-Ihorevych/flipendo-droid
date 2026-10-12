@@ -20,9 +20,8 @@ Secrets) is being ported onto the same engine. The documents below say when some
 
 | Document | What's in it |
 |---|---|
-| [development.md](development.md) | code layout, ground rules, reference material, porting a native, comparing with HP2 |
+| [development.md](development.md) | code layout, ground rules, reference material, debug tools |
 | [one-engine.md](one-engine.md) | how code is split between `src/knowwonder/` (both games), `src/hp1/` and `src/hp2/` so that no behaviour exists twice |
-| [surrealengine-coverage.md](surrealengine-coverage.md) | which parts of SurrealEngine HP1 runs on: file formats (safe), HP1's own reversed code, or SurrealEngine's unverified behaviour, and what to reverse next |
 | [engine-hooks.md](engine-hooks.md) | how Flipendo patches SurrealEngine, the patch set, every hook by file, updating SurrealEngine |
 
 ## How the games work
@@ -32,8 +31,6 @@ Secrets) is being ported onto the same engine. The documents below say when some
 - [re/engine/](re/README.md#knowwonders-engine-engine): KnowWonder's engine, shared by both games (animation,
   particles, lighting, collision, physics, the script VM, save games, ...), each note with what differs in HP2.
 - [re/hp1/](re/README.md#harry-potter-1-hp1) and [re/hp2/](re/README.md#harry-potter-2-hp2): what only one game has.
-- [re/reports/](re/README.md#generated-reports-reports): generated reports (every DLL, the native audits, HP1 vs HP2
-  code).
 
 ## Elsewhere in the repository
 

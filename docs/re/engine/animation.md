@@ -8,7 +8,7 @@ Addresses below are HP1's.
 
 ## HP1 and HP2
 
-Both games run the same system ([hp2_compare.md](../reports/hp2_compare.md)):
+Both games run the same system (the HP1 vs HP2 code comparison):
 
 - **Identical in HP2:** the data and its loading (`UAnimation::Serialize`, `USkeletalMesh::Serialize`, `GetAnimSeq`,
   `GetMovement`, `BoneName`), skinning (`GetFrame`), `SlerpQuat` and `FCoords(FPlace)` in Core.dll, and the latent

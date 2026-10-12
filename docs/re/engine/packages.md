@@ -15,4 +15,4 @@ reads the UTF-16 form and keeps the string as UTF-8.
 
 ## HP1 and HP2
 
-HP2's `FString` serializer in Core.dll is identical to HP1's ([hp2_compare.md](../reports/hp2_compare.md)).
+HP2's `FString` serializer in Core.dll is identical to HP1's (the HP1 vs HP2 code comparison).
