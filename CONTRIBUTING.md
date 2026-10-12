@@ -8,12 +8,11 @@ There's work for every skill level, and much of it needs no programming.
   Side-by-side screenshots or short clips help most. Attach the log (`--logfile=flipendo.log`).
 - **Owners of other game versions**: see [below](#other-game-versions).
 - **Modders**: build an extra in `src/hp1/mods/` ([docs/modding.md](docs/modding.md)).
-- **Reverse engineers**: the remaining work is KnowWonder's native code, in HP1's and HP2's DLLs.
-  [docs/re/reports/dlls.md](docs/re/reports/dlls.md) shows what every DLL does and what's been reimplemented;
-  [docs/re/](docs/re/README.md) has what's been learned so far, the shared engine and each game's own parts.
 - **C++ developers**: start with [docs/development.md](docs/development.md) (layout, ground rules, reference
   material), [docs/one-engine.md](docs/one-engine.md) (one code path for both games) and the [roadmap](ROADMAP.md).
 - **Writers and artists**: documentation, guides, screenshots and clips for the README.
+
+The reverse engineering is done: no help is needed there. What was learned is in [docs/re/](docs/re/README.md).
 
 ## Other game versions
 

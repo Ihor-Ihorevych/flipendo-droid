@@ -141,8 +141,8 @@ and [docs/modding.md](docs/modding.md) to write a mod today.
 ## Community
 
 - **Bugs and ideas**: open an issue. Include your game version, what you did, and the log (`--logfile=...`).
-- **Help out**: playtesting, modding, reverse engineering, C++. Most of it needs no programming:
-  [CONTRIBUTING.md](CONTRIBUTING.md).
+- **Help out**: playtesting, modding, C++. Most of it needs no programming:
+  [CONTRIBUTING.md](CONTRIBUTING.md). The reverse engineering is done; no help is needed there.
 
 ## Legal
 
