@@ -471,10 +471,10 @@ index 984fdbfc..e3ab5663 100644
 +	}
  }
 diff --git a/SurrealEngine/Render/VisibleBrush.cpp b/SurrealEngine/Render/VisibleBrush.cpp
-index 74911e16..2b983bbc 100644
+index 74911e16..71fd8462 100644
 --- a/SurrealEngine/Render/VisibleBrush.cpp
 +++ b/SurrealEngine/Render/VisibleBrush.cpp
-@@ -20,25 +20,41 @@ bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass
+@@ -20,25 +20,47 @@ bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass
  	engine->render->Stats.Actors++;
  
  	UModel* brush = mover->Brush();
@@ -504,8 +504,14 @@ index 74911e16..2b983bbc 100644
 +		vec3 normal = (brushframe.ObjectToWorld * vec4(poly.Normal, 0.0f)).xyz();
 +		return dot(viewLocation - point, normal) > 0.0f;
 +	};
-+	// A mirror polygon is a portal of the frame (AddMirrorPortals), drawn by DrawPortals instead
-+	auto isMirror = [&](const Poly& poly) { return IsMirrorPortal(frame, poly.PolyFlags | (poly.Texture ? poly.Texture->PolyFlags() : 0)); };
++	// A mirror polygon is a portal of the frame (AddMirrorPortals), drawn by DrawPortals instead. A translucent one is
++	// drawn over its reflection too, as a translucent BSP mirror is (Lev5_Final's Mirror0: its MirrorMain2 frost
++	// shows it white-grey; without it the mirror showed a clear reflection)
++	auto isMirror = [&](const Poly& poly)
++	{
++		uint32_t flags = poly.PolyFlags | (poly.Texture ? poly.Texture->PolyFlags() : 0);
++		return IsMirrorPortal(frame, flags) && (flags & (PF_Translucent | PF_Modulated)) == 0;
++	};
  	for (const Poly& poly : brush->Polys->Polys)
  	{
 -		if (DrawBrushPoly(frame, brush, poly, 0, mover, translucentPass))
@@ -520,7 +526,7 @@ index 74911e16..2b983bbc 100644
  			needTranslucentPass = true;
  	}
  
-@@ -46,9 +62,106 @@ bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass
+@@ -46,9 +68,106 @@ bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass
  	return needTranslucentPass;
  }
  
@@ -627,7 +633,7 @@ index 74911e16..2b983bbc 100644
  
  	if (!engine->getEditorMode() && PolyFlags & PolyFlags::PF_Invisible)
  		return false;
-@@ -102,6 +215,14 @@ bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly&
+@@ -102,6 +221,14 @@ bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly&
  
  	int numverts = (int)poly.Vertices.size();
  	const vec3* points = poly.Vertices.data();
@@ -668,7 +674,7 @@ index 36448a66..3f69fb58 100644
  	bool DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly& poly, int pass, UMover* mover, bool translucentPass);
  };
 diff --git a/SurrealEngine/Render/VisibleFrame.cpp b/SurrealEngine/Render/VisibleFrame.cpp
-index 818aa65d..7936c79a 100644
+index 818aa65d..2011f85f 100644
 --- a/SurrealEngine/Render/VisibleFrame.cpp
 +++ b/SurrealEngine/Render/VisibleFrame.cpp
 @@ -2,6 +2,7 @@
@@ -679,16 +685,17 @@ index 818aa65d..7936c79a 100644
  #include "RenderSubsystem.h"
  #include "RenderDevice/RenderDevice.h"
  #include "Packages/Engine/UViewport.h"
-@@ -10,6 +11,8 @@
+@@ -10,6 +11,9 @@
  #include "Packages/Engine/Actors/Info/USkyZoneInfo.h"
  #include "Packages/Engine/Actors/Info/ULevelInfo.h"
  #include "Packages/Extension/Windows/TabGroup/URootWindow.h"
 +#include "Engine.h"
++#include "VM/ScriptCall.h"
 +#include "KW.h"
  
  void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const Coords& viewRotation, bool mirrorFlag, int portalDepth, const Array<PortalSpan>& portalSpans, const vec4& portalPlane)
  {
-@@ -19,9 +22,21 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
+@@ -19,9 +23,21 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
  	FrameCounter = engine->render->FrameCounter++;
  	MirrorFlag = mirrorFlag;
  	PortalDepth = portalDepth;
@@ -710,7 +717,7 @@ index 818aa65d..7936c79a 100644
  	Clipper.numDrawSpans = 0;
  	Clipper.numSurfs = 0;
  	Clipper.numTris = 0;
-@@ -38,9 +53,18 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
+@@ -38,9 +54,18 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
  	Coronas.clear();
  	Portals.clear();
  
@@ -729,7 +736,7 @@ index 818aa65d..7936c79a 100644
  void VisibleFrame::SetupSceneFrame(const mat4& worldToView)
  {
  	Frame.XB = engine->viewport->ViewportX();
-@@ -191,7 +215,10 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -191,7 +216,10 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  
  	VisibleNode info;
  	info.Node = node;
@@ -741,7 +748,55 @@ index 818aa65d..7936c79a 100644
  	info.PolyFlags = PolyFlags;
  
  	if (PortalDepth < 4)
-@@ -264,7 +291,7 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -226,12 +254,26 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+ 		}
+ 		else if (PolyFlags & PF_Portal)
+ 		{
+-			int portalZone = front ? node->Zone1 : node->Zone0;
++			// The zone beyond the portal as seen from the frame's eye: a BSP mirror's frame keeps the real camera as
++			// ViewLocation, on the other side of a portal the reflection looks through (Lev5_Final's Mirror of Erised
++			// looks back into a warp zone)
++			vec3 eye = EyeLocation();
++			bool eyeBehind = dot(vec4(eye, 1.0f), vec4(node->PlaneX, node->PlaneY, node->PlaneZ, -node->PlaneW)) < 0.0f;
++			int portalZone = eyeBehind ? node->Zone1 : node->Zone0;
+ 			if (portalZone > 0)
+ 			{
++				// The other side is transient, so a loaded save has none: generate it when it's missing, as HP1's
++				// renderer does. A warp zone still without one (no OtherSideURL, like Lev5_Final's
++				// MirroredRoomForStoner) is drawn as a plain zone portal.
+ 				UWarpZoneInfo* warpZone = UObject::TryCast<UWarpZoneInfo>(engine->GetZoneActor(portalZone));
+-				if (warpZone)
++				if (warpZone && (!warpZone->OtherSideActor() || !warpZone->OtherSideLevel()))
++					CallEvent(warpZone, "Generate");
++				if (warpZone && warpZone->OtherSideActor() && warpZone->OtherSideLevel())
+ 				{
++					// The clipper only fills polygons wound towards the eye (a mirror frame's are already reversed): a portal
++					// seen from behind (a two-sided one, from the reflected camera) is checked with its vertices reversed
++					if (eyeBehind)
++						std::reverse(points, points + numverts);
+ 					Array<PortalSpan> spans = Clipper.CheckPortal(points, numverts);
+ 					if (!spans.empty())
+ 					{
+@@ -256,15 +298,25 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+ 		}
+ 		else if (PolyFlags & PF_Mirrored)
+ 		{
+-			if (PortalDepth > 0) // To do: cull backfacing surfaces so we don't need this hack
++			// HP1's renderer reflects below portal depth 3 (Lev5_Final's Mirror of Erised is a mirror seen through a
++			// warp zone). Inside a portal only a mirror facing the frame's eye: a reflection or warp can see the back
++			// of one.
++			if (PortalDepth >= 3)
+ 				return;
++			if (PortalDepth > 0)
++			{
++				UModel* model = engine->Level->Model;
++				const BspSurface& surface = model->Surfaces[node->Surf];
++				if (dot(EyeLocation() - model->Points[surface.pBase], model->Vectors[surface.vNormal]) <= 0.0f)
++					return;
++			}
+ 
+ 			Array<PortalSpan> spans = Clipper.CheckPortal(points, numverts);
+ 			if (!spans.empty())
  			{
  				for (auto& p : Portals)
  				{
@@ -750,7 +805,7 @@ index 818aa65d..7936c79a 100644
  					{
  						p.Nodes.push_back(info);
  						p.Spans.insert(p.Spans.end(), spans.begin(), spans.end());
-@@ -308,6 +335,13 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -308,6 +360,13 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  
  void VisibleFrame::SortTranslucent()
  {
@@ -764,7 +819,7 @@ index 818aa65d..7936c79a 100644
  	std::sort(Translucents.begin(), Translucents.end(), [](const VisibleTranslucent& a, const VisibleTranslucent& b) { return a.DistSqr < b.DistSqr; });
  }
  
-@@ -354,6 +388,12 @@ void VisibleFrame::DrawCoronas()
+@@ -354,6 +413,12 @@ void VisibleFrame::DrawCoronas()
  	frame2d.WorldToView = mat4::identity();
  	Device->SetSceneNode(&frame2d);
  
@@ -777,7 +832,26 @@ index 818aa65d..7936c79a 100644
  	for (VisibleCorona &corona : Coronas)
  		corona.Draw(this);
  }
-@@ -425,15 +465,36 @@ void VisibleFrame::DrawPortals()
+@@ -403,14 +468,16 @@ void VisibleFrame::DrawPortals()
+ 		else if (portal.WarpZone)
+ 		{
+ 			// Warp camera
+-			vec3 newLocation = WarpLocationToOtherSide(portal.WarpZone, ViewLocation.xyz());
++			// From the frame's eye, the reflected camera in a mirror's frame
++			vec3 eye = EyeLocation();
++			vec3 newLocation = WarpLocationToOtherSide(portal.WarpZone, eye);
+ 			Coords rotation = WarpRotationToOtherSide(portal.WarpZone, ViewRotation);
+ 			mat4 worldToView = Coords::ViewToRenderDev().ToMatrix() * rotation.Inverse().ToMatrix() * mat4::translate(-newLocation);
+ 
+ 			// Find clipping plane for portal and warp it
+ 			auto node = portal.Nodes.front().Node;
+ 			vec4 plane = { node->PlaneX, node->PlaneY, node->PlaneZ, -node->PlaneW };
+-			bool isFrontfacing = dot(ViewLocation, plane) < 0.0f;
++			bool isFrontfacing = dot(vec4(eye, 1.0f), plane) < 0.0f;
+ 			vec3 p = WarpLocationToOtherSide(portal.WarpZone, plane.xyz() * -plane.w);
+ 			vec3 n = WarpNormalToOtherSide(portal.WarpZone, vec3(node->PlaneX, node->PlaneY, node->PlaneZ));
+ 			vec4 portalPlane(n, -dot(p,n));
+@@ -425,15 +492,35 @@ void VisibleFrame::DrawPortals()
  		}
  		else // Mirror
  		{
@@ -810,8 +884,7 @@ index 818aa65d..7936c79a 100644
 +			// The reflection is seen from the camera mirrored behind the mirror plane: the BSP is walked front to back
 +			// from there (from the real camera, the walls between it and the mirror culled the reflected room)
 +			vec3 mirrorViewLocation = ViewLocation.xyz();
-+			if (portal.Mover)
-+				mirrorViewLocation -= n * (2.0f * dot(mirrorViewLocation - v, n));
++			mirrorViewLocation -= n * (2.0f * dot(mirrorViewLocation - v, n));
 +
  			VisibleFrame mirrorframe;
 -			mirrorframe.Process(ViewLocation.xyz(), mirrorToView, ViewRotation * Coords::FromMatrix(mirrorRotation).Inverse(), !MirrorFlag, PortalDepth + 1, portal.Spans);
@@ -819,7 +892,7 @@ index 818aa65d..7936c79a 100644
  			Device->SetSceneNode(&mirrorframe.Frame);
  			mirrorframe.Draw();
  			Device->ClearZ();
-@@ -444,6 +505,8 @@ void VisibleFrame::DrawPortals()
+@@ -444,6 +531,8 @@ void VisibleFrame::DrawPortals()
  	Device->SetSceneNode(&Frame);
  	for (VisiblePortal& portal : Portals)
  	{

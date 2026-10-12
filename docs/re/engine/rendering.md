@@ -107,9 +107,45 @@ Mirrored + Translucent + Unlit, so its frost is drawn over the reflection) showe
 reflection. James and Lily are `Mover2` (tag `jameslillymover`, raised 192 by the mirror cutscene): one Translucent,
 NotSolid, Unlit polygon (`JamesLilli`) standing 130 units in front of the glass and facing it, so the room never sees it
 and the reflection does. Two more things hid it there: a mover polygon's one-sided test used the frame's
-ViewLocation, which a BSP mirror's reflection keeps at the real camera (its BSP walk needs it), so it now takes the
+ViewLocation, which a BSP mirror's reflection then kept at the real camera, so it now takes the
 eye from the frame's view transform (`VisibleFrame::EyeLocation`, also used by the skeletal meshes' one-sided test, which had kept Harry's far side in the reflection); and mover polygons weren't reversed in mirror frames as BSP surfaces are
 (`VisibleNode`), so the device culled them by their flipped winding.
+
+## Warp zones and mirrors in portals (`URender::OccludeBsp` [HP1 Render 0x10B22480])
+
+Checked in HP1's Render.dll. A portal into a `WarpZoneInfo`'s zone is drawn as a warp only below portal depth 3 and
+when the zone has its `OtherSideActor` and `OtherSideLevel`; when either is missing it calls the zone's `Generate`
+event and checks again. Without them the portal is drawn as a plain zone portal (the zone behind it, no warp). Both
+are `transient`, so a loaded save has none until that `Generate` (`WarpZoneInfo.PreBeginPlay` only runs for a new
+level). A mirror (PF_Mirrored) reflects below portal depth 3 too, inside a warp or another reflection.
+
+Lev5_Final's Mirror of Erised scene is built from both. The cutscene camera films a stand-in set at X 4864: the mirror
+there is `WarpZoneInfo2`'s portal (`TheRealHarryPotter`, other side `TheRealMirrorWarpZone` = `WarpZoneInfo0` at
+6272, 2939), behind which stands a real mirror surface (`MirrorMain2`, Mirrored + Translucent + SpecialLit, 3 units
+from that portal), whose reflection looks back into `WarpZoneInfo0`'s portal, whose other side is `WarpZoneInfo1`
+(`MirroredRoomForStoner`, no `OtherSideURL` of its own) in the room where the reflected Harry (the cutscene's
+`Cast3`) acts. `WarpZoneInfo0`'s `Destinations` switch it between that room and `TheRealHarryPotter` when triggered.
+
+SurrealEngine warped through every warp zone portal and read `OtherSideActor` without checking it: after a loaded
+save that crashed (reading 0x48) as soon as the mirror cutscene (`CutScene16`, touched in front of the boss room's
+mirror) showed the set. It also never reflected inside a portal (`PortalDepth > 0`, to skip back faces), so the mirror
+was black. Flipendo (render patch, any game): a missing other side is generated, a warp zone still without one is a
+plain portal, and a mirror reflects below depth 3, inside a portal only when it faces the frame's eye
+(`VisibleFrame::EyeLocation`). Inside the reflection the next portal was still lost in three ways, fixed the same way:
+a BSP mirror's frame walked the BSP from the real camera (kept as `ViewLocation`), here inside `WarpZoneInfo0`'s small
+zone, whose walls were drawn first and filled the clipper before the portal; it now walks from the camera reflected
+in the mirror, as mover mirrors did already. The warp portal's far zone and the warped camera are taken from the
+frame's eye, and a portal seen from behind (two-sided, from the reflected eye) is checked with its vertices reversed,
+since the clipper fills only polygons wound towards the eye. Checked 2026-10-12: the reflected Harry takes the stone;
+Lev4_Sneak2's mirror looks the same as before.
+
+The fight's mirror is `Mirror0` (class `Hub5.Mirror`, a rotating mover in the arena at 768, -3264; spells bounce off
+it). Its front face is Mirrored + Translucent + Unlit with the `MirrorMain2` frost. A translucent BSP mirror's
+surface is drawn over its reflection (it is PF_NoOcclude); a mover's mirror face was only a portal, so the mirror
+showed a clear reflection. Flipendo draws a translucent mover mirror face over its reflection too, white-grey as in
+the original. Not checked in HP1's code: after a reflection `OccludeBsp` marks the surface invisible unless the
+render device's dword at +0x48 is set (`ShinySurfaces`, +0x5C, decides whether a translucent mirror reflects at all;
+D3DDrv has it on).
 
 ## HP1 and HP2
 

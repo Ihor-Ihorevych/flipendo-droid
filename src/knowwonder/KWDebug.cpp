@@ -48,11 +48,12 @@
 //   HP1_HEIGHTMAP="5:x0,y0,x1,y1,step,ztop"  at <sec>, trace straight down (player-sized cylinder) from ztop over
 //                              the grid and log one row of floor heights per y (blank = nothing within 2000 units)
 //   HP1_FLY=1                  F toggles fly mode (PlayerPawn.Fly / Walk; Jump goes up, Duck down)
+//   HP1_GOD=1                  Harry's health (lifePotions) is refilled to MaxLifePotions every tick
 //   HP1_BACKGROUND=1           open the game window windowed, at the bottom of the window stack and without activating
 //                              it, so automated runs don't take over the screen (keys/mouse come from HP1_KEYS etc.)
 //   HP1_EXEC="40:open save0.usa;90:SaveGame 3"  run a console command at <sec> (';' separates entries);
 //                              "@console Fn" calls the console's script function Fn() instead (e.g. SaveSelectedSlot);
-//                              "@console.MenuBook OpenBook Slot" follows object properties and passes one string;
+//                              "@console.MenuBook OpenBook Slot" follows object properties and passes one argument (a number as an int);
 //                              "@set CutScene bDebugScript True" sets a property on every actor whose name starts so; "@get harry numBeans" logs one
 //                              "@teleport x y z" moves the player; "@trigger <tag>" triggers every actor with that Tag;
 //                              "@state tut3peeves2 dieing" sends the matching actors to that script state;
@@ -526,7 +527,8 @@ namespace KW
 		}
 		if (text.rfind("@console", 0) == 0)
 		{
-			// "@console[.Prop[.Prop]] Fn [string arg]": follow object properties from the console, then call Fn.
+			// "@console[.Prop[.Prop]] Fn [arg]": follow object properties from the console, then call Fn. A number is
+			// passed as an int (SlotPage SetSelectedSlot 0), anything else as a string.
 			std::stringstream parts(text);
 			std::string path, fn, arg;
 			parts >> path >> fn;
@@ -540,6 +542,8 @@ namespace KW
 				LogMessage("HP1 exec: no object for " + path);
 			else if (arg.empty())
 				CallEvent(obj, NameString(fn));
+			else if (arg.find_first_not_of("-0123456789") == std::string::npos)
+				CallEvent(obj, NameString(fn), { ExpressionValue::IntValue(std::atoi(arg.c_str())) });
 			else
 				CallEvent(obj, NameString(fn), { ExpressionValue::StringValue(arg) });
 			return;
@@ -671,6 +675,23 @@ namespace KW
 		}
 	}
 
+	// UE1's God cheat sets ReducedDamageType, which baseHarry.TakeDamage never reads: refill his health instead
+	static void TickDebugGod()
+	{
+		static int enabled = -1;
+		if (enabled < 0)
+		{
+			const char* s = getenv("HP1_GOD");
+			enabled = s && *s && *s != '0';
+		}
+		UPlayerPawn* player = engine->viewport ? engine->viewport->Actor() : nullptr;
+		if (!enabled || !player || !player->Class->GetProperty(NameString("MaxLifePotions")))
+			return;
+		std::string max = player->GetPropertyAsString(NameString("MaxLifePotions"));
+		if (player->GetPropertyAsString(NameString("lifePotions")) != max)
+			player->SetPropertyFromString(NameString("lifePotions"), max);
+	}
+
 	static void TickDebugGoto(float now)
 	{
 		struct Waypoint { vec2 Pos; char Action = 0; float Arg = 0.0f; };
@@ -798,6 +819,7 @@ namespace KW
 		TickDebugHeightmap(frameTime);
 		TickDebugSkipCutscenes(frameTime);
 		TickDebugFly();
+		TickDebugGod();
 		TickDebugGoto(frameTime);
 		TickDebugExec(frameTime);
 

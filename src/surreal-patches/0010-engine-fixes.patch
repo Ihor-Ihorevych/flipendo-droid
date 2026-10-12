@@ -1,7 +1,7 @@
 flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files, packages (Unicode strings), crash reports, music streaming and following the default audio device (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties
 
 diff --git a/SurrealEngine/Audio/AudioDevice.cpp b/SurrealEngine/Audio/AudioDevice.cpp
-index 03e82566..64fef794 100644
+index 03e82566..e921a0a9 100644
 --- a/SurrealEngine/Audio/AudioDevice.cpp
 +++ b/SurrealEngine/Audio/AudioDevice.cpp
 @@ -13,6 +13,7 @@
@@ -89,7 +89,7 @@ index 03e82566..64fef794 100644
  				}
  
  				if (!musicPlaying)
-@@ -528,12 +556,42 @@ public:
+@@ -528,12 +556,56 @@ public:
  			{
  				musicPlaying = false;
  			}
@@ -103,7 +103,10 @@ index 03e82566..64fef794 100644
  
 +	// OpenAL Soft 1.23 stays on the device it opened: unplugging it leaves the game silent and a new system default
 +	// (headphones plugged back in) is never picked up. Once a second, reopen the default device when ours was lost or
-+	// the default changed; alcReopenDeviceSOFT keeps the context, sources and buffers.
++	// the default changed; alcReopenDeviceSOFT keeps the context, sources and buffers. A default is reopened for once:
++	// when OpenAL can't open it and stays on another device, the names keep differing, and reopening every second
++	// for that (seen 2026-10-12, over 1000 times in a row) ended in WASAPI errors. A lost device is retried less and
++	// less often, up to every 30 s.
 +	void FollowDefaultDevice()
 +	{
 +		auto now = std::chrono::steady_clock::now();
@@ -118,17 +121,28 @@ index 03e82566..64fef794 100644
 +		alcGetIntegerv(alDevice, ALC_CONNECTED, 1, &connected);
 +		const ALCchar* current = alcGetString(alDevice, ALC_ALL_DEVICES_SPECIFIER);
 +		const ALCchar* defaultName = alcGetString(nullptr, ALC_DEFAULT_ALL_DEVICES_SPECIFIER);
-+		bool defaultChanged = current && defaultName && *defaultName && std::strcmp(current, defaultName) != 0;
++		std::string newDefault = defaultName ? defaultName : "";
++		bool defaultChanged = current && !newDefault.empty() && newDefault != current && newDefault != reopenedDefault;
++		if (connected)
++			lostRetrySeconds = 1;
 +		if (connected && !defaultChanged)
 +			return;
 +
++		reopenedDefault = newDefault;
++		if (!connected)
++		{
++			nextDeviceCheck = now + std::chrono::seconds(lostRetrySeconds);
++			lostRetrySeconds = std::min(lostRetrySeconds * 2, 30);
++		}
 +		if (alcReopenDevice(alDevice, nullptr, nullptr))
-+			LogMessage(std::string("Audio device: now ") + alcGetString(alDevice, ALC_ALL_DEVICES_SPECIFIER));
++			LogMessage(std::string("Audio device: now ") + alcGetString(alDevice, ALC_ALL_DEVICES_SPECIFIER) + (connected ? "" : " (the last one was lost)") + ", system default " + newDefault);
 +	}
 +
  	ALCdevice* alDevice = nullptr;
 +	LPALCREOPENDEVICESOFT alcReopenDevice = nullptr;
 +	std::chrono::steady_clock::time_point nextDeviceCheck;
++	std::string reopenedDefault; // the system default the device was last reopened for
++	int lostRetrySeconds = 1;
  	ALCcontext* alContext = nullptr;
  	ALenum alError = 0;
  	ALuint alMusicSource = 0;
