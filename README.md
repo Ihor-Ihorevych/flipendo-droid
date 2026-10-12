@@ -41,7 +41,9 @@ runs on a modern open-source engine, with controls made for a touch screen and s
 
 ## Install
 
-1. **Get the app** (the APK) from the [Telegram group](https://t.me/flipendodroid), or [build it yourself](#build-it-yourself).
+1. **Download the app**: `flipendo-droid.apk` from the newest release at the top of the
+   [Releases](https://github.com/Ihor-Ihorevych/flipendo-droid/releases) page (open the link on the phone, or
+   download it on a computer and copy it over).
 2. **Install it.** Open the APK on the phone and allow installing apps from that source when Android asks.
 3. **Copy the game to the phone.** Connect the phone to the computer (file transfer mode) and copy the game folder to the
    phone, anywhere you like: internal storage or an SD card. The easiest place is a folder named **FlipendoHP** in the
@@ -98,7 +100,7 @@ Open them with the gear (top right) or the View button on a gamepad. Everything 
 | **Debug mode** | adds Level Select to the main menu, to play any level |
 | **Renderer** | Vulkan or OpenGL ES; switches to OpenGL ES by itself if Vulkan does not work on your phone |
 | **FPS limit** | 25 to 60 frames a second: lower saves battery and keeps the phone cooler |
-| **Language** | English or Russian text (more editions in builds that include them) |
+| **Language** | English or Russian text; *Добавить озвучку из папки…* adds a dubbing from its Sounds folder (such as the Russian voices) |
 | **Movement mod** | AdamJD's mod for better movement, camera and climbing: tap *Choose file* and pick its zip (download it from the mod's page), then switch it on or off here |
 | **Telegram** | opens the group |
 
@@ -131,7 +133,9 @@ Tried it on another phone? Tell us in the [Telegram group](https://t.me/flipendo
 
 ## News, help and bug reports
 
-New builds, news and help are in the **Telegram group: [t.me/flipendodroid](https://t.me/flipendodroid)**.
+New versions are on the [Releases](https://github.com/Ihor-Ihorevych/flipendo-droid/releases) page; news and help are in the
+**Telegram group: [t.me/flipendodroid](https://t.me/flipendodroid)**. To update, install the new APK over the old one: your
+saves and settings stay.
 
 **Something broke?** Hold the menu button (top right) for a second and a half: the app makes a report and lets you send it
 with any app (Telegram, mail...). If the game crashed, the report is offered by itself the next time you start it. Post it
@@ -139,6 +143,7 @@ in the group with a few words about what happened.
 
 ## Build it yourself
 
+Players don't need this: the [Releases](https://github.com/Ihor-Ihorevych/flipendo-droid/releases) page has the APK.
 For developers: on Windows with Git Bash, JDK 21 and the Android SDK (platform 35, build-tools 35.0.0, NDK 27.2.12479018,
 CMake 3.22.1):
 
