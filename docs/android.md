@@ -297,3 +297,15 @@ window's properties. The Vulkan renderer noticed the lost swapchain and made a n
 loader crashed (Redmi Note 10S, Mali-G76: `CreateVulkanSurface` -> `libvulkan.so`, fault addr 0x98). FlipendoActivity now
 reports the surface's life (`SurfaceHolder.Callback` -> `nativeSetSurfaceAlive`), `SDL3DisplayWindow::CreateVulkanSurface`
 returns no surface while it is gone, and `CommandBufferManager::SubmitCommands` skips presenting until it is back.
+
+### A dubbing from a folder (every APK)
+
+Settings > Language > **Добавить озвучку из папки…** opens the system folder picker. The player picks a dubbing's Sounds
+folder (or a folder with a Sounds folder inside, such as a localized install). `SetupActivity.importVoice` keeps the
+`.uax`/`.wav` files that the game has under the same name and that differ from it (for SoftClub's dubbing only
+`AllDialog.uax`) in the app's private files (`<files>/voices/custom/`, paths relative to Sounds); a folder without any of the
+game's sound files, or one identical to the game's, is turned down with a message. The language list then has
+**Русский (своя озвучка)** (`voice`): those voices and the Russian text translation. At start the launcher puts the files
+over the game folder's Sounds, the originals kept in `.voice-backup` (`.flipendo-voice` marks it installed); another
+language puts the originals back. A game folder copied over again gets the dubbing once more (size check). In a self pack
+the `voice` choice goes over the base edition.

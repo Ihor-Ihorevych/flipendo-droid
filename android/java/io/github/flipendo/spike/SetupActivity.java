@@ -175,6 +175,11 @@ public class SetupActivity extends Activity {
                     } catch (IOException e) {
                         android.util.Log.e("flipendo", "the text translation failed: " + e);
                     }
+                    try {
+                        applyVoice(found, VOICE_LANG.equals(chosenLanguage(SetupActivity.this)));
+                    } catch (IOException e) {
+                        android.util.Log.e("flipendo", "the dubbing failed: " + e);
+                    }
                     // the mod to have: the in-game wish, else what is installed
                     File modWish = new File(FlipendoActivity.GAME_DIR, MOD_WANT);
                     String modWanted = readSmallFile(modWish);
@@ -586,7 +591,7 @@ public class SetupActivity extends Activity {
 
     /** Whether the text translation is put in for this language: the text one itself, or an edition marked with it. */
     static boolean languageHasText(android.content.Context context, String code) {
-        if (TEXT_LANG.equals(code)) {
+        if (TEXT_LANG.equals(code) || VOICE_LANG.equals(code)) {
             return true;
         }
         for (String[] l : readPackLanguages(context)) {
@@ -622,7 +627,176 @@ public class SetupActivity extends Activity {
         if (hasTextTranslation(context)) {
             out.add(new String[] { TEXT_LANG, "Русский (текст)" }); // Русский (текст)
         }
+        if (hasImportedVoice(context)) {
+            out.add(new String[] { VOICE_LANG, "Русский (своя озвучка)", TEXT_LANG }); // its voices and the Russian text
+        }
         return out;
+    }
+
+    // A dubbing imported from a folder the player picked (Settings > Language > "Add a dubbing from a folder"): the sound
+    // files that differ from the game's are kept in the app's private files (<files>/voices/custom/, paths relative to
+    // Sounds), and put over the game folder's Sounds with the originals kept in .voice-backup, like the movement mod.
+    static final String VOICE_LANG = "voice";
+    static final String VOICE_DIR = "voices/custom";
+    static final String VOICE_MARKER = ".flipendo-voice"; // in the game folder: the imported dubbing is in its Sounds
+    static final String VOICE_BACKUP = ".voice-backup";   // in the game folder: the sound files it replaced
+
+    static boolean hasImportedVoice(android.content.Context context) {
+        String[] files = new File(context.getFilesDir(), VOICE_DIR).list();
+        return files != null && files.length > 0;
+    }
+
+    /** The Sounds folder of a game folder (its case differs between installs). */
+    private static File soundsDir(File gameDir) {
+        return findIgnoringCase(gameDir, "Sounds");
+    }
+
+    private static void listFiles(File dir, String prefix, List<String> out) {
+        File[] children = dir.listFiles();
+        if (children == null) {
+            return;
+        }
+        for (File child : children) {
+            if (child.isDirectory()) {
+                listFiles(child, prefix + child.getName() + "/", out);
+            } else {
+                out.add(prefix + child.getName());
+            }
+        }
+    }
+
+    /** The game's file for a path relative to Sounds, with each part's case as the game folder has it. */
+    private static File findSound(File sounds, String relative) {
+        File f = sounds;
+        for (String part : relative.split("/")) {
+            f = findIgnoringCase(f, part);
+        }
+        return f;
+    }
+
+    /**
+     * Imports a dubbing from a folder: its Sounds folder (or the folder itself when it holds the sound files), keeping the
+     * files the game has under the same name and that differ from the game's. Returns null when it worked, else what is wrong.
+     */
+    static String importVoice(android.content.Context context, String folder, File gameDir) {
+        File source = new File(folder);
+        File inner = findIgnoringCase(source, "Sounds");
+        if (inner.isDirectory()) {
+            source = inner;
+        }
+        File sounds = gameDir != null ? soundsDir(gameDir) : null;
+        if (sounds == null || !sounds.isDirectory()) {
+            return "The game folder has no Sounds folder";
+        }
+        List<String> files = new ArrayList<>();
+        listFiles(source, "", files);
+        File voices = new File(context.getFilesDir(), VOICE_DIR);
+        File temp = new File(voices.getPath() + ".part");
+        deleteTree(temp);
+        temp.mkdirs();
+        int kept = 0, known = 0;
+        byte[] buffer = new byte[1 << 16];
+        try {
+            for (String relative : files) {
+                String lower = relative.toLowerCase();
+                if (!lower.endsWith(".uax") && !lower.endsWith(".wav")) {
+                    continue;
+                }
+                File original = findSound(sounds, relative);
+                if (!original.isFile()) {
+                    continue; // a sound the game doesn't have would never be loaded
+                }
+                known++;
+                File file = new File(source, relative);
+                if (file.length() == original.length() && sameContent(file, original, buffer)) {
+                    continue;
+                }
+                copyFile(file, new File(temp, relative), buffer);
+                kept++;
+            }
+            if (known == 0) {
+                return "No sound files of the game in " + folder + ": choose the dubbing's Sounds folder (AllDialog.uax and the others)";
+            }
+            if (kept == 0) {
+                return "These sound files are the same as the game's: nothing to change";
+            }
+            deleteTree(voices);
+            voices.getParentFile().mkdirs();
+            if (!temp.renameTo(voices)) {
+                return "Could not keep the dubbing in the app's files";
+            }
+            return null;
+        } catch (IOException e) {
+            return "Could not read the folder: " + e.getMessage();
+        } finally {
+            deleteTree(temp);
+        }
+    }
+
+    private static boolean sameContent(File a, File b, byte[] buffer) throws IOException {
+        byte[] other = new byte[buffer.length];
+        try (InputStream ia = new java.io.FileInputStream(a); InputStream ib = new java.io.FileInputStream(b)) {
+            while (true) {
+                int na = ia.read(buffer), nb = ib.read(other, 0, Math.max(na, 0));
+                if (na <= 0) {
+                    return nb <= 0;
+                }
+                if (na != nb) {
+                    return false; // short reads differ: treat as different (the copy is then just made)
+                }
+                for (int i = 0; i < na; i++) {
+                    if (buffer[i] != other[i]) {
+                        return false;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Puts the imported dubbing into a game folder's Sounds (on) or takes it out (off): the originals it replaces go to
+     * .voice-backup first and come back when it is switched off. A game folder copied over again gets it once more.
+     */
+    private void applyVoice(File gameDir, boolean on) throws IOException {
+        File marker = new File(gameDir, VOICE_MARKER);
+        File backups = new File(gameDir, VOICE_BACKUP);
+        File sounds = soundsDir(gameDir);
+        boolean installed = marker.exists();
+        List<String> files = new ArrayList<>();
+        File voices = new File(getFilesDir(), VOICE_DIR);
+        listFiles(voices, "", files);
+        byte[] buffer = new byte[1 << 20];
+        if (on && !files.isEmpty()) {
+            int done = 0;
+            for (String relative : files) {
+                File source = new File(voices, relative);
+                File target = findSound(sounds, relative);
+                if (installed && target.length() == source.length()) {
+                    done++;
+                    continue; // already there
+                }
+                say("Installing the dubbing " + (done + 1) + " / " + files.size() + "\n" + relative, done, files.size());
+                File backup = new File(backups, relative);
+                if (target.exists() && !backup.exists()) {
+                    copyFile(target, backup, buffer);
+                }
+                File temp = new File(target.getPath() + ".part");
+                copyFile(source, temp, buffer);
+                target.delete();
+                temp.renameTo(target);
+                done++;
+            }
+            writeSmallFile(marker, VOICE_LANG);
+        } else if (installed) {
+            List<String> originals = new ArrayList<>();
+            listFiles(backups, "", originals);
+            for (String relative : originals) {
+                say("Restoring " + relative, 0, 1);
+                copyFile(new File(backups, relative), findSound(sounds, relative), buffer);
+            }
+            deleteTree(backups);
+            marker.delete();
+        }
     }
 
     /** The language the player chose; before any choice the self pack's installed edition, else the base one. */
@@ -1095,7 +1269,7 @@ public class SetupActivity extends Activity {
             String installed = readSmallFile(new File(gameDir, LANG_MARKER));
             // the edition to have: the chosen one; the text translation goes over the base edition
             String wanted = chosenLanguage(this);
-            if (TEXT_LANG.equals(wanted) && !languages.isEmpty()) {
+            if ((TEXT_LANG.equals(wanted) || VOICE_LANG.equals(wanted)) && !languages.isEmpty()) {
                 wanted = languages.get(0)[0];
             }
             String label = wanted;

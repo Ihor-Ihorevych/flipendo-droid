@@ -123,10 +123,52 @@ public class FlipendoActivity extends SDLActivity {
         }
     }
 
+    private static final int REQUEST_VOICE_DIR = 12;
+
+    /** Lets the player pick a dubbing's folder (its Sounds folder, or a game folder with one) with the system folder picker. */
+    void pickVoiceFolder() {
+        try {
+            startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), REQUEST_VOICE_DIR);
+        } catch (RuntimeException e) {
+            android.widget.Toast.makeText(this, "No folder picker on this phone", android.widget.Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /** The picked dubbing folder is imported (SetupActivity.importVoice) off the UI thread; then the game restarts with it. */
+    private void importVoiceFolder(Uri tree) {
+        final String folder = SetupActivity.treeUriToPath(tree);
+        if (folder == null) {
+            android.widget.Toast.makeText(this, "That place can't be read as a folder: pick a folder in the phone's storage",
+                    android.widget.Toast.LENGTH_LONG).show();
+            return;
+        }
+        android.widget.Toast.makeText(this, "Importing the dubbing...", android.widget.Toast.LENGTH_SHORT).show();
+        new Thread(new Runnable() {
+            public void run() {
+                final String problem = SetupActivity.importVoice(FlipendoActivity.this, folder, new File(gameDir()));
+                runOnUiThread(new Runnable() {
+                    public void run() {
+                        if (problem != null) {
+                            android.util.Log.w("flipendo", "dubbing import: " + problem);
+                            android.widget.Toast.makeText(FlipendoActivity.this, problem, android.widget.Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        android.widget.Toast.makeText(FlipendoActivity.this, "Dubbing imported: restarting with it", android.widget.Toast.LENGTH_SHORT).show();
+                        switchLanguage(SetupActivity.VOICE_LANG);
+                    }
+                });
+            }
+        }).start();
+    }
+
     /** The picked mod is imported (SetupActivity.importMod) off the UI thread; when it worked the game restarts with it. */
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_VOICE_DIR && resultCode == RESULT_OK && data != null && data.getData() != null) {
+            importVoiceFolder(data.getData());
+            return;
+        }
         if (requestCode != REQUEST_MOD_FILE || resultCode != RESULT_OK || data == null) {
             return;
         }
@@ -611,8 +653,15 @@ public class FlipendoActivity extends SDLActivity {
             }
         }
 
-        // Languages carried by this APK ({code, label}) and the Language button, which opens them as a list
-        final java.util.List<String[]> languages = SetupActivity.readLanguages(getContext());
+        // Languages carried by this APK ({code, label}) and the Language button, which opens them as a list; its last row
+        // adds a dubbing from a folder (ADD_VOICE, not a language)
+        static final String ADD_VOICE = "+voice";
+        final java.util.List<String[]> languages = withAddVoice(SetupActivity.readLanguages(getContext()));
+
+        java.util.List<String[]> withAddVoice(java.util.List<String[]> list) {
+            list.add(new String[] { ADD_VOICE, SetupActivity.hasImportedVoice(getContext()) ? "Другая озвучка из папки…" : "Добавить озвучку из папки…" });
+            return list;
+        }
         final String appVersion = LogReport.version(getContext()); // in the settings header
         boolean langListOpen;       // the list over the settings panel
         int langFocus = -1;         // the row the pad is on
@@ -643,6 +692,10 @@ public class FlipendoActivity extends SDLActivity {
         void pickLanguage(int index) {
             langListOpen = false;
             invalidate();
+            if (index >= 0 && index < languages.size() && ADD_VOICE.equals(languages.get(index)[0])) {
+                ((FlipendoActivity) getContext()).pickVoiceFolder();
+                return;
+            }
             if (index >= 0 && index < languages.size() && index != languageIndex(currentLanguage())) {
                 ((FlipendoActivity) getContext()).switchLanguage(languages.get(index)[0]);
             }
@@ -699,7 +752,7 @@ public class FlipendoActivity extends SDLActivity {
                 rowPaint.setTextAlign(Paint.Align.LEFT);
                 c.drawText(languages.get(i)[1], row.left + rowPad(row), row.centerY() + rowPaint.getTextSize() * 0.35f, rowPaint);
                 valuePaint.setTextAlign(Paint.Align.RIGHT);
-                c.drawText(on ? "✓ Current" : "Restart in it  ›", row.right - rowPad(row), row.centerY() + valuePaint.getTextSize() * 0.35f, valuePaint);
+                c.drawText(on ? "✓ Current" : ADD_VOICE.equals(languages.get(i)[0]) ? "Choose folder  ›" : "Restart in it  ›", row.right - rowPad(row), row.centerY() + valuePaint.getTextSize() * 0.35f, valuePaint);
                 if (padActive && i == langFocus) drawPadFocus(c, row);
             }
             subPaint.setTextAlign(Paint.Align.CENTER);
