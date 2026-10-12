@@ -116,12 +116,23 @@ public class SetupActivity extends Activity {
         if (started) {
             return;
         }
-        if (!Environment.isExternalStorageManager()) {
-            status.setText("Allow \"All files access\" for Flipendo, then come back.");
-            if (!askedPermission) {
-                askedPermission = true;
-                startActivity(new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                        Uri.parse("package:" + getPackageName())));
+        if (!hasStorageAccess(this)) {
+            if (Build.VERSION.SDK_INT >= 30) {
+                status.setText("Allow \"All files access\" for Flipendo, then come back.");
+                if (!askedPermission) {
+                    askedPermission = true;
+                    startActivity(new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                            Uri.parse("package:" + getPackageName())));
+                }
+            } else {
+                // Android 10: no "All files access" (isExternalStorageManager is Android 11; calling it crashed the app at
+                // once, POCO X3): the storage permission, with the legacy whole-storage view from the manifest
+                status.setText("Allow access to the phone's storage for Flipendo: it reads the game from there.");
+                if (!askedPermission) {
+                    askedPermission = true;
+                    requestPermissions(new String[] { android.Manifest.permission.READ_EXTERNAL_STORAGE,
+                            android.Manifest.permission.WRITE_EXTERNAL_STORAGE }, REQUEST_STORAGE);
+                }
             }
             return;
         }
@@ -131,6 +142,29 @@ public class SetupActivity extends Activity {
             showProblem(problem);
         } else {
             begin();
+        }
+    }
+
+    private static final int REQUEST_STORAGE = 8;
+
+    /** Whether the app may read and write the game folder: "All files access" (Android 11+), the storage permission on 10. */
+    static boolean hasStorageAccess(android.content.Context context) {
+        if (Build.VERSION.SDK_INT >= 30) {
+            return Environment.isExternalStorageManager();
+        }
+        return context.checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_STORAGE) {
+            if (hasStorageAccess(this)) {
+                onResume(); // go on as if the player had come back from the settings
+            } else {
+                askedPermission = false; // ask again the next time the app comes to the front
+                status.setText("Flipendo needs access to the phone's storage to read the game. Open the app again to allow it.");
+            }
         }
     }
 

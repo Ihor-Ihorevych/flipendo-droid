@@ -418,8 +418,11 @@ public class FlipendoActivity extends SDLActivity {
 
     /** Needs "All files access" to read the game data; opens the system page for it on first launch. */
     private boolean ensureStorageAccess() {
-        if (Environment.isExternalStorageManager()) {
+        if (SetupActivity.hasStorageAccess(this)) {
             return true;
+        }
+        if (android.os.Build.VERSION.SDK_INT < 30) {
+            return false; // Android 10: the launcher asks for the storage permission (SetupActivity)
         }
         Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
                 Uri.parse("package:" + getPackageName()));

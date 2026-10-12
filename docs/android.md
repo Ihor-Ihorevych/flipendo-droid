@@ -309,3 +309,11 @@ game's sound files, or one identical to the game's, is turned down with a messag
 over the game folder's Sounds, the originals kept in `.voice-backup` (`.flipendo-voice` marks it installed); another
 language puts the originals back. A game folder copied over again gets the dubbing once more (size check). In a self pack
 the `voice` choice goes over the base edition.
+
+## Android 10
+
+The app supports Android 10 (minSdk 29), but called `Environment.isExternalStorageManager()` (Android 11) unguarded at the
+very start, so on Android 10 (a POCO X3 still on its first system) it stopped before writing any log. On Android 10 there is
+no "All files access": the manifest asks for `READ`/`WRITE_EXTERNAL_STORAGE` (maxSdkVersion 29) with
+`requestLegacyExternalStorage`, and `SetupActivity.hasStorageAccess` asks for that permission instead of opening the
+All files access page.

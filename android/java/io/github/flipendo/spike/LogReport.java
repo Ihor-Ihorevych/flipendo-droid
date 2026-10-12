@@ -187,7 +187,7 @@ final class LogReport {
                 }
             }
         }
-        s.append("all files access: ").append(Environment.isExternalStorageManager()).append('\n');
+        s.append("all files access: ").append(SetupActivity.hasStorageAccess(context)).append('\n');
         try {
             s.append("build: ").append(readAsset(context, "build-info.txt")).append('\n');
             s.append("self pack: ").append(readAsset(context, "gamedata/.stamp") != null).append('\n');
