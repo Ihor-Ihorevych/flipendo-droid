@@ -22,6 +22,7 @@ INSTALL=0
 SELFPACKS=() # "game folder|apk name"
 LANGS=()     # "code=game folder": more languages for --selfpack (the in-game language switch)
 MODS=()      # "id=zip": script mods the app can switch on and off (Settings > Movement mod)
+VOICES=()    # "code=Sounds folder": a dubbing for --selfpack, an edition that is the base install with its Sounds replaced
 while [ $# -gt 0 ]; do
 	case "$1" in
 		--install) INSTALL=1 ;;
@@ -29,6 +30,7 @@ while [ $# -gt 0 ]; do
 		--selfpack-ru) shift; SELFPACKS+=("$(cygpath -u "${1:?--selfpack-ru needs the game folder}")|flipendo-droid-selfpack-ru.apk") ;;
 		--lang) shift; LANGS+=("$(echo "${1:?--lang needs code=game folder (e.g. ru=D:/HP-Russian)}" | sed 's|=.*||')=$(cygpath -u "$(echo "$1" | sed 's|^[^=]*=||')")") ;;
 		--mod) shift; MODS+=("${1:?--mod needs id=mod.zip (e.g. movement=movement.zip)}") ;;
+		--voice) shift; VOICES+=("$(echo "${1:?--voice needs code=Sounds folder (e.g. ru-softclub=Sounds-Rus-Softclub)}" | sed 's|=.*||')=$(cygpath -u "$(echo "$1" | sed 's|^[^=]*=||')")") ;;
 		*) echo "unknown argument: $1" >&2; exit 1 ;;
 	esac
 	shift
@@ -167,6 +169,7 @@ lang_label() {
 	case "$1" in
 		en) echo "English" ;;
 		ru) echo "Русский (Фаргус)" ;;
+		ru-softclub) echo "Русский (озвучка СофтКлаб)|rutext" ;; # "|rutext": the Russian text translation goes with it
 		*) echo "$1" ;;
 	esac
 }
@@ -178,7 +181,7 @@ for entry in "${SELFPACKS[@]}"; do
 	LANGDIR="$A/data_stage/assets/langs"
 	rm -rf "$A/data_stage"
 	mkdir -p "$STAGE"
-	if [ "$NAME" = flipendo-droid-selfpack.apk ] && [ ${#LANGS[@]} -gt 0 ]; then
+	if [ "$NAME" = flipendo-droid-selfpack.apk ] && { [ ${#LANGS[@]} -gt 0 ] || [ ${#VOICES[@]} -gt 0 ]; }; then
 		# Several languages (the base install is English): the files all installs share are shipped once, the files that differ
 		# (voices, fonts, texts) once per language; the app copies the chosen language's set over (SetupActivity, in-game switch).
 		declare -A base_files=() lang_dir=()
@@ -195,12 +198,20 @@ for entry in "${SELFPACKS[@]}"; do
 			for key in "${!base_files[@]}"; do [ -z "${seen[$key]:-}" ] && differ+=("$key"); done
 			unset seen
 		done
+		# a dubbing: only its Sounds files count, every other file is the base install's
+		for v in "${VOICES[@]}"; do
+			dir="${v#*=}"
+			while IFS= read -r -d '' f; do
+				key="./sounds/${f#./}"; key="${key,,}"
+				if [ -z "${base_files[$key]:-}" ] || ! cmp -s "$SELFPACK/${base_files[$key]}" "$dir/$f"; then differ+=("$key"); fi
+			done < <(cd "$dir" && find . -type f -print0)
+		done
 		declare -A is_diff=()
 		for key in "${differ[@]}"; do is_diff["$key"]=1; done
 		common=(); for key in "${!base_files[@]}"; do [ -z "${is_diff[$key]:-}" ] && common+=("${base_files[$key]}"); done
 		printf '%s\0' "${common[@]}" | (cd "$SELFPACK" && tar --null -cf - --files-from=-) | (cd "$STAGE" && tar xf -)
 		mkdir -p "$LANGDIR"
-		{ echo "en|$(lang_label en)"; for l in "${LANGS[@]}"; do echo "${l%%=*}|$(lang_label "${l%%=*}")"; done; } > "$LANGDIR/langs.txt"
+		{ echo "en|$(lang_label en)"; for l in "${LANGS[@]}" "${VOICES[@]}"; do echo "${l%%=*}|$(lang_label "${l%%=*}")"; done; } > "$LANGDIR/langs.txt"
 		# the base language's version of the differing files (the ones the base install has)
 		mkdir -p "$LANGDIR/en"
 		for key in "${!is_diff[@]}"; do [ -n "${base_files[$key]:-}" ] && printf '%s\0' "${base_files[$key]}"; done \
@@ -210,6 +221,25 @@ for entry in "${SELFPACKS[@]}"; do
 			mkdir -p "$LANGDIR/$code"
 			game_files "$dir" | while IFS= read -r -d '' f; do [ -n "${is_diff[${f,,}]:-}" ] && printf '%s\0' "$f"; done \
 				| (cd "$dir" && tar --null -cf - --files-from=-) | (cd "$LANGDIR/$code" && tar xf -)
+		done
+		# a dubbing's edition: its own Sounds files, and the base install's version of every other differing file (so a switch
+		# from another edition puts the base's texts and fonts back)
+		for v in "${VOICES[@]}"; do
+			code="${v%%=*}"; dir="${v#*=}"
+			mkdir -p "$LANGDIR/$code"
+			declare -A voice_files=()
+			while IFS= read -r -d '' f; do key="./sounds/${f#./}"; voice_files["${key,,}"]="$f"; done < <(cd "$dir" && find . -type f -print0)
+			for key in "${!is_diff[@]}"; do
+				if [ -n "${voice_files[$key]:-}" ]; then
+					target="${base_files[$key]:-./Sounds/${voice_files[$key]#./}}"
+					mkdir -p "$LANGDIR/$code/$(dirname "$target")"
+					cp "$dir/${voice_files[$key]}" "$LANGDIR/$code/$target"
+				elif [ -n "${base_files[$key]:-}" ]; then
+					mkdir -p "$LANGDIR/$code/$(dirname "${base_files[$key]}")"
+					cp "$SELFPACK/${base_files[$key]}" "$LANGDIR/$code/${base_files[$key]}"
+				fi
+			done
+			unset voice_files
 		done
 		echo "languages: $(paste -sd, "$LANGDIR/langs.txt"); ${#is_diff[@]} files differ, $(du -sm "$LANGDIR" | cut -f1) MB in langs/"
 		unset base_files lang_dir is_diff

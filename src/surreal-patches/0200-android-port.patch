@@ -1,4 +1,4 @@
-flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CPU, per-frame command pool reset, no gl_ClipDistance, upright swapchain, absolute touch mouse, no backtrace(); Vulkan device choice needs only independentBlend and names why a device was rejected, descriptor indexing optional (Vulkan 1.1 Mali without it); fonts can take glyphs they lack from elsewhere (HP1 Cyrillic text); OpenGL ES 3.2 renderer (the OpenGL device on GLES: SDL ES context, no S3TC/BGRA uploads, GLSL ES shaders), fail_vulkan.txt test aid, GL errors name their code
+flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CPU, per-frame command pool reset, no gl_ClipDistance, upright swapchain, absolute touch mouse, no backtrace(); Vulkan device choice needs only independentBlend and names why a device was rejected, descriptor indexing optional (Vulkan 1.1 Mali without it); fonts can take glyphs they lack from elsewhere (HP1 Cyrillic text); OpenGL ES 3.2 renderer (the OpenGL device on GLES: SDL ES context, no S3TC/BGRA uploads, GLSL ES shaders), fail_vulkan.txt test aid, GL errors name their code; no Vulkan surface while the Android surface is gone
 
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
@@ -97,20 +97,56 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  
 --- a/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
 +++ b/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
-@@ -66,6 +66,12 @@
+@@ -66,22 +66,37 @@
  			UsingVsync = renderer->UseVSync;
  			UsingHdr = renderer->Hdr;
  			renderer->Framebuffers->DestroySwapChainFramebuffers();
+-			SwapChain->Create(presentWidth, presentHeight, renderer->UseVSync ? 2 : 3, renderer->UseVSync, renderer->Hdr);
+-			renderer->Framebuffers->CreateSwapChainFramebuffers();
+-
+-			RenderFinishedSemaphores.clear();
+-			for (int i = 0; i < SwapChain->ImageCount(); i++)
 +			if (SwapChain->SurfaceLost())
 +			{
-+				// The window was destroyed (Android: the app went to the background) and a new one exists now.
++				// The window was destroyed (Android: the app went to the background) and a new one exists now. While there
++				// is no window yet (still in the background, or the screen being rebuilt) this frame is not shown: making a
++				// surface for a window that has no native window crashed in the Vulkan loader (Redmi Note 10S, Mali-G76).
 +				SwapChain->ReleaseSwapchain();
-+				renderer->RecreateSurface();
++				if (!renderer->RecreateSurface())
++					present = false;
 +			}
- 			SwapChain->Create(presentWidth, presentHeight, renderer->UseVSync ? 2 : 3, renderer->UseVSync, renderer->Hdr);
- 			renderer->Framebuffers->CreateSwapChainFramebuffers();
++			if (present)
+ 			{
+-				RenderFinishedSemaphores.push_back(SemaphoreBuilder()
+-					.DebugName("RenderFinishedSemaphore")
+-					.Create(renderer->Device.get()));
++				SwapChain->Create(presentWidth, presentHeight, renderer->UseVSync ? 2 : 3, renderer->UseVSync, renderer->Hdr);
++				renderer->Framebuffers->CreateSwapChainFramebuffers();
++
++				RenderFinishedSemaphores.clear();
++				for (int i = 0; i < SwapChain->ImageCount(); i++)
++				{
++					RenderFinishedSemaphores.push_back(SemaphoreBuilder()
++						.DebugName("RenderFinishedSemaphore")
++						.Create(renderer->Device.get()));
++				}
+ 			}
+ 		}
  
-@@ -129,6 +135,8 @@
+-		PresentImageIndex = SwapChain->AcquireImage(ImageAvailableSemaphore.get());
+-		if (PresentImageIndex != -1)
++		if (present)
+ 		{
+-			renderer->DrawPresentTexture(presentWidth, presentHeight);
++			PresentImageIndex = SwapChain->AcquireImage(ImageAvailableSemaphore.get());
++			if (PresentImageIndex != -1)
++			{
++				renderer->DrawPresentTexture(presentWidth, presentHeight);
++			}
+ 		}
+ 	}
+ 
+@@ -129,6 +144,8 @@
  	DrawCommands.reset();
  	TransferCommands.reset();
  	DeleteFrameObjects();
@@ -681,19 +717,22 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  		cmdbuffer->pushConstants(layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ScenePushConstants), &pushconstants);
  		cmdbuffer->setBlendConstants(Batch.BlendConstants);
  		cmdbuffer->drawIndexed((uint32_t)icount, 1, (uint32_t)Batch.SceneIndexStart, 0, 0);
-@@ -1437,3 +1491,13 @@
+@@ -1437,3 +1491,16 @@
  		.AddImage(Commands->SwapChain->GetImage(Commands->PresentImageIndex), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0)
  		.Execute(cmdbuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
  }
 +
-+void VulkanRenderDevice::RecreateSurface()
++bool VulkanRenderDevice::RecreateSurface()
 +{
 +	vkDeviceWaitIdle(Device->device);
 +	VkInstance instance = Device->Surface->Instance->Instance;
 +	VkSurfaceKHR fresh = Viewport->CreateVulkanSurface(instance);
++	if (fresh == VK_NULL_HANDLE)
++		return false; // no native window right now; the next frame tries again
 +	vkDestroySurfaceKHR(instance, Device->Surface->Surface, nullptr);
 +	Device->Surface->Surface = fresh;
 +	LogMessage("Vulkan surface recreated (the window was recreated, e.g. the app came back from the background)");
++	return true;
 +}
 --- a/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.h
 +++ b/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.h
@@ -705,7 +744,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
 +	bool Bindless = true;
 +
 +	// A new VkSurfaceKHR for the window (the old one died with it: the app was in the background); SwapChain must be released first.
-+	void RecreateSurface();
++	bool RecreateSurface(); // false while the window has no native surface (Android, in the background)
 +
  	void RunBloomPass();
  	void BloomStep(VulkanCommandBuffer* cmdbuffer, VulkanPipeline* pipeline, VulkanDescriptorSet* input, VulkanFramebuffer* output, int width, int height, const BloomPushConstants &pushconstants);
@@ -2321,10 +2360,15 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  }
 --- a/SurrealWidgets/src/window/sdl3/sdl3_display_window.cpp
 +++ b/SurrealWidgets/src/window/sdl3/sdl3_display_window.cpp
-@@ -12,13 +12,34 @@
+@@ -12,13 +12,39 @@
  bool SDL3DisplayWindow::ExitRunLoop;
  std::unordered_map<unsigned int, SDL3DisplayWindow*> SDL3DisplayWindow::WindowList;
  
++#ifdef __ANDROID__
++// Whether the Android surface exists right now (defined by the app, android_main.cpp; absent in other programs)
++extern "C" __attribute__((weak)) bool FlipendoAndroidSurfaceAlive();
++#endif
++
 +#ifdef __ANDROID__
 +// Android: an OpenGL ES 3.2 context, set before the window is made (SDL chooses the EGL config then). No depth or stencil in
 +// the window: the renderer draws into its own framebuffers and only copies the result to the window.
@@ -2356,7 +2400,21 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  #if defined(__APPLE__)
  	else if (renderAPI == RenderAPI::Metal)
  		flags |= SDL_WINDOW_METAL;
-@@ -667,11 +688,18 @@
+@@ -86,6 +112,13 @@
+ VkSurfaceKHR SDL3DisplayWindow::CreateVulkanSurface(VkInstance instance)
+ {
+ 	VkSurfaceKHR surfaceHandle = {};
++#ifdef __ANDROID__
++	// Android: between the surface being destroyed (the app goes to the background) and a new one, the window has no native
++	// window (SDL keeps a stale pointer in the window property); a Vulkan surface made then crashed in the loader. The app
++	// (android_main.cpp) tracks the surface; the renderer skips frames until one exists again.
++	if (FlipendoAndroidSurfaceAlive && !FlipendoAndroidSurfaceAlive())
++		return {};
++#endif
+ 	if (!SDL_Vulkan_CreateSurface(Handle.window, instance, nullptr, &surfaceHandle))
+ 		throw std::runtime_error("Could not create vulkan surface");
+ 	return surfaceHandle;
+@@ -667,11 +700,18 @@
  
  void SDL3DisplayWindow::CreateGLContext()
  {

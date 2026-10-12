@@ -33,4 +33,5 @@ __pycache__/
 /logs-*.zip
 /*logs*.zip
 /movement*.zip
+/Sounds-Rus*/
 *.u

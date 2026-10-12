@@ -39,6 +39,7 @@ namespace HP1::Mods
 
 	// FrameLimit.cpp
 	void TickFrameLimit();
+	void SetFrameLimit(int fps); // a new limit while the game runs (0: none), over --fps (the Android FPS limit slider)
 
 	// PathFixes.cpp
 	void TickPathFixes();

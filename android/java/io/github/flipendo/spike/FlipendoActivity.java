@@ -49,6 +49,21 @@ public class FlipendoActivity extends SDLActivity {
 
     static native void nativeSetFovOffset(float degrees);
 
+    /** The game's frame limit (Settings > FPS limit; the frame limit mod, src/hp1/mods/FrameLimit.cpp). */
+    static int fpsLimit = 60;
+    static final int FPS_LIMIT_MIN = 25, FPS_LIMIT_MAX = 60;
+
+    static native void nativeSetFpsLimit(int fps);
+
+    void applyFpsLimit(int fps, boolean save) {
+        fpsLimit = Math.max(FPS_LIMIT_MIN, Math.min(FPS_LIMIT_MAX, fps));
+        try {
+            nativeSetFpsLimit(fpsLimit);
+        } catch (UnsatisfiedLinkError ignored) {
+        }
+        if (save) saveScales();
+    }
+
     static native void nativeSetDebugMode(boolean on);
 
     /** HP's Auto Jump option (Harry jumps by himself at ledges); on by default. */
@@ -178,7 +193,7 @@ public class FlipendoActivity extends SDLActivity {
     private void saveScales() {
         getSharedPreferences("flipendo", MODE_PRIVATE).edit()
                 .putFloat("renderScale", surfaceScale).putFloat("uiScale", uiScale)
-                .putFloat("fovOffset", fovOffset).putBoolean("debugMode", debugMode).putBoolean("showFps", showFps).putBoolean("autoJump", autoJump).apply();
+                .putFloat("fovOffset", fovOffset).putBoolean("debugMode", debugMode).putBoolean("showFps", showFps).putBoolean("autoJump", autoJump).putInt("fpsLimit", fpsLimit).apply();
     }
 
     /** Resizes the render surface (the engine rebuilds its scene textures and swapchain for the new size). */
@@ -263,6 +278,15 @@ public class FlipendoActivity extends SDLActivity {
         });
     }
 
+    static native void nativeSetSurfaceAlive(boolean alive);
+
+    static void setSurfaceAlive(boolean alive) {
+        try {
+            nativeSetSurfaceAlive(alive);
+        } catch (UnsatisfiedLinkError ignored) {
+        }
+    }
+
     /** Frames the engine has drawn (android_main.cpp): the FPS counter. */
     static native int nativeFrameCount();
 
@@ -308,6 +332,17 @@ public class FlipendoActivity extends SDLActivity {
 
     /** True while a cutscene holds Harry; implemented in android_main.cpp. */
     static native boolean nativeCutsceneActive();
+
+    /** True while Harry flies the broom (the player is a BroomHarry); implemented in android_main.cpp. */
+    static native boolean nativeOnBroom();
+
+    static boolean onBroom() {
+        try {
+            return nativeOnBroom();
+        } catch (UnsatisfiedLinkError e) {
+            return false;
+        }
+    }
 
     static boolean cutsceneActive() {
         try {
@@ -388,11 +423,19 @@ public class FlipendoActivity extends SDLActivity {
         applyDebugMode(prefs.getBoolean("debugMode", false), false);
         showFps = prefs.getBoolean("showFps", false);
         applyAutoJump(prefs.getBoolean("autoJump", true), false);
+        applyFpsLimit(prefs.getInt("fpsLimit", 60), false);
         if (mSurface != null) {
             applyRenderScale(prefs.getFloat("renderScale", 0.5f));
             // SDL adds the surface as WRAP_CONTENT, which would shrink the view to the fixed size: stretch it over the screen.
             mSurface.setLayoutParams(new RelativeLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            // The engine must know when the surface is gone: Vulkan made a surface for a destroyed one and crashed
+            // (android_main.cpp, nativeSetSurfaceAlive)
+            mSurface.getHolder().addCallback(new android.view.SurfaceHolder.Callback() {
+                public void surfaceCreated(android.view.SurfaceHolder holder) { setSurfaceAlive(true); }
+                public void surfaceChanged(android.view.SurfaceHolder holder, int format, int width, int height) { setSurfaceAlive(true); }
+                public void surfaceDestroyed(android.view.SurfaceHolder holder) { setSurfaceAlive(false); }
+            });
         }
         if (mLayout != null) {
             overlay = new Overlay(this);
@@ -438,23 +481,31 @@ public class FlipendoActivity extends SDLActivity {
 
         // Two sliders in the left margin of the menu: 0 = render scale, 1 = subtitles and HUD size.
         float sliderX0, sliderX1;
-        final float[] sliderY = new float[3];
+        final float[] sliderY = new float[4];
         int activeSlider = -1;
         float pendingRender = 0.5f; // the render scale being dragged; it is applied when the finger lifts
 
         boolean menuShown;       // last polled menu state: hides the gameplay buttons
         boolean lessonShown;     // last polled lesson state: hides the gameplay buttons too
         boolean cutsceneShown;   // last polled cutscene state: only SKIP, settings and menu are shown, the screen does not steer or look
+        // Harry on the broom (the player is a BroomHarry): the wand button is a steering stick that presses nothing (its left
+        // mouse is the broom's brake, and the script drops the boost while the brake is held), and JUMP (the right mouse:
+        // the boost) is a toggle, so the right thumb steers while the boost stays on
+        boolean broomShown;
         long menuDownTime;       // when the menu pointer went down
         float menuX, menuY;      // last menu pointer position, in surface pixels
 
         final Runnable poll = new Runnable() {
             public void run() {
-                boolean m = menuActive(), l = lessonDrawing(), cs = cutsceneActive();
-                if (m != menuShown || l != lessonShown || cs != cutsceneShown) {
+                boolean m = menuActive(), l = lessonDrawing(), cs = cutsceneActive(), br = onBroom();
+                if (m != menuShown || l != lessonShown || cs != cutsceneShown || br != broomShown) {
                     menuShown = m;
                     lessonShown = l;
                     cutsceneShown = cs;
+                    if (br != broomShown) {
+                        broomShown = br;
+                        if (jump.down) setButton(jump, false); // the boost toggle ends with the flight (and vice versa)
+                    }
                     if (cs) releaseGameplayControls();
                     invalidate();
                 }
@@ -747,7 +798,7 @@ public class FlipendoActivity extends SDLActivity {
         };
 
         boolean aimVisible() {
-            return modOn && !padActive && !settingsOpen && !menuShown && !lessonShown && !cutsceneShown;
+            return (modOn || broomShown) && !padActive && !settingsOpen && !menuShown && !lessonShown && !cutsceneShown;
         }
 
         void setAim(float x, float y) {
@@ -1198,7 +1249,7 @@ public class FlipendoActivity extends SDLActivity {
 
         // The port's settings panel: the entry the pad is on
         static final int SET_RENDER = 0, SET_UI = 1, SET_FOV = 2, SET_FPS = 3, SET_SEG = 4, SET_JUMP = 5, SET_LANG = 6, SET_MOD = 7,
-                SET_DEBUG = 8, SET_TELEGRAM = 9, SET_DONE = 10, SET_RENDERER = 11;
+                SET_DEBUG = 8, SET_TELEGRAM = 9, SET_DONE = 10, SET_RENDERER = 11, SET_FPS_LIMIT = 12;
         int settingsFocus = -1;
         final java.util.List<android.graphics.RectF> setRects = new java.util.ArrayList<>();
         final java.util.List<Integer> setIds = new java.util.ArrayList<>();
@@ -1207,9 +1258,9 @@ public class FlipendoActivity extends SDLActivity {
             setRects.clear();
             setIds.clear();
             float h = getHeight();
-            for (int i = 0; i < 3; i++) {
-                setRects.add(new android.graphics.RectF(colL0 - 0.01f * h, sliderLabelY[i] - 0.05f * h, colL1 + 0.01f * h, sliderY[i] + 0.035f * h));
-                setIds.add(i);
+            for (int i = 0; i < SLIDERS; i++) {
+                setRects.add(new android.graphics.RectF(colL0 - 0.01f * h, sliderLabelY[i] - 0.045f * h, colL1 + 0.01f * h, sliderY[i] + 0.03f * h));
+                setIds.add(sliderId(i));
             }
             setRects.add(new android.graphics.RectF(fpsBtn)); setIds.add(SET_FPS);
             setRects.add(new android.graphics.RectF(segStick.left, segStick.top, segDpad.right, segDpad.bottom)); setIds.add(SET_SEG);
@@ -1234,12 +1285,14 @@ public class FlipendoActivity extends SDLActivity {
                 invalidate();
                 return;
             }
-            if (dx != 0 && dy == 0 && id <= SET_FOV) {
+            int slider = sliderOfId(id);
+            if (dx != 0 && dy == 0 && slider >= 0) {
                 // left / right on a slider changes it by its step
-                float v = Math.max(sliderMin(id), Math.min(sliderMax(id), sliderValue(id) + dx * sliderStep(id)));
+                float v = Math.max(sliderMin(slider), Math.min(sliderMax(slider), sliderValue(slider) + dx * sliderStep(slider)));
                 FlipendoActivity activity = (FlipendoActivity) getContext();
-                if (id == SET_UI) activity.applyUiScale(v, true);
-                else if (id == SET_FOV) activity.applyFovOffset(v, true);
+                if (slider == 1) activity.applyUiScale(v, true);
+                else if (slider == 2) activity.applyFovOffset(v, true);
+                else if (slider == 3) activity.applyFpsLimit(Math.round(v), true);
                 else activity.applyRenderScale(v);
                 invalidate();
                 return;
@@ -1394,7 +1447,7 @@ public class FlipendoActivity extends SDLActivity {
 
         // the settings card's geometry (onSizeChanged) and its text styles
         float headerY, dividerY, colL0, colL1, colR0, colR1, secDisplayY, secControlsY, secGameY;
-        final float[] sliderLabelY = new float[3];
+        final float[] sliderLabelY = new float[4];
         static final int GOLD = 0xFFE8C15A, CARD = 0xF2181722, ROW = 0x14FFFFFF, MUTED = 0x99FFFFFF;
         final Paint titlePaint = new Paint(Paint.ANTI_ALIAS_FLAG), sectionPaint = new Paint(Paint.ANTI_ALIAS_FLAG),
                 rowPaint = new Paint(Paint.ANTI_ALIAS_FLAG), subPaint = new Paint(Paint.ANTI_ALIAS_FLAG),
@@ -1533,10 +1586,10 @@ public class FlipendoActivity extends SDLActivity {
             sliderX1 = colL1 - knobR;
             // the FPS counter switch at the bottom of the column, the sliders share what is above it
             fpsBtn.set(colL0, footerTop - 0.035f * h - 0.078f * h, colL1, footerTop - 0.035f * h);
-            float slot = (fpsBtn.top - 0.02f * h - (secDisplayY + 0.02f * h)) / 3f;
-            for (int s = 0; s < 3; s++) {
-                sliderLabelY[s] = secDisplayY + 0.02f * h + s * slot + 0.055f * h;
-                sliderY[s] = sliderLabelY[s] + 0.05f * h;
+            float slot = (fpsBtn.top - 0.015f * h - (secDisplayY + 0.015f * h)) / SLIDERS;
+            for (int s = 0; s < SLIDERS; s++) {
+                sliderLabelY[s] = secDisplayY + 0.015f * h + s * slot + 0.047f * h;
+                sliderY[s] = sliderLabelY[s] + 0.043f * h;
             }
 
             // right: Controls (movement segments, Auto jump) and Game (Language, Movement mod, Debug mode)
@@ -1584,23 +1637,30 @@ public class FlipendoActivity extends SDLActivity {
 
         final Paint label = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-        // sliders: 0 = render scale, 1 = subtitles and HUD size, 2 = field of view offset
-        float sliderMin(int i) { return i == 0 ? RENDER_SCALE_MIN : i == 1 ? UI_SCALE_MIN : FOV_MIN; }
+        // sliders: 0 = render scale, 1 = subtitles and HUD size, 2 = field of view offset, 3 = FPS limit
+        static final int SLIDERS = 4;
 
-        float sliderMax(int i) { return i == 0 ? RENDER_SCALE_MAX : i == 1 ? UI_SCALE_MAX : FOV_MAX; }
+        float sliderMin(int i) { return i == 0 ? RENDER_SCALE_MIN : i == 1 ? UI_SCALE_MIN : i == 2 ? FOV_MIN : FPS_LIMIT_MIN; }
+
+        float sliderMax(int i) { return i == 0 ? RENDER_SCALE_MAX : i == 1 ? UI_SCALE_MAX : i == 2 ? FOV_MAX : FPS_LIMIT_MAX; }
 
         float sliderStep(int i) { return i == 0 ? 0.05f : i == 1 ? 0.1f : 5f; }
 
         float sliderValue(int i) {
-            return i == 0 ? (activeSlider == 0 ? pendingRender : surfaceScale) : i == 1 ? uiScale : fovOffset;
+            return i == 0 ? (activeSlider == 0 ? pendingRender : surfaceScale) : i == 1 ? uiScale : i == 2 ? fovOffset : fpsLimit;
         }
+
+        /** The settings entry id of a slider (the pad's entries) and back: sliders 0-2 are ids 0-2, the FPS limit is SET_FPS_LIMIT. */
+        int sliderId(int i) { return i == 3 ? SET_FPS_LIMIT : i; }
+
+        int sliderOfId(int id) { return id == SET_FPS_LIMIT ? 3 : id <= SET_FOV ? id : -1; }
 
         /** The slider under a touch (menu open only), or -1. */
         int hitSlider(float x, float y) {
             if (!settingsOpen) return -1;
             float u = Math.min(getWidth(), getHeight());
-            for (int i = 0; i < 3; i++) {
-                if (Math.abs(y - sliderY[i]) < 0.055f * u && x > sliderX0 - 0.05f * u && x < sliderX1 + 0.05f * u) return i;
+            for (int i = 0; i < SLIDERS; i++) {
+                if (Math.abs(y - sliderY[i]) < 0.045f * u && x > sliderX0 - 0.05f * u && x < sliderX1 + 0.05f * u) return i;
             }
             return -1;
         }
@@ -1616,6 +1676,8 @@ public class FlipendoActivity extends SDLActivity {
                 activity.applyUiScale(v, commit);
             } else if (i == 2) {
                 activity.applyFovOffset(v, commit);
+            } else if (i == 3) {
+                activity.applyFpsLimit(Math.round(v), commit);
             } else {
                 pendingRender = v;
                 if (commit) activity.applyRenderScale(v);
@@ -1780,11 +1842,12 @@ public class FlipendoActivity extends SDLActivity {
             float u = Math.min(getWidth(), getHeight());
             android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
             int longSide = Math.max(dm.widthPixels, dm.heightPixels), shortSide = Math.min(dm.widthPixels, dm.heightPixels);
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < SLIDERS; i++) {
                 float v = sliderValue(i);
-                String name = i == 0 ? "Render scale" : i == 1 ? "Subtitles and HUD size" : "Field of view";
+                String name = i == 0 ? "Render scale" : i == 1 ? "Subtitles and HUD size" : i == 2 ? "Field of view" : "FPS limit";
                 String value = i == 0 ? Math.round(v * 100) + "%  ·  " + (int) (longSide * v) + "×" + (int) (shortSide * v)
                         : i == 1 ? Math.round(v * 100) + "%"
+                        : i == 3 ? Math.round(v) + " FPS"
                         : (v > 0 ? "+" : "") + Math.round(v) + "°" + (v == 0 ? "  (default)" : "");
                 rowPaint.setTextAlign(Paint.Align.LEFT);
                 c.drawText(name, colL0, sliderLabelY[i], rowPaint);
@@ -1954,7 +2017,7 @@ public class FlipendoActivity extends SDLActivity {
                         roles.put(id, Role.BUTTON);
                         b.pointer = id;
                         if (isArrow(b)) arrowFingers.add(id);
-                        if (b == cast && modOn) {
+                        if (b == cast && (modOn || broomShown)) {
                             // the wand button is a stick too: where the finger went down is its centre
                             aimPointer = id;
                             aimCx = x;
@@ -1962,7 +2025,11 @@ public class FlipendoActivity extends SDLActivity {
                             aimDx = aimDy = 0;
                             post(aimTick);
                         }
-                        if (b.toggle) setButton(b, !b.down); else setButton(b, true);
+                        if (broomShown && b == cast) {
+                            // on the broom it only steers: no brake
+                        } else if (broomShown && b == jump) {
+                            setButton(b, !b.down); // the boost toggles
+                        } else if (b.toggle) setButton(b, !b.down); else setButton(b, true);
                         if (b == menu) {
                             // Holding MENU for a moment sends the logs (also when the game is stuck or black).
                             menuHeld = new Runnable() { public void run() {
@@ -2076,7 +2143,9 @@ public class FlipendoActivity extends SDLActivity {
                                     removeCallbacks(menuHeld);
                                     menuHeld = null;
                                 }
-                                if (!b.toggle) setButton(b, false);
+                                if (broomShown && (b == cast || b == jump)) {
+                                    // the steering stick pressed nothing; the boost stays as toggled
+                                } else if (!b.toggle) setButton(b, false);
                             }
                         }
                     } else if (role == Role.STICK) {
@@ -2316,7 +2385,7 @@ public class FlipendoActivity extends SDLActivity {
                     c.drawCircle(cast.cx, cast.cy, aimR + cast.r, line);
                 }
                 c.save();
-                if (modOn && aimPointer != -1) c.translate(aimDx, aimDy); // the wand button is the stick: it follows the finger
+                if ((modOn || broomShown) && aimPointer != -1) c.translate(aimDx, aimDy); // the wand button is the stick: it follows the finger
                 drawDisc(c, cast.cx, cast.cy, cast.down ? cast.r * 0.94f : cast.r, cast.down);
                 if (cast.icon != null) drawIcon(c, cast, cast.cx, cast.cy, cast.r * 0.66f);
                 c.restore();

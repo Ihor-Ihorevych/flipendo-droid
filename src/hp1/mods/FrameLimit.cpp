@@ -2,6 +2,7 @@
 #include "HP1Mods.h"
 #include "Utils/CommandLine.h"
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstdlib>
 #include <thread>
@@ -23,8 +24,13 @@ namespace HP1::Mods
 	{
 		using Clock = std::chrono::steady_clock;
 
+		std::atomic<int> runtimeLimit{ -1 }; // SetFrameLimit; -1: --fps decides
+
 		int FrameLimit()
 		{
+			int runtime = runtimeLimit.load();
+			if (runtime >= 0)
+				return Enabled() ? runtime : 0;
 			static int fps = -1;
 			if (fps < 0)
 			{
@@ -63,6 +69,11 @@ namespace HP1::Mods
 			while (Clock::now() < deadline)
 				std::this_thread::yield();
 		}
+	}
+
+	void SetFrameLimit(int fps)
+	{
+		runtimeLimit = std::max(fps, 0);
 	}
 
 	void TickFrameLimit()

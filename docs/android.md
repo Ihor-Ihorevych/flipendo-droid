@@ -264,3 +264,36 @@ Android a texture now gets immutable storage (`glTexStorage2D`) with `min(NumMip
 The log has `OpenGL limits:` and `OpenGL extensions:` lines, and an incomplete scene framebuffer is reported by its status.
 Test aid: `/sdcard/FlipendoHP/gl_nomip.txt` makes every texture single-level (if the geometry then shows, mip chains are
 the culprit on that phone).
+
+## FPS limit
+
+Settings > Display > **FPS limit** (25-60, steps of 5; default 60) sets the frame limit mod's limit while the game runs
+(`HP1::Mods::SetFrameLimit`, `src/hp1/mods/FrameLimit.cpp`; overrides `--fps`, `--vanilla` still turns it off). Lower limits
+save battery and heat on slow phones. Kept in the app's preferences (`fpsLimit`).
+
+## Dubbings (self pack)
+
+`build-apk.sh --voice code=<Sounds folder>` adds an edition that is the base install with its `Sounds` replaced:
+`--voice ru-softclub=Sounds-Rus-Softclub` (SoftClub's Russian voices; of its packages only `AllDialog.uax` differs from the
+English one). Its langs/ folder holds its own Sounds files and the base's version of every other file an edition changes,
+so switching from Fargus puts the base fonts and texts back. A `langs.txt` label may end in `|rutext`: the Russian text
+translation is put in with that edition (`SetupActivity.languageHasText`). The folder is game data: `.gitignore` keeps
+`/Sounds-Rus*/` out of the repository, and it only goes into the self pack.
+
+## Flying the broom
+
+When the player is a `BroomHarry` (the Remembrall chase, the flying lesson, Quidditch; `g_onBroom`, set in
+`HP1::TickLessonTouch`), the overlay changes two buttons:
+- **The wand button is a steering stick that presses nothing.** Its left mouse button is the broom's brake
+  (`LeftMouse=AltFire | Button bBroomBrake`), and BroomHarry's script only boosts while `bBroomBrake == 0`, so with the
+  movement mod (where the wand button is an aim stick holding the left mouse) every turn braked and dropped the boost.
+- **JUMP toggles the boost** (`RightMouse=jump | Button bBroomBoost`): one tap keeps it on, so the right thumb is free to steer.
+The toggle ends when the flight does.
+
+## Vulkan surface after the background
+
+When the Android surface is destroyed (the app goes to the background), SDL keeps a stale native window pointer in the
+window's properties. The Vulkan renderer noticed the lost swapchain and made a new surface for that window, and the Vulkan
+loader crashed (Redmi Note 10S, Mali-G76: `CreateVulkanSurface` -> `libvulkan.so`, fault addr 0x98). FlipendoActivity now
+reports the surface's life (`SurfaceHolder.Callback` -> `nativeSetSurfaceAlive`), `SDL3DisplayWindow::CreateVulkanSurface`
+returns no surface while it is gone, and `CommandBufferManager::SubmitCommands` skips presenting until it is back.

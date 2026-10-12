@@ -149,7 +149,7 @@ public class SetupActivity extends Activity {
                     }
                 }
                 wish.delete();
-                boolean text = TEXT_LANG.equals(chosenLanguage(SetupActivity.this));
+                boolean text = languageHasText(SetupActivity.this, chosenLanguage(SetupActivity.this));
                 if (!text) {
                     // before a self pack puts its editions' files in: the originals the translation replaced go back first
                     try {
@@ -575,7 +575,26 @@ public class SetupActivity extends Activity {
 
     /** The editions a self pack carries as {code, label} (the first is the base install); empty for other builds. */
     static List<String[]> readPackLanguages(android.content.Context context) {
-        return readPairs(context, LANG_DIR + "/langs.txt");
+        // "code|label" or "code|label|rutext": an edition the Russian text translation goes with (a dubbing such as SoftClub's)
+        List<String[]> out = new ArrayList<>();
+        for (String[] pair : readPairs(context, LANG_DIR + "/langs.txt")) {
+            String[] parts = pair[1].split("[|]", 2);
+            out.add(new String[] { pair[0], parts[0], parts.length > 1 ? parts[1] : "" });
+        }
+        return out;
+    }
+
+    /** Whether the text translation is put in for this language: the text one itself, or an edition marked with it. */
+    static boolean languageHasText(android.content.Context context, String code) {
+        if (TEXT_LANG.equals(code)) {
+            return true;
+        }
+        for (String[] l : readPackLanguages(context)) {
+            if (l[0].equals(code)) {
+                return TEXT_LANG.equals(l[2]) && hasTextTranslation(context);
+            }
+        }
+        return false;
     }
 
     // The Russian text translation, in every APK (assets/rutext: the game's .int files in Windows-1251)

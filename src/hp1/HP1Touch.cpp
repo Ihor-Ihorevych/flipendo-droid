@@ -31,6 +31,7 @@ extern std::atomic<bool> g_debugMode; // the settings panel's debug mode switch
 extern std::atomic<bool> g_autoJump;  // and its Auto Jump switch
 extern std::atomic<bool> g_lessonDrawing; // a spell lesson is in its Draw state: the finger draws
 extern std::atomic<bool> g_cutsceneActive; // a cutscene holds Harry: the overlay hides the gameplay controls
+extern std::atomic<bool> g_onBroom; // Harry flies the broom: the overlay steers with the wand stick, JUMP toggles the boost
 extern std::atomic<int> g_frameCount; // frames drawn, for the overlay's FPS counter
 void AndroidSetLevelName(const std::string& name); // the map being played: the overlay's prompts (android_main.cpp)
 extern std::atomic<bool> g_touchDown;
@@ -167,6 +168,10 @@ namespace HP1
 		UPlayerPawn* player = engine->viewport->Actor();
 		UObject* hud = player ? player->myHUD() : nullptr;
 		g_cutsceneActive = hud && KW::BoolProperty(hud, "bCutSceneMode") && KW::ObjectProperty(hud, "curCutScene");
+
+		// Harry on the broom: the player pawn is a BroomHarry (HarryPotter.u, extends Harry) for every flight (the Remembrall
+		// chase, the flying lesson, Quidditch). The overlay's broom controls follow it.
+		g_onBroom = player && player->IsA("BroomHarry");
 
 		// The map being played, for prompts that depend on the level (the movement mod can't aim in Devil's Snare).
 		static std::string lastLevelName;

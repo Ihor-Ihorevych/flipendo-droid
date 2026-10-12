@@ -28,6 +28,7 @@
 std::atomic<bool> g_androidMenuActive{false};
 std::atomic<bool> g_lessonDrawing{false};
 std::atomic<bool> g_cutsceneActive{false}; // a cutscene holds Harry (HP1::TickLessonTouch): the overlay hides the gameplay controls
+std::atomic<bool> g_onBroom{false}; // Harry flies the broom (HP1::TickLessonTouch): the overlay's broom controls
 std::atomic<int> g_frameCount{0}; // frames drawn, for the FPS counter (HP1::TickTouchDefaults counts, the overlay reads it)
 std::atomic<float> g_uiScale{1.0f}; // subtitles and HUD size from the menu slider (HP1Canvas.cpp)
 std::atomic<float> g_fovOffset{0.0f}; // degrees added to the field of view (settings panel; KW::ViewFovAngle)
@@ -95,6 +96,14 @@ extern "C" JNIEXPORT void JNICALL Java_io_github_flipendo_spike_FlipendoActivity
 	g_lessonTimeScale = scale;
 }
 
+namespace HP1::Mods { void SetFrameLimit(int fps); } // src/hp1/mods/FrameLimit.cpp
+
+// Settings > FPS limit (25-60): the frame limit mod's limit, while the game runs
+extern "C" JNIEXPORT void JNICALL Java_io_github_flipendo_spike_FlipendoActivity_nativeSetFpsLimit(JNIEnv*, jclass, jint fps)
+{
+	HP1::Mods::SetFrameLimit(fps);
+}
+
 static std::mutex g_levelMutex;
 static std::string g_levelName; // the map being played (HP1::TickLessonTouch), for the overlay's prompts
 
@@ -110,6 +119,20 @@ extern "C" JNIEXPORT jstring JNICALL Java_io_github_flipendo_spike_FlipendoActiv
 	return env->NewStringUTF(g_levelName.c_str());
 }
 
+// Whether the game's Android surface exists: FlipendoActivity's SurfaceHolder callback sets it. The Vulkan renderer makes no
+// surface while it is gone (SDL3DisplayWindow::CreateVulkanSurface), which crashed in the loader.
+static std::atomic<bool> g_surfaceAlive{ true };
+
+extern "C" bool FlipendoAndroidSurfaceAlive()
+{
+	return g_surfaceAlive.load();
+}
+
+extern "C" JNIEXPORT void JNICALL Java_io_github_flipendo_spike_FlipendoActivity_nativeSetSurfaceAlive(JNIEnv*, jclass, jboolean alive)
+{
+	g_surfaceAlive = alive == JNI_TRUE;
+}
+
 extern "C" JNIEXPORT jint JNICALL Java_io_github_flipendo_spike_FlipendoActivity_nativeFrameCount(JNIEnv*, jclass)
 {
 	return g_frameCount.load();
@@ -117,6 +140,11 @@ extern "C" JNIEXPORT jint JNICALL Java_io_github_flipendo_spike_FlipendoActivity
 extern "C" JNIEXPORT jboolean JNICALL Java_io_github_flipendo_spike_FlipendoActivity_nativeCutsceneActive(JNIEnv*, jclass)
 {
 	return g_cutsceneActive.load() ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL Java_io_github_flipendo_spike_FlipendoActivity_nativeOnBroom(JNIEnv*, jclass)
+{
+	return g_onBroom.load() ? JNI_TRUE : JNI_FALSE;
 }
 
 extern "C" JNIEXPORT jboolean JNICALL Java_io_github_flipendo_spike_FlipendoActivity_nativeLessonDrawing(JNIEnv*, jclass)
