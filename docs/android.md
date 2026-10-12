@@ -230,7 +230,7 @@ Releases before the numbering: `android-2026-10-11` is 0.1.0 (problem cards, gam
 
 Vulkan is the default, but Qualcomm's stock drivers (Adreno 618 / 642L with driver 512.x, Vulkan 1.1) refuse one of the
 engine's Vulkan pipelines (`Could not create graphics pipeline: vkResult -13`) and the game stopped before the menu. The port
-therefore also renders with **OpenGL ES 3.2**: SurrealEngine's desktop OpenGL device (`RenderDevice/OpenGL/`) built against
+therefore also renders with **OpenGL ES** (3.0 and newer): SurrealEngine's desktop OpenGL device (`RenderDevice/OpenGL/`) built against
 GLES (patch 0200).
 
 - `GLESCompat.h` replaces the desktop loader on Android: `<GLES3/gl32.h>` (libGLESv3), shims for the calls ES spells
@@ -317,3 +317,16 @@ very start, so on Android 10 (a POCO X3 still on its first system) it stopped be
 no "All files access": the manifest asks for `READ`/`WRITE_EXTERNAL_STORAGE` (maxSdkVersion 29) with
 `requestLegacyExternalStorage`, and `SetupActivity.hasStorageAccess` asks for that permission instead of opening the
 All files access page.
+
+### OpenGL ES 3.0 is enough
+
+The GL path asks for ES 3.0 (manifest `glEsVersion 0x00030000`, SDL context 3.0; drivers give their newest compatible
+version). What it needed from 3.1/3.2 is replaced on Android:
+- GLSL ES 3.00 instead of 3.10 (`ToGlslEs300` in GLRenderDevice.cpp rewrites the desktop shaders line by line): no
+  `layout(binding)` (sampler units set by name after linking, `BindSamplerUnits`), no `layout(location)` on the varyings
+  (they match by name), no `centroid` (no multisampling here), and the scene's unused `textureBinds` input is dropped.
+- One blend state for all attachments (the indexed `glEnablei`/`glBlendFuncSeparatei`/`glColorMaski` are ES 3.2): the
+  second scene attachment is the integer hit buffer, which ES never blends.
+- `glFramebufferTexture` (3.2) is `glFramebufferTexture2D`; multisampled textures (3.1) are never made (no MSAA).
+OpenGL ES 2.0 would be a new renderer (no integer attributes, uniform buffers, sampler objects or several outputs), and
+64-bit Android 10 phones have ES 3.0 or newer anyway.

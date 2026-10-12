@@ -1,4 +1,4 @@
-flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CPU, per-frame command pool reset, no gl_ClipDistance, upright swapchain, absolute touch mouse, no backtrace(); Vulkan device choice needs only independentBlend and names why a device was rejected, descriptor indexing optional (Vulkan 1.1 Mali without it); fonts can take glyphs they lack from elsewhere (HP1 Cyrillic text); OpenGL ES 3.2 renderer (the OpenGL device on GLES: SDL ES context, no S3TC/BGRA uploads, GLSL ES shaders), fail_vulkan.txt test aid, GL errors name their code; no Vulkan surface while the Android surface is gone
+flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CPU, per-frame command pool reset, no gl_ClipDistance, upright swapchain, absolute touch mouse, no backtrace(); Vulkan device choice needs only independentBlend and names why a device was rejected, descriptor indexing optional (Vulkan 1.1 Mali without it); fonts can take glyphs they lack from elsewhere (HP1 Cyrillic text); OpenGL ES 3.0 renderer (the OpenGL device on GLES: SDL ES context, GLSL ES 3.00, no S3TC/BGRA uploads, GLSL ES shaders), fail_vulkan.txt test aid, GL errors name their code; no Vulkan surface while the Android surface is gone
 
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
@@ -1163,7 +1163,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  	{
 --- a/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp
 +++ b/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp
-@@ -10,6 +10,20 @@
+@@ -10,6 +10,25 @@
  #include <surrealwidgets/core/widget.h>
  #include <cmath>
  
@@ -1181,10 +1181,15 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
 +static GLenum SceneColorType() { return GL_FLOAT; }
 +#endif
 +
++#ifdef __ANDROID__
++static std::string ToGlslEs300(const std::string& source, bool vertex);
++static void BindSamplerUnits(GLuint program);
++#endif
++
  static Widget* InitGLWidget = nullptr;
  extern "C"
  {
-@@ -33,6 +47,9 @@
+@@ -33,6 +52,9 @@
  
  int GLRenderDevice::GetSettingsMultisample()
  {
@@ -1194,7 +1199,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  	switch (AntialiasMode)
  	{
  	default:
-@@ -58,6 +75,30 @@
+@@ -58,6 +80,30 @@
  		if (result == ogl_LOAD_FAILED)
  			throw std::runtime_error("ogl_LoadFunctions failed");
  
@@ -1225,7 +1230,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  		CreateScenePass();
  		CreatePresentPass();
  		CreateBloomPass();
-@@ -145,7 +186,7 @@
+@@ -145,7 +191,7 @@
  	{
  		glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, SceneBuffers.ColorBuffer->Handle);
  		SetDebugName(SceneBuffers.ColorBuffer, "SceneBuffers.ColorBuffer");
@@ -1234,7 +1239,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  		glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAX_LEVEL, 0);
  		ThrowIfGLError("glTexStorage2DMultisample(SceneBuffers.ColorBuffer) failed");
  	}
-@@ -153,7 +194,7 @@
+@@ -153,7 +199,7 @@
  	{
  		glBindTexture(GL_TEXTURE_2D, SceneBuffers.ColorBuffer->Handle);
  		SetDebugName(SceneBuffers.ColorBuffer, "SceneBuffers.ColorBuffer");
@@ -1243,7 +1248,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
  		ThrowIfGLError("glTexImage2D(SceneBuffers.ColorBuffer) failed");
  	}
-@@ -214,7 +255,7 @@
+@@ -214,7 +260,7 @@
  		SceneBuffers.PPImage[i] = std::make_shared<GLTexture2D>();
  		glBindTexture(GL_TEXTURE_2D, SceneBuffers.PPImage[i]->Handle);
  		SetDebugName(SceneBuffers.PPImage[i], "SceneBuffers.PPImage");
@@ -1252,7 +1257,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
  		ThrowIfGLError("glTexImage2D(SceneBuffers.PPImage) failed");
  	}
-@@ -227,6 +268,14 @@
+@@ -227,6 +273,14 @@
  	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, SceneBuffers.DepthBuffer->Handle, 0);
  	ThrowIfGLError("Creating SceneBuffers.Framebuffer failed");
  
@@ -1267,7 +1272,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  	SceneBuffers.HitFramebuffer = std::make_shared<GLFramebuffer>();
  	glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.HitFramebuffer->Handle);
  	SetDebugName(SceneBuffers.HitFramebuffer, "SceneBuffers.HitFramebuffer");
-@@ -258,14 +307,14 @@
+@@ -258,14 +312,14 @@
  		level.VTexture = std::make_shared<GLTexture2D>();
  		glBindTexture(GL_TEXTURE_2D, level.VTexture->Handle);
  		SetDebugName(level.VTexture, "SceneBuffers.BlurLevels.VTexture");
@@ -1284,7 +1289,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
  		ThrowIfGLError("glTexImage2D(SceneBuffers.BlurLevels.HTexture) failed");
  
-@@ -486,7 +535,11 @@
+@@ -486,7 +540,11 @@
  		GLuint sampler = ScenePass.Samplers[i]->Handle;
  
  		int dummyMipmapCount = (i >> 2) & 3;
@@ -1296,7 +1301,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  
  #if 0
  		glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, (i & 1) ? GL_NEAREST : GL_LINEAR);
-@@ -494,14 +547,20 @@
+@@ -494,14 +552,20 @@
  #else
  		glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, (i & 1) ? GL_NEAREST_MIPMAP_NEAREST : GL_LINEAR_MIPMAP_LINEAR);
  		glSamplerParameteri(sampler, GL_TEXTURE_MAG_FILTER, (i & 1) ? GL_NEAREST : GL_LINEAR);
@@ -1317,7 +1322,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  
  		ThrowIfGLError("Could not create sampler");
  	}
-@@ -866,7 +925,11 @@
+@@ -866,7 +930,11 @@
  	PresentPass.DitherTexture = std::make_shared<GLTexture>();
  	glBindTexture(GL_TEXTURE_2D, PresentPass.DitherTexture->Handle);
  	SetDebugName(PresentPass.DitherTexture, "PresentPass.DitherTexture");
@@ -1329,7 +1334,23 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
  	ThrowIfGLError("CreateTexture2D(DitherTexture) failed");
  
-@@ -2014,6 +2077,10 @@
+@@ -1953,7 +2021,14 @@
+ 
+ void GLRenderDevice::SetBlendState(GLBlendState* blendState, const float* blendConstants)
+ {
+-	if (blendState->desc.IndependentBlendEnable)
++#ifdef __ANDROID__
++	// OpenGL ES 3.0 has one blend state for all attachments (the indexed calls are ES 3.2). The scene's second attachment is
++	// the integer hit buffer, which ES never blends anyway, so the colour attachment's state serves both.
++	const bool independent = false;
++#else
++	const bool independent = blendState->desc.IndependentBlendEnable;
++#endif
++	if (independent)
+ 	{
+ 		// To do: this might require OpenGL 4.0 - glBlendFuncSeparatei does, not sure about glEnablei(GL_BLEND)
+ 		for (int i = 0; i < 2; i++)
+@@ -2014,6 +2089,10 @@
  
  	glFrontFace(rasterizerState->desc.FrontCounterClockwise ? GL_CCW : GL_CW);
  
@@ -1340,19 +1361,102 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  	if (rasterizerState->desc.DepthClipEnable)
  		glEnable(GL_DEPTH_CLAMP);
  	else
-@@ -2221,7 +2288,12 @@
+@@ -2200,6 +2279,9 @@
+ 		log.resize(length);
+ 		throw std::runtime_error("Could not link program'" + programName + "':" + log);
+ 	}
++#ifdef __ANDROID__
++	BindSamplerUnits(program->Handle);
++#endif
+ 	return program;
+ }
  
+@@ -2219,9 +2301,71 @@
+ 	return shader;
+ }
+ 
++#ifdef __ANDROID__
++// The desktop shaders (GLSL 4.20) as GLSL ES 3.00, line by line. ES 3.00 has no binding qualifier (the sampler units are set
++// after linking, BindSamplerUnits), and layout(location) only on vertex inputs and fragment outputs: the varyings between
++// the stages match by name, which they do. "centroid" is dropped (no multisampling on Android; ES 3.00 drivers disagree on
++// whether it must match between the stages), and so is the scene's unused textureBinds input, which no vertex output feeds.
++static std::string ToGlslEs300(const std::string& source, bool vertex)
++{
++	std::string out;
++	size_t pos = 0;
++	while (pos < source.size())
++	{
++		size_t end = source.find('\n', pos);
++		if (end == std::string::npos)
++			end = source.size();
++		std::string line = source.substr(pos, end - pos);
++		pos = end + 1;
++
++		if (line.find("textureBinds") != std::string::npos && line.find(" in ") != std::string::npos)
++			continue;
++		size_t layout = line.find("layout(");
++		if (layout != std::string::npos)
++		{
++			size_t close = line.find(')', layout);
++			std::string qualifier = line.substr(layout, close - layout + 1);
++			bool binding = qualifier.find("binding") != std::string::npos;
++			bool varying = qualifier.find("location") != std::string::npos &&
++				(vertex ? line.find(" out ") != std::string::npos : line.find(" in ") != std::string::npos);
++			if (binding || varying)
++				line.erase(layout, close - layout + 2); // the qualifier and the space after it
++		}
++		size_t centroid = line.find("centroid ");
++		if (centroid != std::string::npos)
++			line.erase(centroid, 9);
++		out += line;
++		out += '\n';
++	}
++	return out;
++}
++
++// The sampler units the desktop shaders gave with layout(binding = N), set by name once the program is linked
++static void BindSamplerUnits(GLuint program)
++{
++	static const struct { const char* name; int unit; } units[] = {
++		{ "tex", 0 }, { "lightmap", 1 }, { "macro", 2 }, { "detail", 3 }, // Scene.frag
++		{ "texSampler", 0 }, { "texDither", 1 },                           // Present, bloom and blur
++	};
++	glUseProgram(program);
++	for (const auto& u : units)
++	{
++		GLint location = glGetUniformLocation(program, u.name);
++		if (location >= 0)
++			glUniform1i(location, u.unit);
++	}
++	glUseProgram(0);
++}
++#endif
++
  void GLRenderDevice::CompileGlsl(GLShader* shader, const std::string& filename, const std::vector<std::string> defines)
  {
 +#ifdef __ANDROID__
-+	// GLSL ES 3.10: explicit locations and bindings; uniform blocks laid out as std140 like the desktop's buffers
-+	std::string code = "#version 310 es\r\nprecision highp float;\r\nprecision highp int;\r\nprecision highp sampler2D;\r\nlayout(std140) uniform;\r\n";
++	// GLSL ES 3.00 (OpenGL ES 3.0, the lowest the port asks for): uniform blocks laid out as std140 like the desktop's buffers
++	std::string code = "#version 300 es\r\nprecision highp float;\r\nprecision highp int;\r\nprecision highp sampler2D;\r\nlayout(std140) uniform;\r\n";
 +#else
  	std::string code = "#version 420\r\n";
 +#endif
  	for (const std::string& define : defines)
  	{
  		code += "#define ";
+@@ -2229,7 +2373,13 @@
+ 		code += "\r\n";
+ 	}
+ 	code += "#line 1\r\n";
++#ifdef __ANDROID__
++	GLint stage = 0;
++	glGetShaderiv(shader->Handle, GL_SHADER_TYPE, &stage);
++	code += ToGlslEs300(GLFileResource::readAllText(filename), stage == GL_VERTEX_SHADER);
++#else
+ 	code += GLFileResource::readAllText(filename);
++#endif
+ 
+ 	GLchar* source = (GLchar*)code.data();
+ 	GLint length = (GLint)code.size();
 --- a/SurrealEngine/RenderDevice/OpenGL/GLHandles.h
 +++ b/SurrealEngine/RenderDevice/OpenGL/GLHandles.h
 @@ -1,6 +1,10 @@
@@ -2370,13 +2474,13 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
 +#endif
 +
 +#ifdef __ANDROID__
-+// Android: an OpenGL ES 3.2 context, set before the window is made (SDL chooses the EGL config then). No depth or stencil in
++// Android: an OpenGL ES 3.0 (or newer) context, set before the window is made (SDL chooses the EGL config then). No depth or stencil in
 +// the window: the renderer draws into its own framebuffers and only copies the result to the window.
 +static void SetAndroidGLAttributes()
 +{
 +	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
 +	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
++	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0); // ES 3.0 at least; drivers give their newest compatible version
 +	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
 +	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
 +	SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
@@ -2422,7 +2526,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
 +	SetAndroidGLAttributes();
 +	m_GLContext = SDL_GL_CreateContext(Handle.window);
 +	if (!m_GLContext)
-+		throw std::runtime_error(std::string("Could not create an OpenGL ES 3.2 context: ") + SDL_GetError());
++		throw std::runtime_error(std::string("Could not create an OpenGL ES 3.0 context: ") + SDL_GetError());
 +#else
  	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
  	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);

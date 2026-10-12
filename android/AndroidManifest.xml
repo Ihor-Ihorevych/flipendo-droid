@@ -5,7 +5,7 @@
     <!-- Android 10 has no "All files access": the old storage permission with the legacy (whole-storage) view -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29"/>
-    <uses-feature android:glEsVersion="0x00030002" android:required="true"/>
+    <uses-feature android:glEsVersion="0x00030000" android:required="true"/>
     <uses-feature android:name="android.hardware.vulkan.version" android:version="0x400003" android:required="false"/>
     <application android:requestLegacyExternalStorage="true" android:label="Flipendo" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:hasCode="true" android:extractNativeLibs="true" android:allowBackup="false" android:debuggable="true">
         <!-- Launcher: asks for file access, unpacks the game data when the APK carries it, then starts the game. It runs in its own
