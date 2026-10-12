@@ -143,6 +143,9 @@ and [docs/modding.md](docs/modding.md) to write a mod today.
 - **Bugs and ideas**: open an issue. Include your game version, what you did, and the log (`--logfile=...`).
 - **Help out**: playtesting, modding, C++. Most of it needs no programming:
   [CONTRIBUTING.md](CONTRIBUTING.md). Reverse engineering isn't open to outside help.
+- **Android port (unofficial)**: someone ported Flipendo to Android in a fork,
+  [flipendo-droid](https://github.com/Ihor-Ihorevych/flipendo-droid). It isn't part of this project: I haven't
+  reviewed it and don't endorse it. Try it at your own discretion. Thank you to its author for the work!
 
 ## Legal
 
