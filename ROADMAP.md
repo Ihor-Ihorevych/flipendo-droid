@@ -7,7 +7,6 @@ Legend: [~] partly done / in progress · [ ] not started
 
 ## Next up (in order)
 1. **Dark levels**: compare Lev5_FlyKeys' lighting with the original ([docs/debug-tools.md](docs/debug-tools.md#comparing-with-the-original)).
-2. **First prebuilt release** (see "Releases"): players can't try Flipendo without building it.
 
 Visual parity checks against the original, side by side, wait until the end (after gameplay works): mesh lighting
 (brightness, specular highlights, light fades), animations (walk/run/breathe, tween blends, aux channels) and
@@ -66,8 +65,6 @@ particle effects.
       extra final-battle taunts. Cut spells are out (no level content uses them)
 
 ## Releases
-- [ ] Prebuilt Windows download on the release page (zip with `SurrealEngine.exe` and its DLLs; no game data), with a
-      changelog and a "point it at your game folder" first-run
 - [ ] Game folder picker in the launcher remembered between runs, so players never touch the command line
 - [ ] Version number in the window title and the log, for bug reports
 - [ ] Linux / Steam Deck build tested with Flipendo

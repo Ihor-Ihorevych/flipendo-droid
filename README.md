@@ -72,14 +72,14 @@ All taken in Flipendo at 1920x1080 from the original game files.
 
 ## Status
 
-> **The whole story has been played through, start to finish, in Flipendo** (October 2026). There are no downloads
-> yet; for now you build it yourself (below). Follow progress in [`ROADMAP.md`](ROADMAP.md).
+> **The whole story has been played through, start to finish, in Flipendo** (October 2026). [Download it for
+> Windows](https://github.com/kroplabeskidu/flipendo/releases/latest). Follow progress in [`ROADMAP.md`](ROADMAP.md).
 
 | | |
 |---|---|
 | ✅ Works | The whole story, every level from the first lesson to the final encounter with Voldemort, tested by playing it through. Menus and options (incl. key rebinding), widescreen at any resolution, music, cutscenes, characters and their animations, doors, NPCs, Peeves, jelly beans, wizard cards, saving and loading |
 | 🟡 Partly | Spell casting and particle effects mostly work; side-by-side comparison with the original (lighting, animations) is still to do |
-| ❌ Not yet | The Quidditch League, Linux / macOS builds, prebuilt downloads |
+| ❌ Not yet | The Quidditch League, Linux / macOS builds |
 
 Playtesters are welcome: anything that looks or behaves differently from the original is a useful bug report.
 
@@ -96,7 +96,10 @@ Harry Potter and the Chamber of Secrets (2002) runs on the same engine and is ne
 
 ### Get it running
 
-Until the first release, Flipendo is built from source. That takes a few minutes and needs
+Download the zip from the [releases page](https://github.com/kroplabeskidu/flipendo/releases/latest), unzip it
+anywhere and drag your game folder onto `SurrealEngine.exe`. `README-first.txt` in the zip has the details.
+
+To build it yourself instead (a few minutes), you need
 [Visual Studio 2026](https://visualstudio.microsoft.com/) with the *Desktop development with C++* workload, and
 [Git for Windows](https://git-scm.com/download/win). In Git Bash:
 
