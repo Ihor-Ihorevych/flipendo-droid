@@ -67,7 +67,12 @@ the move's acceleration still set (fixed 2026-10-05).
   collision box (a mover's shrunk by 0.51, everything else 2 units further than the move) through `MultiLineCheck`; the
   first hit that isn't ignored (bIgnorePawns: pawns and decorations that aren't static; bIgnoreBases: what the actor
   stands on; always: what stands on the actor) and blocks it (`IsBlockedBy`) stops it, the time pulled back by the
-  probe. What stands on it is carried (the yaw change turns them, a pawn's ViewRotation too). Non-pawns check
+  probe. What stands on it is carried (the yaw change turns them, a pawn's ViewRotation too). The arm from the based
+  actor to the mover is turned by `GMath.UnitCoords *= FRotator(0, turn, 0)` (yaws masked with 0xFFFC): the inverse of
+  SurrealEngine's `Coords::Rotation`, which is `GetAxes`' frame (for a pure yaw `Coords::Rotation` and
+  `Coords::InverseRotation` are the same matrix, so only `.Inverse()` flips it). With `Coords::Rotation` the carried
+  actor swung the opposite way round the mover: Lev4_Sneak2's mirror scene camera (`CutCameraPos29`, attached to
+  `Mover1` by AttachTag, which turns -90°) ended behind the mirror instead of in front of it. Non-pawns check
   encroachment (a refused one cancels the move). Then Bump both ways (not against the level or its own base),
   BeginTouch for the non-blocking hits before the stop (unless it blocks actors and players and no hit was looked at),
   EndTouch for touches no longer overlapping, SetActorZone.

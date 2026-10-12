@@ -34,18 +34,23 @@ namespace KW
 			dvec3 Extents;
 		};
 
-		// IDA Engine.dll: ?GetCollisionBoundingBox@UBox@@UBE?AVFBox@@PBVAActor@@_N@Z [HP1 0x103FE130] (local box, bWorld=false)
+		BBox GetCollisionBoundingBox(UActor* a, PrimitiveKind kind, bool world);
+
+		// UBox::LineCheck / PointCheck take the local box from the primitive's virtual GetCollisionBoundingBox (bWorld
+		// false): for CT_Box UBox's centred (R, W, H), for a mesh the mesh's own box ((BoundingBox - Origin) * Scale *
+		// DrawScale), which need not be centred on the actor. Kept here as its centre and half size in the actor's frame.
 		// IDA Engine.dll: ?ToLocal@AActor@@UBE?AVFCoords@@XZ [HP1 0x1031BAC0]
 		Box GetBox(UActor* actor)
 		{
 			Box box;
-			box.Center = to_dvec3(actor->Location());
 			mat4 rot = Coords::Rotation(actor->Rotation()).ToMatrix();
 			box.Axis[0] = to_dvec3(normalize((rot * vec4(1.0f, 0.0f, 0.0f, 0.0f)).xyz()));
 			box.Axis[1] = to_dvec3(normalize((rot * vec4(0.0f, 1.0f, 0.0f, 0.0f)).xyz()));
 			box.Axis[2] = to_dvec3(normalize((rot * vec4(0.0f, 0.0f, 1.0f, 0.0f)).xyz()));
-			float width = CollisionWidth(actor) == 0.0f ? actor->CollisionRadius() : CollisionWidth(actor);
-			box.Extents = dvec3(actor->CollisionRadius(), width, actor->CollisionHeight());
+			BBox local = GetCollisionBoundingBox(actor, ActorPrimitive(actor), false);
+			dvec3 mid = to_dvec3((local.min + local.max) * 0.5f);
+			box.Center = to_dvec3(actor->Location()) + box.Axis[0] * mid.x + box.Axis[1] * mid.y + box.Axis[2] * mid.z;
+			box.Extents = to_dvec3((local.max - local.min) * 0.5f);
 			return box;
 		}
 

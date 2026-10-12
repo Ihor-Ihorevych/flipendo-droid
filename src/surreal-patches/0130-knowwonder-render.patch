@@ -471,10 +471,10 @@ index 984fdbfc..e3ab5663 100644
 +	}
  }
 diff --git a/SurrealEngine/Render/VisibleBrush.cpp b/SurrealEngine/Render/VisibleBrush.cpp
-index 74911e16..aaf3de88 100644
+index 74911e16..2b983bbc 100644
 --- a/SurrealEngine/Render/VisibleBrush.cpp
 +++ b/SurrealEngine/Render/VisibleBrush.cpp
-@@ -20,25 +20,39 @@ bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass
+@@ -20,25 +20,41 @@ bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass
  	engine->render->Stats.Actors++;
  
  	UModel* brush = mover->Brush();
@@ -492,7 +492,9 @@ index 74911e16..aaf3de88 100644
 +	// A brush polygon is one-sided like a BSP surface: only drawn from in front of its plane, unless PF_TwoSided.
 +	// Drawing both sides showed a mover's back faces through its masked front (Lev_Tut1b's portcullis: the plank back
 +	// face filled the gate's holes and hid the doors behind it).
-+	vec3 viewLocation = frame->ViewLocation.xyz();
++	// The reflected camera in a mirror (Lev4_Sneak2's Mirror of Erised: James and Lily are a polygon in front of the
++	// glass facing it, seen only in the reflection)
++	vec3 viewLocation = frame->EyeLocation();
 +	auto facesView = [&](const Poly& poly)
 +	{
 +		uint32_t flags = poly.PolyFlags | (poly.Texture ? poly.Texture->PolyFlags() : 0);
@@ -518,7 +520,7 @@ index 74911e16..aaf3de88 100644
  			needTranslucentPass = true;
  	}
  
-@@ -46,9 +60,106 @@ bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass
+@@ -46,9 +62,106 @@ bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass
  	return needTranslucentPass;
  }
  
@@ -625,6 +627,21 @@ index 74911e16..aaf3de88 100644
  
  	if (!engine->getEditorMode() && PolyFlags & PolyFlags::PF_Invisible)
  		return false;
+@@ -102,6 +215,14 @@ bool VisibleBrush::DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly&
+ 
+ 	int numverts = (int)poly.Vertices.size();
+ 	const vec3* points = poly.Vertices.data();
++	// A reflection flips the winding: reverse the vertices as VisibleNode does for BSP surfaces, or the polygon is culled
++	if (frame->MirrorFlag)
++	{
++		vec3* reversed = engine->render->GetTempVertexBuffer(numverts);
++		for (int j = 0; j < numverts; j++)
++			reversed[numverts - 1 - j] = poly.Vertices[j];
++		points = reversed;
++	}
+ 
+ 	SurfaceFacet facet;
+ 	facet.MapCoords.Origin = poly.Base;
 diff --git a/SurrealEngine/Render/VisibleBrush.h b/SurrealEngine/Render/VisibleBrush.h
 index 36448a66..3f69fb58 100644
 --- a/SurrealEngine/Render/VisibleBrush.h
@@ -651,7 +668,7 @@ index 36448a66..3f69fb58 100644
  	bool DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly& poly, int pass, UMover* mover, bool translucentPass);
  };
 diff --git a/SurrealEngine/Render/VisibleFrame.cpp b/SurrealEngine/Render/VisibleFrame.cpp
-index 818aa65d..c3b63895 100644
+index 818aa65d..7936c79a 100644
 --- a/SurrealEngine/Render/VisibleFrame.cpp
 +++ b/SurrealEngine/Render/VisibleFrame.cpp
 @@ -2,6 +2,7 @@
@@ -693,7 +710,7 @@ index 818aa65d..c3b63895 100644
  	Clipper.numDrawSpans = 0;
  	Clipper.numSurfs = 0;
  	Clipper.numTris = 0;
-@@ -38,6 +53,9 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
+@@ -38,9 +53,18 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
  	Coronas.clear();
  	Portals.clear();
  
@@ -703,7 +720,16 @@ index 818aa65d..c3b63895 100644
  	ProcessNode(&engine->Level->Model->Nodes[0]);
  }
  
-@@ -191,7 +209,10 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
++vec3 VisibleFrame::EyeLocation() const
++{
++	const mat4& m = Frame.WorldToView;
++	return mat3::inverse(mat3(m)) * -vec3(m.matrix[12], m.matrix[13], m.matrix[14]);
++}
++
+ void VisibleFrame::SetupSceneFrame(const mat4& worldToView)
+ {
+ 	Frame.XB = engine->viewport->ViewportX();
+@@ -191,7 +215,10 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  
  	VisibleNode info;
  	info.Node = node;
@@ -715,7 +741,7 @@ index 818aa65d..c3b63895 100644
  	info.PolyFlags = PolyFlags;
  
  	if (PortalDepth < 4)
-@@ -264,7 +285,7 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -264,7 +291,7 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  			{
  				for (auto& p : Portals)
  				{
@@ -724,7 +750,7 @@ index 818aa65d..c3b63895 100644
  					{
  						p.Nodes.push_back(info);
  						p.Spans.insert(p.Spans.end(), spans.begin(), spans.end());
-@@ -308,6 +329,13 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -308,6 +335,13 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  
  void VisibleFrame::SortTranslucent()
  {
@@ -738,7 +764,7 @@ index 818aa65d..c3b63895 100644
  	std::sort(Translucents.begin(), Translucents.end(), [](const VisibleTranslucent& a, const VisibleTranslucent& b) { return a.DistSqr < b.DistSqr; });
  }
  
-@@ -354,6 +382,12 @@ void VisibleFrame::DrawCoronas()
+@@ -354,6 +388,12 @@ void VisibleFrame::DrawCoronas()
  	frame2d.WorldToView = mat4::identity();
  	Device->SetSceneNode(&frame2d);
  
@@ -751,7 +777,7 @@ index 818aa65d..c3b63895 100644
  	for (VisibleCorona &corona : Coronas)
  		corona.Draw(this);
  }
-@@ -425,15 +459,33 @@ void VisibleFrame::DrawPortals()
+@@ -425,15 +465,36 @@ void VisibleFrame::DrawPortals()
  		}
  		else // Mirror
  		{
@@ -774,6 +800,9 @@ index 818aa65d..c3b63895 100644
 +				const BspSurface& surface = model->Surfaces[portal.Nodes.front().Node->Surf];
 +				v = model->Points[surface.pBase];
 +				n = model->Vectors[surface.vNormal];
++				// A free-standing mirror has solid behind it too (Lev4_Sneak2's Mirror of Erised: its wooden back
++				// panel covered the whole reflection, James and Lily in it included)
++				mirrorPlane = vec4(n, -dot(v, n));
 +			}
  			mat4 mirrorRotation = mat4::mirror(n);
  			mat4 mirrorToView = Frame.WorldToView * mat4::translate(v) * mirrorRotation * mat4::translate(-v);
@@ -790,7 +819,7 @@ index 818aa65d..c3b63895 100644
  			Device->SetSceneNode(&mirrorframe.Frame);
  			mirrorframe.Draw();
  			Device->ClearZ();
-@@ -444,6 +496,8 @@ void VisibleFrame::DrawPortals()
+@@ -444,6 +505,8 @@ void VisibleFrame::DrawPortals()
  	Device->SetSceneNode(&Frame);
  	for (VisiblePortal& portal : Portals)
  	{
@@ -800,10 +829,21 @@ index 818aa65d..c3b63895 100644
  		{
  			VisibleNode visnode(info);
 diff --git a/SurrealEngine/Render/VisibleFrame.h b/SurrealEngine/Render/VisibleFrame.h
-index 435b42ab..4ae777ce 100644
+index 435b42ab..c992a02c 100644
 --- a/SurrealEngine/Render/VisibleFrame.h
 +++ b/SurrealEngine/Render/VisibleFrame.h
-@@ -27,6 +27,7 @@ public:
+@@ -16,6 +16,10 @@ public:
+ 	void Draw();
+ 	void DrawCoronas();
+ 
++	// The eye the frame is drawn from (from its view transform). In the reflection of a level mirror ViewLocation stays
++	// the real camera, which the BSP walk needs; what faces the viewer there is what faces the reflected camera.
++	vec3 EyeLocation() const;
++
+ 	RenderDevice* Device = nullptr;
+ 
+ 	SceneNode Frame;
+@@ -27,6 +31,7 @@ public:
  	int FrameCounter = 0;
  	bool MirrorFlag = false;
  	int PortalDepth = 0;

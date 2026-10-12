@@ -745,6 +745,10 @@ namespace KW
 		if (!GetFrame(actor, mesh, verts))
 			return false;
 
+		// Faces are kept by the eye the frame is drawn from: in a level mirror's reflection the reflected camera, not
+		// ViewLocation (the real one), or the reflection shows the mesh's far side (Harry in the Mirror of Erised)
+		vec3 eye = frame->EyeLocation();
+
 		bool useExtWedges = !mesh->ExtWedges.empty();
 		auto wedgeVertex = [&](int w) -> int { return useExtWedges ? mesh->ExtWedges[w].Vertex : mesh->Wedges[w].Vertex; };
 		size_t numWedges = useExtWedges ? mesh->ExtWedges.size() : mesh->Wedges.size();
@@ -860,7 +864,7 @@ namespace KW
 			if (!(renderflags & PF_TwoSided))
 			{
 				vec3 faceNormal = cross(vertices[1].Point - vertices[0].Point, vertices[2].Point - vertices[0].Point);
-				if (dot(faceNormal, frame->ViewLocation.xyz() - vertices[0].Point) <= 0.0f)
+				if (dot(faceNormal, eye - vertices[0].Point) <= 0.0f)
 					continue;
 			}
 

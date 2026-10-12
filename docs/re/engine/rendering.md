@@ -101,6 +101,16 @@ most of the reflection. The reflection's frame now gives the render device the m
 (`NearClip`, which the D3D11 and Vulkan shaders already clip every vertex by), so only what is in front of the mirror
 is drawn. The OpenGL device has that clip commented out.
 
+Mirrors in the level BSP get the same clip plane (the surface's plane). SurrealEngine had none for them, which works
+for a mirror with solid behind it but not for a free-standing one: Lev4_Sneak2's Mirror of Erised (glass `MirrorMain2`,
+Mirrored + Translucent + Unlit, so its frost is drawn over the reflection) showed its own wooden back panel as the
+reflection. James and Lily are `Mover2` (tag `jameslillymover`, raised 192 by the mirror cutscene): one Translucent,
+NotSolid, Unlit polygon (`JamesLilli`) standing 130 units in front of the glass and facing it, so the room never sees it
+and the reflection does. Two more things hid it there: a mover polygon's one-sided test used the frame's
+ViewLocation, which a BSP mirror's reflection keeps at the real camera (its BSP walk needs it), so it now takes the
+eye from the frame's view transform (`VisibleFrame::EyeLocation`, also used by the skeletal meshes' one-sided test, which had kept Harry's far side in the reflection); and mover polygons weren't reversed in mirror frames as BSP surfaces are
+(`VisibleNode`), so the device culled them by their flipped winding.
+
 ## HP1 and HP2
 
 HP2's DLLs not read yet for these; what to check there:

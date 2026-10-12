@@ -66,23 +66,6 @@ scripts is in the [reverse-engineering notes](re/README.md).
 
 ## Where modding is going
 
-What is planned (an Extras page, drop-in `Mods/` folders, script mods, community levels, more extras) is phase 6
-of the [roadmap](../ROADMAP.md#6-modding-srchp1mods-and-beyond). Not planned: speedrun tools (timer, splits, practice
-states), since the HP1 PC leaderboards accept runs of the original game only, not of reimplementations.
-
-The in-game modding tools, as designed so far:
-
-- a [Dear ImGui](https://github.com/ocornut/imgui) overlay (MIT licence) toggled with a
-  key, off with `--vanilla` and in release builds unless asked for. It turns the debug environment variables into
-  live panels:
-  - *Actors*: every actor in the level with class, state, Tag/Event and location (today's `HP1_DUMP`), filterable,
-    with "teleport to" and "look at" (`@teleport`, `HP1_CAMERA`);
-  - *Inspector*: a selected actor's script properties, editable live (`@set` / `@get`), and its state over time
-    (`HP1_TRACE`);
-  - *Console*: console commands and script function calls (`HP1_EXEC`), with history;
-  - *Mods*: the installed mods, on/off, their settings, load order;
-  - later: a ParticleFX editor (all parameters live, export to a script mod), a cutscene step-through, and a
-    navigation/collision view for level makers.
-
-  Needs a renderer backend for SurrealEngine's render devices and an input hook in front of the game's own key
-  handling; both go through `src/hp1/` the way mods do, not new engine hooks of their own.
+What is planned (an Extras page, per-mod settings, more extras) is phase 6 of the
+[roadmap](../ROADMAP.md#6-extras-srchp1mods). Not planned: speedrun tools (timer, splits, practice states), since the
+HP1 PC leaderboards accept runs of the original game only, not of reimplementations.
