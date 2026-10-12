@@ -27,7 +27,6 @@ particle effects.
 ## 2. Engine gaps found in the first levels
 - [ ] Windowed mode: menu mouse mapping (`WindowsMouseX/Y` into the 4:3 area) not yet tested in game
 - [ ] TraceTexture: decals not traced yet
-- [ ] `APawn::physicsRotation`: flying/swimming roll banking not ported yet
 - [ ] `Actor.Opacity`: back-to-front face sort inside a translucent mesh not ported
 
 ## 3. Spells
@@ -40,7 +39,6 @@ particle effects.
 - [~] After loading, the camera sits a little further back than when saved: not reproduced with a standstill save in
       Lev_Tut1 (camera and screenshots identical, [docs/re/engine/savegames.md](docs/re/engine/savegames.md)); try a save taken
       while the camera moves
-- [ ] Save/LoadObjectAsFile, CreateTextureFromScreenShot, `Snap 3`: no script uses them (low priority)
 
 ## 5. Remaining native classes and polish
 - [~] SurrealEngine's guesses replaced with HP1's code, in the order of
@@ -54,18 +52,10 @@ particle effects.
 - [ ] Menu song fade-in at its start: MusicFade/transitions or the mp2 itself ([docs/re/engine/music.md](docs/re/engine/music.md))
 - [ ] Next SurrealEngine update: upstream's HP1 boot work (July 2026: exe detection, HP natives and tokens, mp2,
       4:3 `GetRes`) is already in our submodule; drop any of our patches that it now duplicates
-- [ ] Editor-only natives (BrushBuilders) — low priority
 
-## 6. Modding (`src/hp1/mods/` and beyond)
+## 6. Extras (`src/hp1/mods/`)
 - [ ] Per-mod on/off and settings in an ini section (`[Flipendo.Mods]`), not only command-line flags; an *Extras*
       page in the options book (FEBook) to toggle them in game
-- [ ] Drop-in content mods: `Mods/<name>/` folders added to the package search path ahead of the originals
-      (`PackageManager::ScanPaths` already reads `Core.System` Paths from the ini, and `ScanFolder` keeps the first
-      folder that has a package of that name, so mod folders must be scanned before the originals). Define load
-      order between mods, and test a texture pack and a custom map
-- [ ] Script mods: replace a game class with a mod subclass at spawn time (e.g. `HarryPotter.harry` → `MyMod.MyHarry`),
-      configured in the ini, without touching the original packages
-- [ ] Run custom levels made by the HP1 modding community (collect a few test maps, list what breaks)
 - [ ] Fixed 60 Hz game logic, drawing at any frame rate: the game ticks (scripts, physics, cutscenes) at a fixed
       1/60 s, zero or more ticks per drawn frame, so every frame-rate bug of the original behaves as at 60 fps, found
       or not; drawing runs at the monitor's rate (or uncapped) and interpolates between the last two ticks: actor
@@ -73,8 +63,6 @@ particle effects.
       (`Engine::Run`: tick and render split) and the interpolation in the renderer. An option, the 60 FPS cap stays
       the default until it is tested level by level
 - [ ] More built-in extras: FOV slider, controller support, free camera
-- [ ] In-game modding tools: Dear ImGui overlay with actor list, live property inspector, console and mod manager,
-      built from the `HP1_DUMP`/`HP1_TRACE`/`HP1_EXEC` debug tools ([docs/modding.md](docs/modding.md))
 - [ ] Twitch chaos mod (opt-in, `--chaos`): stream viewers vote in chat on effects every N seconds (low gravity,
       giant or tiny Harry, a random spell cast, camera upside down, slow motion, Harry runs backwards, beans
       rain). Each effect is a timed `@set` on live actors / `Level.TimeDilation`, undone when it ends; a vote
@@ -85,58 +73,6 @@ particle effects.
       Harry, `InvisibilityCloak` pickup, `FloatingSpellBook`); do the mod only if most do. Then add the unused audio:
       Lee Jordan's alternate takes as commentator variants, wizard card voice lines in the Folio, student chatter,
       extra final-battle taunts. Cut spells are out (no level content uses them)
-- [~] Modder docs: [docs/modding.md](docs/modding.md) (writing a mod, hooks, tools); still missing a worked
-      "first mod" walkthrough
-
-## 7. Editor (grows out of the §6 ImGui overlay)
-The editor runs inside the game (no separate UnrealEd-style program): play-in-editor for free, edits visible while
-the game runs. Steps 1–2 can go alongside the first playable release (they double as debugging tools); the rest
-after it.
-
-Ground rules:
-- Read and write the original formats (`.unr`, `.u`), so existing community maps open in Flipendo and Flipendo maps
-  are ordinary UE1 packages. No private map format.
-- UnrealScript stays the game's language. The new scripting layers sit on top and never replace it, so existing
-  mods keep working.
-- Same editor for HP1 and HP2, gated like the rest (`IsKnowWonder()`), and it runs on Linux too.
-- First check what SurrealEngine's own `SurrealEditor` (builds alongside the game) already has: package loading,
-  viewports, anything reusable. Building on it means less of our code in `src/engine/`.
-
-1. Core
-   - [ ] Object tree: every actor in the level, filterable (class, tag, event, name, gamestate) and sortable, click to
-         select and focus the camera
-   - [ ] 3D previews of meshes, textures and prefabs in the browsers
-   - [ ] Property inspector with edit (the §6 overlay one), showing which values differ from the defaults
-   - [ ] ImGuizmo for move / rotate / scale, grid and angle snapping, multi-select
-   - [ ] Load maps and packages from the editor (file picker, recent list, `Mods/` folders included)
-   - [ ] Save to `.unr`: package writer (name / import / export tables). **Biggest risk:** BSP / CSG rebuild after
-         moving brushes; check early whether anything usable exists (SurrealEngine has no builder) before relying on it
-   - [ ] Undo / redo, copy / paste (also across maps), autosave and crash recovery
-2. Clarity
-   - [ ] Trigger graph: Event → Tag links drawn as lines in the viewport, highlight what a trigger fires
-   - [ ] Validator: broken references, missing textures, triggers that fire nothing, unreachable path nodes; click a
-         result to jump to it
-   - [ ] Gamestate preview: switch GState000/GState010/… and see which actors exist
-   - [ ] Search across all maps and packages ("where is this class used?")
-   - [ ] Prefab browser
-3. Scripting
-   - [ ] Sequence editor (timeline + nodes) for cutscenes and scripted moments; it outputs the game's existing cutscene
-         commands, so the result runs like an original cutscene
-   - [ ] Lua (or similar) for mod logic, with hot reload; bindings to actors, events and the cutscene system
-4. Assets and external tools
-   - [ ] Blender addon: import / export of the KnowWonder skeletal mesh and animation format (custom characters)
-   - [ ] "Edit in external app" for textures (Photoshop / Krita / GIMP): watch the file, reimport live on save. Small
-         built-in editor only for quick fixes (alpha, resize, palette)
-   - [ ] Text map format (T3D-like) for diffs and teamwork in git
-   - [ ] Sound browser with preview, dialogue and lipsync editor, localization strings
-5. HP tools
-   - [ ] Spell editor: draw new gesture shapes for the recognizer (`Gesture`) and attach effects
-   - [ ] ParticleFX editor with live preview (`src/knowwonder/KWParticleFX.cpp`)
-   - [ ] Lighting: rebuild lightmaps, per-surface light scale preview
-   - [ ] Path-node building and visualization for AI navigation
-6. Sharing
-   - [ ] "Package mod": writes `Mods/<name>/` with a manifest (version, dependencies, game)
-   - [ ] In-game mod browser: enable / disable, load order; later a community mod index
 
 ## Releases
 - [ ] Prebuilt Windows download on the release page (zip with `SurrealEngine.exe` and its DLLs; no game data), with a

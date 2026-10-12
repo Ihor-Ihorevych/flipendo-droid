@@ -135,9 +135,8 @@ switched on, and `--vanilla` switches all of them off.
 | Map fixes | on | fixes broken paths in the original maps (Peeves now flies off after the Lev_Tut3b duel instead of drifting through the walls) |
 | Launch skips | off | `--skip-splash`, `--skip-intro` |
 
-More is coming (an in-game page to switch these, drop-in `Mods/` folders for texture packs and custom levels, modding
-tools): see the [roadmap](ROADMAP.md#6-modding-srchp1mods-and-beyond), and [docs/modding.md](docs/modding.md) to
-write a mod today.
+More is coming (an in-game page to switch these, more extras): see the [roadmap](ROADMAP.md#6-extras-srchp1mods),
+and [docs/modding.md](docs/modding.md) to write a mod today.
 
 ## Community
 

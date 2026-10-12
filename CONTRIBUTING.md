@@ -8,8 +8,7 @@ There's work for every skill level, and much of it needs no programming. Come sa
 - **Playtesters**: play a level, compare it with the original game, report what looks or behaves differently.
   Side-by-side screenshots or short clips help most. Attach the log (`--logfile=flipendo.log`).
 - **Owners of other game versions**: see [below](#other-game-versions).
-- **Modders**: build an extra in `src/hp1/mods/`, test community levels, or help design content-mod loading and the
-  in-game modding tools ([docs/modding.md](docs/modding.md)).
+- **Modders**: build an extra in `src/hp1/mods/` ([docs/modding.md](docs/modding.md)).
 - **Reverse engineers**: the remaining work is KnowWonder's native code, in HP1's and HP2's DLLs.
   [docs/re/reports/dlls.md](docs/re/reports/dlls.md) shows what every DLL does and what's been reimplemented;
   [docs/re/](docs/re/README.md) has what's been learned so far, the shared engine and each game's own parts.
