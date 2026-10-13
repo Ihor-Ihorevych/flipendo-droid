@@ -253,8 +253,9 @@ swapchain...), it writes `opengl-auto` and exits with code 3; `FlipendoActivity.
 game without the problem card. Settings has a **Renderer** button in the footer (Vulkan / OpenGL ES, "(auto)" when the engine
 switched); a change asks for a second tap and restarts. The launcher's splash has the same choice (two buttons under the
 Telegram link, `SetupActivity.rendererChoice`), and the game starts only on its **Play** button (a restart from inside the game, or the
-fallback to OpenGL ES, starts by itself). With **Remember my choice** ticked (`setup` preference `rememberRenderer`) the splash
-starts the game by itself after 2.5 s, unless the choice is touched first. The log report's `device-info.txt` has a `renderer:` line.
+fallback to OpenGL ES, starts by itself). **Remember my choice** (unticked by default, `setup` preference `keepRenderer`): ticked, the
+renderer picked there stays; unticked, it is for that launch only and the next normal launch puts back the one from before
+(`restoreRenderer`, the old value kept in `restoreRenderer`; a switch in the in-game settings is for good and drops it). The log report's `device-info.txt` has a `renderer:` line.
 `/sdcard/FlipendoHP/fail_vulkan.txt` makes Vulkan fail on purpose to try the switch. The manifest no longer requires Vulkan,
 only OpenGL ES 3.0.
 

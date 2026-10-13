@@ -146,42 +146,44 @@ public class SetupActivity extends Activity {
         label.setText("RENDERER");
         card.addView(label);
 
-        // a segmented control: Vulkan | OpenGL ES
+        // a segmented control: OpenGL ES | Vulkan
         LinearLayout segments = new LinearLayout(this);
         segments.setOrientation(LinearLayout.HORIZONTAL);
         segments.setPadding(dp(4), dp(4), dp(4), dp(4));
         segments.setBackground(rounded(0x14FFFFFF, 14, 0x22FFFFFF));
-        vulkanPill = segment("Vulkan", "vulkan");
         glPill = segment("OpenGL ES", "opengl");
-        segments.addView(vulkanPill, new LinearLayout.LayoutParams(0, dp(44), 1f));
-        LinearLayout.LayoutParams gp = new LinearLayout.LayoutParams(0, dp(44), 1f);
-        gp.leftMargin = dp(4);
-        segments.addView(glPill, gp);
+        vulkanPill = segment("Vulkan", "vulkan");
+        segments.addView(glPill, new LinearLayout.LayoutParams(0, dp(44), 1f));
+        LinearLayout.LayoutParams vp = new LinearLayout.LayoutParams(0, dp(44), 1f);
+        vp.leftMargin = dp(4);
+        segments.addView(vulkanPill, vp);
         LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         sp.topMargin = dp(8);
         card.addView(segments, sp);
-        showRenderer();
 
         TextView hint = new TextView(this);
         hint.setTextColor(MUTED);
         hint.setTextSize(12);
-        hint.setText("Vulkan is usually faster. OpenGL ES works on more phones: pick it if the game looks wrong or does not start.");
+        hint.setText("Which one runs better depends on the phone. If the game is slow, looks wrong or does not start, try the other.");
         LinearLayout.LayoutParams hp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         hp.topMargin = dp(8);
         card.addView(hint, hp);
 
-        // "Remember my choice": later launches start by themselves after the splash; touching the choice then waits for Play
+        // "Remember my choice": ticked, the renderer picked here stays for later launches; unticked (the default) it is for
+        // this launch only, and the next launch goes back to the one from before (restoreRenderer)
         remember = new android.widget.CheckBox(this);
         remember.setText("Remember my choice");
         remember.setTextColor(0xDDFFFFFF);
         remember.setTextSize(14);
         remember.setButtonTintList(android.content.res.ColorStateList.valueOf(GOLD));
-        remember.setChecked(getSharedPreferences("setup", MODE_PRIVATE).getBoolean(PREF_REMEMBER, false));
+        remember.setChecked(getSharedPreferences("setup", MODE_PRIVATE).getBoolean(PREF_KEEP, false));
         remember.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
             public void onCheckedChanged(android.widget.CompoundButton b, boolean on) {
-                getSharedPreferences("setup", MODE_PRIVATE).edit().putBoolean(PREF_REMEMBER, on).apply();
-                touched = true;
-                tryStart();
+                android.content.SharedPreferences.Editor e = getSharedPreferences("setup", MODE_PRIVATE).edit().putBoolean(PREF_KEEP, on);
+                if (on) {
+                    e.remove(PREF_RESTORE); // the renderer now selected is the one to keep
+                }
+                e.apply();
             }
         });
         LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -251,9 +253,32 @@ public class SetupActivity extends Activity {
         play.setBackground(rounded(GOLD, 14, play.isFocused() ? 0xFFFFFFFF : 0));
     }
 
-    static final String PREF_REMEMBER = "rememberRenderer";
+    static final String PREF_KEEP = "keepRenderer";       // "Remember my choice"
+    static final String PREF_RESTORE = "restoreRenderer"; // a one-launch choice is in the file: what to put back ("" = none)
     private android.widget.CheckBox remember;
-    private boolean touched; // the player touched the choice on this splash: wait for Play even with "Remember my choice"
+    private boolean restored;
+
+    /** A normal launch after a one-launch choice puts the renderer from before it back. A restart from inside the game
+     *  (language, mod, renderer switch, the OpenGL ES fallback) is the same session and keeps it. */
+    private void restoreRenderer() {
+        android.content.SharedPreferences prefs = getSharedPreferences("setup", MODE_PRIVATE);
+        if (restored || getIntent().getBooleanExtra("restart", false) || !prefs.contains(PREF_RESTORE)) {
+            return;
+        }
+        restored = true;
+        String previous = prefs.getString(PREF_RESTORE, "");
+        File file = new File(FlipendoActivity.GAME_DIR, FlipendoActivity.RENDERER_FILE);
+        try {
+            if (previous.isEmpty()) {
+                file.delete();
+            } else {
+                writeSmallFile(file, previous);
+            }
+            prefs.edit().remove(PREF_RESTORE).apply();
+        } catch (IOException e) {
+            android.util.Log.e("flipendo", "could not put the renderer back: " + e);
+        }
+    }
 
     private void showRenderer() {
         String r = readSmallFile(new File(FlipendoActivity.GAME_DIR, FlipendoActivity.RENDERER_FILE));
@@ -270,20 +295,28 @@ public class SetupActivity extends Activity {
     }
 
     private void chooseRenderer(String value) {
+        File file = new File(FlipendoActivity.GAME_DIR, FlipendoActivity.RENDERER_FILE);
+        android.content.SharedPreferences prefs = getSharedPreferences("setup", MODE_PRIVATE);
+        if (!remember.isChecked() && !prefs.contains(PREF_RESTORE)) {
+            // for this launch only: keep what to put back on the next one
+            String previous = readSmallFile(file);
+            prefs.edit().putString(PREF_RESTORE, previous != null ? previous : "").apply();
+        }
         try {
             new File(FlipendoActivity.GAME_DIR).mkdirs();
-            writeSmallFile(new File(FlipendoActivity.GAME_DIR, FlipendoActivity.RENDERER_FILE), value);
+            writeSmallFile(file, value);
         } catch (IOException e) {
             android.util.Log.e("flipendo", "could not keep the renderer choice: " + e);
         }
         showRenderer();
-        touched = true;
-        tryStart();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        if (hasStorageAccess(this)) {
+            restoreRenderer();
+        }
         showRenderer(); // readable only once storage access is granted
         if (splashUntil == Long.MAX_VALUE) {
             splashUntil = android.os.SystemClock.uptimeMillis() + 800; // back from the channel
@@ -441,8 +474,7 @@ public class SetupActivity extends Activity {
         if (!gameReady || isFinishing() || splashUntil == Long.MAX_VALUE) {
             return;
         }
-        boolean byItself = getIntent().getBooleanExtra("restart", false) || (remember.isChecked() && !touched);
-        if (!byItself && !playPressed) {
+        if (!getIntent().getBooleanExtra("restart", false) && !playPressed) {
             bar.setVisibility(android.view.View.GONE);
             status.setText("");
             status.setVisibility(android.view.View.GONE);

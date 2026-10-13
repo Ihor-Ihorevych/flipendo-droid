@@ -854,6 +854,8 @@ public class FlipendoActivity extends SDLActivity {
             long now = android.os.SystemClock.uptimeMillis();
             if (rendererAsk && now - rendererAskTime < 5000) {
                 rendererAsk = false;
+                // a switch here is for good: the launcher must not put back the renderer from before a one-launch choice
+                getContext().getSharedPreferences("setup", MODE_PRIVATE).edit().remove(SetupActivity.PREF_RESTORE).apply();
                 ((FlipendoActivity) getContext()).restartWith(RENDERER_FILE, rendererGL ? "vulkan" : "opengl");
                 return;
             }
