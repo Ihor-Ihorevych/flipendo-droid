@@ -38,7 +38,7 @@ when a script debugger is attached, otherwise nothing. The line numbers could fe
 
 Every HP2 `exec*` native wrapper, after reading its parameters and EndFunctionParms, checks whether the next byte is
 0x38 and runs DebugInfo if so (e.g. `execWaitForLanding` [HP2 0x103E44F0], `execSetPhysics` [HP2 0x103F1F40]). That
-check is the ~29 extra bytes of most HP2 `exec*` functions listed as "changed" in [hp2_compare.md](../reports/hp2_compare.md); their behaviour
+check is the ~29 extra bytes of most HP2 `exec*` functions listed as "changed" in the HP1 vs HP2 code comparison; their behaviour
 is otherwise HP1's.
 
 ### HP1 releases (not checked)

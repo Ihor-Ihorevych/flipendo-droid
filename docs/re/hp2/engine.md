@@ -71,7 +71,7 @@ read in HP2's Engine.dll.
 ## Audio
 
 - Music: ALAudio.dll (OpenAL + Ogg Vorbis) plays the music; `PlayMusic` / `StopMusic` / `StopAllMusic` are still
-  MISSING in [native_audit_hp2.md](../reports/native_audit_hp2.md).
+  missing.
 - `I3DL2Listener` (Engine.u): EAX / I3DL2 reverb settings per zone, used by ALAudio.
 
 ## Not needed

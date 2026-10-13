@@ -5,7 +5,7 @@ in 0..1 screen space (Z unused); `Segments` is unused by the natives. Ported in 
 
 **HP1 and HP2.** Both games' `Gesture.uc` declare `CompareGesture` (426) and `CompareGesturePoint` (427), and both
 DLLs have them (changed by about the size of HP2's DebugInfo check, +52 and +29 bytes;
-[hp2_compare.md](../reports/hp2_compare.md)). Only HP1 calls them, from `SpellLearnTrigger` and `Target`
+the HP1 vs HP2 code comparison). Only HP1 calls them, from `SpellLearnTrigger` and `Target`
 ([spells.md](../hp1/spells.md)). HP2's decompiled scripts never call them (no native 426/427 call anywhere);
 HP2's `SpellCursor` shows a `GestureSprite` picture of the spell's shape instead. How HP2's lessons
 (`SpellLessonTrigger`) judge the player isn't studied yet.

@@ -77,6 +77,18 @@ through a level change or a loaded save:
   the song from before the load goes on, even when the save's `Song` is another one, until the next `MusicEvent`.
   `UnregisterMusic` [HP1 Galaxy 0x10607110] (a `UMusic` destroyed) only clears Galaxy's current song pointer, it
   doesn't stop an mp2 stream.
+  A save loaded from the main menu therefore goes on with the title song (`JS_HP_Title_Screen_v2`, set by
+  `FEBook.ChangePage(MainPage)`, in Engine.u so never unloaded) until the level's first `MusicEvent`
+  (`FESlotPage.LoadSelectedSlot` only runs `open saveN.usa` and closes the book). Galaxy's `SetViewport` [HP1 Galaxy
+  0x10605F50] is the only place that starts the PlayerPawn's song by itself (`Transition = MTRAN_Fade` when `Song` is
+  set and `Transition` is none), and only for a viewport other than the current one, which a load never passes.
+  Read from the code; not compared by ear with the original.
+
+**Deliberately unlike HP1**, `KW::UpdateMusic` gives a loaded save its own song: when the PlayerPawn changes, its
+`Transition` is none and its `Song` isn't the one playing (compared by name, since a reloaded map's song is a new
+object), it gets `MTRAN_Fade`, as `SetViewport` does for a new viewport. The title song then fades into the save's song,
+or into silence when the save has none. A level change is unaffected (GameInfo's login has set the fade already), and a
+save whose song is the one playing keeps it.
 
 Upstream's `StopSounds` (called by `LoadMap` and save loading) also stopped the music and cleared the audio viewport,
 whose next `SetViewport` forced `MTRAN_Instant`: the saved song started at once, and with `KW::UpdateMusic` a

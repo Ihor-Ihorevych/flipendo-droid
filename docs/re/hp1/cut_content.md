@@ -1,7 +1,7 @@
 # Cut and unused content (HP1)
 
 What HP1's retail files contain that the game never uses. Found by checking every map's actors
-(`tools/uelib_dump props <map>.unr`), every script (`reference/hp1/ScriptSource/`) and the raw bytes of every `.u` and
+(dumped with UELib), every script and the raw bytes of every `.u` and
 `.unr` (for defaults UELib prints as `()`, such as nested struct arrays). Not compared with HP2.
 
 **Caveat:** "unused" means no map, script or package names it. `HPMenu.FESoundBrowser` (a debug sound browser) lists

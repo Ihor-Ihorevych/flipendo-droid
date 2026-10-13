@@ -59,8 +59,7 @@ These don't stop the game, but explain missing pictures, sounds or text:
 - `Package X imports Class Y.Z, which Y does not contain`: an object a package refers to is missing. Two show up
   on every start and are known: `Engine.ParticleList` and an editor icon in `HPEdit`
   ([docs/re/engine/particles.md](re/engine/particles.md)).
-- `Unimplemented: Class.Function`: a native function Flipendo hasn't ported yet
-  ([native audit](re/reports/native_audit_hp1.md)).
+- `Unimplemented: Class.Function`: a native function Flipendo hasn't ported yet.
 
 ## Other problems
 

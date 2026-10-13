@@ -232,8 +232,8 @@ namespace KW
 		struct MusicState
 		{
 			UMusic* song = nullptr; // only compared, never read (it can be gone after a level change)
-			const UPlayerPawn* player = nullptr; // the player of the last update, only compared: a new one means a level loaded
-			std::chrono::steady_clock::time_point newPlayerTime;
+			std::string songName; // the current song's name, kept to compare with a loaded save's
+			UPlayerPawn* player = nullptr; // the PlayerPawn of the last update, only compared
 			uint8_t cdTrack = 255;
 			uint8_t section = 255;
 			float fade = 1.0f;
@@ -281,18 +281,18 @@ namespace KW
 
 		const PlayerMusicProps& props = GetPlayerMusicProps();
 
-		// A new player (a level or a saved game was loaded) that comes with a song but no Transition: a loaded save
-		// restores PlayerPawn.Song without asking for a change, and the song of the menu would play on under the level.
-		// The same rule USurrealAudioDevice::SetViewport has for a new viewport: the song is switched at once.
-		// (the song can be set a few frames after the player appears: the rule holds for the first 3 seconds)
+		// Deliberately unlike HP1: a loaded save plays its own song. In HP1 a save's PlayerPawn has no Transition, so the
+		// song from before the load goes on (the title song after a load from the main menu) until the level's next
+		// MusicEvent. A new PlayerPawn whose song isn't the one playing (by name: a reloaded map's song is a new object)
+		// gets the fade Galaxy's SetViewport would give it. A level change already has GameInfo's fade.
 		if (player != music.player)
 		{
 			music.player = player;
-			music.newPlayerTime = now;
+			UMusic* song = player->Song();
+			std::string songName = song ? song->Name.ToString() : std::string();
+			if (player->Transition() == MTRAN_None && (music.song || music.cdTrack != 255) && songName != music.songName)
+				player->Transition() = MTRAN_Fade;
 		}
-		if (now - music.newPlayerTime < std::chrono::seconds(3) && player->Song() && player->Song() != music.song &&
-			player->Transition() == MTRAN_None)
-			player->Transition() = MTRAN_Instant;
 
 		// No music playing: only the flag. A song that played to its end is also cleared.
 		bool ended = music.finished && music.finished->load();
@@ -364,6 +364,7 @@ namespace KW
 			{
 				music.fade = 1.0f;
 				music.song = player->Song();
+				music.songName = music.song ? music.song->Name.ToString() : std::string();
 				music.cdTrack = player->CdTrack();
 				music.section = player->SongSection();
 				if (music.song && changed)

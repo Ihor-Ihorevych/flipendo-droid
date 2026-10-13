@@ -1,4 +1,4 @@
-# Which patch each changed src/engine/ file belongs to. tools/refresh_patches.sh reads this.
+# Which patch each changed src/engine/ file belongs to.
 #
 #   [patch-name.patch] description (becomes the patch's first line)
 #   glob                (path relative to src/engine/, * matches within a folder, ** across folders)

@@ -9,7 +9,7 @@ Root motion is in [animation.md](animation.md#root-motion-banimmove). Addresses 
 ## HP1 and HP2
 
 Both games' `Pawn.uc` / `PlayerPawn.uc` declare the KnowWonder additions below (`MaxMountHeight`, `bAutoJump`), and both
-`Mover.uc` re-declare `PhysAlpha`/`PhysRate`. In [hp2_compare.md](../reports/hp2_compare.md): `setPhysics`, `findPath`
+`Mover.uc` re-declare `PhysAlpha`/`PhysRate`. In the HP1 vs HP2 code comparison: `setPhysics`, `findPath`
 and the latent polls (`execPollMoveTo`, `execPollMoveToward`, `execPollStrafeFacing`, `execPollWaitForLanding`) differ
 only in offsets; `physWalking` (14847 -> 13679 bytes), `physFlying`, `physSwimming`, `physRolling`, `physMovingBrush`,
 `physTrailer`, `APawn::performPhysics`, `physicsRotation`, `moveToward`, `Mount` and

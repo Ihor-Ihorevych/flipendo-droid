@@ -1,6 +1,3 @@
-# Scripts extracted from the game (tools/extract_scripts.sh). Derived from EA's files - never commit.
-/reference/
-
 # Retail game files - user supplies their own copy.
 *.u
 *.unr
@@ -19,9 +16,6 @@
 *.id2
 *.nam
 
-# tools/uelib_dump build output
-tools/uelib_dump/bin/
-tools/uelib_dump/obj/
 __pycache__/
 
 # Android build (android/build-apk.sh)

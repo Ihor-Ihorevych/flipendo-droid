@@ -7,7 +7,7 @@ rely on is in [physics.md](../engine/physics.md) and [scripting.md](../engine/sc
 HP1 cutscenes are `CutScene` / `CutScriptII` actors (HPBase) placed in the map. Each has up to 7 cast members with a
 command list (`Cast0Script` .. `Cast6Script`, strings like `Moveto HpLoc`, `Talk FRED_GEORGE_014`, `Cue CutEnd`,
 `Waitfor CutEnd`, `Trigger FGsec2`). The lists live in the map, not in the class scripts: dump them with
-`tools/uelib_dump props <map.unr> <out.txt>` (e.g. `reference/hp1/maps/Lev_Tut1.txt`, not committed).
+UELib (not committed).
 
 - **Starting.** `bTouchStarts` (default true) starts it when touched, `bTriggerStarts` (default true) when its Tag is
   triggered, `bLevelLoadStarts` on load. Several cutscenes share the tag `CutScriptII`, so most are touch-started.

@@ -53,7 +53,7 @@ index 1a03615b..bc7fa701 100644
  	bool IsHarryPotter1() const { return gameExecutableName == "HP"; }
  	bool IsHarryPotter2() const { return gameExecutableName == "Game"; }
 +	// games running KnowWonder's modified engine, reimplemented in ../knowwonder. HP2 joins once its
-+	// differences from HP1 are handled (docs/re/reports/hp2_compare.md).
++	// differences from HP1 are handled.
 +	bool IsKnowWonder() const { return IsHarryPotter1(); }
  	bool IsNerfArenaBlast() const { return gameExecutableName == "nerf" || gameExecutableName == "Nerf"; }
  };

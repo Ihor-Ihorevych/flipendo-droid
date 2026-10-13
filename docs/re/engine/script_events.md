@@ -6,7 +6,7 @@ wrappers expanded to their callers; `UEngine::Init` only registers the names), c
 A missing raise is the same kind of gap as `Mount` was: the script side exists, the engine never calls it.
 It only says the event is raised somewhere; each call site still has to be compared by hand.
 
-Generated with `tools/ida_dump.py` (`../ida/hp1/decomp/Engine_script_events.json`) from **HP1's** Engine.dll; the
+Generated from an IDA dump (`../ida/hp1/decomp/Engine_script_events.json`) from **HP1's** Engine.dll; the
 addresses are HP1's. HP2's Engine.dll hasn't been dumped yet (`../ida/hp2/` has no `decomp/`): run `dump_all('Engine')`
 there and compare before relying on this list for HP2. Decompiled bodies of every HP1 function:
 `../ida/hp1/decomp/<Dll>/<ADDR>_<name>.c`, index in `../ida/hp1/decomp/<Dll>_index.tsv`.

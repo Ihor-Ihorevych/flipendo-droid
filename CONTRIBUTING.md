@@ -1,7 +1,6 @@
 # Contributing to Flipendo
 
-There's work for every skill level, and much of it needs no programming. Come say hi on
-[Discord](README.md#community) first if you're unsure where to start.
+There's work for every skill level, and much of it needs no programming.
 
 ## Ways to help
 
@@ -9,12 +8,11 @@ There's work for every skill level, and much of it needs no programming. Come sa
   Side-by-side screenshots or short clips help most. Attach the log (`--logfile=flipendo.log`).
 - **Owners of other game versions**: see [below](#other-game-versions).
 - **Modders**: build an extra in `src/hp1/mods/` ([docs/modding.md](docs/modding.md)).
-- **Reverse engineers**: the remaining work is KnowWonder's native code, in HP1's and HP2's DLLs.
-  [docs/re/reports/dlls.md](docs/re/reports/dlls.md) shows what every DLL does and what's been reimplemented;
-  [docs/re/](docs/re/README.md) has what's been learned so far, the shared engine and each game's own parts.
 - **C++ developers**: start with [docs/development.md](docs/development.md) (layout, ground rules, reference
   material), [docs/one-engine.md](docs/one-engine.md) (one code path for both games) and the [roadmap](ROADMAP.md).
-- **Writers and artists**: documentation, guides, screenshots and clips for the README and the Discord.
+- **Writers and artists**: documentation, guides, screenshots and clips for the README.
+
+Reverse engineering isn't open to outside help. What was learned is in [docs/re/](docs/re/README.md).
 
 ## Other game versions
 
@@ -37,7 +35,8 @@ build/Release/SurrealEngine.exe "C:/Games/Harry Potter"            # opens the l
 ```
 
 `tools/build.sh [Release|Debug|RelWithDebInfo] [target]` applies our patches to `src/engine/` and builds.
-`tools/run_hp1.sh` launches straight into the game with a log ([docs/development.md](docs/development.md)).
+`build/Release/SurrealEngine.exe --autolaunch --logfile=hp1.log <game folder>` launches straight into the game with a
+log ([docs/development.md](docs/development.md)).
 
 ### Linux / macOS
 
@@ -50,7 +49,7 @@ are welcome.
 |---|---|
 | `--autolaunch` | boot the first detected game, no launcher and no modal error boxes |
 | `--logfile=<path>` | stream the log to a file (survives crashes) |
-| `--level=<map>` | start in a level as a player reaches it in the story: story flow, earlier cards, average beans and house points, save slot 0 (`--slot=<0-5>` for another) ([docs/playtest.md](docs/playtest.md)); use this for playtesting |
+| `--level=<map>` | start in a level as a player reaches it in the story: story flow, earlier cards, average beans and house points, save slot 0 (`--slot=<0-5>` for another) ([docs/debug-tools.md](docs/debug-tools.md#starting-a-level---level)); use this for playtesting |
 | `--url=<map>` | only load a level, with a new game's state and outside the story flow (the flying lesson and the Quidditch matches then run as their menu versions) |
 | `--skip-splash`, `--skip-intro`, `--vanilla` | as in the [README](README.md#launch-options) |
 
@@ -66,9 +65,6 @@ The debug environment variables (screenshots, actor dumps, fixed cameras, script
    with `--vanilla`.
 4. **One implementation for both games**: KnowWonder's engine goes in `src/knowwonder/`, only what one game lacks goes in `src/hp1/`
    or `src/hp2/` ([docs/one-engine.md](docs/one-engine.md)).
-5. **Write down what you learn** in `docs/re/` in the same change.
-6. **Tag every reimplemented function** with the original's decorated name and address
-   ([docs/development.md](docs/development.md#ida-tags)).
 
 [`CLAUDE.md`](CLAUDE.md) is the full rule set (it doubles as the guide for AI assistants).
 

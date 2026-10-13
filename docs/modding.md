@@ -50,8 +50,8 @@ Helpers in `HP1Mods.h`: `ObjectProperty` / `BoolProperty` read script properties
 key press since the last tick, `DrawPrompt` draws a small hint line in the corner.
 
 Work through the game's own script state (properties, script functions) where you can, so a mod stays a thin
-layer over vanilla behaviour. To find what to touch, read the game's scripts: `tools/extract_scripts.sh` writes
-them, with KnowWonder's comments, to `reference/hp1/ScriptSource/` (see [development.md](development.md#reference-material)).
+layer over vanilla behaviour. To find what to touch, read the game's scripts, extracted with KnowWonder's
+comments (see [development.md](development.md#reference-material)).
 `CutsceneSkip.cpp` is a short example that follows a script's state and calls into it.
 
 If a mod needs a hook the four above don't give, add it to `HP1Mods.h` and to
@@ -61,7 +61,7 @@ If a mod needs a hook the four above don't give, add it to `HP1Mods.h` and to
 
 [debug-tools.md](debug-tools.md): environment variables that dump every actor with its state, trace actors over
 time, put the camera somewhere fixed, script key presses and player movement and call script functions; the
-`SurrealDebugger` UnrealScript debugger; `tools/uelib_dump` for the objects in a package. How the game works under the
+`SurrealDebugger` UnrealScript debugger; [UELib](https://github.com/EliotVU/Unreal-Library) for the objects in a package. How the game works under the
 scripts is in the [reverse-engineering notes](re/README.md).
 
 ## Where modding is going

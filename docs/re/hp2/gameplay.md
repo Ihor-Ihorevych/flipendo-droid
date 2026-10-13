@@ -1,8 +1,8 @@
 # HP2 gameplay scripts: what differs from HP1
 
 HP2's gameplay package is `hgame` (HP1's are `HarryPotter`, `HPBase`, `HPMenu`, ...). Its `.u` files ship with most
-source stripped, so these notes come from the scripts `tools/extract_scripts.sh hp2` decompiles into
-`reference/hp2/ScriptSource/` (natives show up there as `__NFUN_<index>__`). The shared engine underneath is in
+source stripped, so these notes come from the scripts UELib decompiles into
+HP2's extracted scripts (natives show up there as `__NFUN_<index>__`). The shared engine underneath is in
 [`../engine/`](../engine/); the bytecode difference is in [scripting.md](../engine/scripting.md#bytecode-hp1-vs-hp2).
 
 First notes, not yet a full study. Each entry says what HP1 does instead.
@@ -51,4 +51,4 @@ Not read in HP2's code yet. Check each one in `../ida/hp2/` before relying on it
 
 `Actor.BoneRot` (328), `IsSoftwareRendering` (329), `GetCurrentKeyState` (330) (`src/hp2/HP2Natives.cpp`), the OpenAL / Ogg Vorbis
 music natives (`PlayMusic`, `StopMusic`, `StopAllMusic`, not ported), and the changed signatures of `StopSound`
-(`FadeOutTime`) and `CreateAnimChannel` (`bNotReplaceable`). The full list: [native_audit_hp2.md](../reports/native_audit_hp2.md).
+(`FadeOutTime`) and `CreateAnimChannel` (`bNotReplaceable`).

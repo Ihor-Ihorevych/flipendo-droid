@@ -1,7 +1,7 @@
 # Collectibles: wizard cards, beans, chests (HP1)
 
 From HP1's scripts (`HProps`, `HPBase`, `HPMenu`) and the actors in HP1's 41 maps (dumped with
-`tools/uelib_dump props <map>.unr <out>`). HP2 has its own collectibles in `hgame`; not compared yet.
+UELib). HP2 has its own collectibles in `hgame`; not compared yet.
 
 ## Wizard cards
 

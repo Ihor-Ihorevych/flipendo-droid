@@ -11,7 +11,7 @@ Addresses are HP1's `..._0` bodies in `../ida/hp1/Engine.dll.i64`. `EmitParticle
 ## HP1 and HP2
 
 HP2 keeps the system and leans on it harder (HP2's `HPParticle` package has 164 ParticleFX classes, and its spell
-cursor `SpellCursor` is a ParticleFX). In [hp2_compare.md](../reports/hp2_compare.md): `Tick`, `Update`, `AddParticle`,
+cursor `SpellCursor` is a ParticleFX). In the HP1 vs HP2 code comparison: `Tick`, `Update`, `AddParticle`,
 `RecomputeDeltas`, `InitExecution`, `Destroy` and Wind's `Radius`/`FlucPeriod` differ only in offsets;
 `GetTotalWind` is identical; the constructor (125 -> 203 bytes), `GetParams`, `GetSysParams`, `EmitParticles`,
 `UpdateParticles`, `UParticle::Update`, `GetRenderBoundingBox` and Wind's `GetWind`/`Tick` changed, HP2 code not read
