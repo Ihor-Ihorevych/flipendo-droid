@@ -50,15 +50,15 @@ public class SetupActivity extends Activity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER);
         root.setBackgroundColor(0xFF000000);
-        root.setPadding(64, 64, 64, 64);
+        root.setPadding(64, 24, 64, 24);
 
         // the splash: icon, name and the Telegram channel (a tap opens it)
         splashUntil = android.os.SystemClock.uptimeMillis() + 2500;
         try {
             android.widget.ImageView icon = new android.widget.ImageView(this);
             icon.setImageDrawable(getDrawable(getApplicationInfo().icon));
-            LinearLayout.LayoutParams ip = new LinearLayout.LayoutParams(256, 256);
-            ip.bottomMargin = 32;
+            LinearLayout.LayoutParams ip = new LinearLayout.LayoutParams(dp(80), dp(80));
+            ip.bottomMargin = dp(8);
             root.addView(icon, ip);
         } catch (RuntimeException ignored) {
         }
@@ -78,7 +78,7 @@ public class SetupActivity extends Activity {
         link.setTextColor(0xFF5EB8FF);
         link.setTextSize(18);
         link.setGravity(Gravity.CENTER);
-        link.setPadding(32, 40, 32, 40);
+        link.setPadding(32, dp(10), 32, dp(10));
         link.setPaintFlags(link.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
         link.setText("Telegram: t.me/flipendodroid");
         link.setOnClickListener(new android.view.View.OnClickListener() {
@@ -117,8 +117,14 @@ public class SetupActivity extends Activity {
         LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         pp.topMargin = dp(16);
         root.addView(play, pp);
-        startScreen = root;
-        setContentView(root);
+        // scrolls when a small or landscape screen has no room for all of it (Play stays reachable)
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setBackgroundColor(0xFF000000);
+        scroll.addView(root, new android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT, android.widget.FrameLayout.LayoutParams.WRAP_CONTENT));
+        startScreen = scroll;
+        setContentView(startScreen);
     }
 
     private TextView vulkanPill, glPill;
@@ -152,8 +158,34 @@ public class SetupActivity extends Activity {
         p2.leftMargin = dp(8);
         row.addView(glPill, p2);
         showRenderer();
-        return row;
+
+        // "Remember my choice": later launches start by themselves after the splash; touching the choice then waits for Play
+        remember = new android.widget.CheckBox(this);
+        remember.setText("Remember my choice");
+        remember.setTextColor(0xFFAAAAAA);
+        remember.setTextSize(15);
+        remember.setButtonTintList(android.content.res.ColorStateList.valueOf(GOLD));
+        remember.setChecked(getSharedPreferences("setup", MODE_PRIVATE).getBoolean(PREF_REMEMBER, false));
+        remember.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(android.widget.CompoundButton b, boolean on) {
+                getSharedPreferences("setup", MODE_PRIVATE).edit().putBoolean(PREF_REMEMBER, on).apply();
+                touched = true;
+                tryStart();
+            }
+        });
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.CENTER);
+        box.addView(row);
+        LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        rp.topMargin = dp(4);
+        box.addView(remember, rp);
+        return box;
     }
+
+    static final String PREF_REMEMBER = "rememberRenderer";
+    private android.widget.CheckBox remember;
+    private boolean touched; // the player touched the choice on this splash: wait for Play even with "Remember my choice"
 
     private void showRenderer() {
         String r = readSmallFile(new File(FlipendoActivity.GAME_DIR, FlipendoActivity.RENDERER_FILE));
@@ -177,10 +209,8 @@ public class SetupActivity extends Activity {
             android.util.Log.e("flipendo", "could not keep the renderer choice: " + e);
         }
         showRenderer();
-        if (splashUntil != Long.MAX_VALUE) {
-            splashUntil = Math.max(splashUntil, android.os.SystemClock.uptimeMillis() + 2000);
-            tryStart();
-        }
+        touched = true;
+        tryStart();
     }
 
     @Override
@@ -343,7 +373,8 @@ public class SetupActivity extends Activity {
         if (!gameReady || isFinishing() || splashUntil == Long.MAX_VALUE) {
             return;
         }
-        if (!getIntent().getBooleanExtra("restart", false) && !playPressed) {
+        boolean byItself = getIntent().getBooleanExtra("restart", false) || (remember.isChecked() && !touched);
+        if (!byItself && !playPressed) {
             bar.setVisibility(android.view.View.GONE);
             status.setText("");
             play.setVisibility(android.view.View.VISIBLE);
