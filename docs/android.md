@@ -200,6 +200,8 @@ A gamepad works without setup: its events are taken in `FlipendoActivity.dispatc
 
 While the pad is in use the on-screen arrows, wand and jump are hidden; touching the screen brings them back. B also closes the settings panel. In menus the overlay draws a cursor (the game draws none on a touch screen) and A moves the game's cursor there before it presses, a frame later, as the menus need.
 
+Touch and cursor positions go to the engine as view pixels times the render scale, so the render surface must have the view's shape. It is sized from the surface view's own size once laid out (before that, the display's real size), never from `getDisplayMetrics()`: that is the area the system bars leave, a navigation bar shorter on handhelds and tablets, whose bar sits below in landscape. The full-screen view stretched the shorter surface and the menu cursor clicked below where it was drawn (players aimed a little higher). The log report's `game view:` line shows the view and surface sizes.
+
 ### Spell lessons on Android
 
 The drawing is judged more gently than on the PC (`KWGesture.cpp`, `ScoreGestureGentle`), for a finger and a stick alike: only coverage counts, the share of the symbol's template samples with a drawn point within twice the lesson's accuracy; strokes beside the symbol cost nothing, and a stroke of fewer than 10 points still scores 0. The lesson's pass mark is unchanged. With a gamepad the lesson also gives 35% more time (`DrawTime`, once per lesson, `HP1::TickLessonTouch`), the wand moves with the right stick through the lesson's own mouse input (slowly, fractions of a mouse count add up), and the left stick does nothing there.

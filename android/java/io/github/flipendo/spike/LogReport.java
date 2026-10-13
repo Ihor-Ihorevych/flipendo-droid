@@ -174,6 +174,9 @@ final class LogReport {
 
         DisplayMetrics dm = context.getResources().getDisplayMetrics();
         s.append("screen: ").append(dm.widthPixels).append('x').append(dm.heightPixels).append(" @ ").append(dm.densityDpi).append(" dpi\n");
+        // the game view and its render surface: the touch and pad cursor positions are only right when they have one shape
+        s.append("game view: ").append(FlipendoActivity.viewSizeText.isEmpty() ? "-" : FlipendoActivity.viewSizeText)
+                .append(", surface ").append(FlipendoActivity.surfaceWidth).append('x').append(FlipendoActivity.surfaceHeight).append('\n');
         FeatureInfo[] features = context.getPackageManager().getSystemAvailableFeatures();
         if (features != null) {
             for (FeatureInfo f : features) {

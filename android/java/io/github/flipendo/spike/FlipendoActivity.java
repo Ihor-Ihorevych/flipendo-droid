@@ -241,13 +241,42 @@ public class FlipendoActivity extends SDLActivity {
     /** Resizes the render surface (the engine rebuilds its scene textures and swapchain for the new size). */
     void applyRenderScale(float scale) {
         surfaceScale = Math.max(RENDER_SCALE_MIN, Math.min(RENDER_SCALE_MAX, scale));
-        if (mSurface != null) {
-            android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
-            int longSide = Math.max(dm.widthPixels, dm.heightPixels), shortSide = Math.min(dm.widthPixels, dm.heightPixels);
-            mSurface.getHolder().setFixedSize((int) (longSide * surfaceScale), (int) (shortSide * surfaceScale));
-        }
+        resizeSurface();
         saveScales();
     }
+
+    /** The surface view's size on screen, landscape (long side first): what the render surface is a scale of. */
+    int[] viewSize() {
+        int w = mSurface != null ? mSurface.getWidth() : 0, h = mSurface != null ? mSurface.getHeight() : 0;
+        if (w <= 0 || h <= 0) {
+            // not laid out yet: the whole display (the game runs full screen). Not getDisplayMetrics(): that is the area
+            // left by the system bars, a navigation bar shorter on handhelds and tablets (below)
+            android.graphics.Point p = new android.graphics.Point();
+            getWindowManager().getDefaultDisplay().getRealSize(p);
+            w = p.x;
+            h = p.y;
+        }
+        return new int[] { Math.max(w, h), Math.min(w, h) };
+    }
+
+    /** The render surface at surfaceScale of the view in both directions. Every touch and pad cursor position goes to the
+     *  engine as view pixels * surfaceScale, which only lands where it is drawn while the surface has the view's shape:
+     *  sized from getDisplayMetrics() it was a navigation bar shorter on handhelds (the bar below in landscape), stretched
+     *  over the full-screen view, and the menu cursor hit below where it was drawn. */
+    void resizeSurface() {
+        if (mSurface == null)
+            return;
+        int[] size = viewSize();
+        int w = Math.max(1, Math.round(size[0] * surfaceScale)), h = Math.max(1, Math.round(size[1] * surfaceScale));
+        if (w != surfaceWidth || h != surfaceHeight) {
+            surfaceWidth = w;
+            surfaceHeight = h;
+            mSurface.getHolder().setFixedSize(w, h);
+        }
+    }
+
+    static volatile int surfaceWidth, surfaceHeight; // the fixed surface size last set (LogReport)
+    static volatile String viewSizeText = ""; // the surface view's size on screen (LogReport)
 
     /** Subtitles and HUD size: takes effect on the next frame. */
     void applyUiScale(float scale, boolean save) {
@@ -474,6 +503,12 @@ public class FlipendoActivity extends SDLActivity {
             // SDL adds the surface as WRAP_CONTENT, which would shrink the view to the fixed size: stretch it over the screen.
             mSurface.setLayoutParams(new RelativeLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            // Once laid out (and whenever the system bars change it) the surface follows the view's real size
+            mSurface.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
+                viewSizeText = (r - l) + "x" + (b - t);
+                if (r - l != or - ol || b - t != ob - ot)
+                    resizeSurface();
+            });
             // The engine must know when the surface is gone: Vulkan made a surface for a destroyed one and crashed
             // (android_main.cpp, nativeSetSurfaceAlive)
             mSurface.getHolder().addCallback(new android.view.SurfaceHolder.Callback() {
@@ -1896,8 +1931,8 @@ public class FlipendoActivity extends SDLActivity {
 
         void drawSliders(Canvas c) {
             float u = Math.min(getWidth(), getHeight());
-            android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
-            int longSide = Math.max(dm.widthPixels, dm.heightPixels), shortSide = Math.min(dm.widthPixels, dm.heightPixels);
+            int[] size = ((FlipendoActivity) getContext()).viewSize();
+            int longSide = size[0], shortSide = size[1];
             for (int i = 0; i < SLIDERS; i++) {
                 float v = sliderValue(i);
                 String name = i == 0 ? "Render scale" : i == 1 ? "Subtitles and HUD size" : i == 2 ? "Field of view" : "FPS limit";
