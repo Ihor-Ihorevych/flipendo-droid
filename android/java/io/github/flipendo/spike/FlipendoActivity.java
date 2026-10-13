@@ -842,7 +842,7 @@ public class FlipendoActivity extends SDLActivity {
 
         {
             String r = SetupActivity.readSmallFile(new File(GAME_DIR, RENDERER_FILE));
-            rendererGL = r != null && r.startsWith("opengl");
+            rendererGL = !"vulkan".equals(r); // OpenGL ES unless Vulkan was picked (android_main.cpp)
             rendererAuto = "opengl-auto".equals(r);
         }
 

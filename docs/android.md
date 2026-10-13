@@ -230,10 +230,13 @@ Releases before the numbering: `android-2026-10-11` is 0.1.0 (problem cards, gam
 
 ## OpenGL ES renderer
 
-Vulkan is the default, but Qualcomm's stock drivers (Adreno 618 / 642L with driver 512.x, Vulkan 1.1) refuse one of the
+Since 0.2.5b **OpenGL ES is the default** and Vulkan is picked by hand. Qualcomm's stock drivers (Adreno 618 / 642L with driver 512.x, Vulkan 1.1) refuse one of the
 engine's Vulkan pipelines (`Could not create graphics pipeline: vkResult -13`) and the game stopped before the menu. The port
 therefore also renders with **OpenGL ES** (3.0 and newer): SurrealEngine's desktop OpenGL device (`RenderDevice/OpenGL/`) built against
-GLES (patch 0200).
+GLES (patch 0200). It became the default when a POCO X3 Pro (Adreno 640, driver 512.502) showed the menu on Vulkan
+but crashed inside the driver after the app came back from the background (`vkEndCommandBuffer`, after `dequeueBuffer failed`
+and `AdrenoUtils: Unknown Format 0` on the new swapchain): a crash after frames were drawn, which the fallback below cannot
+catch. OpenGL ES also ran faster than Vulkan on the developer's Mali phone.
 
 - `GLESCompat.h` replaces the desktop loader on Android: `<GLES3/gl32.h>` (libGLESv3), shims for the calls ES spells
   differently (`glClearDepthf`, `glDepthRangef`, `glDrawBuffers`, `glTexStorage2DMultisample`, `glFramebufferTexture2D`) and
@@ -246,7 +249,7 @@ GLES (patch 0200).
   else RGBA8 (no overbright bloom). No MSAA, no depth clamp, no sampler LOD bias (ES lacks them); the dither texture is R16F.
 - The engine logs `OpenGL renderer: <GPU>, <GL_VERSION>` and the scene buffer format.
 
-**Choosing it.** `android_main.cpp` reads `/sdcard/FlipendoHP/.flipendo-renderer` (`vulkan` default, `opengl`, `opengl-auto`)
+**Choosing it.** `android_main.cpp` reads `/sdcard/FlipendoHP/.flipendo-renderer` (`opengl` or missing: OpenGL ES, `vulkan`, `opengl-auto`)
 and passes `--renderer=opengl|vulkan` (GameApp, patch 0002, sets `LauncherSettings::RenderDevice.Type` before the window is
 made). When a Vulkan run ends with a Vulkan `FATAL` line in `flipendo.log` (vkResult, VK_ERROR, graphics pipeline,
 swapchain...), it writes `opengl-auto` and exits with code 3; `FlipendoActivity.onGameStopped(3)` shows a toast and restarts the

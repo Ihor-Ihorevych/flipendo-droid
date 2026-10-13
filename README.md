@@ -98,7 +98,7 @@ Open them with the gear (top right) or the View button on a gamepad. Everything 
 | **Movement** | floating stick or arrow buttons |
 | **Auto jump** | Harry jumps across gaps by himself (on by default) |
 | **Debug mode** | adds Level Select to the main menu, to play any level |
-| **Renderer** | Vulkan or OpenGL ES (also on the start screen, before the game loads); switches to OpenGL ES by itself if Vulkan does not work on your phone |
+| **Renderer** | OpenGL ES (the default) or Vulkan, also on the start screen before the game loads. Try the other one if the game is slow or looks wrong; from Vulkan it switches to OpenGL ES by itself if Vulkan does not start |
 | **FPS limit** | 25 to 60 frames a second: lower saves battery and keeps the phone cooler |
 | **Language** | English or Russian text; *Добавить озвучку из папки…* adds a dubbing from its Sounds folder (such as the Russian voices) |
 | **Movement mod** | AdamJD's mod for better movement, camera and climbing: tap *Choose file* and pick its zip (download it from the mod's page), then switch it on or off here |

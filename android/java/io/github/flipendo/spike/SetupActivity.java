@@ -282,7 +282,7 @@ public class SetupActivity extends Activity {
 
     private void showRenderer() {
         String r = readSmallFile(new File(FlipendoActivity.GAME_DIR, FlipendoActivity.RENDERER_FILE));
-        boolean gl = r != null && r.startsWith("opengl");
+        boolean gl = !"vulkan".equals(r); // OpenGL ES unless Vulkan was picked (android_main.cpp)
         glPill.setText("opengl-auto".equals(r) ? "OpenGL ES (auto)" : "OpenGL ES");
         stylePill(vulkanPill, !gl);
         stylePill(glPill, gl);

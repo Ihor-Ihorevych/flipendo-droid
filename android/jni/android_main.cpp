@@ -303,7 +303,9 @@ static std::string ReadRendererChoice()
 		while (!value.empty() && (value.back() == 0x0d || value.back() == 0x20 || value.back() == 0x0a))
 			value.pop_back();
 	}
-	return value == "opengl" || value == "opengl-auto" ? value : "vulkan";
+	// OpenGL ES unless Vulkan was picked: Qualcomm's Vulkan drivers fail on many phones (pipelines, a crash on resume),
+	// and OpenGL ES is as fast or faster on the others tried
+	return value == "vulkan" || value == "opengl-auto" ? value : "opengl";
 }
 
 // The run's log ends with a FATAL line from Vulkan (GameApp writes it in --autolaunch mode, the catch below otherwise)
