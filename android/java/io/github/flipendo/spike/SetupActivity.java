@@ -88,6 +88,7 @@ public class SetupActivity extends Activity {
             }
         });
         root.addView(link);
+        root.addView(rendererChoice());
 
         status = new TextView(this);
         status.setTextColor(0xFFFFFFFF);
@@ -106,9 +107,68 @@ public class SetupActivity extends Activity {
         setContentView(root);
     }
 
+    private TextView vulkanPill, glPill;
+
+    /** The renderer for this and later runs, on the splash: Vulkan or OpenGL ES, the same file the in-game switch and the
+     *  automatic fallback write (FlipendoActivity.RENDERER_FILE, read by android_main.cpp). A tap keeps the splash up a
+     *  little longer, so the choice is seen before the game starts. */
+    private android.view.View rendererChoice() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER);
+        TextView label = new TextView(this);
+        label.setTextColor(0xFFAAAAAA);
+        label.setTextSize(15);
+        label.setText("Renderer");
+        row.addView(label);
+        vulkanPill = pill("Vulkan", false, new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) { chooseRenderer("vulkan"); }
+        });
+        glPill = pill("OpenGL ES", false, new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) { chooseRenderer("opengl"); }
+        });
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        p.leftMargin = dp(12);
+        row.addView(vulkanPill, p);
+        LinearLayout.LayoutParams p2 = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        p2.leftMargin = dp(8);
+        row.addView(glPill, p2);
+        showRenderer();
+        return row;
+    }
+
+    private void showRenderer() {
+        String r = readSmallFile(new File(FlipendoActivity.GAME_DIR, FlipendoActivity.RENDERER_FILE));
+        boolean gl = r != null && r.startsWith("opengl");
+        glPill.setText("opengl-auto".equals(r) ? "OpenGL ES (auto)" : "OpenGL ES");
+        stylePill(vulkanPill, !gl);
+        stylePill(glPill, gl);
+    }
+
+    private void stylePill(TextView b, boolean selected) {
+        b.setTextColor(selected ? 0xFF1A1A1A : 0xFFFFFFFF);
+        b.setTypeface(android.graphics.Typeface.DEFAULT, selected ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+        b.setBackground(rounded(selected ? GOLD : 0x1FFFFFFF, 24, selected ? 0 : 0x33FFFFFF));
+    }
+
+    private void chooseRenderer(String value) {
+        try {
+            new File(FlipendoActivity.GAME_DIR).mkdirs();
+            writeSmallFile(new File(FlipendoActivity.GAME_DIR, FlipendoActivity.RENDERER_FILE), value);
+        } catch (IOException e) {
+            android.util.Log.e("flipendo", "could not keep the renderer choice: " + e);
+        }
+        showRenderer();
+        if (splashUntil != Long.MAX_VALUE) {
+            splashUntil = Math.max(splashUntil, android.os.SystemClock.uptimeMillis() + 2000);
+            tryStart();
+        }
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
+        showRenderer(); // readable only once storage access is granted
         if (splashUntil == Long.MAX_VALUE) {
             splashUntil = android.os.SystemClock.uptimeMillis() + 800; // back from the channel
             tryStart();
