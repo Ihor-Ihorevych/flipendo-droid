@@ -252,8 +252,8 @@ made). When a Vulkan run ends with a Vulkan `FATAL` line in `flipendo.log` (vkRe
 swapchain...), it writes `opengl-auto` and exits with code 3; `FlipendoActivity.onGameStopped(3)` shows a toast and restarts the
 game without the problem card. Settings has a **Renderer** button in the footer (Vulkan / OpenGL ES, "(auto)" when the engine
 switched); a change asks for a second tap and restarts. The launcher's splash has the same choice (two buttons under the
-Telegram link, `SetupActivity.rendererChoice`): a tap writes the file and holds the splash 2 s more, so it is set before the
-game starts. The log report's `device-info.txt` has a `renderer:` line.
+Telegram link, `SetupActivity.rendererChoice`), and the game starts only on its **Play** button (a restart from inside the game, or the
+fallback to OpenGL ES, starts by itself). The log report's `device-info.txt` has a `renderer:` line.
 `/sdcard/FlipendoHP/fail_vulkan.txt` makes Vulkan fail on purpose to try the switch. The manifest no longer requires Vulkan,
 only OpenGL ES 3.0.
 

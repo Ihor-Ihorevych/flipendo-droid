@@ -103,11 +103,27 @@ public class SetupActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.topMargin = 48;
         root.addView(bar, lp);
+        play = pill("Play", true, new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) {
+                playPressed = true;
+                splashUntil = 0;
+                tryStart();
+            }
+        });
+        play.setTextSize(20);
+        play.setPadding(dp(56), dp(14), dp(56), dp(14));
+        play.setFocusable(true);
+        play.setVisibility(android.view.View.GONE);
+        LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        pp.topMargin = dp(16);
+        root.addView(play, pp);
         startScreen = root;
         setContentView(root);
     }
 
     private TextView vulkanPill, glPill;
+    private TextView play;      // starts the game (a normal launch waits for it)
+    private boolean playPressed;
 
     /** The renderer for this and later runs, on the splash: Vulkan or OpenGL ES, the same file the in-game switch and the
      *  automatic fallback write (FlipendoActivity.RENDERER_FILE, read by android_main.cpp). A tap keeps the splash up a
@@ -129,6 +145,8 @@ public class SetupActivity extends Activity {
         });
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         p.leftMargin = dp(12);
+        vulkanPill.setFocusable(true);
+        glPill.setFocusable(true);
         row.addView(vulkanPill, p);
         LinearLayout.LayoutParams p2 = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         p2.leftMargin = dp(8);
@@ -318,10 +336,18 @@ public class SetupActivity extends Activity {
         }
     };
 
-    /** Starts the game once its data is ready and the splash has been up long enough (not while the channel link is open). */
+    /** Starts the game once its data is ready: on Play, or by itself after a restart from inside the game (a language, renderer
+     *  or mod switch, the fallback to OpenGL ES), once the splash has been up long enough (not while the channel link is open). */
     private void tryStart() {
         ui.removeCallbacks(launch);
         if (!gameReady || isFinishing() || splashUntil == Long.MAX_VALUE) {
+            return;
+        }
+        if (!getIntent().getBooleanExtra("restart", false) && !playPressed) {
+            bar.setVisibility(android.view.View.GONE);
+            status.setText("");
+            play.setVisibility(android.view.View.VISIBLE);
+            play.requestFocus(); // a gamepad's A presses it
             return;
         }
         long left = splashUntil - android.os.SystemClock.uptimeMillis();
@@ -491,6 +517,7 @@ public class SetupActivity extends Activity {
     private void backToStart() {
         setContentView(startScreen);
         bar.setVisibility(android.view.View.VISIBLE);
+        play.setVisibility(android.view.View.GONE);
         status.setText("");
         begin();
     }
