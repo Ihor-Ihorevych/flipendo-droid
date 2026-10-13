@@ -46,124 +46,135 @@ public class SetupActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setGravity(Gravity.CENTER);
-        root.setBackgroundColor(0xFF000000);
-        root.setPadding(64, 24, 64, 24);
-
-        // the splash: icon, name and the Telegram channel (a tap opens it)
         splashUntil = android.os.SystemClock.uptimeMillis() + 2500;
-        try {
-            android.widget.ImageView icon = new android.widget.ImageView(this);
-            icon.setImageDrawable(getDrawable(getApplicationInfo().icon));
-            LinearLayout.LayoutParams ip = new LinearLayout.LayoutParams(dp(80), dp(80));
-            ip.bottomMargin = dp(8);
-            root.addView(icon, ip);
-        } catch (RuntimeException ignored) {
+
+        // The start screen: the name on one side, the launch panel (renderer, "Remember my choice", progress, Play) on the
+        // other; stacked when the screen is too narrow for two columns. Everything in dp/sp, and it scrolls when a short
+        // screen has no room (Play stays reachable).
+        android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
+        float widthDp = Math.max(dm.widthPixels, dm.heightPixels) / dm.density; // the activity is landscape
+        boolean wide = widthDp >= 560;
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(wide ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
+        root.setGravity(Gravity.CENTER);
+        root.setPadding(dp(28), dp(16), dp(28), dp(16));
+        if (wide) {
+            root.addView(brand(true), new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            LinearLayout.LayoutParams pl = new LinearLayout.LayoutParams(dp(Math.min(380f, widthDp * 0.46f)), LinearLayout.LayoutParams.WRAP_CONTENT);
+            pl.leftMargin = dp(24);
+            root.addView(launchPanel(), pl);
+        } else {
+            root.addView(brand(false), new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+            LinearLayout.LayoutParams pl = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            pl.topMargin = dp(16);
+            root.addView(launchPanel(), pl);
         }
-        TextView title = new TextView(this);
-        title.setTextColor(0xFFFFFFFF);
-        title.setTextSize(34);
-        title.setGravity(Gravity.CENTER);
-        title.setText("Flipendo");
-        root.addView(title);
-        TextView tagline = new TextView(this);
-        tagline.setTextColor(0xFFAAAAAA);
-        tagline.setTextSize(15);
-        tagline.setGravity(Gravity.CENTER);
-        tagline.setText("Harry Potter and the Sorcerer's Stone, on Android");
-        root.addView(tagline);
-        TextView link = new TextView(this);
-        link.setTextColor(0xFF5EB8FF);
-        link.setTextSize(18);
-        link.setGravity(Gravity.CENTER);
-        link.setPadding(32, dp(10), 32, dp(10));
-        link.setPaintFlags(link.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
-        link.setText("Telegram: t.me/flipendodroid");
-        link.setOnClickListener(new android.view.View.OnClickListener() {
-            public void onClick(android.view.View v) {
-                splashUntil = Long.MAX_VALUE; // hold the splash while the channel is open; onResume lets it go
-                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(CHANNEL_URL)));
-            }
-        });
-        root.addView(link);
-        root.addView(rendererChoice());
 
-        status = new TextView(this);
-        status.setTextColor(0xFFFFFFFF);
-        status.setTextSize(18);
-        status.setGravity(Gravity.CENTER);
-        status.setText("");
-        root.addView(status);
-
-        bar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
-        bar.setIndeterminate(false);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.topMargin = 48;
-        root.addView(bar, lp);
-        play = pill("Play", true, new android.view.View.OnClickListener() {
-            public void onClick(android.view.View v) {
-                playPressed = true;
-                splashUntil = 0;
-                tryStart();
-            }
-        });
-        play.setTextSize(20);
-        play.setPadding(dp(56), dp(14), dp(56), dp(14));
-        play.setFocusable(true);
-        play.setVisibility(android.view.View.GONE);
-        LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        pp.topMargin = dp(16);
-        root.addView(play, pp);
-        // scrolls when a small or landscape screen has no room for all of it (Play stays reachable)
         android.widget.ScrollView scroll = new android.widget.ScrollView(this);
         scroll.setFillViewport(true);
-        scroll.setBackgroundColor(0xFF000000);
+        scroll.setBackground(new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TL_BR, new int[] { 0xFF1B1730, 0xFF0B0A12, 0xFF000000 }));
         scroll.addView(root, new android.widget.FrameLayout.LayoutParams(
                 android.widget.FrameLayout.LayoutParams.MATCH_PARENT, android.widget.FrameLayout.LayoutParams.WRAP_CONTENT));
         startScreen = scroll;
         setContentView(startScreen);
     }
 
+    /** The icon, the name, the tagline and the Telegram channel (a tap opens it). */
+    private LinearLayout brand(boolean wide) {
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.setGravity(Gravity.CENTER);
+        try {
+            android.widget.ImageView icon = new android.widget.ImageView(this);
+            icon.setImageDrawable(getDrawable(getApplicationInfo().icon));
+            int size = dp(wide ? 104 : 72);
+            LinearLayout.LayoutParams ip = new LinearLayout.LayoutParams(size, size);
+            ip.bottomMargin = dp(10);
+            col.addView(icon, ip);
+        } catch (RuntimeException ignored) {
+        }
+        TextView title = new TextView(this);
+        title.setTextColor(0xFFFFFFFF);
+        title.setTextSize(wide ? 40 : 32);
+        title.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        title.setGravity(Gravity.CENTER);
+        title.setText("Flipendo");
+        col.addView(title);
+        TextView tagline = new TextView(this);
+        tagline.setTextColor(MUTED);
+        tagline.setTextSize(14);
+        tagline.setGravity(Gravity.CENTER);
+        tagline.setText("Harry Potter and the Sorcerer's Stone, on Android");
+        col.addView(tagline);
+        TextView link = new TextView(this);
+        link.setTextColor(0xFF7CC4FF);
+        link.setTextSize(14);
+        link.setGravity(Gravity.CENTER);
+        link.setPadding(dp(16), dp(8), dp(16), dp(8));
+        link.setBackground(rounded(0x1A5EB8FF, 20, 0x405EB8FF));
+        link.setText("Telegram channel");
+        link.setOnClickListener(new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) {
+                splashUntil = Long.MAX_VALUE; // hold the splash while the channel is open; onResume lets it go
+                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(CHANNEL_URL)));
+            }
+        });
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(14);
+        col.addView(link, lp);
+        return col;
+    }
+
     private TextView vulkanPill, glPill;
     private TextView play;      // starts the game (a normal launch waits for it)
     private boolean playPressed;
 
-    /** The renderer for this and later runs, on the splash: Vulkan or OpenGL ES, the same file the in-game switch and the
-     *  automatic fallback write (FlipendoActivity.RENDERER_FILE, read by android_main.cpp). A tap keeps the splash up a
-     *  little longer, so the choice is seen before the game starts. */
-    private android.view.View rendererChoice() {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER);
+    /** The launch panel, a card in the settings panel's style. The renderer is for this and later runs: the same file the
+     *  in-game switch and the automatic fallback write (FlipendoActivity.RENDERER_FILE, read by android_main.cpp). */
+    private LinearLayout launchPanel() {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(20), dp(18), dp(20), dp(20));
+        card.setBackground(rounded(CARD, 20, 0x22FFFFFF));
+
         TextView label = new TextView(this);
-        label.setTextColor(0xFFAAAAAA);
-        label.setTextSize(15);
-        label.setText("Renderer");
-        row.addView(label);
-        vulkanPill = pill("Vulkan", false, new android.view.View.OnClickListener() {
-            public void onClick(android.view.View v) { chooseRenderer("vulkan"); }
-        });
-        glPill = pill("OpenGL ES", false, new android.view.View.OnClickListener() {
-            public void onClick(android.view.View v) { chooseRenderer("opengl"); }
-        });
-        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        p.leftMargin = dp(12);
-        vulkanPill.setFocusable(true);
-        glPill.setFocusable(true);
-        row.addView(vulkanPill, p);
-        LinearLayout.LayoutParams p2 = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        p2.leftMargin = dp(8);
-        row.addView(glPill, p2);
+        label.setTextColor(GOLD);
+        label.setTextSize(12);
+        label.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        label.setLetterSpacing(0.12f);
+        label.setText("RENDERER");
+        card.addView(label);
+
+        // a segmented control: Vulkan | OpenGL ES
+        LinearLayout segments = new LinearLayout(this);
+        segments.setOrientation(LinearLayout.HORIZONTAL);
+        segments.setPadding(dp(4), dp(4), dp(4), dp(4));
+        segments.setBackground(rounded(0x14FFFFFF, 14, 0x22FFFFFF));
+        vulkanPill = segment("Vulkan", "vulkan");
+        glPill = segment("OpenGL ES", "opengl");
+        segments.addView(vulkanPill, new LinearLayout.LayoutParams(0, dp(44), 1f));
+        LinearLayout.LayoutParams gp = new LinearLayout.LayoutParams(0, dp(44), 1f);
+        gp.leftMargin = dp(4);
+        segments.addView(glPill, gp);
+        LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        sp.topMargin = dp(8);
+        card.addView(segments, sp);
         showRenderer();
+
+        TextView hint = new TextView(this);
+        hint.setTextColor(MUTED);
+        hint.setTextSize(12);
+        hint.setText("Vulkan is usually faster. OpenGL ES works on more phones: pick it if the game looks wrong or does not start.");
+        LinearLayout.LayoutParams hp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        hp.topMargin = dp(8);
+        card.addView(hint, hp);
 
         // "Remember my choice": later launches start by themselves after the splash; touching the choice then waits for Play
         remember = new android.widget.CheckBox(this);
         remember.setText("Remember my choice");
-        remember.setTextColor(0xFFAAAAAA);
-        remember.setTextSize(15);
+        remember.setTextColor(0xDDFFFFFF);
+        remember.setTextSize(14);
         remember.setButtonTintList(android.content.res.ColorStateList.valueOf(GOLD));
         remember.setChecked(getSharedPreferences("setup", MODE_PRIVATE).getBoolean(PREF_REMEMBER, false));
         remember.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
@@ -173,14 +184,71 @@ public class SetupActivity extends Activity {
                 tryStart();
             }
         });
-        LinearLayout box = new LinearLayout(this);
-        box.setOrientation(LinearLayout.VERTICAL);
-        box.setGravity(Gravity.CENTER);
-        box.addView(row);
         LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        rp.topMargin = dp(4);
-        box.addView(remember, rp);
-        return box;
+        rp.topMargin = dp(6);
+        rp.leftMargin = -dp(6); // the box's own inset: line it up with the text above
+        card.addView(remember, rp);
+
+        // what the launcher is doing (unpacking, permissions), then Play
+        status = new TextView(this);
+        status.setTextColor(0xDDFFFFFF);
+        status.setTextSize(13);
+        status.setText("");
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        tp.topMargin = dp(10);
+        card.addView(status, tp);
+
+        bar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        bar.setIndeterminate(false);
+        bar.setProgressTintList(android.content.res.ColorStateList.valueOf(GOLD));
+        bar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(0x44FFFFFF));
+        LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(8));
+        bp.topMargin = dp(6);
+        card.addView(bar, bp);
+
+        play = new TextView(this);
+        play.setText("\u25B6  Play");
+        play.setTextSize(18);
+        play.setGravity(Gravity.CENTER);
+        play.setTextColor(0xFF1A1A1A);
+        play.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        play.setFocusable(true);
+        play.setOnClickListener(new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) {
+                playPressed = true;
+                splashUntil = 0;
+                tryStart();
+            }
+        });
+        play.setOnFocusChangeListener(new android.view.View.OnFocusChangeListener() {
+            public void onFocusChange(android.view.View v, boolean focused) { stylePlay(); }
+        });
+        stylePlay();
+        play.setVisibility(android.view.View.GONE);
+        LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(52));
+        pp.topMargin = dp(12);
+        card.addView(play, pp);
+        return card;
+    }
+
+    /** One half of the renderer control (a gamepad moves between the halves and A picks one). */
+    private TextView segment(String text, final String value) {
+        TextView b = new TextView(this);
+        b.setText(text);
+        b.setTextSize(15);
+        b.setGravity(Gravity.CENTER);
+        b.setFocusable(true);
+        b.setOnClickListener(new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) { chooseRenderer(value); }
+        });
+        b.setOnFocusChangeListener(new android.view.View.OnFocusChangeListener() {
+            public void onFocusChange(android.view.View v, boolean focused) { showRenderer(); }
+        });
+        return b;
+    }
+
+    private void stylePlay() {
+        play.setBackground(rounded(GOLD, 14, play.isFocused() ? 0xFFFFFFFF : 0));
     }
 
     static final String PREF_REMEMBER = "rememberRenderer";
@@ -196,9 +264,9 @@ public class SetupActivity extends Activity {
     }
 
     private void stylePill(TextView b, boolean selected) {
-        b.setTextColor(selected ? 0xFF1A1A1A : 0xFFFFFFFF);
+        b.setTextColor(selected ? 0xFF1A1A1A : 0xCCFFFFFF);
         b.setTypeface(android.graphics.Typeface.DEFAULT, selected ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
-        b.setBackground(rounded(selected ? GOLD : 0x1FFFFFFF, 24, selected ? 0 : 0x33FFFFFF));
+        b.setBackground(rounded(selected ? GOLD : 0x00000000, 11, b.isFocused() ? 0xFFFFFFFF : 0));
     }
 
     private void chooseRenderer(String value) {
@@ -377,6 +445,7 @@ public class SetupActivity extends Activity {
         if (!byItself && !playPressed) {
             bar.setVisibility(android.view.View.GONE);
             status.setText("");
+            status.setVisibility(android.view.View.GONE);
             play.setVisibility(android.view.View.VISIBLE);
             play.requestFocus(); // a gamepad's A presses it
             return;
@@ -548,6 +617,7 @@ public class SetupActivity extends Activity {
     private void backToStart() {
         setContentView(startScreen);
         bar.setVisibility(android.view.View.VISIBLE);
+        status.setVisibility(android.view.View.VISIBLE);
         play.setVisibility(android.view.View.GONE);
         status.setText("");
         begin();
