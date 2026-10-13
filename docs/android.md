@@ -251,8 +251,8 @@ and passes `--renderer=opengl|vulkan` (GameApp, patch 0002, sets `LauncherSettin
 made). When a Vulkan run ends with a Vulkan `FATAL` line in `flipendo.log` (vkResult, VK_ERROR, graphics pipeline,
 swapchain...), it writes `opengl-auto` and exits with code 3; `FlipendoActivity.onGameStopped(3)` shows a toast and restarts the
 game without the problem card. Settings has a **Renderer** button in the footer (Vulkan / OpenGL ES, "(auto)" when the engine
-switched); a change asks for a second tap and restarts. The launcher's splash has the same choice (two buttons under the
-Telegram link, `SetupActivity.rendererChoice`), and the game starts only on its **Play** button (a restart from inside the game, or the
+switched); a change asks for a second tap and restarts. The launcher's start screen has the same choice (the launch card,
+`SetupActivity.launchPanel`: OpenGL ES | Vulkan), and the game starts only on its **Play** button (a restart from inside the game, or the
 fallback to OpenGL ES, starts by itself). **Remember my choice** (unticked by default, `setup` preference `keepRenderer`): ticked, the
 renderer picked there stays; unticked, it is for that launch only and the next normal launch puts back the one from before
 (`restoreRenderer`, the old value kept in `restoreRenderer`; a switch in the in-game settings is for good and drops it). The log report's `device-info.txt` has a `renderer:` line.
