@@ -899,7 +899,7 @@ index 435b42ab..c992a02c 100644
  	Array<VisibleNode> OpaqueNodes;
  	Array<VisibleActor> Actors;
 diff --git a/SurrealEngine/Render/VisibleMesh.cpp b/SurrealEngine/Render/VisibleMesh.cpp
-index 5fe3c8f5..33f7d883 100644
+index 9a14d426..51e6147b 100644
 --- a/SurrealEngine/Render/VisibleMesh.cpp
 +++ b/SurrealEngine/Render/VisibleMesh.cpp
 @@ -12,6 +12,7 @@

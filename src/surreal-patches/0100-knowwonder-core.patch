@@ -15,7 +15,7 @@ index 799eca23..799b7b61 100644
  set_target_properties(SurrealCommon PROPERTIES CXX_STANDARD 20)
  target_precompile_headers(SurrealCommon PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/SurrealEngine/Precomp.h>)
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 577ff6df..bdd1633a 100644
+index 1e6022fb..caac729a 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,8 @@
@@ -289,10 +289,10 @@ index 577ff6df..bdd1633a 100644
 -			return {};
 -		}
 -
- 		UClass* cls = packages->FindClass(className);
- 		if (!cls)
+ 		if (LaunchInfo.IsDeusEx() && className == "inputext")
  		{
-@@ -1436,6 +1516,8 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+ 			// DeusEx version of input handling. How does this differ from the other one?
+@@ -1444,6 +1524,8 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  	}
  	else
  	{
@@ -301,7 +301,7 @@ index 577ff6df..bdd1633a 100644
  		if (!ExecCommand(args))
  		{
  			LogMessage("Unknown command: " + commandline);
-@@ -1445,6 +1527,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1453,6 +1535,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  	return {};
  }
  
@@ -316,7 +316,7 @@ index 577ff6df..bdd1633a 100644
  Array<std::string> Engine::GetArgs(const std::string& commandline)
  {
  	Array<std::string> args;
-@@ -1476,6 +1566,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
+@@ -1484,6 +1574,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
  			endpos = command.size();
  
  		std::string subcommand = command.substr(pos, endpos - pos);
@@ -327,7 +327,7 @@ index 577ff6df..bdd1633a 100644
  		if (!subcommand.empty())
  			subcommands.push_back(subcommand);
  		pos = endpos + 1;
-@@ -1532,7 +1626,7 @@ void Engine::LoadKeybindings()
+@@ -1540,7 +1634,7 @@ void Engine::LoadKeybindings()
  					std::string aliasCommand = alias.substr(commandStart.size(), pos - commandStart.size());
  					std::string aliasName = alias.substr(pos + commandSplit.size(), pos2 - pos - commandSplit.size());
  					if (!aliasName.empty() && aliasName != "None")
@@ -336,7 +336,7 @@ index 577ff6df..bdd1633a 100644
  				}
  			}
  		}
-@@ -1569,7 +1663,15 @@ void Engine::UpdateInput(float timeElapsed)
+@@ -1577,7 +1671,15 @@ void Engine::UpdateInput(float timeElapsed)
  void Engine::OpenWindow()
  {
  	if (!window)
@@ -352,7 +352,7 @@ index 577ff6df..bdd1633a 100644
  
  	int width = client->StartupFullscreen ? client->FullscreenViewportX : client->WindowedViewportX;
  	int height = client->StartupFullscreen ? client->FullscreenViewportY : client->WindowedViewportY;
-@@ -1578,9 +1680,19 @@ void Engine::OpenWindow()
+@@ -1586,9 +1688,19 @@ void Engine::OpenWindow()
  	std::string versionString = !LaunchInfo.gameVersionString.empty() ? " (v" + LaunchInfo.gameVersionString + ")" : "";
  
  	window->SetWindowTitle(LaunchInfo.gameName + versionString + " - Surreal Engine");
@@ -373,7 +373,7 @@ index 577ff6df..bdd1633a 100644
  	if (fullscreen)
  		window->ShowFullscreen();
  	else
-@@ -1638,6 +1750,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
+@@ -1646,6 +1758,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
  	{
  		viewport->WindowsMouseX() = (float)(pos.x * window->GetDpiScale());
  		viewport->WindowsMouseY() = (float)(pos.y * window->GetDpiScale());
@@ -382,7 +382,7 @@ index 577ff6df..bdd1633a 100644
  	}
  }
  
-@@ -1711,6 +1825,9 @@ void Engine::OnWindowKeyChar(std::string chars)
+@@ -1719,6 +1833,9 @@ void Engine::OnWindowKeyChar(std::string chars)
  
  void Engine::OnWindowKeyDown(EInputKey key)
  {
@@ -392,7 +392,7 @@ index 577ff6df..bdd1633a 100644
  	if (playingAvi)
  	{
  		if (key == EInputKey::IK_Escape)
-@@ -1805,7 +1922,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
+@@ -1813,7 +1930,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
  
  			for (const std::string& command : GetSubcommands(keybindings[keynames[key]]))
  			{

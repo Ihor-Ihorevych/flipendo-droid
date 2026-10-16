@@ -107,7 +107,7 @@ index 5f9e5e39..9e23983d 100644
 +	return radius;
 +}
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor.h b/SurrealEngine/Packages/Engine/Actors/UActor.h
-index 2bb8bdf4..000a341d 100644
+index 8b39b403..5fb11f00 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor.h
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor.h
 @@ -384,6 +384,7 @@ public:
@@ -118,7 +118,7 @@ index 2bb8bdf4..000a341d 100644
  
  	void TickAnimation(float elapsed);
  	void TickBlendAnimation(float elapsed);
-@@ -576,7 +577,7 @@ public:
+@@ -577,7 +578,7 @@ public:
  
  	int LastDrawFrame = -1;
  
@@ -127,7 +127,7 @@ index 2bb8bdf4..000a341d 100644
  	vec3 gravityVector;
  
  	// Index in level Actors array
-@@ -599,7 +600,7 @@ public:
+@@ -603,7 +604,7 @@ public:
  
  	float WorldSoundRadius() { return ((int)SoundRadius() + 1) * 25.0f; }
  	float WorldVolumetricRadius() { return ((int)VolumeRadius() + 1) * 25.0f; }
@@ -137,7 +137,7 @@ index 2bb8bdf4..000a341d 100644
  	vec3& Acceleration() { return Value<vec3>(PropOffsets_Actor.Acceleration); }
  	uint8_t& AmbientGlow() { return Value<uint8_t>(PropOffsets_Actor.AmbientGlow); }
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
-index efc5b3c6..9d9c5fed 100644
+index e58877fd..3e079eb7 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
 @@ -6,6 +6,7 @@

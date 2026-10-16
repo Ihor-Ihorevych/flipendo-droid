@@ -390,7 +390,7 @@ index e3c87b45..cafa042c 100644
  		return;
  
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
-index 07b200e2..5db4948a 100644
+index ced1b745..27a841a9 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
 @@ -8,9 +8,25 @@
@@ -419,7 +419,7 @@ index 07b200e2..5db4948a 100644
  	for (float timeLeft = elapsed; timeLeft > 0.0f && !bDeleteMe(); timeLeft -= 0.02f)
  	{
  		float physTimeElapsed = std::min(timeLeft, 0.02f);
-@@ -210,7 +226,7 @@ UPawn* UActor::PreparePawnMovementTick()
+@@ -211,7 +227,7 @@ UPawn* UActor::PreparePawnMovementTick()
  	if (!pawn)
  		return nullptr;
  
@@ -428,7 +428,7 @@ index 07b200e2..5db4948a 100644
  		return nullptr;
  
  	OldLocation() = Location();
-@@ -255,6 +271,12 @@ std::pair<bool, vec3> UActor::CheckLocation(vec3 location, float radius, float h
+@@ -256,6 +272,12 @@ std::pair<bool, vec3> UActor::CheckLocation(vec3 location, float radius, float h
  	if (!check)
  		return { true, location };
  
@@ -441,7 +441,7 @@ index 07b200e2..5db4948a 100644
  	// What is a reasonable size for this grid? what did UE1 do?
  	int offset[] = { 0, 1, -1 };
  	bool found = false;
-@@ -421,7 +443,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
+@@ -422,7 +444,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
  				if (hit.Actor)
  				{
  					bool isBlocking;
@@ -452,7 +452,7 @@ index 07b200e2..5db4948a 100644
  						isBlocking = hit.Actor->bBlockPlayers() && bBlockPlayers();
  					else
  						isBlocking = hit.Actor->bBlockActors() && bBlockActors();
-@@ -528,7 +552,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
+@@ -529,7 +553,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
  		{
  			// We can't touch stuff we are blocked by
  			bool isBlocking;
@@ -596,7 +596,7 @@ index 519c390d..09b279ac 100644
  		return;
  
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp
-index 71dc2525..2ab9c65d 100644
+index 1055f908..b4d8f78b 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp
 @@ -9,15 +9,23 @@
@@ -623,7 +623,7 @@ index 71dc2525..2ab9c65d 100644
  	if (pawn->bCanJump())
  	{
  		CallEvent(this, EventName::MayFall);
-@@ -97,6 +105,10 @@ void UActor::TickWalking(float elapsed)
+@@ -194,6 +202,10 @@ void UActor::TickWalking(float elapsed)
  			if (ShouldAbortJumping(pawn, oldPosition, stepDownDelta))
  				return;
  
@@ -634,7 +634,7 @@ index 71dc2525..2ab9c65d 100644
  			// if hit, step up and try again - maybe there was a ledge to get over
  			if (hit.Fraction < 1.0f)
  			{
-@@ -120,7 +132,10 @@ void UActor::TickWalking(float elapsed)
+@@ -217,7 +229,10 @@ void UActor::TickWalking(float elapsed)
  
  			if (hit.Fraction < 1.0f)
  			{
@@ -646,7 +646,7 @@ index 71dc2525..2ab9c65d 100644
  				{
  					if (UObject::IsType<UDecoration>(hit.Actor) && UObject::Cast<UDecoration>(hit.Actor)->bPushable() && dot(hit.Normal, moveDelta) < -0.9f)
  					{
-@@ -170,8 +185,16 @@ void UActor::TickWalking(float elapsed)
+@@ -267,8 +282,16 @@ void UActor::TickWalking(float elapsed)
  		// Can we reach the ground from here?
  		if (!TryStepToGround(stepDownDelta))
  		{
