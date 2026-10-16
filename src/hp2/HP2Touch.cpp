@@ -24,6 +24,7 @@
 // NOT reversed: written from the hgame scripts only (harry.PlayerInput, HPConsole.StartFastForward).
 
 #ifdef __ANDROID__
+extern std::atomic<bool> g_vendorActive;   // harry.CurrVendorManager is set: a vendor's offer takes the finger as the mouse
 extern std::atomic<bool> g_cutsceneActive; // a cutscene holds Harry: the overlay shows SKIP and hides the gameplay controls
 extern std::atomic<int> g_frameCount;      // frames drawn: the overlay's FPS counter
 extern std::atomic<bool> g_autoJump;       // the settings panel's Auto Jump switch
@@ -61,9 +62,14 @@ namespace HP2
 		if (!engine->Level || !engine->viewport)
 		{
 			g_cutsceneActive = false;
+			g_vendorActive = false;
 			return;
 		}
 		g_cutsceneActive = CutsceneMode();
+		{
+			UPlayerPawn* harry = engine->viewport->Actor();
+			g_vendorActive = harry && KW::ObjectProperty(harry, "CurrVendorManager") != nullptr;
+		}
 
 		// Auto Jump (on by default, the settings panel switches it): set on every new player pawn and when it changes, as HP1 does
 		// (HP1::TickTouchDefaults). Both games declare PlayerPawn.bAutoJump.

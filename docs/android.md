@@ -340,7 +340,7 @@ version). What it needed from 3.1/3.2 is replaced on Android:
 OpenGL ES 2.0 would be a new renderer (no integer attributes, uniform buffers, sampler objects or several outputs), and
 64-bit Android 10 phones have ES 3.0 or newer anyway.
 
-## Harry Potter 2 (0.3.0, 0.3.1)
+## Harry Potter 2 (0.3.0 - 0.3.2)
 
 One app, two games. The launcher (`SetupActivity`) has a **HP1 | HP2** switch; each game has its own folder
 (`/sdcard/FlipendoHP`, `/sdcard/FlipendoHP2`; preferences `gameDir`, `gameDir.hp2`), its own folder picker cards
@@ -368,3 +368,11 @@ One app, two games. The launcher (`SetupActivity`) has a **HP1 | HP2** switch; e
 - **Wiggenweld potion (HP2):** `harry.bDrinkWiggenwell` is the Q key (DefUser.ini). A two-finger tap anywhere on the game
   view (both fingers short and still, not on a button) presses Q; on a gamepad a click of either stick does. The game
   ignores it at full health or in a cutscene.
+
+### Vendor offers (0.3.2)
+
+HP2's Yes/No offers (the beans for a duel or a broom, `VendorManager`) are drawn on the HUD and clicked with the console's mouse
+while the game is in cutscene mode. While `harry.CurrVendorManager` is set the overlay treats the screen as a menu (the finger
+or the pad's cursor is the mouse; `FlipendoActivity.menuActive`), and the touch position goes into HUD units instead of the
+4:3 menu area (`HP1::MenuMousePosition`), the space the vendor's hit test works in. Duels use the existing controls: the wand
+button charges and casts, the jump button (right mouse) cycles the three spells, left and right strafe.

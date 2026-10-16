@@ -404,6 +404,9 @@ public class FlipendoActivity extends SDLActivity {
     /** True while a cutscene holds Harry; implemented in android_main.cpp. */
     static native boolean nativeCutsceneActive();
 
+    /** HP2: a vendor's Yes/No offer (the beans for a duel or a broom) is up: it is clicked with the mouse. */
+    static native boolean nativeVendorActive();
+
     /** True while Harry flies the broom (the player is a BroomHarry); implemented in android_main.cpp. */
     static native boolean nativeOnBroom();
 
@@ -501,7 +504,7 @@ public class FlipendoActivity extends SDLActivity {
 
     static boolean menuActive() {
         try {
-            return nativeMenuActive();
+            return nativeMenuActive() || nativeVendorActive();
         } catch (UnsatisfiedLinkError e) {
             return false;
         }

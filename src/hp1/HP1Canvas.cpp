@@ -31,6 +31,7 @@
 #ifdef __ANDROID__
 #include <atomic>
 extern std::atomic<float> g_uiScale; // android/jni/android_main.cpp: the menu slider for the subtitles and HUD size
+extern std::atomic<bool> g_vendorActive; // HP2: a vendor's Yes/No offer is drawn on the HUD canvas (src/hp2/HP2Touch.cpp)
 #endif
 
 namespace HP1
@@ -87,6 +88,17 @@ namespace HP1
 
 	void MenuMousePosition(float& x, float& y)
 	{
+#ifdef __ANDROID__
+		// HP2's vendor offer (the beans for a duel or a broom) is drawn on the full-width HUD canvas but clicked with the
+		// console's mouse: its hit test compares that mouse with HUD units, so the mouse goes into the HUD canvas, not the 4:3 menu area
+		if (g_vendorActive.load())
+		{
+			const float hud = CanvasUIScale(engine->viewport->ViewportHeight());
+			x = x / hud;
+			y = y / hud;
+			return;
+		}
+#endif
 		x = (x - MenuLeftPixels) / MenuUIScale;
 		y = y / MenuUIScale;
 	}

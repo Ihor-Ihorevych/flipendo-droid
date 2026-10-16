@@ -27,6 +27,7 @@
 
 std::atomic<bool> g_androidMenuActive{false};
 std::atomic<bool> g_lessonDrawing{false};
+std::atomic<bool> g_vendorActive{false};   // HP2: a vendor's Yes/No offer is up (harry.CurrVendorManager): the finger is the mouse
 std::atomic<bool> g_cutsceneActive{false}; // a cutscene holds Harry (HP1::TickLessonTouch): the overlay hides the gameplay controls
 std::atomic<bool> g_onBroom{false}; // Harry flies the broom (HP1::TickLessonTouch): the overlay's broom controls
 std::atomic<int> g_frameCount{0}; // frames drawn, for the FPS counter (HP1::TickTouchDefaults counts, the overlay reads it)
@@ -160,6 +161,11 @@ extern "C" JNIEXPORT jint JNICALL Java_io_github_flipendo_spike_FlipendoActivity
 {
 	return g_frameCount.load();
 }
+extern "C" JNIEXPORT jboolean JNICALL Java_io_github_flipendo_spike_FlipendoActivity_nativeVendorActive(JNIEnv*, jclass)
+{
+	return g_vendorActive.load() ? JNI_TRUE : JNI_FALSE;
+}
+
 extern "C" JNIEXPORT jboolean JNICALL Java_io_github_flipendo_spike_FlipendoActivity_nativeCutsceneActive(JNIEnv*, jclass)
 {
 	return g_cutsceneActive.load() ? JNI_TRUE : JNI_FALSE;

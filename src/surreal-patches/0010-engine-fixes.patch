@@ -842,7 +842,7 @@ index 66408992..c9bbdb5f 100644
  	uint32_t size = 0;
  	uint32_t pos = 0;
 diff --git a/SurrealEngine/VM/Frame.cpp b/SurrealEngine/VM/Frame.cpp
-index ab62632c..2bde7d7f 100644
+index ab62632c..abd998e3 100644
 --- a/SurrealEngine/VM/Frame.cpp
 +++ b/SurrealEngine/VM/Frame.cpp
 @@ -11,6 +11,7 @@
@@ -963,13 +963,24 @@ index ab62632c..2bde7d7f 100644
  
  	if (RunState == FrameRunState::StepInto)
  	{
-@@ -486,14 +546,14 @@ ExpressionEvalResult Frame::Run()
+@@ -486,14 +546,25 @@ ExpressionEvalResult Frame::Run()
  	int instructionsRetired = 0;
  	while (true)
  	{
 -		if (StatementIndex >= Func->Code->Statements.size())
 +		if (StatementIndex >= (CodeOwner ? CodeOwner : Func)->Code->Statements.size())
++		{
++			// State code that runs out (a label at its end, e.g. HP2's harry.stateCutIdle) just stops, as in UE1
++			if (Object->StateFrame.get() == this)
++			{
++				static int reported = 0;
++				if (reported++ < 10)
++					LogMessage(Object->Name.ToString() + "." + Func->Name.ToString() + ": the state code ran out, it stops");
++				LatentState = LatentRunState::Stop;
++				return {};
++			}
  			ThrowException("Unexpected end of code statements");
++		}
  
  		// Note: GotoState may change StatementIndex (jump to a different location) so we have to increment the index before executing the statement
  		size_t curStatementIndex = StatementIndex;
@@ -980,7 +991,7 @@ index ab62632c..2bde7d7f 100644
  
  		if (instructionsRetired >= maxInstructions)
  		{
-@@ -511,7 +571,7 @@ ExpressionEvalResult Frame::Run()
+@@ -511,7 +582,7 @@ ExpressionEvalResult Frame::Run()
  			Break();
  		}
  
@@ -989,7 +1000,7 @@ index ab62632c..2bde7d7f 100644
  		//ExpressionEvalResult result = ExpressionEvaluator::Eval(statement, Object, Object, Variables->Data);
  		ExpressionEvalResult result = RunExpr(statement, Object, Object, Variables->Data);
  		if (!Func)
-@@ -521,14 +581,21 @@ ExpressionEvalResult Frame::Run()
+@@ -521,14 +592,21 @@ ExpressionEvalResult Frame::Run()
  		case StatementResult::Next:
  			break;
  		case StatementResult::Jump:
@@ -1013,7 +1024,7 @@ index ab62632c..2bde7d7f 100644
  				if (index != -1)
  				{
  					StatementIndex = index;
-@@ -546,14 +613,35 @@ ExpressionEvalResult Frame::Run()
+@@ -546,14 +624,35 @@ ExpressionEvalResult Frame::Run()
  							if (labelIndex != -1)
  							{
  								Func = state;
@@ -1050,7 +1061,7 @@ index ab62632c..2bde7d7f 100644
  				}
  			}
  			break;
-@@ -587,7 +675,7 @@ ExpressionEvalResult Frame::Run()
+@@ -587,7 +686,7 @@ ExpressionEvalResult Frame::Run()
  				ThrowException("Iterator statement without an iterator in " + Object->Name.ToString() + "." + Func->Name.ToString());
  			Iterators.push_back(std::move(result.Iter));
  			Iterators.back()->StartStatementIndex = curStatementIndex + 1;
@@ -1059,7 +1070,7 @@ index ab62632c..2bde7d7f 100644
  			if (Iterators.back()->Next())
  				StatementIndex = Iterators.back()->StartStatementIndex;
  			else
-@@ -607,8 +695,7 @@ ExpressionEvalResult Frame::Run()
+@@ -607,8 +706,7 @@ ExpressionEvalResult Frame::Run()
  			Iterators.pop_back();
  			break;
  		case StatementResult::AccessedNone:
@@ -1069,7 +1080,7 @@ index ab62632c..2bde7d7f 100644
  			break;
  		}
  
-@@ -623,18 +710,30 @@ ExpressionEvalResult Frame::Run()
+@@ -623,18 +721,30 @@ ExpressionEvalResult Frame::Run()
  
  void Frame::ProcessSwitch(const ExpressionValue& condition)
  {
@@ -1104,7 +1115,7 @@ index ab62632c..2bde7d7f 100644
  		}
  		else
  		{
-@@ -941,7 +1040,8 @@ ExpressionEvalResult Frame::RunExpr(Expression* statementExpr, UObject* self, UO
+@@ -941,7 +1051,8 @@ ExpressionEvalResult Frame::RunExpr(Expression* statementExpr, UObject* self, UO
  				}
  				else
  				{
