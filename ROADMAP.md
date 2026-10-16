@@ -1,6 +1,6 @@
 # Roadmap
 
-What's left to do on the HP1 port, and what's next. Only open work is listed: remove an item when it lands (what
+What's left to do on the HP1 and HP2 ports, and what's next. Only open work is listed: remove an item when it lands (what
 was done is in the git history, how it works in `docs/`, [docs/README.md](docs/README.md)).
 
 Legend: [~] partly done / in progress · [ ] not started
@@ -70,16 +70,20 @@ particle effects.
 - [ ] Linux / Steam Deck build tested with Flipendo
 
 ## Later: the other KnowWonder games
-- [~] HP2 (Chamber of Secrets, UE1 build 433): port after HP1 (groundwork: [docs/one-engine.md](docs/one-engine.md)).
+- [~] HP2 (Chamber of Secrets, UE1 build 433): runs on Android since 0.3.0 (new game, six save slots, story state, duels, shops,
+  Russian text; [docs/android.md](docs/android.md)); what is left:
+  - [ ] Play it through and fix what breaks (the later levels, the Basilisk and the final scenes have had little play)
+  - [ ] Lumos light: not on the wand's tip (`baseWand.Tick` -> `LumosLight.UpdateLocation(WandEndPoint)`)
+  - [ ] Translucent walls come out red in some levels
+  - [ ] `MUTESOUNDS` does not mute; the `Loop` flag of `PlaySound`
+  - [ ] Spawned persistent actors (jelly beans) are not carried to the next level; old saves lost their spells
+  - [ ] HP1 on a device after the shared changes of 0.3.0 (script VM, travel, canvas, audio, input)
   - [ ] Check the remaining "changed" ports for real behaviour differences (beyond the DebugInfo check)
   - [ ] HP2 music: fades of `PlayMusic` / `StopMusic` / `StopAllMusic` (ALAudio.dll), `StopSound` fade-out
-  - [ ] HP2 first level: PrivetDr's intro cutscene plays (Android, OpenGL ES); play it on, the front-end book and the saves are open
   - [ ] Check the unverified HP2 engine differences in HP2's code ([docs/re/hp2/gameplay.md](docs/re/hp2/gameplay.md)):
         music always loops, XA ADPCM sounds, save loading, lip sync, movers colliding by bounding box
-  - [ ] HP2-only engine features ([docs/re/hp2/engine.md](docs/re/hp2/engine.md)): GameState screening
-        (`OnResolveGameState`), Lumos surfaces, TurnTo's flattened focus, particle Opacity, I3DL2 reverb
-  - [ ] Persistent actors across hub travel ([docs/re/hp2/engine.md](docs/re/hp2/engine.md)): `bPersistent` actors keep
-        their state when Harry leaves a hub map and comes back (`SavePActors`, the persistent actor cache)
+  - [ ] HP2-only engine features ([docs/re/hp2/engine.md](docs/re/hp2/engine.md)): Lumos surfaces, TurnTo's flattened focus,
+        particle Opacity, I3DL2 reverb
 - [ ] HP3 (Prisoner of Azkaban, UE2 build 2226, packages 129): no UE2 counterpart of SurrealEngine exists. First check,
       with UELib: how many native classes/functions its gameplay packages have (HP1's have none). Mostly script =
       extending SurrealEngine towards UE2 is worth a look; otherwise fixes for the original exe are the better route

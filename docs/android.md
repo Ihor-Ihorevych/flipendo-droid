@@ -1,13 +1,15 @@
 # Flipendo on Android (arm64, touch)
 
-A spike port: SurrealEngine + Flipendo's patches built for Android with SDL3 (window, input, Vulkan surface), played
+Plays both of KnowWonder's games, Harry Potter 1 (Philosopher's Stone) and Harry Potter 2 (Chamber of Secrets), from one app: the
+start screen (`SetupActivity`) has a **HP1 | HP2** switch, and each game has its own folder, saves and folder picker. HP2 is
+described in [Harry Potter 2](#harry-potter-2-030---032) below. A port of SurrealEngine + Flipendo's patches built for Android with SDL3 (window, input, Vulkan surface), played
 with an on-screen touch overlay. Tested on a Xiaomi POCO X6 Pro (Mali-G615), Redmi Note 13 Pro, Redmi 13C (Mali-G52, no bindless) and Samsung Galaxy S23 and S25. You need your own copy of the
 game: nothing from it is in the APK.
 
 ## Install
 
 1. **Game data.** Copy the installed game folder (the one with `System/`, `Maps/`, `Textures/`, `Sounds/`, `Music/`,
-   ...) to the phone as `/sdcard/FlipendoHP/`. With the phone connected over USB debugging:
+   ...) to the phone as `/sdcard/FlipendoHP/` (HP1) or `/sdcard/FlipendoHP2/` (HP2, recognised by `System/Game.exe`). With the phone connected over USB debugging:
    `adb push "C:\Games\HP\." /sdcard/FlipendoHP/` (the US 1.0 disc version and the No-CD exe are recognised).
 2. **APK.** `adb install -r android/dist/flipendo-droid.apk`, or copy the file to the phone and open it (allow
    "install unknown apps" for the file manager). On Xiaomi, turn on *Developer options -> Install via USB* for `adb`.
@@ -55,7 +57,9 @@ fetches SDL3 (pinned release) once, applies `src/surreal-patches/` (including `0
 ## Known problems
 
 - The Options page still shows the empty bars of the hidden key-binding buttons (they are part of the page art).
-- Combat spell casting is not touch-adapted yet (only the lesson drawing is).
+- HP2: the light of Lumos is not exactly on the wand's tip, some translucent walls come out red, `MUTESOUNDS` does not mute, the `Loop`
+  flag of `PlaySound` is ignored, and spawned persistent actors (jelly beans) are not carried to the next level.
+- HP1 was not played through again on a device after the shared changes of 0.3.0 (script VM, travel, canvas, audio, input).
 
 ## Logs: what a user sends when it breaks
 

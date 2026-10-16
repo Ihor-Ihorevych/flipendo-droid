@@ -1,7 +1,7 @@
 # Flipendo documentation
 
-Flipendo covers both of KnowWonder's Harry Potter games: HP1 (Philosopher's Stone) runs today, HP2 (Chamber of
-Secrets) is being ported onto the same engine. The documents below say when something applies to only one of them.
+Flipendo covers both of KnowWonder's Harry Potter games: HP1 (Philosopher's Stone) and HP2 (Chamber of Secrets) run on the
+same engine, on a PC and on Android (HP2 is still being polished). The documents below say when something applies to only one of them.
 
 ## Playing
 
@@ -14,7 +14,7 @@ Secrets) is being ported onto the same engine. The documents below say when some
 | Document | What's in it |
 |---|---|
 | [modding.md](modding.md) | the built-in mods, writing your own, where modding is going |
-| [android.md](android.md) | the Android (arm64, touch) build: install, build, controls, settings, what the port changed |
+| [android.md](android.md) | the Android (arm64, touch) build for HP1 and HP2: install, build, controls, settings, saves, what the port changed |
 | [debug-tools.md](debug-tools.md) | environment variables to script input, dump and trace actors, call script functions; starting a level with `--level`; crash reports, the script debugger |
 
 ## Developing
