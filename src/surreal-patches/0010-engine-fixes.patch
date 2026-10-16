@@ -449,7 +449,7 @@ index 2f91f141..e3a86d3f 100644
  			}
  		}
 diff --git a/SurrealEngine/Packages/Core/UObject.cpp b/SurrealEngine/Packages/Core/UObject.cpp
-index 2b855f33..805ade6d 100644
+index 2b855f33..7734618b 100644
 --- a/SurrealEngine/Packages/Core/UObject.cpp
 +++ b/SurrealEngine/Packages/Core/UObject.cpp
 @@ -110,9 +110,14 @@ void UObject::Load(ObjectStream* stream)
@@ -457,15 +457,14 @@ index 2b855f33..805ade6d 100644
  		}
  
 -		for (int i = 0; i < 64; i++)
--		{
--			if ((probeMask >> i) & 1)
 +		// A set bit in the saved probe mask is an enabled probe (HP1's UObject::IsProbing tests the bit, Disable clears
 +		// it); a map actor saves them all set. Read as disabled, an actor ignored script calls of its probe functions
 +		// until its first GotoState: Lev2_RemChase's referee triggers its intro cutscene from SetInitialState.
 +		// Saves from older builds of this engine wrote the disabled probes instead, nearly always none: a mask of 0,
 +		// which the original never saves (it starts with every bit set), so 0 disables nothing.
 +		for (int i = 0; i < 64 && probeMask != 0; i++)
-+		{
+ 		{
+-			if ((probeMask >> i) & 1)
 +			if (((probeMask >> i) & 1) == 0)
  			{
  				DisableEvent(ToNameString((EventName)i));
@@ -483,7 +482,22 @@ index 2b855f33..805ade6d 100644
  			{
  				probeMask |= 1ULL << (uint64_t)i;
  			}
-@@ -532,6 +538,11 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
+@@ -526,19 +532,32 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
+ 
+ 	UState* oldState = (UState*)StateFrame->Func;
+ 
+-	if (oldState && oldState != newState)
++	// UE1 calls EndState with InEndState set, so a GotoState made from inside EndState doesn't call it again (that
++	// recursed until the stack overflowed), and the state that inner GotoState entered wins: this call stops there.
++	if (oldState && oldState != newState && !AllFlags(Flags, ObjectFlags::InEndState))
++	{
++		Flags = (ObjectFlags)(((uint32_t)Flags & ~(uint32_t)ObjectFlags::StateChanged) | (uint32_t)ObjectFlags::InEndState);
+ 		CallEvent(this, EventName::EndState);
++		Flags = (ObjectFlags)((uint32_t)Flags & ~(uint32_t)ObjectFlags::InEndState);
++		if (AllFlags(Flags, ObjectFlags::StateChanged))
++			return;
++	}
+ 
  	if (oldState != newState)
  		StateFrame->SetState(newState);
  
@@ -495,7 +509,15 @@ index 2b855f33..805ade6d 100644
  	if (newState)
  	{
  		// HasStack is otherwise only ever inherited from the original package's export table at
-@@ -758,7 +769,9 @@ ScriptArray::ScriptArray(UProperty* type) : Type(type)
+ 		// load time. An actor that starts a level with no baked-in stack but enters a real state
+ 		// during play would otherwise never have that state written by Save() at all, silently
+ 		// losing it on the next save regardless of what state it's actually in.
+-		Flags |= ObjectFlags::HasStack;
++		Flags |= ObjectFlags::HasStack | ObjectFlags::StateChanged;
+ 		StateFrame->GotoLabel(labelName);
+ 	}
+ 
+@@ -758,7 +777,9 @@ ScriptArray::ScriptArray(UProperty* type) : Type(type)
  {
  }
  
@@ -506,7 +528,7 @@ index 2b855f33..805ade6d 100644
  {
  	Reserve(other.Size);
  	try
-@@ -778,7 +791,7 @@ ScriptArray::ScriptArray(const ScriptArray& other)
+@@ -778,7 +799,7 @@ ScriptArray::ScriptArray(const ScriptArray& other)
  	}
  }
  

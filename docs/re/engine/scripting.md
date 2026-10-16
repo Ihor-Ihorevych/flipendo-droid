@@ -73,6 +73,20 @@ disabled probes too (nearly always none, a mask of 0); read the new way, every a
 probes until its first GotoState (the camera stopped following Harry after a reload). It now writes the enabled
 ones, and Load takes a mask of 0 as nothing disabled, so saves from before still load.
 
+## GotoState from inside EndState
+
+`UObject::GotoState` (Core 0x10131BB0) takes the old state's name first. It calls EndState only when the new state
+differs, `IsProbing('EndState')` and the object flag 0x2000 (in EndState) is clear; around that call it sets 0x2000 and
+clears 0x1000 (state changed). If 0x1000 is set afterwards, a GotoState made inside EndState already switched state and
+this call returns 2 (preempted) without touching the state frame. Then it sets the state, calls BeginState when the
+name differs from the old one (0x1000 cleared before; set afterwards again means preempted), sets 0x1000 and
+returns 1. `execGotoState` (0x10141C50) skips the call when the name equals the current state, and jumps to the label
+only on 1. So an EndState that leads to another GotoState on the same object runs once. SurrealEngine called EndState
+again for every nested GotoState and recursed until the stack overflowed: a player's Charms Class crash (stack
+overflow in GotoState → EndState → script → GotoState, after levitating the first block) on a game whose scripts
+differ from the retail disc's (Core.u and Engine.u SHA-1 `0c077b5c…` / `25945edf…`, `cHarryAnimChannel` with a
+`stateCasting` state). Fixed in `0010-engine-fixes.patch`. HP2 not checked.
+
 ## Functions of an extended state
 
 `state Beater extends Fly` inherits Fly's functions. HP1's `UObject::FindObjectField` (Core 0x1015A650, called by
