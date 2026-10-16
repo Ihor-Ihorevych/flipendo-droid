@@ -688,6 +688,7 @@ public class FlipendoActivity extends SDLActivity {
 
         /** Gameplay buttons are hidden while a menu is open; MENU stays as the way back. */
         boolean visible(Btn b) {
+            if (layoutEdit) return b != skip; // the layout editor shows every control
             if (b == menu || b == gear) return true;
             if (b == skip) return cutsceneShown; // the skip button exists only in cutscenes
             if (cutsceneShown) return false;       // and they leave only the skip, settings and menu buttons
@@ -1055,6 +1056,11 @@ public class FlipendoActivity extends SDLActivity {
             if (e.getAction() != KeyEvent.ACTION_DOWN && e.getAction() != KeyEvent.ACTION_UP) return false;
             if (down && e.getRepeatCount() > 0) return true;
             padUsed();
+            if (helpOpen && settingsOpen) {
+                if (down) helpOpen = false;
+                invalidate();
+                return true;
+            }
             switch (code) {
                 case KeyEvent.KEYCODE_DPAD_UP: padHatY = down ? -1 : 0; updatePadWalk(); updatePadNav(); return true;
                 case KeyEvent.KEYCODE_DPAD_DOWN: padHatY = down ? 1 : 0; updatePadWalk(); updatePadNav(); return true;
@@ -1123,7 +1129,8 @@ public class FlipendoActivity extends SDLActivity {
                     return true;
                 case KeyEvent.KEYCODE_BUTTON_THUMBL:
                 case KeyEvent.KEYCODE_BUTTON_THUMBR:
-                    return true; // not used: keep them away from the game
+                    if (down && isHp2Game() && !menuShown && !lessonShown && !cutsceneShown && !settingsOpen && !promptOpen && !layoutEdit) drinkPotion(); // HP2: the Wiggenweld potion
+                    return true; // otherwise not used: keep them away from the game
                 default:
                     return false;
             }
@@ -1420,7 +1427,7 @@ public class FlipendoActivity extends SDLActivity {
 
         // The port's settings panel: the entry the pad is on
         static final int SET_RENDER = 0, SET_UI = 1, SET_FOV = 2, SET_FPS = 3, SET_SEG = 4, SET_JUMP = 5, SET_LANG = 6, SET_MOD = 7,
-                SET_DEBUG = 8, SET_TELEGRAM = 9, SET_DONE = 10, SET_RENDERER = 11, SET_FPS_LIMIT = 12;
+                SET_DEBUG = 8, SET_TELEGRAM = 9, SET_DONE = 10, SET_RENDERER = 11, SET_FPS_LIMIT = 12, SET_LAYOUT = 13, SET_HELP = 14;
         int settingsFocus = -1;
         final java.util.List<android.graphics.RectF> setRects = new java.util.ArrayList<>();
         final java.util.List<Integer> setIds = new java.util.ArrayList<>();
@@ -1436,9 +1443,11 @@ public class FlipendoActivity extends SDLActivity {
             setRects.add(new android.graphics.RectF(fpsBtn)); setIds.add(SET_FPS);
             setRects.add(new android.graphics.RectF(segStick.left, segStick.top, segDpad.right, segDpad.bottom)); setIds.add(SET_SEG);
             setRects.add(new android.graphics.RectF(autoJumpBtn)); setIds.add(SET_JUMP);
+            setRects.add(new android.graphics.RectF(layoutBtn)); setIds.add(SET_LAYOUT);
             if (languages.size() > 1) { setRects.add(new android.graphics.RectF(languageBtn)); setIds.add(SET_LANG); }
             setRects.add(new android.graphics.RectF(modBtn)); setIds.add(SET_MOD);
             setRects.add(new android.graphics.RectF(debugBtn)); setIds.add(SET_DEBUG);
+            setRects.add(new android.graphics.RectF(helpBtn)); setIds.add(SET_HELP);
             setRects.add(new android.graphics.RectF(telegramBtn)); setIds.add(SET_TELEGRAM);
             setRects.add(new android.graphics.RectF(rendererBtn)); setIds.add(SET_RENDERER);
             setRects.add(new android.graphics.RectF(closeBtn)); setIds.add(SET_DONE);
@@ -1488,6 +1497,8 @@ public class FlipendoActivity extends SDLActivity {
                 case SET_FPS: showFps = !showFps; fpsFrames = -1; activity.saveScales(); break;
                 case SET_SEG: setDpadMode(!dpadMode); break;
                 case SET_JUMP: activity.applyAutoJump(!autoJump, true); break;
+                case SET_LAYOUT: startLayoutEdit(); break;
+                case SET_HELP: helpOpen = true; break;
                 case SET_LANG: languageTap(); break;
                 case SET_MOD: modTap(); break;
                 case SET_DEBUG:
@@ -1639,9 +1650,10 @@ public class FlipendoActivity extends SDLActivity {
         }
 
         boolean settingsOpen;    // the settings panel is up: it takes every touch
+        boolean helpOpen;        // the controls help card over the settings panel
         final android.graphics.RectF panel = new android.graphics.RectF();
         final android.graphics.RectF segStick = new android.graphics.RectF(), segDpad = new android.graphics.RectF();
-        final android.graphics.RectF closeBtn = new android.graphics.RectF(), debugBtn = new android.graphics.RectF(), autoJumpBtn = new android.graphics.RectF(), telegramBtn = new android.graphics.RectF(), languageBtn = new android.graphics.RectF(), modBtn = new android.graphics.RectF(), fpsBtn = new android.graphics.RectF();
+        final android.graphics.RectF helpBtn = new android.graphics.RectF(), layoutBtn = new android.graphics.RectF(), closeBtn = new android.graphics.RectF(), debugBtn = new android.graphics.RectF(), autoJumpBtn = new android.graphics.RectF(), telegramBtn = new android.graphics.RectF(), languageBtn = new android.graphics.RectF(), modBtn = new android.graphics.RectF(), fpsBtn = new android.graphics.RectF();
 
         final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
         final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -1654,6 +1666,8 @@ public class FlipendoActivity extends SDLActivity {
         final HashMap<Integer, Role> roles = new HashMap<>();
         final HashMap<Integer, float[]> last = new HashMap<>();   // pointer -> last x,y
         final HashMap<Integer, float[]> start = new HashMap<>();  // pointer -> start x,y
+        final HashMap<Integer, Long> downAt = new HashMap<>();    // pointer -> time it went down (two-finger tap)
+        final java.util.HashSet<Integer> twoTapDone = new java.util.HashSet<>(); // fingers whose tap was the second half of a two-finger tap
         int stickPointer = -1;
         float stickX, stickY, knobX, knobY;
         final boolean[] dirDown = new boolean[4]; // up, down, left, right
@@ -1735,6 +1749,7 @@ public class FlipendoActivity extends SDLActivity {
             arrows[2].cx = padX - ad; arrows[2].cy = padY;
             arrows[3].cx = padX + ad; arrows[3].cy = padY;
             for (Btn a : arrows) a.r = 0.08f * u;
+            applyLayout(w, h);
 
             // The settings panel: a card with a header, two columns (Display: the sliders | Controls and Game: switches) and a footer.
             float pw = Math.min(0.94f * (sr - sl), 2.1f * h);
@@ -1766,14 +1781,16 @@ public class FlipendoActivity extends SDLActivity {
             }
 
             // right: Controls (movement segments, Auto jump) and Game (Language, Movement mod, Debug mode)
-            float rowH = 0.078f * h, rowGap = 0.012f * h;
+            float rowH = 0.066f * h, rowGap = 0.008f * h;
             secControlsY = contentTop + 0.03f * h;
             float y = secControlsY + 0.025f * h;
             segStick.set(colR0, y, (colR0 + colR1) / 2f, y + rowH);
             segDpad.set((colR0 + colR1) / 2f, y, colR1, y + rowH);
             y += rowH + rowGap;
             autoJumpBtn.set(colR0, y, colR1, y + rowH);
-            y += rowH + 0.02f * h;
+            y += rowH + rowGap;
+            layoutBtn.set(colR0, y, colR1, y + rowH);
+            y += rowH + 0.012f * h;
             secGameY = y + 0.03f * h;
             y = secGameY + 0.02f * h;
             if (languages.size() > 1) {
@@ -1797,6 +1814,9 @@ public class FlipendoActivity extends SDLActivity {
             promptPanel.set((w - ppw) / 2f, 0.22f * h, (w + ppw) / 2f, 0.78f * h);
             promptYes.set(promptPanel.left + 0.05f * ppw, promptPanel.bottom - 0.28f * promptPanel.height(), w / 2f - gap, promptPanel.bottom - 0.08f * promptPanel.height());
             promptNo.set(w / 2f + gap, promptYes.top, promptPanel.right - 0.05f * ppw, promptYes.bottom);
+
+            helpBtn.set(colL0 + 0.34f * u, headerY - 0.052f * h, colL0 + 0.56f * u, headerY + 0.008f * h);
+            layoutEditRects(w, h);
 
             titlePaint.setTextSize(0.055f * u);
             sectionPaint.setTextSize(0.026f * u);
@@ -1901,6 +1921,7 @@ public class FlipendoActivity extends SDLActivity {
             drawSection(c, "CONTROLS", colR0, secControlsY);
             drawSegments(c);
             drawSwitchRow(c, autoJumpBtn, "Auto jump", "Harry jumps by himself at ledges", autoJump, false);
+            drawValueRow(c, layoutBtn, "Control layout", "Move and resize the buttons", "Edit", false);
             drawSection(c, "GAME", colR0, secGameY);
             if (languages.size() > 1) {
                 String current = languages.get(languageIndex(currentLanguage()))[1];
@@ -1935,10 +1956,62 @@ public class FlipendoActivity extends SDLActivity {
                     rendererBtn.centerX(), rendererBtn.centerY() + rowPaint.getTextSize() * 0.35f, rowPaint);
             rowPaint.setColor(0xFFFFFFFF);
             rowPaint.setTextAlign(Paint.Align.LEFT);
+            // the help pill in the header
+            fill.setColor(0x33E8C15A);
+            c.drawRoundRect(helpBtn, helpBtn.height() / 2f, helpBtn.height() / 2f, fill);
+            rowPaint.setTextAlign(Paint.Align.CENTER);
+            rowPaint.setColor(GOLD);
+            c.drawText("? How to play", helpBtn.centerX(), helpBtn.centerY() + rowPaint.getTextSize() * 0.35f, rowPaint);
+            rowPaint.setColor(0xFFFFFFFF);
+            rowPaint.setTextAlign(Paint.Align.LEFT);
             if (padActive && settingsFocus >= 0 && !langListOpen) {
                 buildSettingsEntries();
                 if (focusedSetting() >= 0) drawPadFocus(c, setRects.get(settingsFocus));
             }
+            if (helpOpen) drawHelp(c);
+        }
+
+        /** The controls card (Settings > ? How to play): what every control does, and the HP2 extras. */
+        void drawHelp(Canvas c) {
+            float u = Math.min(getWidth(), getHeight());
+            float h = getHeight();
+            fill.setColor(0xDD000000);
+            c.drawRect(0, 0, getWidth(), h, fill);
+            fill.setColor(CARD);
+            c.drawRoundRect(panel, 0.035f * u, 0.035f * u, fill);
+            line.setColor(0x33FFFFFF);
+            line.setStrokeWidth(2f);
+            c.drawRoundRect(panel, 0.035f * u, 0.035f * u, line);
+            titlePaint.setTextAlign(Paint.Align.LEFT);
+            c.drawText("How to play", colL0, headerY, titlePaint);
+            boolean hp2 = isHp2Game();
+            String[][] rows = {
+                { "Left thumb", "Drag anywhere on the left half to walk (or the arrow pad, if Settings > Controls has it)" },
+                { "Right thumb", "Drag to look around. In menus the finger is the mouse: tap, drag the sliders" },
+                { "Wand button", "Cast the spell. In a spell lesson draw the symbol with your finger" },
+                { "Jump button", "Jump (Auto jump does it at ledges). The same key skips a cutscene" },
+                { "Toolbar", "Settings, save anywhere (the book) and the pause menu (Esc). Hold Esc to send the logs" },
+                { "Control layout", "Settings > Control layout: drag the buttons where you want them, and resize them" },
+                hp2 ? new String[] { "Two-finger tap", "Tap the screen with two fingers: drink a Wiggenweld potion" } : null,
+                { "Gamepad", hp2 ? "A jump, X wand, Y save, B menu, a stick click drinks the potion" : "A jump, X wand, Y save, B menu" },
+            };
+            float y = dividerY + 0.07f * h;
+            float step = (panel.bottom - 0.12f * h - y) / (hp2 ? 8 : 7);
+            for (String[] row : rows) {
+                if (row == null) continue;
+                rowPaint.setTextAlign(Paint.Align.LEFT);
+                rowPaint.setColor(GOLD);
+                c.drawText(row[0], colL0, y, rowPaint);
+                subPaint.setTextAlign(Paint.Align.LEFT);
+                subPaint.setColor(0xDDFFFFFF);
+                c.drawText(row[1], colL0 + 0.27f * (colR1 - colL0), y, subPaint);
+                y += step;
+            }
+            subPaint.setColor(MUTED);
+            subPaint.setTextAlign(Paint.Align.CENTER);
+            c.drawText("Touch anywhere to close", panel.centerX(), panel.bottom - 0.04f * h, subPaint);
+            subPaint.setTextAlign(Paint.Align.LEFT);
+            rowPaint.setColor(0xFFFFFFFF);
         }
 
         void drawSection(Canvas c, String name, float x, float y) {
@@ -2098,6 +2171,32 @@ public class FlipendoActivity extends SDLActivity {
             for (int i = 0; i < 4; i++) setDir(i, false);
         }
 
+        /** A finger lifting after a short press without moving, while another finger of the same kind is still down in the same
+         *  way: a two-finger tap. It drinks the Wiggenweld potion (HP2 binds it to Q; the game ignores it at full health). */
+        boolean twoFingerTap(MotionEvent e, int idx, float[] s, float slop) {
+            long now = e.getEventTime();
+            Long d = downAt.get(e.getPointerId(idx));
+            if (d == null || now - d > 400 || Math.hypot(e.getX(idx) - s[0], e.getY(idx) - s[1]) > slop) return false;
+            for (int i = 0; i < e.getPointerCount(); i++) {
+                if (i == idx) continue;
+                int pid = e.getPointerId(i);
+                Role r = roles.get(pid);
+                float[] s2 = start.get(pid);
+                Long d2 = downAt.get(pid);
+                if ((r != Role.STICK && r != Role.LOOK) || s2 == null || d2 == null || pid == stickPointer) continue;
+                if (now - d2 > 600 || Math.hypot(e.getX(i) - s2[0], e.getY(i) - s2[1]) > slop) continue;
+                twoTapDone.add(pid);
+                drinkPotion();
+                return true;
+            }
+            return false;
+        }
+
+        void drinkPotion() {
+            key(KeyEvent.KEYCODE_Q, true);
+            postDelayed(new Runnable() { public void run() { key(KeyEvent.KEYCODE_Q, false); } }, 90);
+        }
+
         void click(final float sx, final float sy) {
             // The menu reads the cursor position once per frame: move first, then press and release on later frames.
             final float x = sx * surfaceScale, y = sy * surfaceScale;
@@ -2115,6 +2214,10 @@ public class FlipendoActivity extends SDLActivity {
             int action = e.getActionMasked();
             int idx = e.getActionIndex();
             int id = e.getPointerId(idx);
+            if (layoutEdit) {
+                layoutTouch(e);
+                return true;
+            }
             float slop = 0.03f * Math.min(getWidth(), getHeight());
             switch (action) {
                 case MotionEvent.ACTION_DOWN:
@@ -2151,8 +2254,16 @@ public class FlipendoActivity extends SDLActivity {
                         invalidate();
                         break;
                     }
+                    if (settingsOpen && helpOpen) {
+                        helpOpen = false; // any touch closes the help card
+                        break;
+                    }
                     if (settingsOpen) {
                         // the panel takes every touch
+                        if (helpBtn.contains(x, y)) {
+                            helpOpen = true;
+                            break;
+                        }
                         if (hitSlider(x, y) >= 0) {
                             roles.put(id, Role.SLIDER);
                             activeSlider = hitSlider(x, y);
@@ -2164,6 +2275,8 @@ public class FlipendoActivity extends SDLActivity {
                             setDpadMode(true);
                         } else if (autoJumpBtn.contains(x, y)) {
                             ((FlipendoActivity) getContext()).applyAutoJump(!autoJump, true);
+                        } else if (layoutBtn.contains(x, y)) {
+                            startLayoutEdit();
                         } else if (fpsBtn.contains(x, y)) {
                             showFps = !showFps;
                             fpsFrames = -1;
@@ -2240,6 +2353,7 @@ public class FlipendoActivity extends SDLActivity {
                         roles.put(id, !dpadMode && x < getWidth() / 2f ? Role.STICK : Role.LOOK);
                         last.put(id, new float[] { x, y });
                         start.put(id, new float[] { x, y });
+                        downAt.put(id, e.getEventTime());
                     }
                     break;
                 }
@@ -2296,6 +2410,12 @@ public class FlipendoActivity extends SDLActivity {
                     float[] s = start.remove(id);
                     last.remove(id);
                     boolean cancelled = action == MotionEvent.ACTION_CANCEL;
+                    boolean twoTap = false; // a two-finger tap (HP2: drink the Wiggenweld potion): neither finger clicks
+                    if ((role == Role.STICK || role == Role.LOOK) && s != null && !cancelled) {
+                        if (twoTapDone.remove(id)) twoTap = true;
+                        else if (isHp2Game() && twoFingerTap(e, idx, s, slop)) twoTap = true;
+                    }
+                    downAt.remove(id);
                     if (role == Role.SLIDER) {
                         if (!cancelled) setSliderFromX(activeSlider, e.getX(idx), true);
                         activeSlider = -1;
@@ -2329,8 +2449,8 @@ public class FlipendoActivity extends SDLActivity {
                         }
                     } else if (role == Role.STICK) {
                         if (stickPointer == id) releaseStick();
-                        else if (s != null && !cancelled) click(s[0], s[1]);
-                    } else if (role == Role.LOOK && s != null && !cancelled) {
+                        else if (s != null && !cancelled && !twoTap) click(s[0], s[1]);
+                    } else if (role == Role.LOOK && s != null && !cancelled && !twoTap) {
                         float moved = (float) Math.hypot(e.getX(idx) - s[0], e.getY(idx) - s[1]);
                         if (moved <= slop) click(s[0], s[1]);
                     }
@@ -2432,6 +2552,234 @@ public class FlipendoActivity extends SDLActivity {
             return super.onApplyWindowInsets(in);
         }
 
+        // ---- Control layout (Settings > Control layout): each group of controls can be moved and resized ----
+        // groups: the wand button, the jump button, the arrow pad, the toolbar. A group keeps an offset from where it sits by
+        // default (fractions of the screen) and a scale; both are saved (preferences "flipendo", ctl_<group>_x / _y / _s).
+        static final int G_CAST = 0, G_JUMP = 1, G_PAD = 2, G_BAR = 3, GROUPS = 4;
+        static final String[] GROUP_NAMES = { "Wand button", "Jump button", "Arrow pad", "Toolbar" };
+        static final float CTL_MIN = 0.6f, CTL_MAX = 1.8f, CTL_STEP = 0.1f;
+        final float[][] ctl = new float[GROUPS][3]; // dx, dy, scale
+        boolean ctlLoaded;
+        boolean layoutEdit;
+        int layoutSel = G_CAST, layoutDragPointer = -1;
+        float layoutLastX, layoutLastY;
+        final android.graphics.RectF leMinus = new android.graphics.RectF(), lePlus = new android.graphics.RectF(), leReset = new android.graphics.RectF(),
+                leDone = new android.graphics.RectF(), lePanel = new android.graphics.RectF();
+
+        void resetLayoutValues() {
+            for (float[] g : ctl) { g[0] = 0f; g[1] = 0f; g[2] = 1f; }
+        }
+
+        void loadLayout() {
+            if (ctlLoaded) return;
+            ctlLoaded = true;
+            resetLayoutValues();
+            android.content.SharedPreferences prefs = getContext().getSharedPreferences("flipendo", MODE_PRIVATE);
+            for (int i = 0; i < GROUPS; i++) {
+                ctl[i][0] = prefs.getFloat("ctl_" + i + "_x", 0f);
+                ctl[i][1] = prefs.getFloat("ctl_" + i + "_y", 0f);
+                ctl[i][2] = Math.max(CTL_MIN, Math.min(CTL_MAX, prefs.getFloat("ctl_" + i + "_s", 1f)));
+            }
+        }
+
+        void saveLayout() {
+            android.content.SharedPreferences.Editor ed = getContext().getSharedPreferences("flipendo", MODE_PRIVATE).edit();
+            for (int i = 0; i < GROUPS; i++) {
+                ed.putFloat("ctl_" + i + "_x", ctl[i][0]);
+                ed.putFloat("ctl_" + i + "_y", ctl[i][1]);
+                ed.putFloat("ctl_" + i + "_s", ctl[i][2]);
+            }
+            ed.apply();
+        }
+
+        /** Moves and scales the groups from their default places (onSizeChanged has just put every control there). */
+        void applyLayout(float w, float h) {
+            loadLayout();
+            float[] g = ctl[G_CAST];
+            cast.cx += g[0] * w; cast.cy += g[1] * h; cast.r *= g[2]; aimR *= g[2];
+            g = ctl[G_JUMP];
+            jump.cx += g[0] * w; jump.cy += g[1] * h; jump.r *= g[2];
+            g = ctl[G_PAD];
+            float ox = g[0] * w, oy = g[1] * h, s = g[2];
+            for (Btn a : arrows) {
+                a.cx = padX + ox + (a.cx - padX) * s;
+                a.cy = padY + oy + (a.cy - padY) * s;
+                a.r *= s;
+            }
+            padX += ox; padY += oy; padR *= s;
+            g = ctl[G_BAR];
+            ox = g[0] * w; oy = g[1] * h; s = g[2];
+            float tcx = toolbar.centerX(), tcy = toolbar.centerY(), hw = toolbar.width() / 2f * s, hh = toolbar.height() / 2f * s;
+            for (Btn b : new Btn[] { gear, save, skip, menu }) {
+                b.cx = tcx + ox + (b.cx - tcx) * s;
+                b.cy = tcy + oy + (b.cy - tcy) * s;
+                b.r *= s;
+            }
+            toolbar.set(tcx + ox - hw, tcy + oy - hh, tcx + ox + hw, tcy + oy + hh);
+        }
+
+        /** The area a group covers now. */
+        void groupBounds(int group, android.graphics.RectF out) {
+            switch (group) {
+                case G_CAST: out.set(cast.cx - cast.r, cast.cy - cast.r, cast.cx + cast.r, cast.cy + cast.r); break;
+                case G_JUMP: out.set(jump.cx - jump.r, jump.cy - jump.r, jump.cx + jump.r, jump.cy + jump.r); break;
+                case G_PAD: out.set(padX - padR, padY - padR, padX + padR, padY + padR); break;
+                default: out.set(toolbar); break;
+            }
+        }
+
+        /** The group under a touch, or -1. */
+        int groupAt(float x, float y) {
+            float u = Math.min(getWidth(), getHeight());
+            android.graphics.RectF r = new android.graphics.RectF();
+            int best = -1;
+            float bestD = Float.MAX_VALUE;
+            for (int g = 0; g < GROUPS; g++) {
+                groupBounds(g, r);
+                r.inset(-0.015f * u, -0.015f * u);
+                if (!r.contains(x, y)) continue;
+                float d = (x - r.centerX()) * (x - r.centerX()) + (y - r.centerY()) * (y - r.centerY());
+                if (d < bestD) { bestD = d; best = g; }
+            }
+            return best;
+        }
+
+        /** Lays the controls out again, keeping the selected group inside the safe area (its offset is shifted back). */
+        void relayoutKeepingInside(int group) {
+            float w = getWidth(), h = getHeight();
+            onSizeChanged(getWidth(), getHeight(), getWidth(), getHeight());
+            android.graphics.RectF r = new android.graphics.RectF();
+            groupBounds(group, r);
+            float sx = 0f, sy = 0f;
+            float l = insL, tp = insT, rt = w - insR, bt = h - insB;
+            if (r.width() > rt - l) sx = (l + rt) / 2f - r.centerX(); else if (r.left < l) sx = l - r.left; else if (r.right > rt) sx = rt - r.right;
+            if (r.height() > bt - tp) sy = (tp + bt) / 2f - r.centerY(); else if (r.top < tp) sy = tp - r.top; else if (r.bottom > bt) sy = bt - r.bottom;
+            if (sx != 0f || sy != 0f) {
+                ctl[group][0] += sx / w;
+                ctl[group][1] += sy / h;
+                onSizeChanged(getWidth(), getHeight(), getWidth(), getHeight());
+            }
+        }
+
+        void layoutEditRects(float w, float h) {
+            float pw = Math.min(0.56f * w, 1.25f * h), ph = 0.3f * h;
+            float top = insT + 0.03f * h;
+            lePanel.set((w - pw) / 2f, top, (w + pw) / 2f, top + ph);
+            float bh = 0.085f * h;
+            float bx = lePanel.left + 0.03f * pw, bw = 0.12f * pw, gap = 0.02f * pw;
+            leMinus.set(bx, lePanel.bottom - 0.03f * h - bh, bx + bw, lePanel.bottom - 0.03f * h);
+            lePlus.set(leMinus.right + gap, leMinus.top, leMinus.right + gap + bw, leMinus.bottom);
+            leDone.set(lePanel.right - 0.03f * pw - 0.24f * pw, leMinus.top, lePanel.right - 0.03f * pw, leMinus.bottom);
+            leReset.set(leDone.left - gap - 0.24f * pw, leMinus.top, leDone.left - gap, leMinus.bottom);
+        }
+
+        void startLayoutEdit() {
+            settingsOpen = false;
+            langListOpen = false;
+            releaseGameplayControls();
+            layoutEdit = true;
+            layoutSel = G_CAST;
+            layoutDragPointer = -1;
+            onSizeChanged(getWidth(), getHeight(), getWidth(), getHeight());
+            invalidate();
+        }
+
+        void layoutTouch(MotionEvent e) {
+            int action = e.getActionMasked(), idx = e.getActionIndex(), id = e.getPointerId(idx);
+            float x = e.getX(idx), y = e.getY(idx);
+            switch (action) {
+                case MotionEvent.ACTION_DOWN:
+                case MotionEvent.ACTION_POINTER_DOWN:
+                    if (leDone.contains(x, y)) {
+                        layoutEdit = false;
+                        layoutDragPointer = -1;
+                        saveLayout();
+                        onSizeChanged(getWidth(), getHeight(), getWidth(), getHeight());
+                    } else if (leReset.contains(x, y)) {
+                        resetLayoutValues();
+                        saveLayout();
+                        onSizeChanged(getWidth(), getHeight(), getWidth(), getHeight());
+                    } else if (leMinus.contains(x, y) || lePlus.contains(x, y)) {
+                        float s = ctl[layoutSel][2] + (lePlus.contains(x, y) ? CTL_STEP : -CTL_STEP);
+                        ctl[layoutSel][2] = Math.max(CTL_MIN, Math.min(CTL_MAX, Math.round(s * 10f) / 10f));
+                        relayoutKeepingInside(layoutSel);
+                        saveLayout();
+                    } else if (!lePanel.contains(x, y) && layoutDragPointer == -1) {
+                        int g = groupAt(x, y);
+                        if (g >= 0) {
+                            layoutSel = g;
+                            layoutDragPointer = id;
+                            layoutLastX = x;
+                            layoutLastY = y;
+                        }
+                    }
+                    break;
+                case MotionEvent.ACTION_MOVE:
+                    if (layoutDragPointer != -1) {
+                        int i = e.findPointerIndex(layoutDragPointer);
+                        if (i >= 0) {
+                            float nx = e.getX(i), ny = e.getY(i);
+                            ctl[layoutSel][0] += (nx - layoutLastX) / getWidth();
+                            ctl[layoutSel][1] += (ny - layoutLastY) / getHeight();
+                            layoutLastX = nx;
+                            layoutLastY = ny;
+                            relayoutKeepingInside(layoutSel);
+                        }
+                    }
+                    break;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_POINTER_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    if (id == layoutDragPointer || action == MotionEvent.ACTION_CANCEL) {
+                        layoutDragPointer = -1;
+                        saveLayout();
+                    }
+                    break;
+                default:
+                    break;
+            }
+            invalidate();
+        }
+
+        void drawLayoutEdit(Canvas c) {
+            if (!layoutEdit) return;
+            float u = Math.min(getWidth(), getHeight());
+            android.graphics.RectF r = new android.graphics.RectF();
+            for (int g = 0; g < GROUPS; g++) {
+                groupBounds(g, r);
+                r.inset(-0.012f * u, -0.012f * u);
+                line.setColor(g == layoutSel ? GOLD : 0x66FFFFFF);
+                line.setStrokeWidth(g == layoutSel ? 5f : 2f);
+                c.drawRoundRect(r, 0.03f * u, 0.03f * u, line);
+            }
+            line.setStrokeWidth(4f);
+            fill.setColor(CARD);
+            c.drawRoundRect(lePanel, 0.03f * u, 0.03f * u, fill);
+            line.setColor(0x33FFFFFF);
+            line.setStrokeWidth(2f);
+            c.drawRoundRect(lePanel, 0.03f * u, 0.03f * u, line);
+            rowPaint.setTextAlign(Paint.Align.CENTER);
+            rowPaint.setColor(0xFFFFFFFF);
+            c.drawText("Drag a control to move it", lePanel.centerX(), lePanel.top + 0.075f * getHeight(), rowPaint);
+            subPaint.setTextAlign(Paint.Align.CENTER);
+            subPaint.setColor(MUTED);
+            c.drawText(GROUP_NAMES[layoutSel] + "  ·  size " + Math.round(ctl[layoutSel][2] * 100) + "%", lePanel.centerX(), lePanel.top + 0.135f * getHeight(), subPaint);
+            subPaint.setTextAlign(Paint.Align.LEFT);
+            fill.setColor(0x33FFFFFF);
+            c.drawRoundRect(leMinus, leMinus.height() / 2f, leMinus.height() / 2f, fill);
+            c.drawRoundRect(lePlus, lePlus.height() / 2f, lePlus.height() / 2f, fill);
+            c.drawRoundRect(leReset, leReset.height() / 2f, leReset.height() / 2f, fill);
+            fill.setColor(GOLD);
+            c.drawRoundRect(leDone, leDone.height() / 2f, leDone.height() / 2f, fill);
+            c.drawText("–", leMinus.centerX(), leMinus.centerY() + rowPaint.getTextSize() * 0.35f, rowPaint);
+            c.drawText("+", lePlus.centerX(), lePlus.centerY() + rowPaint.getTextSize() * 0.35f, rowPaint);
+            c.drawText("Reset", leReset.centerX(), leReset.centerY() + rowPaint.getTextSize() * 0.35f, rowPaint);
+            rowPaint.setColor(0xFF1A1A1A);
+            c.drawText("Done", leDone.centerX(), leDone.centerY() + rowPaint.getTextSize() * 0.35f, rowPaint);
+            rowPaint.setColor(0xFFFFFFFF);
+            rowPaint.setTextAlign(Paint.Align.LEFT);
+        }
+
         // the controls' geometry (onSizeChanged) and look: the settings card's colours on the game
         final android.graphics.RectF toolbar = new android.graphics.RectF();
         float padR, padX, padY;
@@ -2493,6 +2841,10 @@ public class FlipendoActivity extends SDLActivity {
         @Override
         protected void onDraw(Canvas c) {
             float u = Math.min(getWidth(), getHeight());
+            if (layoutEdit) {
+                fill.setColor(0x66000000);
+                c.drawRect(0, 0, getWidth(), getHeight(), fill);
+            }
 
             // top right: the toolbar, 30% visible (gear | save or skip | menu)
             int layer = c.saveLayerAlpha(toolbar.left - 4f, toolbar.top - 4f, toolbar.right + 4f, toolbar.bottom + 4f, 77);
@@ -2512,7 +2864,7 @@ public class FlipendoActivity extends SDLActivity {
                 if (!visible(b)) continue;
                 if (b.down) {
                     fill.setColor(0xE6E8C15A);
-                    c.drawCircle(b.cx, b.cy, 0.045f * u, fill);
+                    c.drawCircle(b.cx, b.cy, 0.9f * b.r, fill);
                 }
                 if (b == gear) {
                     drawGear(c, b.cx, b.cy, b.r, b.down ? DARK : 0xFFFFFFFF);
@@ -2581,6 +2933,7 @@ public class FlipendoActivity extends SDLActivity {
                 fill.setColor(0xCCE8C15A);
                 c.drawCircle(knobX, knobY, r * 0.4f, fill);
             }
+            drawLayoutEdit(c);
             drawPadCursor(c);
             drawSettings(c);
             drawLanguageList(c);

@@ -106,7 +106,7 @@ public class SetupActivity extends Activity {
         tagline.setTextColor(MUTED);
         tagline.setTextSize(14);
         tagline.setGravity(Gravity.CENTER);
-        tagline.setText("Harry Potter and the Sorcerer's Stone, on Android");
+        tagline.setText("Harry Potter 1 and 2, on Android");
         col.addView(tagline);
         TextView link = new TextView(this);
         link.setTextColor(0xFF7CC4FF);

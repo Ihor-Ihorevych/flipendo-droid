@@ -1162,3 +1162,37 @@ index 0c7b3bb7..a2a627f3 100644
  				vertex->TextureBinds = textureBinds;
  				vertex++;
  			}
+diff --git a/SurrealEngine/Render/VisibleSprite.cpp b/SurrealEngine/Render/VisibleSprite.cpp
+index 9a053a7f..b8789bef 100644
+--- a/SurrealEngine/Render/VisibleSprite.cpp
++++ b/SurrealEngine/Render/VisibleSprite.cpp
+@@ -75,20 +75,25 @@ void VisibleSprite::Draw(VisibleFrame* frame, UActor* actor)
+ 	vec3 color = clamp(actor->ScaleGlow(), 0.0f, 1.0f);
+ 
+ 	GouraudVertex vertices[4];
++	// Row 0 of a texture is its top, so the top edge of the quad takes V = 0. HP2 draws the spell symbol under the cursor
++	// (GestureSprite) this way up; with the bottom edge at V = 0 it came out upside down.
++	const bool topIsV0 = engine->LaunchInfo.IsHarryPotter2();
++	const float vBottom = topIsV0 ? texheight : 0.0f;
++	const float vTop = topIsV0 ? 0.0f : texheight;
+ 	vertices[0].Point = location - sideAxis - upAxis;
+-	vertices[0].UV = { 0.0f, 0.0f };
++	vertices[0].UV = { 0.0f, vBottom };
+ 	vertices[0].Light = color;
+ 	vertices[0].Fog = { 0.0f };
+ 	vertices[1].Point = location + sideAxis - upAxis;
+-	vertices[1].UV = { texwidth, 0.0f };
++	vertices[1].UV = { texwidth, vBottom };
+ 	vertices[1].Light = color;
+ 	vertices[1].Fog = { 0.0f };
+ 	vertices[2].Point = location + sideAxis + upAxis;
+-	vertices[2].UV = { texwidth, texheight };
++	vertices[2].UV = { texwidth, vTop };
+ 	vertices[2].Light = color;
+ 	vertices[2].Fog = { 0.0f };
+ 	vertices[3].Point = location - sideAxis + upAxis;
+-	vertices[3].UV = { 0.0f, texheight };
++	vertices[3].UV = { 0.0f, vTop };
+ 	vertices[3].Light = color;
+ 	vertices[3].Fog = { 0.0f };
+ 

@@ -340,7 +340,7 @@ version). What it needed from 3.1/3.2 is replaced on Android:
 OpenGL ES 2.0 would be a new renderer (no integer attributes, uniform buffers, sampler objects or several outputs), and
 64-bit Android 10 phones have ES 3.0 or newer anyway.
 
-## Harry Potter 2 (0.3.0)
+## Harry Potter 2 (0.3.0, 0.3.1)
 
 One app, two games. The launcher (`SetupActivity`) has a **HP1 | HP2** switch; each game has its own folder
 (`/sdcard/FlipendoHP`, `/sdcard/FlipendoHP2`; preferences `gameDir`, `gameDir.hp2`), its own folder picker cards
@@ -359,3 +359,12 @@ One app, two games. The launcher (`SetupActivity`) has a **HP1 | HP2** switch; e
   phone's storage root. The HP2 one is the retail install without the SafeDisc files, saves and logs, plus `harry2/`.
 - **Self pack with HP2:** `android/build-apk.sh --selfpack "C:/Games/HP" --hp2 "<HP2 install>" --hp2-texts "<harry2 folder>"`
   also packs HP2 (`assets/hp2data`); `installHp2Data` unpacks it into `/sdcard/FlipendoHP2` once (saves are left alone).
+
+## Control layout and the potion (HP2)
+
+- **Control layout** (Settings, *Edit*): the wand button, the jump button, the arrow pad and the toolbar can be dragged and
+  resized (60-180%); the offset (fractions of the screen) and the scale are kept in the `flipendo` preferences
+  (`ctl_<group>_x/_y/_s`) and applied in `Overlay.applyLayout` after the default places. A group stays inside the safe area.
+- **Wiggenweld potion (HP2):** `harry.bDrinkWiggenwell` is the Q key (DefUser.ini). A two-finger tap anywhere on the game
+  view (both fingers short and still, not on a button) presses Q; on a gamepad a click of either stick does. The game
+  ignores it at full health or in a cutscene.

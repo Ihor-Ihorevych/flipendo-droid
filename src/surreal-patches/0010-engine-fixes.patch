@@ -842,7 +842,7 @@ index 66408992..c9bbdb5f 100644
  	uint32_t size = 0;
  	uint32_t pos = 0;
 diff --git a/SurrealEngine/VM/Frame.cpp b/SurrealEngine/VM/Frame.cpp
-index ab62632c..f20041ae 100644
+index ab62632c..2bde7d7f 100644
 --- a/SurrealEngine/VM/Frame.cpp
 +++ b/SurrealEngine/VM/Frame.cpp
 @@ -11,6 +11,7 @@
@@ -904,17 +904,17 @@ index ab62632c..f20041ae 100644
  		if (callback)
  		{
  			Frame frame(instance, func);
-@@ -451,12 +472,51 @@ void Frame::GotoLabel(const NameString& label)
+@@ -451,8 +472,47 @@ void Frame::GotoLabel(const NameString& label)
  			if (labelIndex != -1)
  			{
  				Func = state;
 +				CodeOwner = nullptr;
- 				StatementIndex = labelIndex;
- 				LatentState = LatentRunState::Continue;
- 				return;
- 			}
- 		}
- 	}
++				StatementIndex = labelIndex;
++				LatentState = LatentRunState::Continue;
++				return;
++			}
++		}
++	}
 +	{
 +		static int reported = 0;
 +		if (reported < 30 && Func && (Func->Name.ToString().rfind("stateLeading", 0) == 0 || Func->Name.ToString().rfind("patrol", 0) == 0))
@@ -944,18 +944,14 @@ index ab62632c..f20041ae 100644
 +			if (labelIndex != -1)
 +			{
 +				CodeOwner = parent;
-+				StatementIndex = labelIndex;
-+				LatentState = LatentRunState::Continue;
+ 				StatementIndex = labelIndex;
+ 				LatentState = LatentRunState::Continue;
 +				static int reported = 0;
 +				if (reported++ < 30)
 +					LogMessage("State " + Object->Name.ToString() + "." + Func->Name.ToString() + " runs the label " + (label.IsNone() ? std::string("Begin") : label.ToString()) + " of its parent state " + parent->Name.ToString());
-+				return;
-+			}
-+		}
-+	}
- 	LatentState = LatentRunState::Stop;
- }
- 
+ 				return;
+ 			}
+ 		}
 @@ -473,8 +533,8 @@ ExpressionEvalResult Frame::Run()
  
  	ActiveCallStackFrame activeFrame(this);
@@ -1108,6 +1104,16 @@ index ab62632c..f20041ae 100644
  		}
  		else
  		{
+@@ -941,7 +1040,8 @@ ExpressionEvalResult Frame::RunExpr(Expression* statementExpr, UObject* self, UO
+ 				}
+ 				else
+ 				{
+-					Frame::ThrowException("Class reference is None");
++					// an Accessed None, as for a context that is a None object (the script goes on with a zero value)
++					result.Result = StatementResult::AccessedNone;
+ 					PushValue(ExpressionValue::NothingValue());
+ 					PopExpr();
+ 				}
 diff --git a/SurrealEngine/VM/Iterator.cpp b/SurrealEngine/VM/Iterator.cpp
 index 042d00a6..cf90cf4b 100644
 --- a/SurrealEngine/VM/Iterator.cpp
@@ -1298,4 +1304,18 @@ index d97f9745..6c531d2b 100644
 +	UStruct* CodeOwner = nullptr;
  	size_t StatementIndex = 0;
  	Array<std::unique_ptr<Iterator>> Iterators;
+ 
+diff --git a/SurrealEngine/VM/ExpressionEvaluator.cpp b/SurrealEngine/VM/ExpressionEvaluator.cpp
+index d1dc2284..59352175 100644
+--- a/SurrealEngine/VM/ExpressionEvaluator.cpp
++++ b/SurrealEngine/VM/ExpressionEvaluator.cpp
+@@ -204,7 +204,8 @@ void ExpressionEvaluator::Expr(ClassContextExpression* expr)
+ 	}
+ 	else
+ 	{
+-		Frame::ThrowException("Class reference is None");
++		// reading the default of a None class is an Accessed None (the expression yields zero), as in the original engine
++		Result.Result = StatementResult::AccessedNone;
+ 	}
+ }
  
