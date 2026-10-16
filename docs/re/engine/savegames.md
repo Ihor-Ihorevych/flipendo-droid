@@ -89,6 +89,9 @@ couldn't get the object-level stuff to work".
 **Thumbnails.** `FESlotPage.UpdateSlots` tries `..\Save\SGS <level><savePointID>.bmp`, then `..\Save\SGS <level>.bmp`,
 then `..\Save\DefaultGameSnap.bmp` (paths relative to System). They ship in the retail `Save` folder as 128x128 8-bit
 BMPs. `FEFilePage` (unused) would read `SaveGameSnap<i>.bmp`.
+Their names don't match the level names' case (`SGS Lev_tut1.bmp`, `SGS lev_tut3.bmp` for Lev_Tut1 and Lev_Tut3), which
+Windows ignores; on Linux every slot showed DefaultGameSnap until Flipendo's CreateTextureFromBMP also looked the
+file up ignoring case.
 
 ## Latent actions in a save
 

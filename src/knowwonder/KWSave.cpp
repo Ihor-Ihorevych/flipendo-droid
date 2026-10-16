@@ -286,6 +286,21 @@ namespace KW
 		return bits;
 	}
 
+	// The file in path's folder whose name matches path's ignoring case, or empty. The retail SGS thumbnails don't
+	// match the case the slot pages ask for ("SGS Lev_tut1.bmp" for Lev_Tut1), which only Windows ignores.
+	static fs::path FindFileIgnoringCase(const fs::path& path)
+	{
+		auto lower = [](std::string s) { for (char& c : s) c = (char)std::tolower((unsigned char)c); return s; };
+		std::string name = lower(path.filename().string());
+		std::error_code ec;
+		for (const auto& entry : fs::directory_iterator(path.parent_path(), ec))
+		{
+			if (entry.is_regular_file(ec) && lower(entry.path().filename().string()) == name)
+				return entry.path();
+		}
+		return {};
+	}
+
 	// IDA Engine.dll: ?execCreateTextureFromBMP@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x10413630]
 	// The original imports the file as texture <name> into the package SavePics (TextureFactory); None if it can't
 	// be read. The save slot pages use it for the slot thumbnails ("..\Save\SGS <level><savepoint>.bmp").
@@ -296,6 +311,8 @@ namespace KW
 
 		fs::path path = GameRelativePath(filename);
 		if (!fs::is_regular_file(path))
+			path = FindFileIgnoringCase(path);
+		if (path.empty())
 			return;
 
 		Array<uint8_t> file;
