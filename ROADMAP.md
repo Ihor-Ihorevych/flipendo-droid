@@ -71,10 +71,20 @@ particle effects.
 
 ## Later: the other KnowWonder games
 - [~] HP2 (Chamber of Secrets, UE1 build 433): port after HP1 (groundwork: [docs/one-engine.md](docs/one-engine.md)).
+  Estimate (2026-10-17): about 3 weeks at HP1's pace (10-19 working days). The engine side is ~85-90% reused (180 of
+  ~183 natives covered; of 205 IDA-tagged ports 64 carry over as is, 56 are exec wrappers that differ only by the
+  DebugInfo check, 66 need reading in HP2); the 43-map playthrough is new work. In order:
+  1. Boot to the main menu (1-2 days). Today a run stops at `FATAL: Bytecode load failed`.
   - [ ] Hook HP2's token table into SurrealEngine's `BytecodeStream` (skip DebugInfo, `HP2::ToStockToken`)
+  - [ ] Linux: HP2's folder is `system/` with `default.ini` (case-insensitive lookup of the game's files)
+  - [ ] Enable `IsKnowWonder()` for HP2
+  2. First level, PrivetDr (2-3 days)
+  - [ ] HP2 music natives: `PlayMusic` / `StopMusic` / `StopAllMusic` (ALAudio.dll), `StopSound` fade-out; OpenAL/Ogg audio
+  - [ ] XA ADPCM sounds, GameState screening (below)
   - [ ] Check the remaining "changed" ports for real behaviour differences (beyond the DebugInfo check)
-  - [ ] HP2 music natives: `PlayMusic` / `StopMusic` / `StopAllMusic` (ALAudio.dll), `StopSound` fade-out
-  - [ ] Enable `IsKnowWonder()` for HP2, OpenAL/Ogg audio (ALAudio.dll), first level
+  3. Hubs and saves (2-4 days): persistent actors and HP2's save flow (below)
+  4. Play the 43 maps through, incl. the 10 duels and Quidditch (4-8 days)
+  5. Polish (1-2 days): Lumos surfaces, lip sync, oval collision cylinders
   - [ ] Check the unverified HP2 engine differences in HP2's code ([docs/re/hp2/gameplay.md](docs/re/hp2/gameplay.md)):
         music always loops, XA ADPCM sounds, save loading, lip sync, movers colliding by bounding box
   - [ ] HP2-only engine features ([docs/re/hp2/engine.md](docs/re/hp2/engine.md)): GameState screening
