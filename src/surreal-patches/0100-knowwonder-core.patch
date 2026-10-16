@@ -582,7 +582,7 @@ index 333a3135..9a8cc0a0 100644
  
  void PackageManager::RegisterNativeClasses()
 diff --git a/SurrealEngine/Package/PackageManager.h b/SurrealEngine/Package/PackageManager.h
-index c5c5543b..ab5437e8 100644
+index c5c5543b..ff13f868 100644
 --- a/SurrealEngine/Package/PackageManager.h
 +++ b/SurrealEngine/Package/PackageManager.h
 @@ -50,7 +50,8 @@ public:
@@ -595,7 +595,15 @@ index c5c5543b..ab5437e8 100644
  	Array<NameString> GetPackageNames() const;
  	Package* GetSaveInfoPackage(const NameString& saveFolderName);
  	void RemoveSaveInfoPackage(const NameString& saveFolderName);
-@@ -143,6 +144,9 @@ private:
+@@ -90,6 +91,7 @@ public:
+ 	std::string Localize(NameString packageName, const NameString& sectionName, const NameString& keyName, const int index = 0);
+ 
+ 	Array<IntObject>& GetIntObjects(const NameString& metaclass);
++	const std::string& GetLanguage() const { return languageExtension; }
+ 	const Array<std::string>& GetMaps() const { return maps; }
+ 
+ 	bool MissingSESystemIni() const { return missing_se_system_ini; }
+@@ -143,6 +145,9 @@ private:
  	std::unique_ptr<IniFile> defaultUserFile; // Holds DefUser.ini
  
  	Array<std::string> mapFolders;

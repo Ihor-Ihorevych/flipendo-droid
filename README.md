@@ -91,7 +91,8 @@ Harry Potter and the Chamber of Secrets (2002) runs on the same engine and is ne
 ### What you need
 
 - **Harry Potter and the Philosopher's / Sorcerer's Stone for PC (2001)**, installed: the folder with `System/`,
-  `Maps/`, `Textures/` and so on. Known versions: UK 1.1, EN retail and a community No-CD. If yours isn't
+  `Maps/`, `Textures/` and so on. Known versions: UK 1.1, EN retail and a community No-CD,
+  Russian (EA Hit-Parade) and its No-CD. If yours isn't
   recognised, the error shows a code (SHA-1); please [report it](CONTRIBUTING.md#other-game-versions).
 - **Windows 10/11**, or **Linux** if you build it yourself (below).
 

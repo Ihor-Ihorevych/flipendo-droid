@@ -198,8 +198,39 @@ index 07a06c4e..23cfa38c 100644
  	if (!TextureModified)
  	{
  		UnrealMipmap& mipmap = UsedMipmaps.front();
+diff --git a/SurrealEngine/Packages/Engine/Resources/Textures/UScriptedTexture.cpp b/SurrealEngine/Packages/Engine/Resources/Textures/UScriptedTexture.cpp
+index 3b522523..80f6309e 100644
+--- a/SurrealEngine/Packages/Engine/Resources/Textures/UScriptedTexture.cpp
++++ b/SurrealEngine/Packages/Engine/Resources/Textures/UScriptedTexture.cpp
+@@ -63,7 +63,7 @@ void UScriptedTexture::DrawColoredText(float X, float Y, const std::string& Text
+ 
+ 	uint8_t color = Palette()->FindBestColor(FontColor);
+ 
+-	for (char c : Text)
++	for (char32_t c : UFont::Codepoints(Text))
+ 	{
+ 		FontGlyph glyph = Font->GetGlyph(c);
+ 		if (!glyph.Texture)
+@@ -83,7 +83,7 @@ void UScriptedTexture::DrawText(float X, float Y, const std::string& Text, UFont
+ 	if (!Font)
+ 		return;
+ 
+-	for (char c : Text)
++	for (char32_t c : UFont::Codepoints(Text))
+ 	{
+ 		FontGlyph glyph = Font->GetGlyph(c);
+ 		if (!glyph.Texture)
+@@ -118,7 +118,7 @@ void UScriptedTexture::TextSize(const std::string& Text, float& XL, float& YL, U
+ 
+ 	int x = 0;
+ 	int y = 0;
+-	for (char c : Text)
++	for (char32_t c : UFont::Codepoints(Text))
+ 	{
+ 		FontGlyph glyph = Font->GetGlyph(c);
+ 		x += glyph.USize;
 diff --git a/SurrealEngine/Render/RenderCanvas.cpp b/SurrealEngine/Render/RenderCanvas.cpp
-index 4b2aa5c5..bec4dcb3 100644
+index 4b2aa5c5..b1445106 100644
 --- a/SurrealEngine/Render/RenderCanvas.cpp
 +++ b/SurrealEngine/Render/RenderCanvas.cpp
 @@ -8,12 +8,15 @@
@@ -314,6 +345,62 @@ index 4b2aa5c5..bec4dcb3 100644
  	frame.FX = (float)X * Canvas.uiscale;
  	frame.FY = (float)Y * Canvas.uiscale;
  	frame.FX2 = frame.FX * 0.5f;
+@@ -254,7 +291,7 @@ void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<std::stri
+ {
+ 	for (size_t i = start; i < end; i++)
+ 	{
+-		for (char c : textBlocks[i])
++		for (char32_t c : UFont::Codepoints(textBlocks[i]))
+ 		{
+ 			FontGlyph glyph = font->GetGlyph(c);
+ 
+@@ -288,6 +325,9 @@ void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<std::stri
+ 
+ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY, float& curX, float& curY, float& curXL, float& curYL, bool newlineAtEnd, const std::string& text, uint32_t polyflags, bool center, float spaceX, float spaceY, float clipX, float clipY, bool noDraw)
+ {
++	if (font->IsNative()) // anti-aliased coverage in the draw color, like the GDI text of HP1's Windows viewport
++		polyflags = PF_Highlighted;
++
+ 	float totalWidth = 0.0f;
+ 	float totalHeight = 0.0f;
+ 
+@@ -381,6 +421,9 @@ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY,
+ 
+ void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float orgY, float curX, float curY, const std::string& text, uint32_t polyflags, bool checkHotKey, float clipX, float clipY, bool center)
+ {
++	if (font->IsNative()) // anti-aliased coverage in the draw color, like the GDI text of HP1's Windows viewport
++		polyflags = PF_Highlighted;
++
+ 	FontGlyph uglyph = font->GetGlyph('_');
+ 	int uwidth = uglyph.USize;
+ 	int uheight = uglyph.VSize;
+@@ -397,7 +440,7 @@ void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float
+ 
+ 	bool foundAmpersand = false;
+ 	int maxY = 0;
+-	for (char c : text)
++	for (char32_t c : UFont::Codepoints(text))
+ 	{
+ 		if (checkHotKey && c == '&' && !foundAmpersand)
+ 		{
+@@ -457,7 +500,7 @@ void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float
+ 
+ 			Rectf dest = Rectf::xywh(orgX + curX + centerX, orgY + curY, (float)glyph.USize, (float)glyph.VSize);
+ 			Rectf src = Rectf::xywh((float)glyph.StartU, (float)glyph.StartV, (float)glyph.USize, (float)glyph.VSize);
+-			DrawTile(texinfo, dest, src, clipBox, 1.0f, color, vec4(0.0f), PF_Highlighted | PF_NoSmooth | PF_Masked);
++			DrawTile(texinfo, dest, src, clipBox, 1.0f, color, vec4(0.0f), font->IsNative() ? polyflags : PF_Highlighted | PF_NoSmooth | PF_Masked);
+ 
+ 			curX += glyph.USize;
+ 			maxY = std::max(maxY, glyph.VSize);
+@@ -528,7 +571,7 @@ vec2 RenderSubsystem::GetTextSize(UFont* font, const std::string& text, float sp
+ {
+ 	float x = 0.0f;
+ 	float y = 0.0f;
+-	for (char c : text)
++	for (char32_t c : UFont::Codepoints(text))
+ 	{
+ 		FontGlyph glyph = font->GetGlyph(c);
+ 		x += (float)glyph.USize + spaceX;
 diff --git a/SurrealEngine/Render/RenderSubsystem.cpp b/SurrealEngine/Render/RenderSubsystem.cpp
 index f3fcef6d..fd253c8c 100644
 --- a/SurrealEngine/Render/RenderSubsystem.cpp

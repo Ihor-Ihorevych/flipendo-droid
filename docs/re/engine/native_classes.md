@@ -35,7 +35,7 @@ SoundContainer objects.
 |---|---|---|---|
 | `Pawn.FindStairRotation` | 524 | PlayerPawn.PlayerWalking's PlayerMove, only with `bLookUpStairs` (the `StairLook` exec, off by default). Harry has his own PlayerWalking that never calls it | ported, `src/knowwonder/KWPlayerNatives.cpp` |
 | `PlayerPawn.ScreenToWorld` | 542 | none | ported, `src/knowwonder/KWPlayerNatives.cpp` |
-| `Console.CreateNativeFont` | name | HPConsole, for the Asian languages (SIM, CHI, TRA, KOR, THA, JAP; fonts named in SAPFont.int) | returns None (see below) |
+| `Console.CreateNativeFont` | name | HPConsole, for the Asian languages (SIM, CHI, TRA, KOR, THA, JAP) and Russian (RUS, RU1..RU5); fonts named in SAPFont.<lang> | ported, `src/knowwonder/KWNativeFont.cpp` (see below) |
 | `PlayerPawn.ResetKeyboard` | 544 | none | SurrealEngine's stub |
 | `Pawn.actorReachable` | 520 | none | SurrealEngine's version |
 
@@ -55,9 +55,9 @@ component, calls the player's own PlayerCalcView (starting from its Location and
 X/Y/Z slots as they are, which looks wrong for a forward-is-X frame; it is ported literally because nothing calls it.
 
 **CreateNativeFont**: UConsole::execCreateNativeFont calls the viewport's virtual CreateNativeFont (vtable +156).
-Engine.dll's base UViewport returns null; the real one is in WinDrv.dll's Windows viewport (GDI system font
-rasterized into a UFont), which is not reversed. Until it is, Flipendo returns None like the base class, so the
-Asian-language menus have no text.
+Engine.dll's base UViewport returns null; WinDrv.dll's Windows viewport makes a GDI font that DrawString draws with
+DrawTextW. Flipendo rasterizes the system font into an ordinary UFont instead: [fonts.md](fonts.md#system-fonts-consolecreatenativefont).
+Only Latin and Cyrillic glyphs are made, so the Asian-language menus still lack theirs.
 
 **ResetKeyboard** resets the viewport's Input class config (`UObject::ResetConfig` on `Viewport->Input->Class`),
 i.e. key bindings back to the defaults. SurrealEngine's ResetConfig is a stub too.

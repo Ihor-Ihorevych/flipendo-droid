@@ -34,7 +34,8 @@ particle effects.
 
 ## 5. Remaining native classes and polish
 - [ ] Bugs of the original to fix, not reproduce: [docs/re/hp1/original_bugs.md](docs/re/hp1/original_bugs.md)
-- [ ] Console.CreateNativeFont for the Asian languages (WinDrv.dll's GDI font rasterizer)
+- [ ] Console.CreateNativeFont glyphs for the Asian languages (only Latin and Cyrillic are rasterized), and system
+      font text drawn at the screen's resolution instead of scaled with the menu canvas
 - [ ] `Actor.Fatness`: not ported; only matters if a map or script changes it from 128
       ([docs/re/engine/animation.md](docs/re/engine/animation.md))
 - [ ] US vs UK HP1: compare `HPBase.u` from both releases for a shifted token table

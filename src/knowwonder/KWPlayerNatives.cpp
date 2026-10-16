@@ -10,6 +10,7 @@
 #include "VM/NativeFunc.h"
 #include "VM/ScriptCall.h"
 #include "Math/coords.h"
+#include "Packages/Engine/Resources/UFont.h"
 #include "GameWindow.h"
 #include "Engine.h"
 #include <cmath>
@@ -20,6 +21,7 @@
 namespace KW
 {
 	void OverrideNative(int index, void (*registerFunc)());
+	UFont* CreateNativeFont(const std::string& name, int height);
 
 	// Stair look (PlayerPawn.PlayerWalking's PlayerMove with the "StairLook" option on, bLookUpStairs): while walking
 	// and not looking around, pitch the view down towards stairs going down and up towards stairs going up. It probes
@@ -145,16 +147,15 @@ namespace KW
 		returnValue = cameraLocation + Coords::Rotation(cameraRotation) * offset;
 	}
 
-	// Console.CreateNativeFont(FontName, Height): HPConsole uses it for the Asian languages (SIM, CHI, TRA, KOR, THA,
-	// JAP), whose fonts are system fonts named in SAPFont.int. Engine.dll hands it to the viewport (vtable +156);
-	// the base UViewport returns None and the Windows viewport (WinDrv.dll, not reversed) rasterizes the system
-	// font. Not ported yet: returns None like the base viewport, so those languages draw no menu text.
+	// Console.CreateNativeFont(FontName, Height): HPConsole uses it for the languages whose fonts are system fonts
+	// named in SAPFont.<lang> (the Asian releases; Russian HP1's HPMenu.u also sends RUS, RU1..RU5 there). Engine.dll
+	// hands it to the viewport (vtable +156); the base UViewport returns None, the Windows viewport makes a GDI font
+	// (KW::CreateNativeFont, KWNativeFont.cpp).
 	// IDA Engine.dll: ?execCreateNativeFont@UConsole@@QAEXAAUFFrame@@QAX@Z [HP1 0x1038B860]
 	// IDA Engine.dll: ?CreateNativeFont@UViewport@@UAEPAVUFont@@PBGH@Z [HP1 0x10350B30]
 	static void NCreateNativeFont(UObject* self, const std::string& fontName, int height, UObject*& returnValue)
 	{
-		LogMessage("CreateNativeFont(" + fontName + ", " + std::to_string(height) + "): system fonts are not supported yet");
-		returnValue = nullptr;
+		returnValue = CreateNativeFont(fontName, height);
 	}
 
 	void RegisterPlayerNatives()
