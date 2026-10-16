@@ -45,8 +45,8 @@ The 2001 release is getting hard to run. SafeDisc copy protection doesn't work o
 - **No disc, no SafeDisc, no compatibility patches.** Point it at the installed game folder.
 - **The same game.** Nothing is remade or altered. Optional extras (skippable cutscenes and storybooks, fast forward) can all
   be switched off with `--vanilla`.
-- **Fixable.** Bugs in the original engine get fixed in source ([list](docs/re/hp1/original_bugs.md)). Linux, macOS
-  and Steam Deck can follow because SurrealEngine already runs on them.
+- **Fixable.** Bugs in the original engine get fixed in source ([list](docs/re/hp1/original_bugs.md)).
+- **Windows and Linux.** macOS and Steam Deck can follow because SurrealEngine already runs on them.
 
 ## Screenshots
 
@@ -79,7 +79,8 @@ All taken in Flipendo at 1920x1080 from the original game files.
 |---|---|
 | ✅ Works | The whole story, every level from the first lesson to the final encounter with Voldemort, tested by playing it through. Menus and options (incl. key rebinding), widescreen at any resolution, music, cutscenes, characters and their animations, doors, NPCs, Peeves, jelly beans, wizard cards, saving and loading |
 | 🟡 Partly | Spell casting and particle effects mostly work; side-by-side comparison with the original (lighting, animations) is still to do |
-| ❌ Not yet | The Quidditch League, Linux / macOS builds |
+| 🐧 Linux | Builds and plays from source (tested on Fedora); no download yet |
+| ❌ Not yet | The Quidditch League, macOS and Steam Deck builds |
 
 Playtesters are welcome: anything that looks or behaves differently from the original is a useful bug report.
 
@@ -92,7 +93,7 @@ Harry Potter and the Chamber of Secrets (2002) runs on the same engine and is ne
 - **Harry Potter and the Philosopher's / Sorcerer's Stone for PC (2001)**, installed: the folder with `System/`,
   `Maps/`, `Textures/` and so on. Known versions: UK 1.1, EN retail and a community No-CD. If yours isn't
   recognised, the error shows a code (SHA-1); please [report it](CONTRIBUTING.md#other-game-versions).
-- **Windows 10/11** for now.
+- **Windows 10/11**, or **Linux** if you build it yourself (below).
 
 ### Get it running
 
@@ -111,8 +112,19 @@ build/Release/SurrealEngine.exe "C:/Games/Harry Potter"
 ```
 
 The last line opens the game; use your own install folder in place of `C:/Games/Harry Potter`. If it doesn't start, the error says which file or folder is
-missing: see [troubleshooting](docs/troubleshooting.md). Building on Linux or macOS is covered in
-[CONTRIBUTING.md](CONTRIBUTING.md#building).
+missing: see [troubleshooting](docs/troubleshooting.md).
+
+On **Linux**, copy the game folder from a Windows install (or the disc) and build it like this; the packages to
+install first are in [CONTRIBUTING.md](CONTRIBUTING.md#linux):
+
+```sh
+git clone --recursive https://github.com/kroplabeskidu/flipendo
+cd flipendo
+bash tools/apply_patches.sh
+cmake -S src/engine -B build-linux -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build-linux --target SurrealEngine
+build-linux/SurrealEngine ~/Games/HarryPotter
+```
 
 ### Launch options
 

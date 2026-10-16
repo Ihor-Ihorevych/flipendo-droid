@@ -67,7 +67,7 @@ particle effects.
 ## Releases
 - [ ] Game folder picker in the launcher remembered between runs, so players never touch the command line
 - [ ] Version number in the window title and the log, for bug reports
-- [ ] Linux / Steam Deck build tested with Flipendo
+- [ ] Linux download (prebuilt) and a Steam Deck build tested with Flipendo
 
 ## Later: the other KnowWonder games
 - [~] HP2 (Chamber of Secrets, UE1 build 433): port after HP1 (groundwork: [docs/one-engine.md](docs/one-engine.md)).
