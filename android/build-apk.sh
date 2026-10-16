@@ -277,7 +277,7 @@ for entry in "${SELFPACKS[@]}"; do
 		(cd "$HP2DIR" && find . -type f \
 			! -iname 'd3d11drv*' ! -iname 'dxgi.dll' ! -iname 'reshade*' ! -iname 'dlss5-*' ! -ipath './host64/*' ! -iname '*.dmp' \
 			! -iname '*.bak' ! -iname 'vssver.scc' ! -iname 'mssccprj.scc' ! -iname 'drvmgt.dll' ! -iname 'secdrv.sys' ! -iname '*.lnk' \
-			! -iname '*.log' ! -ipath './save/*' ! -ipath './harry2/*' ! -iname 'SE-*.ini' ! -iname 'User.ini' ! -iname 'flipendo*' -print0) \
+			! -iname '*.log' ! -ipath './save/*' ! -ipath './harry2/*' ! -iname 'SE-*.ini' ! -iname 'User.ini' ! \( -iname 'flipendo*' ! -iname '*.utx' \) -print0) \
 			| (cd "$HP2DIR" && tar --null -cf - --files-from=-) | (cd "$HP2STAGE" && tar xf -)
 		if [ -n "$HP2TEXTS" ]; then
 			mkdir -p "$HP2STAGE/harry2"
