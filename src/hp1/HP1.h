@@ -33,6 +33,6 @@ namespace HP1
 	void LevelStartPlayer(UPlayerPawn* pawn, const std::string& map);
 	// HP1::TickMods (runs with --vanilla too): selects --level's save slot once the menu book exists.
 	void LevelStartTick();
-	// Engine::ConsoleCommand "getres": the display's modes, with FEOptionsPage's 1024x768 cap lifted.
+	// Engine::ConsoleCommand "getres": common modes up to the desktop size, with FEOptionsPage's 1024x768 cap lifted.
 	std::string AvailableResolutions(GameWindow* window);
 }

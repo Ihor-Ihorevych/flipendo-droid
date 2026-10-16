@@ -33,7 +33,7 @@ The folder you gave isn't a recognised game folder. The reason line says why:
 |---|---|
 | `folder does not exist` | Check the path. Quote it if it contains spaces. |
 | `looks like the game's System folder` | Use the folder above `System/`. |
-| `no known game executable in its System folder` | The folder has no `System/HP.exe`. Use the install folder, not the disc or a parent folder. |
+| `no known game executable in its System folder` | The folder has no `System/HP.exe` (also found as `Harry Potter and the Philosophers Stone.exe` or the Sorcerer's Stone name). Use the install folder, not the disc or a parent folder. |
 | `System/HP.exe is not a recognised version (SHA-1 ...)` | Your game release isn't in the list yet. [Open an issue](../CONTRIBUTING.md#other-game-versions) with the SHA-1, language and release. |
 
 ### `Could not find package 'X' (needed by package 'Y')`
@@ -62,6 +62,11 @@ These don't stop the game, but explain missing pictures, sounds or text:
 - `Unimplemented: Class.Function`: a native function Flipendo hasn't ported yet.
 
 ## Other problems
+
+- **Settings (resolution, full screen, controls)**: Flipendo keeps them in `System/SE-HP.ini` and `System/SE-User.ini`
+  in the game folder, not in the registry. Full screen is `StartupFullscreen=True` under `[WinDrv.WindowsClient]`,
+  with the size in `FullscreenViewportX` / `FullscreenViewportY` (the window size in `WindowedViewportX/Y`). Delete
+  the two files to start again from the game's own `HP.ini` / `User.ini`.
 
 - **Rebuilding fails with a file lock**: `SurrealEngine.exe` is still running; close it first.
 - **`CONFLICT` from `tools/build.sh`**: see [engine-hooks.md](engine-hooks.md#changing-a-hook).

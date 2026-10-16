@@ -89,3 +89,10 @@ In HP1's Lev_Tut1, `SpellLearnTrigger` calls `Teacher.TurnToward(Cam)` on Quirre
 `execTurnToward` (0x103D9130) sets the *target's* `StateFrame->LatentAction` (511), but UE1 only processes state
 frames that have code, so a pawn in a code-less state never polls it and never turns. SurrealEngine resumed that
 frame and ran off the end of the empty state. (HP1's Engine.dll; HP2 not checked.)
+
+## Division by zero
+
+`execDivide_IntInt` (Core.dll 0x10136FD0) returns 0 when the divisor is 0, and `execDivideEqual_ByteByte`
+(0x10136710) returns 0 and leaves the variable alone. Scripts rely on it: `HPMenuOptionComboList` sizes its rows as
+`(WinHeight-7)/Count`, so an options dropdown with no entries divides by zero. SurrealEngine used plain C++ division
+there and crashed ("Integer divide by zero"). (HP1's Core.dll; HP2 not checked.)

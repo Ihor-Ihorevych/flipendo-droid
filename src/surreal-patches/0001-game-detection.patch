@@ -1,4 +1,4 @@
-flipendo: recognise the HP1 retail (SafeDisc) and No-CD HP.exe builds, say why a folder isn't a game
+flipendo: recognise the HP1 retail (SafeDisc) and No-CD HP.exe builds (also under the long exe names some releases use), say why a folder isn't a game
 
 diff --git a/SurrealEngine/GameFolder.cpp b/SurrealEngine/GameFolder.cpp
 index 473146a7..bf256223 100644
@@ -45,7 +45,7 @@ index 473146a7..bf256223 100644
  	if (ue1_game.first != KnownUE1Games::UE1_GAME_NOT_FOUND)
  	{
 diff --git a/SurrealEngine/GameFolder.h b/SurrealEngine/GameFolder.h
-index 1a03615b..bc7fa701 100644
+index 1a03615b..9b32acea 100644
 --- a/SurrealEngine/GameFolder.h
 +++ b/SurrealEngine/GameFolder.h
 @@ -24,6 +24,9 @@ struct GameLaunchInfo
@@ -72,7 +72,7 @@ index 1a03615b..bc7fa701 100644
  	static std::string GetExePath();
  };
 diff --git a/SurrealEngine/UE1GameDatabase.cpp b/SurrealEngine/UE1GameDatabase.cpp
-index bf6912eb..39dc0382 100644
+index bf6912eb..f4150bf8 100644
 --- a/SurrealEngine/UE1GameDatabase.cpp
 +++ b/SurrealEngine/UE1GameDatabase.cpp
 @@ -4,13 +4,20 @@
@@ -99,7 +99,24 @@ index bf6912eb..39dc0382 100644
  
  	const auto UE1GameSystemPath = fs::path(ue1_game_root_folder_path) / "System";
  	const auto UE1GameSystem64Path = fs::path(ue1_game_root_folder_path) / "System64";
-@@ -31,7 +38,8 @@ std::pair<KnownUE1Games, std::string> FindUE1GameInPath(const std::string& ue1_g
+@@ -23,6 +30,16 @@ std::pair<KnownUE1Games, std::string> FindUE1GameInPath(const std::string& ue1_g
+ 		std::string sha1sum = SHA1Sum::of_file(executablePath);
+ 		std::string sha1sum64 = SHA1Sum::of_file(executablePath64);
+ 
++		// some releases rename the executable (HP1: "Harry Potter and the Philosophers Stone.exe")
++		for (auto& alias : knownUE1ExecutableAliases)
++		{
++			if (sha1sum.empty() && alias.second == executable_name)
++			{
++				executablePath = UE1GameSystemPath / alias.first;
++				sha1sum = SHA1Sum::of_file(executablePath);
++			}
++		}
++
+ 		// If sha1sum is empty this means that the file doesn't exist
+ 		if (sha1sum.empty() && sha1sum64.empty())
+ 			continue;
+@@ -31,7 +48,8 @@ std::pair<KnownUE1Games, std::string> FindUE1GameInPath(const std::string& ue1_g
  		const auto it = !sha1sum64.empty() ? SHA1Database.find(sha1sum64) : SHA1Database.find(sha1sum);
  		
  		if (it == SHA1Database.end())
@@ -109,7 +126,7 @@ index bf6912eb..39dc0382 100644
  
  		// Hack: Tactical-Ops has a version that contains the exact same UTv469d executable. Handle that here
  		if (it->second == KnownUE1Games::UT99_469d && executable_name == "TacticalOps.exe")
-@@ -40,5 +48,9 @@ std::pair<KnownUE1Games, std::string> FindUE1GameInPath(const std::string& ue1_g
+@@ -40,5 +58,9 @@ std::pair<KnownUE1Games, std::string> FindUE1GameInPath(const std::string& ue1_g
  	}
  
  	// We got nothing here
@@ -122,7 +139,7 @@ index bf6912eb..39dc0382 100644
  }
 \ No newline at end of file
 diff --git a/SurrealEngine/UE1GameDatabase.h b/SurrealEngine/UE1GameDatabase.h
-index 18ca9c13..bbe3a6b1 100644
+index 18ca9c13..b5910a9b 100644
 --- a/SurrealEngine/UE1GameDatabase.h
 +++ b/SurrealEngine/UE1GameDatabase.h
 @@ -197,6 +197,12 @@ static const std::map<std::string, KnownUE1Games> SHA1Database = {
@@ -138,9 +155,18 @@ index 18ca9c13..bbe3a6b1 100644
  	// Harry Potter 2 (UK)
  	{"3a43d9ec8be7ec441b18a8dc710b4bdd5b29bda3", KnownUE1Games::HARRYPOTTER2_433},
  
-@@ -230,4 +236,5 @@ static const Array<std::string> knownUE1ExecutableNames = {
+@@ -229,5 +235,14 @@ static const Array<std::string> knownUE1ExecutableNames = {
+ 	"Game.exe",
  };
  
++// Other names some releases give a known executable, and the name it is treated as
++static const Array<std::pair<std::string, std::string>> knownUE1ExecutableAliases = {
++	{ "Harry Potter and the Philosophers Stone.exe", "HP.exe" },
++	{ "Harry Potter and the Philosopher's Stone.exe", "HP.exe" },
++	{ "Harry Potter and the Sorcerers Stone.exe", "HP.exe" },
++	{ "Harry Potter and the Sorcerer's Stone.exe", "HP.exe" },
++};
++
  // Returns a pair of UE1-Game type and executable name
 -std::pair<KnownUE1Games, std::string> FindUE1GameInPath(const std::string& ue1_game_root_folder_path);
 +// problem (if given) says why nothing was found: missing folder, no known executable, unknown exe hash

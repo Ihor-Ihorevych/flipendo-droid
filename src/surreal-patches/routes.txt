@@ -11,7 +11,7 @@
 #   0200-0299  free for game-specific additions (HP2)
 # Patches split by file, so a file has exactly one owner.
 
-[0001-game-detection.patch] flipendo: recognise the HP1 retail (SafeDisc) and No-CD HP.exe builds, say why a folder isn't a game
+[0001-game-detection.patch] flipendo: recognise the HP1 retail (SafeDisc) and No-CD HP.exe builds (also under the long exe names some releases use), say why a folder isn't a game
 SurrealEngine/UE1GameDatabase.*
 SurrealEngine/GameFolder.*
 

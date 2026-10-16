@@ -25,8 +25,8 @@
 // - Console.PostRender (the FEBook menus, story book, message boxes, loading text): drawn in a centred 4:3 area.
 //   HPConsole sets Root.GUIScale = width / 640 and lays the book out at 640x480, so a wider canvas would push the
 //   book off the bottom of the screen.
-// - Resolutions: GetRes lists the display's real modes and FEOptionsPage.IsSupportedResolution (script, allows
-//   512x384..1024x768 only) is replaced with a native that accepts anything from 640x480 up.
+// - Resolutions: GetRes lists the common modes up to the desktop size and FEOptionsPage.IsSupportedResolution
+//   (script, allows 512x384..1024x768 only) is replaced with a native that accepts anything from 640x480 up.
 
 namespace HP1
 {
@@ -112,9 +112,49 @@ namespace HP1
 		}
 	}
 
+	// SurrealEngine only offers the desktop size, in DPI-scaled units, which can leave FEOptionsPage with an empty
+	// list (its combo list then divides by zero). List the common modes that fit the desktop, the desktop itself and
+	// the current window size, in pixels like SetRes takes them.
 	std::string AvailableResolutions(GameWindow* window)
 	{
 		InstallResolutionOverride();
-		return window->GetAvailableResolutions();
+
+		Size screen = Widget::GetScreenSize();
+		double dpi = window->GetDpiScale();
+		int desktopX = (int)std::lround(screen.width * dpi);
+		int desktopY = (int)std::lround(screen.height * dpi);
+
+		static const int commonModes[][2] = {
+			{ 640, 480 }, { 800, 600 }, { 1024, 768 }, { 1280, 720 }, { 1280, 960 }, { 1366, 768 }, { 1600, 900 },
+			{ 1600, 1200 }, { 1920, 1080 }, { 2560, 1440 }, { 3840, 2160 }
+		};
+		std::vector<std::pair<int, int>> modes;
+		for (auto& mode : commonModes)
+		{
+			// the DPI round trip can come back a pixel short (2559x1439 for 2560x1440)
+			if (std::abs(mode[0] - desktopX) <= 2 && std::abs(mode[1] - desktopY) <= 2)
+			{
+				desktopX = mode[0];
+				desktopY = mode[1];
+			}
+			if (mode[0] <= desktopX && mode[1] <= desktopY)
+				modes.push_back({ mode[0], mode[1] });
+		}
+		modes.push_back({ desktopX, desktopY });
+		modes.push_back({ window->GetPixelWidth(), window->GetPixelHeight() });
+
+		std::sort(modes.begin(), modes.end());
+		modes.erase(std::unique(modes.begin(), modes.end()), modes.end());
+
+		std::string result;
+		for (auto& mode : modes)
+		{
+			if (mode.first < 640 || mode.second < 480)
+				continue;
+			if (!result.empty())
+				result += " ";
+			result += std::to_string(mode.first) + "x" + std::to_string(mode.second);
+		}
+		return result.empty() ? "640x480" : result;
 	}
 }

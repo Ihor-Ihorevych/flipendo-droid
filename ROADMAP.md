@@ -39,6 +39,8 @@ particle effects.
       ([docs/re/engine/animation.md](docs/re/engine/animation.md))
 - [ ] US vs UK HP1: compare `HPBase.u` from both releases for a shifted token table
       ([docs/re/engine/scripting.md](docs/re/engine/scripting.md))
+- [ ] Linux: a debug screenshot (`HP1_SHOTS`) crashes the game in the Radeon Vulkan driver right after the first image is
+      saved (`VulkanRenderDevice::Unlock` -> `vkCmdEndRenderPass`), even on the main menu
 - [ ] Menu song fade-in at its start: MusicFade/transitions or the mp2 itself ([docs/re/engine/music.md](docs/re/engine/music.md))
 - [ ] Next SurrealEngine update: upstream's HP1 boot work (July 2026: exe detection, HP natives and tokens, mp2,
       4:3 `GetRes`) is already in our submodule; drop any of our patches that it now duplicates
