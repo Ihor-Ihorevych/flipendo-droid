@@ -247,7 +247,7 @@ namespace KW
 		// The original sets the latent action on the *target's* state frame, so FinishAnim(RootBone)
 		// doesn't block the caller. AnimChannels have no state code, so for them this is a no-op.
 		if (target == actor && IsAnimatingSelf(target) && target->AnimFrame() < target->AnimLast() && target->StateFrame)
-			target->StateFrame->LatentState = LatentRunState::FinishAnim;
+			target->StateFrame->SetLatentState(LatentRunState::FinishAnim);
 	}
 
 	static void CallAnimEnd(UActor* a)
@@ -259,8 +259,8 @@ namespace KW
 	void TickAnimation(UActor* actor, float elapsed)
 	{
 		// execPollFinishAnim: the latent FinishAnim ends once bAnimFinished is set.
-		if (actor->StateFrame && actor->StateFrame->LatentState == LatentRunState::FinishAnim && actor->bAnimFinished())
-			actor->StateFrame->LatentState = LatentRunState::Continue;
+		if (actor->StateFrame && actor->StateFrame->GetLatentState() == LatentRunState::FinishAnim && actor->bAnimFinished())
+			actor->StateFrame->SetLatentState(LatentRunState::Continue);
 
 		// Transient channels send notifies and AnimEnd to the actor they animate.
 		UActor* animator = (AnimBone(actor) != 0 && bAnimTransient(actor)) ? actor->Owner() : actor;
@@ -339,7 +339,7 @@ namespace KW
 
 				if (oldFrame < actor->AnimLast())
 				{
-					if (actor->StateFrame && actor->StateFrame->LatentState == LatentRunState::FinishAnim)
+					if (actor->StateFrame && actor->StateFrame->GetLatentState() == LatentRunState::FinishAnim)
 						actor->bAnimFinished() = true;
 					CallAnimEnd(actor); // looping AnimEnd goes to the channel itself, not the animator
 				}
@@ -355,8 +355,8 @@ namespace KW
 			}
 		}
 
-		if (actor->StateFrame && actor->StateFrame->LatentState == LatentRunState::FinishAnim && actor->bAnimFinished())
-			actor->StateFrame->LatentState = LatentRunState::Continue;
+		if (actor->StateFrame && actor->StateFrame->GetLatentState() == LatentRunState::FinishAnim && actor->bAnimFinished())
+			actor->StateFrame->SetLatentState(LatentRunState::Continue);
 	}
 
 	//

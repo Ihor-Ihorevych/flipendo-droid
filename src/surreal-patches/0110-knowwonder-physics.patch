@@ -155,7 +155,7 @@ index 32736319..573aeef7 100644
  
  	void InitActorZone() override;
 diff --git a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
-index de07166c..f4808bd3 100644
+index 48026a40..a7a3f31e 100644
 --- a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
 @@ -7,11 +7,10 @@
@@ -171,62 +171,62 @@ index de07166c..f4808bd3 100644
 -
  	if (StateFrame)
  	{
- 		if (StateFrame->LatentState == LatentRunState::MoveTo)
-@@ -20,6 +19,11 @@ void UPawn::Tick(float elapsed)
+ 		LatentRunState latentState = StateFrame->GetLatentState();
+@@ -21,6 +20,11 @@ void UPawn::Tick(float elapsed)
  			if (TickMoveTo(Destination()))
- 				StateFrame->LatentState = LatentRunState::Continue;
+ 				StateFrame->SetLatentState(LatentRunState::Continue);
  		}
-+		else if (StateFrame->LatentState == LatentRunState::MoveToward && engine->LaunchInfo.IsKnowWonder()) // APawn::execPollMoveToward (AlterDestination)
++		else if (latentState == LatentRunState::MoveToward && engine->LaunchInfo.IsKnowWonder()) // APawn::execPollMoveToward (AlterDestination)
 +		{
 +			if (KW::PawnPollMoveToward(this))
-+				StateFrame->LatentState = LatentRunState::Continue;
++				StateFrame->SetLatentState(LatentRunState::Continue);
 +		}
- 		else if (StateFrame->LatentState == LatentRunState::MoveToward)
+ 		else if (latentState == LatentRunState::MoveToward)
  		{
  			if (MoveTarget())
-@@ -40,6 +44,11 @@ void UPawn::Tick(float elapsed)
+@@ -41,6 +45,11 @@ void UPawn::Tick(float elapsed)
  			if (TickMoveTo(Destination()))
- 				StateFrame->LatentState = LatentRunState::Continue;
+ 				StateFrame->SetLatentState(LatentRunState::Continue);
  		}
-+		else if (StateFrame->LatentState == LatentRunState::StrafeFacing && engine->LaunchInfo.IsKnowWonder()) // APawn::execPollStrafeFacing (AlterDestination)
++		else if (latentState == LatentRunState::StrafeFacing && engine->LaunchInfo.IsKnowWonder()) // APawn::execPollStrafeFacing (AlterDestination)
 +		{
 +			if (KW::PawnPollStrafeFacing(this))
-+				StateFrame->LatentState = LatentRunState::Continue;
++				StateFrame->SetLatentState(LatentRunState::Continue);
 +		}
- 		else if (StateFrame->LatentState == LatentRunState::StrafeFacing)
+ 		else if (latentState == LatentRunState::StrafeFacing)
  		{
  			if (engine->LaunchInfo.ue1Version > 219 && FaceTarget())
-@@ -64,7 +73,7 @@ void UPawn::Tick(float elapsed)
+@@ -65,7 +74,7 @@ void UPawn::Tick(float elapsed)
  		}
- 		else if (StateFrame->LatentState == LatentRunState::TurnTo)
+ 		else if (latentState == LatentRunState::TurnTo)
  		{
 -			if (TickRotateTo(Focus()))
 +			if (engine->LaunchInfo.IsKnowWonder() ? KW::PawnTurnStep(this, Focus()) : TickRotateTo(Focus()))
- 				StateFrame->LatentState = LatentRunState::Continue;
+ 				StateFrame->SetLatentState(LatentRunState::Continue);
  		}
- 		else if (StateFrame->LatentState == LatentRunState::TurnToward)
-@@ -72,7 +81,7 @@ void UPawn::Tick(float elapsed)
+ 		else if (latentState == LatentRunState::TurnToward)
+@@ -73,7 +82,7 @@ void UPawn::Tick(float elapsed)
  			if (engine->LaunchInfo.ue1Version > 219 && FaceTarget())
  			{
  				Focus() = FaceTarget()->Location();
 -				if (TickRotateTo(FaceTarget()->Location()))
 +				if (engine->LaunchInfo.IsKnowWonder() ? KW::PawnTurnStep(this, Focus()) : TickRotateTo(FaceTarget()->Location()))
- 					StateFrame->LatentState = LatentRunState::Continue;
+ 					StateFrame->SetLatentState(LatentRunState::Continue);
  			}
  			else if (engine->LaunchInfo.ue1Version <= 219)
-@@ -86,6 +95,11 @@ void UPawn::Tick(float elapsed)
- 				StateFrame->LatentState = LatentRunState::Continue;
+@@ -87,6 +96,11 @@ void UPawn::Tick(float elapsed)
+ 				StateFrame->SetLatentState(LatentRunState::Continue);
  			}
  		}
-+		else if (StateFrame->LatentState == LatentRunState::WaitForLanding && engine->LaunchInfo.IsKnowWonder()) // APawn::execPollWaitForLanding (LongFall)
++		else if (latentState == LatentRunState::WaitForLanding && engine->LaunchInfo.IsKnowWonder()) // APawn::execPollWaitForLanding (LongFall)
 +		{
 +			if (KW::PawnPollWaitForLanding(this, elapsed))
-+				StateFrame->LatentState = LatentRunState::Continue;
++				StateFrame->SetLatentState(LatentRunState::Continue);
 +		}
- 		else if (StateFrame->LatentState == LatentRunState::WaitForLanding)
+ 		else if (latentState == LatentRunState::WaitForLanding)
  		{
  			if (Physics() != PHYS_Falling)
-@@ -98,6 +112,22 @@ void UPawn::Tick(float elapsed)
+@@ -99,6 +113,22 @@ void UPawn::Tick(float elapsed)
  			}
  		}
  	}
@@ -249,7 +249,7 @@ index de07166c..f4808bd3 100644
  
  	UActor::Tick(elapsed);
  
-@@ -179,6 +209,12 @@ void UPawn::Tick(float elapsed)
+@@ -180,6 +210,12 @@ void UPawn::Tick(float elapsed)
  
  void UPawn::TickRotating(float elapsed)
  {
@@ -262,7 +262,7 @@ index de07166c..f4808bd3 100644
  	if (Physics() == PHYS_Spider)
  		return;
  
-@@ -220,6 +256,9 @@ void UPawn::TickRotating(float elapsed)
+@@ -221,6 +257,9 @@ void UPawn::TickRotating(float elapsed)
  
  bool UPawn::TickRotateTo(const vec3& target)
  {
@@ -272,7 +272,7 @@ index de07166c..f4808bd3 100644
  	if (Physics() == PHYS_Spider)
  		return true;
  
-@@ -236,6 +275,9 @@ bool UPawn::TickRotateTo(const vec3& target)
+@@ -237,6 +276,9 @@ bool UPawn::TickRotateTo(const vec3& target)
  
  bool UPawn::TickMoveTo(const vec3& target)
  {
@@ -282,16 +282,16 @@ index de07166c..f4808bd3 100644
  	if (MoveTimer() < 0.0f)
  		return true;
  
-@@ -273,6 +315,8 @@ void UPawn::MoveTo(const vec3& newDestination, float speed)
+@@ -274,6 +316,8 @@ void UPawn::MoveTo(const vec3& newDestination, float speed)
  	SetMoveDuration(newDestination - Location());
  	if (StateFrame)
- 		StateFrame->LatentState = LatentRunState::MoveTo;
+ 		StateFrame->SetLatentState(LatentRunState::MoveTo);
 +	if (engine->LaunchInfo.IsKnowWonder()) // execMoveTo takes the first step at once
 +		KW::PawnStartMove(this);
  }
  
  void UPawn::MoveToward(UActor* newTarget, float speed)
-@@ -286,11 +330,13 @@ void UPawn::MoveToward(UActor* newTarget, float speed)
+@@ -287,11 +331,13 @@ void UPawn::MoveToward(UActor* newTarget, float speed)
  	bReducedSpeed() = false;
  	DesiredSpeed() = clamp(speed, 0.0f, MaxDesiredSpeed());
  	if (UObject::TryCast<UPawn>(newTarget))
@@ -300,16 +300,16 @@ index de07166c..f4808bd3 100644
  	else
  		SetMoveDuration(newTarget->Location() - Location());
  	if (StateFrame)
- 		StateFrame->LatentState = LatentRunState::MoveToward;
+ 		StateFrame->SetLatentState(LatentRunState::MoveToward);
 +	if (engine->LaunchInfo.IsKnowWonder()) // execMoveToward takes the first step at once
 +		KW::PawnStartMove(this);
  }
  
  void UPawn::StrafeFacing(const vec3& newDestination, UActor* newTarget)
-@@ -304,6 +350,13 @@ void UPawn::StrafeFacing(const vec3& newDestination, UActor* newTarget)
+@@ -305,6 +351,13 @@ void UPawn::StrafeFacing(const vec3& newDestination, UActor* newTarget)
  	SetMoveDuration(newDestination - Location());
  	if (StateFrame)
- 		StateFrame->LatentState = LatentRunState::StrafeFacing;
+ 		StateFrame->SetLatentState(LatentRunState::StrafeFacing);
 +	if (engine->LaunchInfo.IsKnowWonder()) // execStrafeFacing: StrafeTo's speed, faces the target, first step at once
 +	{
 +		bReducedSpeed() = false;
@@ -320,10 +320,10 @@ index de07166c..f4808bd3 100644
  }
  
  void UPawn::StrafeTo(const vec3& newDestination, const vec3& newFocus)
-@@ -316,12 +369,16 @@ void UPawn::StrafeTo(const vec3& newDestination, const vec3& newFocus)
+@@ -317,12 +370,16 @@ void UPawn::StrafeTo(const vec3& newDestination, const vec3& newFocus)
  	SetMoveDuration(newDestination - Location());
  	if (StateFrame)
- 		StateFrame->LatentState = LatentRunState::StrafeTo;
+ 		StateFrame->SetLatentState(LatentRunState::StrafeTo);
 +	if (engine->LaunchInfo.IsKnowWonder()) // execStrafeTo takes the first step at once
 +		KW::PawnStartMove(this);
  }
@@ -335,9 +335,9 @@ index de07166c..f4808bd3 100644
 +	if (engine->LaunchInfo.IsKnowWonder()) // execTurnTo starts turning at once
 +		KW::PawnTurnStep(this, Focus());
  	if (StateFrame)
- 		StateFrame->LatentState = LatentRunState::TurnTo;
+ 		StateFrame->SetLatentState(LatentRunState::TurnTo);
  }
-@@ -334,12 +391,25 @@ void UPawn::TurnToward(UActor* newTarget)
+@@ -335,12 +392,25 @@ void UPawn::TurnToward(UActor* newTarget)
  	if (engine->LaunchInfo.ue1Version > 219)
  		FaceTarget() = newTarget;
  	Focus() = newTarget->Location();
@@ -347,8 +347,8 @@ index de07166c..f4808bd3 100644
 +	// a state frame without code (stopped, or a state with no labels) is never polled in UE1, so the latent
 +	// turn does nothing. HP1's spell lesson calls Teacher.TurnToward on Tut1Quirrell in his empty 'idle' state; resuming
 +	// that frame ran off the end ("Unexpected end of code statements").
-+	if (StateFrame && !(engine->LaunchInfo.IsKnowWonder() && StateFrame->LatentState == LatentRunState::Stop))
- 		StateFrame->LatentState = LatentRunState::TurnToward;
++	if (StateFrame && !(engine->LaunchInfo.IsKnowWonder() && StateFrame->GetLatentState() == LatentRunState::Stop))
+ 		StateFrame->SetLatentState(LatentRunState::TurnToward);
  }
  
  void UPawn::WaitForLanding()
@@ -357,12 +357,12 @@ index de07166c..f4808bd3 100644
 +	{
 +		LatentFloat() = 2.5f;
 +		if (StateFrame && Physics() == PHYS_Falling)
-+			StateFrame->LatentState = LatentRunState::WaitForLanding;
++			StateFrame->SetLatentState(LatentRunState::WaitForLanding);
 +		return;
 +	}
 +
  	if (StateFrame)
- 		StateFrame->LatentState = LatentRunState::WaitForLanding;
+ 		StateFrame->SetLatentState(LatentRunState::WaitForLanding);
  }
 diff --git a/SurrealEngine/Packages/Engine/Actors/Pawn/UPlayerPawn.cpp b/SurrealEngine/Packages/Engine/Actors/Pawn/UPlayerPawn.cpp
 index e3c87b45..cafa042c 100644

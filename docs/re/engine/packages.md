@@ -13,6 +13,20 @@ SurrealEngine only read the one-byte form and stopped with `ObjectStream::ReadSt
 count. Lev_Tut3b has such a string, so the level change from Lev_Tut3 crashed. Flipendo (engine fixes patch, any game)
 reads the UTF-16 form and keeps the string as UTF-8.
 
+## Language files (`appFindPackageFile` [HP1 Core 0x10153F40])
+
+A package can have a language file next to it: the language code goes before the extension (`AllDialog.int_uax`,
+`MenuArt.int_utx`, `AllEmote.eng_uax` in HP1's retail folders). For each Paths folder the original tries the plain
+name first (`AllDialog.uax`) and takes it when it exists. Only when it's missing does it try
+`<name>.<language>_<ext>`, and only for a language other than `int`. An English game never loads the `int_` files.
+HP1's `AllDialog.int_uax` is a different, smaller file than `AllDialog.uax`.
+
+SurrealEngine (since its 2026-10-14 localization change) prefers the language file whenever one exists, and built its
+path with the folder twice, so HP1's dialogue failed to load. Flipendo keeps the plain file first for KnowWonder games
+(core patch) and fixes the path for every game.
+
 ## HP1 and HP2
 
-HP2's `FString` serializer in Core.dll is identical to HP1's (the HP1 vs HP2 code comparison).
+HP2's `FString` serializer in Core.dll is identical to HP1's (the HP1 vs HP2 code comparison), and so is
+`appFindPackageFile` (same code, other addresses). HP2's retail folders carry language files for many
+languages (`MenuArt.bra_utx`, `MenuArt.ger_utx`, ...).

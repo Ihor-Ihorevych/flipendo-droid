@@ -204,7 +204,7 @@ namespace KW
 				a->Velocity().x, a->Velocity().y, a->Velocity().z, a->Acceleration().x, a->Acceleration().y, (int)a->Physics(),
 				a->Rotation().Yaw & 0xffff, a->Rotation().Pitch & 0xffff, a->DesiredRotation().Yaw & 0xffff, a->AnimSequence().ToString().c_str(), a->AnimRate(), a->AnimFrame(), TweenAlpha(a));
 			if (a->StateFrame)
-				n += snprintf(buf + n, sizeof(buf) - n, " latent=%d", (int)a->StateFrame->LatentState);
+				n += snprintf(buf + n, sizeof(buf) - n, " latent=%d", (int)a->StateFrame->GetLatentState());
 			if (UPawn* pawn = UObject::TryCast<UPawn>(a))
 				n += snprintf(buf + n, sizeof(buf) - n, " ground=%.0f desired=%.2f rrate=%d walking=%d",
 					pawn->GroundSpeed(), pawn->DesiredSpeed(), pawn->RotationRate().Yaw, (int)pawn->bIsWalking());

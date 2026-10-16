@@ -1,7 +1,7 @@
 flipendo: KnowWonder actor tick, native actors (ParticleFX, Wind), animation
 
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor.cpp b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
-index 29c45a1c..462b1fed 100644
+index 5f9e5e39..9e23983d 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
 @@ -9,6 +9,7 @@
@@ -19,7 +19,7 @@ index 29c45a1c..462b1fed 100644
 +	// HP1's ULevel::DestroyActor calls EndState first when the actor is in a state, before the actor is marked deleted
 +	// (CallEvent skips a deleted actor). Harry's Target draws the spell symbol on a creature
 +	// (baseChar.bGestureOnTargeting false: imps, Peeves, gnomes) from its EndState when the cast destroys it.
-+	if (engine->LaunchInfo.IsKnowWonder() && StateFrame && StateFrame->Func && IsEventEnabled(EventName::EndState))
++	if (engine->LaunchInfo.IsKnowWonder() && StateFrame && StateFrame->GetFunc() && IsEventEnabled(EventName::EndState))
 +	{
 +		CallEvent(this, EventName::EndState);
 +		if (bDeleteMe()) // EndState destroyed it
@@ -48,7 +48,7 @@ index 29c45a1c..462b1fed 100644
  	if (engine->LaunchInfo.IsDeusEx())
  	{
  		DistanceFromPlayer() = length(engine->viewport->Actor()->Location() - Location());
-@@ -182,12 +203,16 @@ void UActor::Tick(float elapsed)
+@@ -182,13 +203,17 @@ void UActor::Tick(float elapsed)
  		CallEvent(this, EventName::Tick, { ExpressionValue::FloatValue(elapsed) });
  	}
  
@@ -57,17 +57,18 @@ index 29c45a1c..462b1fed 100644
 +
  	if (StateFrame)
  	{
- 		if (StateFrame->LatentState == LatentRunState::Sleep)
+ 		LatentRunState latentState = StateFrame->GetLatentState();
+ 		if (latentState == LatentRunState::Sleep)
  		{
 -			SleepTimeLeft = std::max(SleepTimeLeft - elapsed, 0.0f);
 -			if (SleepTimeLeft == 0.0f)
 +			// the time left lives in LatentFloat (saved with the actor); done once under half a tick
 +			LatentFloat() -= elapsed;
 +			if (LatentFloat() < elapsed * 0.5f)
- 				StateFrame->LatentState = LatentRunState::Continue;
+ 				StateFrame->SetLatentState(LatentRunState::Continue);
  		}
- 		else if (StateFrame->LatentState == LatentRunState::FinishInterpolation)
-@@ -202,7 +227,9 @@ void UActor::Tick(float elapsed)
+ 		else if (latentState == LatentRunState::FinishInterpolation)
+@@ -203,7 +228,9 @@ void UActor::Tick(float elapsed)
  		}
  	}
  
@@ -78,7 +79,7 @@ index 29c45a1c..462b1fed 100644
  
  	if (TimerRate() > 0.0f) // Role() == ROLE_Authority && RemoteRole() == ROLE_AutonomousProxy
  	{
-@@ -215,6 +242,12 @@ void UActor::Tick(float elapsed)
+@@ -216,6 +243,12 @@ void UActor::Tick(float elapsed)
  			CallEvent(this, EventName::Timer);
  		}
  	}
@@ -91,7 +92,7 @@ index 29c45a1c..462b1fed 100644
  }
  
  bool UActor::Move(const vec3& delta)
-@@ -395,3 +428,13 @@ float UActor::AIVisibility(std::optional<bool> bIncludeVelocity)
+@@ -396,3 +429,13 @@ float UActor::AIVisibility(std::optional<bool> bIncludeVelocity)
  	//LogMessage(Name.ToString() + ": AIVisibility");
  	return 0.0f;
  }
@@ -136,7 +137,7 @@ index 2bb8bdf4..000a341d 100644
  	vec3& Acceleration() { return Value<vec3>(PropOffsets_Actor.Acceleration); }
  	uint8_t& AmbientGlow() { return Value<uint8_t>(PropOffsets_Actor.AmbientGlow); }
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
-index aceba9af..17b67871 100644
+index efc5b3c6..9d9c5fed 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
 @@ -6,6 +6,7 @@
@@ -157,7 +158,7 @@ index aceba9af..17b67871 100644
 +		return;
 +	}
 +
- 	if (StateFrame && StateFrame->LatentState == LatentRunState::FinishAnim)
+ 	if (StateFrame && StateFrame->GetLatentState() == LatentRunState::FinishAnim)
  	{
  		if (!IsAnimating() || AnimFrame() >= AnimLast())
 diff --git a/SurrealEngine/Packages/Engine/Resources/Mesh/UAnimation.cpp b/SurrealEngine/Packages/Engine/Resources/Mesh/UAnimation.cpp
