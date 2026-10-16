@@ -28,6 +28,8 @@ SurrealEngine/Package/IniFile.*
 SurrealEngine/Package/Package.*
 SurrealEngine/Package/ObjectStream.h
 SurrealEngine/Native/NObject.cpp
+SurrealEngine/PropertyOffsets.cpp
+SurrealEngine/Audio/AudioSource.cpp
 SurrealEngine/UI/**
 SurrealEngine/ObjectTravelInfo.*
 SurrealEngine/Audio/**
@@ -37,6 +39,8 @@ SurrealEngine/Packages/Engine/Resources/Level/UModel.cpp
 CMakeLists.txt
 SurrealEngine/Package/PackageManager.*
 SurrealEngine/Engine.*
+SurrealEngine/Native/NCanvas.cpp
+SurrealEngine/Packages/Engine/Actors/UActor_Base.cpp
 SurrealEngine/Native/**
 
 [0110-knowwonder-physics.patch] flipendo: KnowWonder physics, pawn movement and collision
@@ -58,8 +62,9 @@ SurrealEngine/RenderDevice/**
 SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp
 SurrealEngine/Packages/Engine/Resources/Textures/**
 
-[0140-knowwonder-audio.patch] flipendo: KnowWonder sound and music
+[0140-knowwonder-audio.patch] flipendo: KnowWonder sound and music (HP2's XA ADPCM sounds)
 SurrealEngine/Packages/Engine/Subsystems/**
+SurrealEngine/Packages/Engine/Resources/USound.cpp
 
 # Written by hand (python is not needed): a file already routed above keeps its earlier owner when the patches are refreshed.
 [0200-android-port.patch] flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CPU, per-frame command pool reset, no gl_ClipDistance, upright swapchain, absolute touch mouse, no backtrace()

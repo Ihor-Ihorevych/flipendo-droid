@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <b>Flipendo Droid: Harry Potter and the Sorcerer's Stone (2001) on your Android phone.</b><br>
+  <b>Flipendo Droid: Harry Potter and the Sorcerer's Stone (2001) and the Chamber of Secrets (2002) on your Android phone.</b><br>
   <sub>The original PC game, played with touch controls or a gamepad. Based on <a href="https://github.com/kroplabeskidu/flipendo">Flipendo</a>.</sub>
 </p>
 

@@ -31,6 +31,7 @@ import java.util.List;
  */
 public class SetupActivity extends Activity {
     private static final String BUNDLE = "gamedata";
+    private static final String HP2_BUNDLE = "hp2data"; // Harry Potter 2 in a self pack (build-apk.sh --hp2)
     private static final String MARKER = ".selfpack-installed";
 
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -138,13 +139,62 @@ public class SetupActivity extends Activity {
         card.setPadding(dp(20), dp(18), dp(20), dp(20));
         card.setBackground(rounded(CARD, 20, 0x22FFFFFF));
 
+        // the game: Harry Potter 1 or 2, each with its own folder, saves and settings
+        TextView gameLabel = new TextView(this);
+        gameLabel.setTextColor(GOLD);
+        gameLabel.setTextSize(12);
+        gameLabel.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        gameLabel.setLetterSpacing(0.12f);
+        gameLabel.setText("GAME");
+        card.addView(gameLabel);
+
+        LinearLayout gameSegments = new LinearLayout(this);
+        gameSegments.setOrientation(LinearLayout.HORIZONTAL);
+        gameSegments.setPadding(dp(4), dp(4), dp(4), dp(4));
+        gameSegments.setBackground(rounded(0x14FFFFFF, 14, 0x22FFFFFF));
+        hp1Pill = gamePill("Harry Potter 1", "hp1");
+        hp2Pill = gamePill("Harry Potter 2", "hp2");
+        gameSegments.addView(hp1Pill, new LinearLayout.LayoutParams(0, dp(44), 1f));
+        LinearLayout.LayoutParams hp2p = new LinearLayout.LayoutParams(0, dp(44), 1f);
+        hp2p.leftMargin = dp(4);
+        gameSegments.addView(hp2Pill, hp2p);
+        LinearLayout.LayoutParams gsp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        gsp.topMargin = dp(8);
+        card.addView(gameSegments, gsp);
+        showGame();
+
+        // HP2: the saved games (six slots, each with the picture of its level) or a new game
+        slotsBox = new LinearLayout(this);
+        slotsBox.setOrientation(LinearLayout.VERTICAL);
+        TextView slotsLabel = new TextView(this);
+        slotsLabel.setTextColor(GOLD);
+        slotsLabel.setTextSize(12);
+        slotsLabel.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        slotsLabel.setLetterSpacing(0.12f);
+        slotsLabel.setText("SAVED GAME");
+        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        slp.topMargin = dp(16);
+        slotsBox.addView(slotsLabel, slp);
+        android.widget.HorizontalScrollView slotsScroll = new android.widget.HorizontalScrollView(this);
+        slotsScroll.setHorizontalScrollBarEnabled(false);
+        slotsRow = new LinearLayout(this);
+        slotsRow.setOrientation(LinearLayout.HORIZONTAL);
+        slotsScroll.addView(slotsRow);
+        LinearLayout.LayoutParams ssp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        ssp.topMargin = dp(8);
+        slotsBox.addView(slotsScroll, ssp);
+        card.addView(slotsBox);
+        refreshSlots();
+
         TextView label = new TextView(this);
         label.setTextColor(GOLD);
         label.setTextSize(12);
         label.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
         label.setLetterSpacing(0.12f);
         label.setText("RENDERER");
-        card.addView(label);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(16);
+        card.addView(label, lp);
 
         // a segmented control: OpenGL ES | Vulkan
         LinearLayout segments = new LinearLayout(this);
@@ -233,6 +283,242 @@ public class SetupActivity extends Activity {
         return card;
     }
 
+    private TextView hp1Pill, hp2Pill;
+    private LinearLayout slotsBox, slotsRow;
+    static final String PREF_START = "hp2Start"; // "new" or "load:N": what Play does in HP2
+    static final String START_FILE = "/sdcard/FlipendoHP/hp2_start.txt"; // read by HP2::OpenStartMenu
+
+    /** One half of the game control (a gamepad moves between the halves and A picks one). */
+    private TextView gamePill(String text, final String value) {
+        TextView b = new TextView(this);
+        b.setText(text);
+        b.setTextSize(15);
+        b.setGravity(Gravity.CENTER);
+        b.setFocusable(true);
+        b.setOnClickListener(new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) { chooseGame(value); }
+        });
+        b.setOnFocusChangeListener(new android.view.View.OnFocusChangeListener() {
+            public void onFocusChange(android.view.View v, boolean focused) { showGame(); }
+        });
+        return b;
+    }
+
+    private void showGame() {
+        boolean two = isHp2();
+        stylePill(hp1Pill, !two);
+        stylePill(hp2Pill, two);
+        refreshSlots();
+    }
+
+    /** Picks the game for this and later launches; the game data is looked for again (its own folder). */
+    private void chooseGame(String value) {
+        if (value.equals(isHp2() ? "hp2" : "hp1")) {
+            return;
+        }
+        getSharedPreferences("setup", MODE_PRIVATE).edit().putString(PREF_GAME, value).apply();
+        showGame();
+        if (started) {
+            gameReady = false;
+            backToStart();
+        }
+    }
+
+    // ---- HP2's saved games: six slots with a picture, or a new game --------------------------------------------------
+
+    /** The chosen game's folder, or null (looked for the way the launcher does: the default place, then the picked folder). */
+    private File hp2Folder() {
+        File found = findGameFor(true, new File(HP2_DIR), 2);
+        String picked = getSharedPreferences("setup", MODE_PRIVATE).getString(PREF_GAME_DIR_HP2, null);
+        if (found == null && picked != null) {
+            found = findGameFor(true, new File(picked), 2);
+        }
+        return found;
+    }
+
+    /** The folder the saves are in: Save (the ini's SavePath ../Save) or save (a Windows copy), whichever exists. */
+    private static File saveFolder(File game) {
+        File upper = new File(game, "Save");
+        File lower = new File(game, "save");
+        return upper.isDirectory() ? upper : (lower.isDirectory() ? lower : upper);
+    }
+
+    private static final class SlotInfo {
+        boolean exists;
+        String map = "";
+        long time;
+    }
+
+    private SlotInfo[] readSlots() {
+        SlotInfo[] slots = new SlotInfo[6];
+        File game = hasStorageAccess(this) ? hp2Folder() : null;
+        File folder = game != null ? saveFolder(game) : null;
+        File[] files = folder != null ? folder.listFiles() : null;
+        for (int i = 0; i < 6; i++) {
+            slots[i] = new SlotInfo();
+            if (files == null) {
+                continue;
+            }
+            for (File f : files) {
+                String n = f.getName().toLowerCase(java.util.Locale.ROOT);
+                if (n.startsWith("save" + i + ".") && f.length() > 0) {
+                    slots[i].exists = true;
+                }
+            }
+            if (slots[i].exists) {
+                String info = readSmallFile(new File(folder, "Slot" + i + ".txt"));
+                if (info != null) {
+                    String[] lines = info.split("\n");
+                    slots[i].map = lines.length > 0 ? lines[0].trim() : "";
+                    try {
+                        slots[i].time = lines.length > 1 ? Long.parseLong(lines[1].trim()) : 0;
+                    } catch (NumberFormatException ignored) {
+                    }
+                }
+            }
+        }
+        return slots;
+    }
+
+    /** The level picture the original game ships (System/Thumbnails/<map>.bmp), or null. */
+    private android.graphics.Bitmap thumbnail(File game, String map) {
+        if (game == null || map == null || map.isEmpty()) {
+            return null;
+        }
+        String base = map.endsWith(".unr") ? map.substring(0, map.length() - 4) : map;
+        File thumbs = findIgnoringCase(new File(game, "System"), "Thumbnails");
+        if (thumbs == null) {
+            return null;
+        }
+        File file = findIgnoringCase(thumbs, base + ".bmp");
+        return file != null ? android.graphics.BitmapFactory.decodeFile(file.getPath()) : null;
+    }
+
+    /** The slots row: New game, then slots 1..6 (a game's own picture and level, or "Empty"). */
+    private void refreshSlots() {
+        if (slotsBox == null) {
+            return;
+        }
+        boolean two = isHp2();
+        slotsBox.setVisibility(two ? android.view.View.VISIBLE : android.view.View.GONE);
+        if (!two) {
+            return;
+        }
+        SlotInfo[] slots = readSlots();
+        File game = hasStorageAccess(this) ? hp2Folder() : null;
+        android.content.SharedPreferences prefs = getSharedPreferences("setup", MODE_PRIVATE);
+        String start = prefs.getString(PREF_START, null);
+        // the newest save is the default; without one, a new game
+        int newest = -1;
+        for (int i = 0; i < 6; i++) {
+            if (slots[i].exists && (newest < 0 || slots[i].time > slots[newest].time)) {
+                newest = i;
+            }
+        }
+        boolean valid = "new".equals(start);
+        if (start != null && start.startsWith("load:")) {
+            try {
+                int n = Integer.parseInt(start.substring(5));
+                valid = n >= 0 && n < 6 && slots[n].exists;
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        if (!valid) {
+            start = newest >= 0 ? "load:" + newest : "new";
+            prefs.edit().putString(PREF_START, start).apply();
+        }
+
+        slotsRow.removeAllViews();
+        slotsRow.addView(slotCard("New game", "Start from the beginning", null, "new", start.equals("new")));
+        for (int i = 0; i < 6; i++) {
+            String title = "Slot " + (i + 1);
+            String sub;
+            android.graphics.Bitmap pic = null;
+            if (slots[i].exists) {
+                sub = slots[i].map.isEmpty() ? "Saved game" : slots[i].map;
+                if (slots[i].time > 0) {
+                    sub += "\n" + android.text.format.DateFormat.format("d MMM, HH:mm", slots[i].time * 1000L);
+                }
+                pic = thumbnail(game, slots[i].map);
+            } else {
+                sub = "Empty";
+            }
+            slotsRow.addView(slotCard(title, sub, pic, slots[i].exists ? "load:" + i : null, start.equals("load:" + i)));
+        }
+    }
+
+    /** One card of the row: a picture (or a dark box), the title and a line under it. `value` null: not selectable. */
+    private android.view.View slotCard(String title, String sub, android.graphics.Bitmap pic, final String value, boolean selected) {
+        LinearLayout c = new LinearLayout(this);
+        c.setOrientation(LinearLayout.VERTICAL);
+        c.setPadding(dp(6), dp(6), dp(6), dp(6));
+        c.setBackground(rounded(0x14FFFFFF, 12, selected ? GOLD : 0x22FFFFFF));
+        android.widget.ImageView image = new android.widget.ImageView(this);
+        image.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
+        image.setBackgroundColor(0xFF101018);
+        if (pic != null) {
+            image.setImageBitmap(pic);
+        }
+        c.addView(image, new LinearLayout.LayoutParams(dp(132), dp(74)));
+        TextView t = new TextView(this);
+        t.setText(title);
+        t.setTextColor(selected ? GOLD : 0xFFFFFFFF);
+        t.setTextSize(13);
+        t.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        c.addView(t);
+        TextView s = new TextView(this);
+        s.setText(sub);
+        s.setTextColor(MUTED);
+        s.setTextSize(11);
+        s.setMaxLines(3);
+        c.addView(s, new LinearLayout.LayoutParams(dp(132), LinearLayout.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.rightMargin = dp(8);
+        c.setLayoutParams(lp);
+        c.setAlpha(value == null ? 0.5f : 1f);
+        if (value != null) {
+            c.setFocusable(true);
+            c.setOnClickListener(new android.view.View.OnClickListener() {
+                public void onClick(android.view.View v) {
+                    getSharedPreferences("setup", MODE_PRIVATE).edit().putString(PREF_START, value).apply();
+                    refreshSlots();
+                }
+            });
+        }
+        return c;
+    }
+
+    /** What Play does in HP2, for HP2::OpenStartMenu: "load N" or "new N" (N: the slot, 0..5). Removed for HP1. */
+    private void writeStartFile() {
+        File file = new File(START_FILE);
+        if (!isHp2()) {
+            file.delete();
+            return;
+        }
+        String start = getSharedPreferences("setup", MODE_PRIVATE).getString(PREF_START, "new");
+        String line;
+        if (start.startsWith("load:")) {
+            line = "load " + start.substring(5);
+        } else {
+            // a new game goes to the first empty slot (the first one when all six are used)
+            SlotInfo[] slots = readSlots();
+            int slot = 0;
+            for (int i = 0; i < 6; i++) {
+                if (!slots[i].exists) {
+                    slot = i;
+                    break;
+                }
+            }
+            line = "new " + slot;
+        }
+        try {
+            new File(FlipendoActivity.GAME_DIR).mkdirs();
+            writeSmallFile(file, line);
+        } catch (IOException e) {
+            android.util.Log.e("flipendo", "could not write the start choice: " + e);
+        }
+    }
+
     /** One half of the renderer control (a gamepad moves between the halves and A picks one). */
     private TextView segment(String text, final String value) {
         TextView b = new TextView(this);
@@ -318,6 +604,7 @@ public class SetupActivity extends Activity {
             restoreRenderer();
         }
         showRenderer(); // readable only once storage access is granted
+        refreshSlots();
         if (splashUntil == Long.MAX_VALUE) {
             splashUntil = android.os.SystemClock.uptimeMillis() + 800; // back from the channel
             tryStart();
@@ -381,6 +668,14 @@ public class SetupActivity extends Activity {
     private void begin() {
         new Thread(new Runnable() {
             public void run() {
+                // a folder with only Game.exe picked under the HP1 key (an early build) belongs to HP2
+                {
+                    android.content.SharedPreferences p = getSharedPreferences("setup", MODE_PRIVATE);
+                    String old = p.getString(PREF_GAME_DIR, null);
+                    if (old != null && findGameFor(false, new File(old), 2) == null && findGameFor(true, new File(old), 2) != null) {
+                        p.edit().putString(PREF_GAME_DIR_HP2, old).remove(PREF_GAME_DIR).apply();
+                    }
+                }
                 // the in-game language switch's wish becomes the choice
                 File wish = new File(FlipendoActivity.GAME_DIR, LANG_WANT);
                 String wished = readSmallFile(wish);
@@ -402,13 +697,24 @@ public class SetupActivity extends Activity {
                     }
                 }
                 installGameData();
+                installHp2Data();
                 // the default place first (a self pack unpacks there), else the folder the player picked
-                File found = findGame(new File(FlipendoActivity.GAME_DIR), 2);
-                final String picked = getSharedPreferences("setup", MODE_PRIVATE).getString(PREF_GAME_DIR, null);
+                final boolean hp2 = isHp2();
+                File found = findGameFor(hp2, new File(defaultGameDir()), 2);
+                final String picked = getSharedPreferences("setup", MODE_PRIVATE).getString(gameDirKey(), null);
                 if (found == null && picked != null) {
-                    found = findGame(new File(picked), 2);
+                    found = findGameFor(hp2, new File(picked), 2);
                 }
-                if (found != null) {
+                // HP2: its own Russian text files from the harry2 folder
+                if (found != null && hp2) {
+                    try {
+                        applyHp2Language(found);
+                    } catch (IOException e) {
+                        android.util.Log.e("flipendo", "the HP2 texts failed: " + e);
+                    }
+                }
+                // the translation, dubbing and movement mod are HP1's
+                if (found != null && !hp2) {
                     try {
                         if (text) {
                             applyTextTranslation(found);
@@ -487,6 +793,9 @@ public class SetupActivity extends Activity {
             ui.postDelayed(launch, left);
             return;
         }
+        if (!getIntent().getBooleanExtra("restart", false)) {
+            writeStartFile();
+        }
         gameReady = false;
         Intent intent = new Intent(this, FlipendoActivity.class);
         if (gameDir != null) {
@@ -496,9 +805,109 @@ public class SetupActivity extends Activity {
         finish();
     }
 
+    /** Which game the launcher starts: "hp1" (default) or "hp2". Each has its own game folder (a pref and a default place). */
+    static final String PREF_GAME = "game";
+    static final String HP2_DIR = "/sdcard/FlipendoHP2";
+    static final String PREF_GAME_DIR_HP2 = "gameDir.hp2";
+
+    private boolean isHp2() {
+        return "hp2".equals(getSharedPreferences("setup", MODE_PRIVATE).getString(PREF_GAME, "hp1"));
+    }
+
+    /** The pref that holds the folder the player picked for the chosen game. */
+    private String gameDirKey() {
+        return isHp2() ? PREF_GAME_DIR_HP2 : PREF_GAME_DIR;
+    }
+
+    /** The default place for the chosen game's data (a self pack unpacks there). */
+    private String defaultGameDir() {
+        return isHp2() ? HP2_DIR : FlipendoActivity.GAME_DIR;
+    }
+
+    /** A folder with the chosen game: System/Game.exe for HP2, System/HP.exe for HP1. */
+    static File findGameFor(boolean hp2, File dir, int depth) {
+        String exe = hp2 ? "Game.exe" : "HP.exe";
+        if (new File(dir, "System/" + exe).isFile() || new File(dir, "system/" + exe).isFile()) {
+            return dir;
+        }
+        File[] children = depth > 0 ? dir.listFiles() : null;
+        if (children != null) {
+            for (File child : children) {
+                if (child.isDirectory() && !child.getName().startsWith(".")) {
+                    File found = findGameFor(hp2, child, depth - 1);
+                    if (found != null) {
+                        return found;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /** HP2's own Russian text files, shipped with the Russian edition in a harry2 folder beside System (Core.rus, Engine.rus,
+     *  Game.rus, HpDialog.rus, HpMenu.rus, Startup.rus...). The game's ini says Language=rus, so with the files in System it
+     *  reads them instead of the .int texts. Put in for a Russian language choice, taken out for any other; HP1's translation,
+     *  dubbing and mod (the rest of the language machinery) are not used for HP2. */
+    private void applyHp2Language(File game) throws IOException {
+        File pack = findIgnoringCase(game, "harry2");
+        File system = systemDir(game);
+        String code = chosenLanguage(this);
+        boolean russian = code != null && code.toLowerCase(java.util.Locale.ROOT).startsWith("ru");
+        // the Russian texts (the .int files of that edition are UTF-16, the harry2 .rus Windows-1251) need the Cyrillic glyphs
+        File textMarker = new File(game, TEXT_MARKER);
+        if (russian) {
+            writeSmallFile(textMarker, "hp2-rus");
+        } else {
+            textMarker.delete();
+        }
+        if (pack == null || !pack.isDirectory() || system == null) {
+            return;
+        }
+        File[] files = pack.listFiles();
+        if (files == null) {
+            return;
+        }
+        byte[] buffer = new byte[1 << 16];
+        for (File f : files) {
+            String name = f.getName();
+            // the text packs only: the DLLs and default.ini of that folder are for the Windows game
+            if (!f.isFile() || !name.toLowerCase(java.util.Locale.ROOT).endsWith(".rus") || name.equalsIgnoreCase("SAPFont.rus")) {
+                continue;
+            }
+            File target = new File(system, name);
+            if (russian) {
+                if (!target.isFile() || target.length() != f.length()) {
+                    java.io.InputStream in = new java.io.FileInputStream(f);
+                    java.io.OutputStream out = new java.io.FileOutputStream(target);
+                    try {
+                        int n;
+                        while ((n = in.read(buffer)) > 0) {
+                            out.write(buffer, 0, n);
+                        }
+                    } finally {
+                        in.close();
+                        out.close();
+                    }
+                }
+            } else if (target.isFile()) {
+                target.delete();
+            }
+        }
+    }
+
+    /** Whether the folder is HP2's (System/Game.exe, no System/HP.exe). */
+    static boolean isHp2Folder(String dir) {
+        if (dir == null) {
+            return false;
+        }
+        File d = new File(dir);
+        return findGameFor(true, d, 0) != null && findGameFor(false, d, 0) == null;
+    }
+
     /** The folder with System/HP.exe: the game folder itself, or one or two levels inside it (a copy made one folder too deep). */
     static File findGame(File dir, int depth) {
-        if (new File(dir, "System/HP.exe").isFile() || new File(dir, "system/HP.exe").isFile()) {
+        if (new File(dir, "System/HP.exe").isFile() || new File(dir, "system/HP.exe").isFile()
+                || new File(dir, "System/Game.exe").isFile() || new File(dir, "system/Game.exe").isFile()) {
             return dir;
         }
         File[] children = depth > 0 ? dir.listFiles() : null;
@@ -716,8 +1125,8 @@ public class SetupActivity extends Activity {
             return;
         }
         // remembered even when it's the wrong one: the next start says so instead of asking from scratch
-        getSharedPreferences("setup", MODE_PRIVATE).edit().putString(PREF_GAME_DIR, path).apply();
-        if (findGame(new File(path), 2) == null) {
+        getSharedPreferences("setup", MODE_PRIVATE).edit().putString(gameDirKey(), path).apply();
+        if (findGameFor(isHp2(), new File(path), 2) == null) {
             showWrongFolder(path);
         } else {
             backToStart();
@@ -738,7 +1147,7 @@ public class SetupActivity extends Activity {
         showCard("This isn't the game folder",
                 "There is no game in " + path + " (looked for System/HP.exe there and one or two folders deeper).\n\n"
                         + "Pick the folder you copied from the PC: it contains System, Maps, Textures, Sounds and Music. "
-                        + "Or copy the game into Internal storage / FlipendoHP and tap Check again.",
+                        + "Or copy the game into Internal storage / " + (isHp2() ? "FlipendoHP2" : "FlipendoHP") + " and tap Check again.",
                 "Choose another folder", pickFolder, "Check again", checkAgain, "Send logs", sendLogs);
     }
 
@@ -1511,6 +1920,51 @@ public class SetupActivity extends Activity {
      * (they replace what is there, but never the saves); the language files are copied when the wanted language is not the
      * installed one (the in-game language switch writes the wish to LANG_WANT).
      */
+    /** A self pack that carries Harry Potter 2 (assets/hp2data) unpacks it into FlipendoHP2 once, when the data changes (its stamp);
+     *  the player's saves are never replaced. */
+    private void installHp2Data() {
+        String stamp;
+        try (InputStream in = getAssets().open(HP2_BUNDLE + "/.stamp")) {
+            byte[] data = new byte[64];
+            int n = in.read(data);
+            stamp = new String(data, 0, Math.max(n, 0)).trim();
+        } catch (IOException e) {
+            return; // this APK has no HP2 inside
+        }
+        File gameDir = new File(HP2_DIR);
+        File marker = new File(gameDir, MARKER);
+        if (marker.exists() && stamp.equals(readSmallFile(marker))) {
+            return;
+        }
+        try {
+            List<String> files = new ArrayList<>();
+            collect(HP2_BUNDLE, files);
+            byte[] buffer = new byte[1 << 20];
+            int done = 0;
+            for (String path : files) {
+                String relative = path.substring(HP2_BUNDLE.length() + 1);
+                done++;
+                if (relative.equals(".stamp")) {
+                    continue;
+                }
+                File out = new File(gameDir, relative);
+                say("Installing Harry Potter 2 " + done + " / " + files.size() + "\n" + relative, done, files.size());
+                if (out.exists() && relative.toLowerCase().startsWith("save/")) {
+                    continue; // the player's saves stay
+                }
+                copyAsset(path, out, buffer);
+            }
+            writeSmallFile(marker, stamp);
+        } catch (IOException e) {
+            android.util.Log.e("flipendo", "installing Harry Potter 2 failed: " + e);
+            say("Installing Harry Potter 2 failed: " + e.getMessage(), 0, 1);
+            try {
+                Thread.sleep(8000);
+            } catch (InterruptedException ignored) {
+            }
+        }
+    }
+
     private void installGameData() {
         String stamp = readStamp();
         if (stamp == null) {

@@ -60,6 +60,29 @@ extern "C" JNIEXPORT void JNICALL Java_io_github_flipendo_spike_FlipendoActivity
 {
 	g_saveRequested = true;
 }
+
+// The HP2 debug menu (FlipendoActivity.openHp2Debug): its commands wait here for the game thread (HP2::TickTouch).
+static std::mutex g_debugCommandsMutex;
+static std::vector<std::string> g_debugCommands;
+
+std::vector<std::string> AndroidTakeDebugCommands()
+{
+	std::lock_guard<std::mutex> lock(g_debugCommandsMutex);
+	std::vector<std::string> commands;
+	commands.swap(g_debugCommands);
+	return commands;
+}
+
+extern "C" JNIEXPORT void JNICALL Java_io_github_flipendo_spike_FlipendoActivity_nativeDebugCommand(JNIEnv* env, jclass, jstring command)
+{
+	const char* chars = env->GetStringUTFChars(command, nullptr);
+	if (chars)
+	{
+		std::lock_guard<std::mutex> lock(g_debugCommandsMutex);
+		g_debugCommands.push_back(chars);
+		env->ReleaseStringUTFChars(command, chars);
+	}
+}
 std::atomic<bool> g_touchDown{false};
 std::atomic<float> g_touchX{0.5f}, g_touchY{0.5f};
 
@@ -330,7 +353,12 @@ static bool LastFatalIsVulkan()
 // A game copied one level too deep (/sdcard/FlipendoHP/FlipendoHP/System/...) is a common mistake.
 static bool HasGame(const std::string& dir)
 {
-	return access((dir + "/System/HP.exe").c_str(), F_OK) == 0 || access((dir + "/system/HP.exe").c_str(), F_OK) == 0;
+	for (const char* exe : { "/System/HP.exe", "/system/HP.exe", "/System/Game.exe", "/system/Game.exe" })
+	{
+		if (access((dir + exe).c_str(), F_OK) == 0)
+			return true;
+	}
+	return false;
 }
 
 static std::string FindGame(const std::string& dir, int depth)

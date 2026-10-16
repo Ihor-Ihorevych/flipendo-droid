@@ -1,4 +1,9 @@
 #include "Precomp.h"
+#include "Packages/Engine/Actors/Brush/UMover.h"
+#include "Packages/Core/UClass.h"
+#include <algorithm>
+#include <vector>
+#include "Utils/Logger.h"
 #include "KWMove.h"
 #include "KW.h"
 #include "Engine.h"
@@ -146,10 +151,62 @@ namespace KW
 	}
 
 	// IDA Engine.dll: ?MoveActor@ULevel@@UAEHPAVAActor@@VFVector@@VFRotator@@AAUFCheckResult@@HHHH@Z [HP1 0x103AA3A0]
+	// The actors being moved in this call chain. A move carries what stands on the actor and pushes what a mover encroaches on, each
+	// through MoveActor again; two actors standing on each other, or a mover and a thing it pushes back into itself (HP2: a spell
+	// hit a statue, the pieces it threw out ended up based on each other), went round forever until the stack gave out.
+	struct MovingScope
+	{
+		static std::vector<UActor*>& Chain() { static std::vector<UActor*> chain; return chain; }
+		bool Entered = false;
+		explicit MovingScope(UActor* actor)
+		{
+			auto& chain = Chain();
+			if (chain.size() >= 32 || std::find(chain.begin(), chain.end(), actor) != chain.end())
+			{
+				static bool reported = false;
+				if (!reported)
+				{
+					reported = true;
+					std::string who;
+					for (UActor* c : chain)
+						who += c->Name.ToString() + " (" + c->Class->Name.ToString() + ", base " + (c->ActorBase() ? c->ActorBase()->Name.ToString() : std::string("none")) + ", standing " + std::to_string((int)c->StandingCount()) + ") > ";
+					LogMessage("MoveActor: " + actor->Name.ToString() + " (" + actor->Class->Name.ToString() + ", base " + (actor->ActorBase() ? actor->ActorBase()->Name.ToString() : std::string("none")) + ") is moved again while it is being moved, chain: " + who + "refused");
+				}
+				return;
+			}
+			chain.push_back(actor);
+			Entered = true;
+		}
+		~MovingScope()
+		{
+			if (Entered)
+				Chain().pop_back();
+		}
+	};
+
 	bool MoveActor(UActor* actor, const vec3& delta, const Rotator& newRotation, CheckResult& hit, bool test, bool ignorePawns, bool ignoreBases, bool noFail)
 	{
 		if (actor->bStatic() || !actor->bMovable())
 			return false;
+		MovingScope moving(actor);
+		if (!moving.Entered)
+			return false;
+
+		// Diagnostics (temporary): what a moving mover carries
+		if (IsMover(actor) && !IsTiny(delta) && !test)
+		{
+			static int reported = 0;
+			if (reported++ < 60)
+			{
+				std::string who;
+				for (UActor* other : engine->Level->Actors)
+				{
+					if (other && other->ActorBase() == actor)
+						who += other->Name.ToString() + " ";
+				}
+				LogMessage("Mover " + actor->Name.ToString() + " moves by " + std::to_string(delta.x) + "," + std::to_string(delta.y) + "," + std::to_string(delta.z) + " standing=" + std::to_string((int)actor->StandingCount()) + " carries: " + who);
+			}
+		}
 
 		if (IsTiny(delta))
 		{
@@ -231,6 +288,9 @@ namespace KW
 			for (UActor* other : based)
 			{
 				if (other->bDeleteMe())
+					continue;
+				// what carries this actor is not carried by it (a base loop), and a mover is carried by nothing
+				if (IsMover(other) || IsBasedOn(actor, other))
 					continue;
 				vec3 rotOffset(0.0f);
 				if (newRotation != actor->Rotation())
@@ -471,9 +531,33 @@ namespace KW
 	// IDA Engine.dll: ?FindBase@AActor@@QAEXXZ [HP1 0x103E4FD0]
 	void FindBase(UActor* actor)
 	{
+		// A mover never stands on anything. HP2's pedestal (Mover33) got the statue standing on it as its base, so the statue was
+		// carried by the pedestal and the pedestal by the statue: the pedestal slid away alone and the statue stayed in the air.
+		if (IsMover(actor))
+		{
+			if (actor->ActorBase())
+				actor->SetBase(nullptr, true);
+			return;
+		}
 		CheckResult hit;
 		vec3 loc = actor->Location();
 		SingleLineCheck(hit, actor, vec3(loc.x, loc.y, loc.z - 8.0f), loc, TRACE_Blocking | TRACE_Movers | TRACE_Level, vec3(actor->CollisionRadius(), actor->CollisionRadius(), actor->CollisionHeight()));
+		// A mover whose top is level with the floor around it (HP2's sliding pedestal under a statue) is hit at the same moment as the
+		// level; the level came first, so what stood on the pedestal stood on the floor and stayed behind when it slid away. A mover
+		// hit about as early as the level's is the base.
+		if (hit.Actor && UObject::TryCast<ULevelInfo>(hit.Actor))
+		{
+			CheckResult moverHit;
+			SingleLineCheck(moverHit, actor, vec3(loc.x, loc.y, loc.z - 8.0f), loc, TRACE_Blocking | TRACE_Movers, vec3(actor->CollisionRadius(), actor->CollisionRadius(), actor->CollisionHeight()));
+			if (moverHit.Actor && UObject::TryCast<UMover>(moverHit.Actor) && moverHit.Time <= hit.Time + 0.03f)
+				hit = moverHit;
+		}
+		if (actor->Class->Name.ToString().rfind("Statue", 0) == 0)
+		{
+			static int reported = 0;
+			if (reported++ < 40)
+				LogMessage("FindBase " + actor->Name.ToString() + " at " + std::to_string(loc.x) + "," + std::to_string(loc.y) + "," + std::to_string(loc.z) + " height " + std::to_string(actor->CollisionHeight()) + " radius " + std::to_string(actor->CollisionRadius()) + " -> " + (hit.Actor ? hit.Actor->Name.ToString() : std::string("none")) + " time " + std::to_string(hit.Time) + " (was " + (actor->ActorBase() ? actor->ActorBase()->Name.ToString() : std::string("none")) + ")");
+		}
 		if (actor->ActorBase() != hit.Actor)
 			actor->SetBase(hit.Actor, true);
 	}

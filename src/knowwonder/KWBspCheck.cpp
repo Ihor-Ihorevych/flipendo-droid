@@ -1,4 +1,5 @@
 #include "Precomp.h"
+#include "Utils/Logger.h"
 #include "KWCheck.h"
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Engine/Actors/Brush/UBrush.h"
@@ -349,8 +350,32 @@ namespace KW
 		{
 			UModel* model = Frame->Model;
 			vec3 extent11 = Extent * 1.1f;
+			// A brush model whose node links lead outside its node list or round in a circle (seen in HP2 when a spell hit a statue:
+			// a segfault from the recursion) is cut short instead of read past the end.
+			if (++Depth > 512)
+			{
+				static bool reported = false;
+				if (!reported)
+				{
+					reported = true;
+					LogMessage("BoxSweep: the BSP walk is deeper than 512 nodes (a loop in the node links of a model with " + std::to_string(model->Nodes.size()) + " nodes), cut short");
+				}
+				Depth--;
+				return;
+			}
+			const int nodeCount = (int)model->Nodes.size();
 			while (node != -1)
 			{
+				if (node < 0 || node >= nodeCount)
+				{
+					static bool reported = false;
+					if (!reported)
+					{
+						reported = true;
+						LogMessage("BoxSweep: a BSP node link (" + std::to_string(node) + ") is outside the model's " + std::to_string(nodeCount) + " nodes");
+					}
+					break;
+				}
 				const BspNode& n = model->Nodes[node];
 				vec4 plane = Frame->Plane(node);
 				double distStart = PlaneDot(plane, Start);
@@ -366,15 +391,21 @@ namespace KW
 					Walk(node, nearIsFront ? n.Front : n.Back, nearOutside);
 				}
 				if (!(nearIsFront ? backTouched : frontTouched))
+				{
+					Depth--;
 					return;
+				}
 
 				parent = node;
 				node = nearIsFront ? n.Back : n.Front;
 				outside = nearIsFront ? (outside && !IsCsg(n, 0)) : (outside || IsCsg(n, 0));
 			}
-			if (!outside)
+			if (!outside && parent >= 0 && parent < nodeCount)
 				TestLeaf(parent);
+			Depth--;
 		}
+
+		int Depth = 0;
 	};
 
 	// IDA Engine.dll: ?LineCheck@UModel@@UAEHAAUFCheckResult@@PAVAActor@@VFVector@@22K@Z [HP1 0x10429C80]

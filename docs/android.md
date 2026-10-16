@@ -339,3 +339,23 @@ version). What it needed from 3.1/3.2 is replaced on Android:
 - `glFramebufferTexture` (3.2) is `glFramebufferTexture2D`; multisampled textures (3.1) are never made (no MSAA).
 OpenGL ES 2.0 would be a new renderer (no integer attributes, uniform buffers, sampler objects or several outputs), and
 64-bit Android 10 phones have ES 3.0 or newer anyway.
+
+## Harry Potter 2 (0.3.0)
+
+One app, two games. The launcher (`SetupActivity`) has a **HP1 | HP2** switch; each game has its own folder
+(`/sdcard/FlipendoHP`, `/sdcard/FlipendoHP2`; preferences `gameDir`, `gameDir.hp2`), its own folder picker cards
+(HP2 is recognised by `System/Game.exe`, `isHp2Folder`) and its own saves. Settings, logs and the FPS limit work in both.
+
+- **Saved game row (HP2):** *New game* and six slots with the level's picture (`System/Thumbnails/<map>.bmp`) and the
+  time; the launcher writes the choice to `/sdcard/FlipendoHP/hp2_start.txt` (`new N` / `load N`), `HP2::OpenStartMenu`
+  reads it. Saves are `save/Save<N>.rus` + `Slot<N>.txt` in the HP2 folder (`HP2Save.cpp`); the SAVE button works anywhere.
+- **Russian text:** HP2's texts are files of the Russian edition's `harry2` folder (`*.rus`, Windows-1251). Put the
+  folder into the game folder (`harry2/`); the launcher copies it to `System/` and starts with `--cyrillic`.
+- **Controls:** Left/Right strafe (HP2 has no turning on the sticks' keys); the SKIP button presses Space, which is turned
+  into `HPConsole.StartFastForward` during a cutscene.
+- **Debug menu:** Settings > *Debug menu* (HP2 only): go to any level, set the story state (`GSTATE000`..`GSTATE180`),
+  give all spells.
+- **Caches for the light APK:** zips with a `FlipendoHP` (HP1, English) and a `FlipendoHP2` folder inside, unpacked to the
+  phone's storage root. The HP2 one is the retail install without the SafeDisc files, saves and logs, plus `harry2/`.
+- **Self pack with HP2:** `android/build-apk.sh --selfpack "C:/Games/HP" --hp2 "<HP2 install>" --hp2-texts "<harry2 folder>"`
+  also packs HP2 (`assets/hp2data`); `installHp2Data` unpacks it into `/sdcard/FlipendoHP2` once (saves are left alone).

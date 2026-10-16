@@ -8,6 +8,13 @@
 #include "VM/NativeFunc.h"
 #include "GameWindow.h"
 #include "Engine.h"
+#include "Utils/File.h"
+#include "Package/PackageManager.h"
+#include "Packages/Core/UClass.h"
+#include "Audio/AudioDevice.h"
+#include "Audio/AudioSource.h"
+#include "Packages/Engine/Subsystems/USurrealAudioDevice.h"
+#include <algorithm>
 
 // HP2's natives: the ones HP1 doesn't have (BoneRot, IsSoftwareRendering, GetCurrentKeyState; music still to do), and
 // adapters for natives whose script signature grew in HP2. Adapters only unpack the HP2 arguments and call the shared
@@ -17,6 +24,9 @@ namespace KW
 {
 	void OverrideNative(int index, void (*registerFunc)());
 	void StopSound(UActor* actor, USound* sound, uint8_t slot, float fadeOutTime);
+	void NPlaySoundFlags(UObject* Self, UObject* Sound, std::optional<uint8_t> Slot, std::optional<float> Volume, std::optional<bool> bNoOverride,
+		std::optional<float> Radius, std::optional<float> Pitch, std::optional<bool> Disable3D, std::optional<bool> Loop);
+	UActor* CreateAnimChannel(UActor* actor, UClass* newClass, EAnimType type, const NameString& rootBone, bool bTransient);
 }
 
 namespace HP2
@@ -61,12 +71,65 @@ namespace HP2
 		KW::StopSound(UObject::Cast<UActor>(Self), Sound ? UObject::Cast<USound>(*Sound) : nullptr, Slot.value_or(SLOT_Misc), FadeOutTime.value_or(0.0f));
 	}
 
+	// IDA Engine.dll: ?execCreateAnimChannel@AActor@@QAEXAAUFFrame@@QAX@Z [HP2 not located]
+	// HP2 added `optional bool bNotReplaceable` (HP1: CreateAnimChannel(class, EAnimType, name RootBone, optional bool
+	// bTransient)). What the flag does isn't reversed: it is read and ignored, so a channel is created or found as in HP1.
+	static void NCreateAnimChannel(UObject* Self, UObject* NewClass, uint8_t Type, const NameString& RootBone, std::optional<bool> bTransient, std::optional<bool> bNotReplaceable, UObject*& ReturnValue)
+	{
+		ReturnValue = KW::CreateAnimChannel(UObject::Cast<UActor>(Self), UObject::Cast<UClass>(NewClass), (EAnimType)Type, RootBone, bTransient.value_or(false));
+	}
+
+	// Actor.PlayMusic(string Song, float FadeInTime), StopMusic(int SongHandle, float FadeOutTime), StopAllMusic(float FadeOutTime):
+	// HP2 starts its music from script by file name (ALAudio.dll), where HP1 sets PlayerPawn.Song. One song at a time here:
+	// a new song replaces the one playing, and the fade times are not honoured (ALAudio's fades aren't reversed).
+	// IDA ALAudio.dll: not located: the music natives of UALAudioSubsystem (PlayMusic) [HP2]
+	static int g_musicHandle = 0;
+	static void NPlayMusic(UObject* Self, const std::string& Song, float FadeInTime, int& ReturnValue)
+	{
+		ReturnValue = 0;
+		if (!engine->audiodev || Song.empty())
+			return;
+		const fs::path musicFolder = engine->packages->GetRootFolderPath() / "Music";
+		for (const char* extension : { "", ".ogg", ".flac", ".mp3", ".wav" })
+		{
+			const fs::path file = musicFolder / (Song + extension);
+			std::error_code error;
+			if (!fs::is_regular_file(file, error))
+				continue;
+			if (auto source = AudioSource::TryCreateFromFile(file.string(), true))
+			{
+				engine->audiodev->GetDevice()->PlayMusic(std::move(source));
+				ReturnValue = ++g_musicHandle;
+				return;
+			}
+		}
+		LogMessage("PlayMusic: no song " + Song + " in " + musicFolder.string());
+	}
+
+	static void NStopMusic(UObject* Self, int SongHandle, float FadeOutTime)
+	{
+		if (engine->audiodev && SongHandle == g_musicHandle)
+			engine->audiodev->GetDevice()->PlayMusic(nullptr);
+	}
+
+	static void NStopAllMusic(UObject* Self, float FadeOutTime)
+	{
+		if (engine->audiodev)
+			engine->audiodev->GetDevice()->PlayMusic(nullptr);
+	}
+
 	void RegisterNatives()
 	{
 		KW::OverrideNative(328, [] { RegisterVMNativeFunc_2("Actor", "BoneRot", &NBoneRot, 328); });
 		KW::OverrideNative(329, [] { RegisterVMNativeFunc_1("Actor", "IsSoftwareRendering", &NIsSoftwareRendering, 329); });
 		KW::OverrideNative(330, [] { RegisterVMNativeFunc_2("Actor", "GetCurrentKeyState", &NGetCurrentKeyState, 330); });
+		KW::OverrideNative(264, [] { RegisterVMNativeFunc_8("Actor", "PlaySound", &KW::NPlaySoundFlags, 264); });
+		RegisterVMNativeFunc_8("Actor", "PlayOwnedSound", &KW::NPlaySoundFlags, 0);
 		KW::OverrideNative(568, [] { RegisterVMNativeFunc_3("Actor", "StopSound", &NStopSound, 568); });
-		// Still missing: Actor.PlayMusic / StopMusic / StopAllMusic (ALAudio.dll).
+		KW::OverrideNative(265, [] { RegisterVMNativeFunc_6("Actor", "CreateAnimChannel", &NCreateAnimChannel, 265); });
+		// Declared without a number: served by name (VM/Frame.cpp)
+		RegisterVMNativeFunc_3("Actor", "PlayMusic", &NPlayMusic, 0);
+		RegisterVMNativeFunc_2("Actor", "StopMusic", &NStopMusic, 0);
+		RegisterVMNativeFunc_1("Actor", "StopAllMusic", &NStopAllMusic, 0);
 	}
 }

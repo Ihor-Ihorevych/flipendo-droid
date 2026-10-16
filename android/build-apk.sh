@@ -9,6 +9,7 @@
 #                                                 one self pack with both languages; Settings > Language switches them in game
 #   android/build-apk.sh --selfpack "C:/Games/HP" --mod movement=movement.zip
 #                                                 the self pack also carries a mod (replacement .u packages) that Settings can switch
+#   android/build-apk.sh --selfpack "C:/Games/HP" --hp2 "<HP2 folder>" [--hp2-texts "<harry2 folder>"]   ... HP2 in the self pack too
 #   android/build-apk.sh --install                ... and install the plain APK on the connected phone (adb)
 # The self pack contains copyrighted game data: for your own phone only, never publish or share it.
 # Needs: JDK 21, Android SDK (platform 35, build-tools 35.0.0, NDK 27.2.12479018, CMake 3.22.1), git.
@@ -20,12 +21,16 @@ cd "$ROOT"
 
 INSTALL=0
 SELFPACKS=() # "game folder|apk name"
+HP2DIR=""      # --hp2: an HP2 install (System/Game.exe) that goes into the self pack too (assets/hp2data)
+HP2TEXTS=""    # --hp2-texts: HP2's Russian text files (the harry2 folder of the Russian edition)
 LANGS=()     # "code=game folder": more languages for --selfpack (the in-game language switch)
 MODS=()      # "id=zip": script mods the app can switch on and off (Settings > Movement mod)
 VOICES=()    # "code=Sounds folder": a dubbing for --selfpack, an edition that is the base install with its Sounds replaced
 while [ $# -gt 0 ]; do
 	case "$1" in
 		--install) INSTALL=1 ;;
+		--hp2) shift; HP2DIR="$(cygpath -u "${1:?--hp2 needs the HP2 folder}")" ;;
+		--hp2-texts) shift; HP2TEXTS="$(cygpath -u "${1:?--hp2-texts needs the harry2 folder}")" ;;
 		--selfpack) shift; SELFPACKS+=("$(cygpath -u "${1:?--selfpack needs the game folder}")|flipendo-droid-selfpack.apk") ;;
 		--selfpack-ru) shift; SELFPACKS+=("$(cygpath -u "${1:?--selfpack-ru needs the game folder}")|flipendo-droid-selfpack-ru.apk") ;;
 		--lang) shift; LANGS+=("$(echo "${1:?--lang needs code=game folder (e.g. ru=D:/HP-Russian)}" | sed 's|=.*||')=$(cygpath -u "$(echo "$1" | sed 's|^[^=]*=||')")") ;;
@@ -42,6 +47,11 @@ for entry in "${SELFPACKS[@]}"; do
 		exit 1
 	fi
 done
+
+if [ -n "$HP2DIR" ] && [ ! -f "$HP2DIR/System/Game.exe" ] && [ ! -f "$HP2DIR/system/Game.exe" ]; then
+	echo "$HP2DIR is not an HP2 install (no System/Game.exe)" >&2
+	exit 1
+fi
 
 for l in "${LANGS[@]}"; do
 	dir="${l#*=}"
@@ -258,6 +268,23 @@ for entry in "${SELFPACKS[@]}"; do
 			echo "mod $id: $(ls "$A/data_stage/assets/mods/$id" | tr '
 ' ' ')"
 		done
+	fi
+	# Harry Potter 2 in the same self pack: assets/hp2data, unpacked into FlipendoHP2 (SetupActivity.installHp2Data), once
+	if [ -n "$HP2DIR" ] && [ "$NAME" = flipendo-droid-selfpack.apk ]; then
+		HP2STAGE="$A/data_stage/assets/hp2data"
+		mkdir -p "$HP2STAGE"
+		# what the engine reads from an install: no RTX/ReShade/DLSS add-ons, SafeDisc files, backups, logs, dumps or saves
+		(cd "$HP2DIR" && find . -type f \
+			! -iname 'd3d11drv*' ! -iname 'dxgi.dll' ! -iname 'reshade*' ! -iname 'dlss5-*' ! -ipath './host64/*' ! -iname '*.dmp' \
+			! -iname '*.bak' ! -iname 'vssver.scc' ! -iname 'mssccprj.scc' ! -iname 'drvmgt.dll' ! -iname 'secdrv.sys' ! -iname '*.lnk' \
+			! -iname '*.log' ! -ipath './save/*' ! -ipath './harry2/*' ! -iname 'SE-*.ini' ! -iname 'User.ini' ! -iname 'flipendo*' -print0) \
+			| (cd "$HP2DIR" && tar --null -cf - --files-from=-) | (cd "$HP2STAGE" && tar xf -)
+		if [ -n "$HP2TEXTS" ]; then
+			mkdir -p "$HP2STAGE/harry2"
+			cp "$HP2TEXTS"/*.rus "$HP2STAGE/harry2/"
+		fi
+		(cd "$HP2STAGE" && find . -type f ! -name .stamp -print0 | sort -z | xargs -0 sha1sum | sha1sum | cut -d' ' -f1) > "$HP2STAGE/.stamp"
+		echo "HP2 data: $(find "$HP2STAGE" -type f | wc -l) files, $(du -sm "$HP2STAGE" | cut -f1) MB"
 	fi
 	# a stamp of what is inside (a hash of the contents: two installs can differ with the same sizes): the app only unpacks again when the data changes
 	(cd "$A/data_stage/assets" && find . -type f ! -name .stamp -print0 | sort -z | xargs -0 sha1sum | sha1sum | cut -d' ' -f1) > "$STAGE/.stamp"

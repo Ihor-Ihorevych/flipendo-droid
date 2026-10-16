@@ -407,6 +407,74 @@ public class FlipendoActivity extends SDLActivity {
     /** True while Harry flies the broom (the player is a BroomHarry); implemented in android_main.cpp. */
     static native boolean nativeOnBroom();
 
+    /** A debug command for the game thread (HP2: "level <map>", "state GSTATE020", "spells"); implemented in android_main.cpp. */
+    static native void nativeDebugCommand(String command);
+
+    static void debugCommand(String command) {
+        try {
+            nativeDebugCommand(command);
+        } catch (UnsatisfiedLinkError ignored) {
+        }
+    }
+
+    private static final String[] HP2_STATES = { "GSTATE000", "GSTATE010", "GSTATE020", "GSTATE030", "GSTATE035", "GSTATE040",
+            "GSTATE045", "GSTATE050", "GSTATE060", "GSTATE065", "GSTATE070", "GSTATE080", "GSTATE090", "GSTATE095", "GSTATE100",
+            "GSTATE110", "GSTATE115", "GSTATE120", "GSTATE130", "GSTATE140", "GSTATE145", "GSTATE150", "GSTATE160", "GSTATE170",
+            "GSTATE180" };
+
+    /** HP2's maps (Maps/*.unr of the game folder), by name. */
+    private String[] hp2Maps() {
+        java.util.TreeSet<String> names = new java.util.TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        File maps = new File(gameDir(), "Maps");
+        if (!maps.isDirectory()) maps = new File(gameDir(), "maps");
+        File[] files = maps.listFiles();
+        if (files != null) {
+            for (File f : files) {
+                String n = f.getName();
+                if (n.toLowerCase(java.util.Locale.ROOT).endsWith(".unr")) names.add(n.substring(0, n.length() - 4));
+            }
+        }
+        return names.toArray(new String[0]);
+    }
+
+    /** The HP2 debug menu: go to a level (the level Harry is in is left like any exit: persistent actors travel), set the story
+     *  state of the next level load, or fill the spell book. Opened from the settings panel's Debug row. */
+    void openHp2Debug() {
+        final String[] actions = { "Go to level…", "Set story state…", "Give all spells" };
+        runOnUiThread(new Runnable() {
+            public void run() {
+                new android.app.AlertDialog.Builder(FlipendoActivity.this)
+                        .setTitle("HP2 debug")
+                        .setItems(actions, new android.content.DialogInterface.OnClickListener() {
+                            public void onClick(android.content.DialogInterface d, int which) {
+                                if (which == 0) {
+                                    final String[] maps = hp2Maps();
+                                    if (maps.length == 0) {
+                                        android.widget.Toast.makeText(FlipendoActivity.this, "No maps found in " + gameDir(), android.widget.Toast.LENGTH_LONG).show();
+                                        return;
+                                    }
+                                    new android.app.AlertDialog.Builder(FlipendoActivity.this).setTitle("Go to level")
+                                            .setItems(maps, new android.content.DialogInterface.OnClickListener() {
+                                                public void onClick(android.content.DialogInterface d2, int i) {
+                                                    debugCommand("level " + maps[i]);
+                                                }
+                                            }).show();
+                                } else if (which == 1) {
+                                    new android.app.AlertDialog.Builder(FlipendoActivity.this).setTitle("Story state (applies on the next level load)")
+                                            .setItems(HP2_STATES, new android.content.DialogInterface.OnClickListener() {
+                                                public void onClick(android.content.DialogInterface d2, int i) {
+                                                    debugCommand("state " + HP2_STATES[i]);
+                                                }
+                                            }).show();
+                                } else {
+                                    debugCommand("spells");
+                                }
+                            }
+                        }).show();
+            }
+        });
+    }
+
     static boolean onBroom() {
         try {
             return nativeOnBroom();
@@ -697,10 +765,20 @@ public class FlipendoActivity extends SDLActivity {
         final java.util.List<String[]> languages = withAddVoice(SetupActivity.readLanguages(getContext()));
 
         java.util.List<String[]> withAddVoice(java.util.List<String[]> list) {
-            list.add(new String[] { ADD_VOICE, SetupActivity.hasImportedVoice(getContext()) ? "Другая озвучка из папки…" : "Добавить озвучку из папки…" });
+            // the dubbing import is HP1's (its Sounds folder); HP2 takes its texts from its own harry2 folder
+            if (!SetupActivity.isHp2Folder(((FlipendoActivity) getContext()).gameDir())) {
+        list.add(new String[] { ADD_VOICE, SetupActivity.hasImportedVoice(getContext()) ? "Другая озвучка из папки…" : "Добавить озвучку из папки…" });
+            }
             return list;
         }
         final String appVersion = LogReport.version(getContext()); // in the settings header
+        private Boolean hp2Game;
+
+        /** Whether the running game is HP2 (its folder has System/Game.exe and no System/HP.exe). */
+        boolean isHp2Game() {
+            if (hp2Game == null) hp2Game = SetupActivity.isHp2Folder(((FlipendoActivity) getContext()).gameDir());
+            return hp2Game;
+        }
         boolean langListOpen;       // the list over the settings panel
         int langFocus = -1;         // the row the pad is on
         final java.util.List<android.graphics.RectF> langRows = new java.util.ArrayList<>();
@@ -1412,7 +1490,9 @@ public class FlipendoActivity extends SDLActivity {
                 case SET_JUMP: activity.applyAutoJump(!autoJump, true); break;
                 case SET_LANG: languageTap(); break;
                 case SET_MOD: modTap(); break;
-                case SET_DEBUG: activity.applyDebugMode(!debugMode, true); break;
+                case SET_DEBUG:
+                    if (isHp2Game()) { settingsOpen = false; activity.openHp2Debug(); } else activity.applyDebugMode(!debugMode, true);
+                    break;
                 case SET_TELEGRAM:
                     try {
                         getContext().startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(SetupActivity.CHANNEL_URL)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
@@ -1835,7 +1915,8 @@ public class FlipendoActivity extends SDLActivity {
                         modAsk ? "Tap again to restart " + (modOn ? "without" : "with") + " it (unsaved progress is lost)" : "By AdamJD: camera, climbing, aim",
                         modOn, modAsk);
             }
-            drawSwitchRow(c, debugBtn, "Debug mode", "Level Select in the main menu", debugMode, false);
+            if (isHp2Game()) drawValueRow(c, debugBtn, "Debug menu", "Level select, story state, all spells", "Open", false);
+            else drawSwitchRow(c, debugBtn, "Debug mode", "Level Select in the main menu", debugMode, false);
 
             // footer
             fill.setColor(0x334A9EE8);
@@ -2088,7 +2169,12 @@ public class FlipendoActivity extends SDLActivity {
                             fpsFrames = -1;
                             ((FlipendoActivity) getContext()).saveScales();
                         } else if (debugBtn.contains(x, y)) {
-                            ((FlipendoActivity) getContext()).applyDebugMode(!debugMode, true);
+                            if (isHp2Game()) {
+                                settingsOpen = false;
+                                ((FlipendoActivity) getContext()).openHp2Debug();
+                            } else {
+                                ((FlipendoActivity) getContext()).applyDebugMode(!debugMode, true);
+                            }
                         } else if (modBtn.contains(x, y)) {
                             modTap();
                         } else if (languages.size() > 1 && languageBtn.contains(x, y)) {

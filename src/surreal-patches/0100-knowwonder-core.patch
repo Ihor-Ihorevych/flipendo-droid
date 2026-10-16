@@ -467,8 +467,6 @@ index 287956c1..27898722 100644
  	engine->ClientTravel(URL, static_cast<ETravelType>(TravelType), bItems);
  }
  
-diff --git a/SurrealEngine/Package/PackageManager.cpp b/SurrealEngine/Package/PackageManager.cpp
-index cdb045bf..31cb0f17 100644
 --- a/SurrealEngine/Package/PackageManager.cpp
 +++ b/SurrealEngine/Package/PackageManager.cpp
 @@ -6,6 +6,7 @@
@@ -487,7 +485,7 @@ index cdb045bf..31cb0f17 100644
  #include "Packages/ConSys/Events/UConEventTransferObject.h"
  #include "Packages/ConSys/Events/UConEventTrigger.h"
  #include "Packages/ConSys/History/UConHistory.h"
-@@ -339,7 +341,7 @@ void PackageManager::CreateTransientPackage()
+@@ -339,7 +341,7 @@
  	packages["Transient"].set(GC::Alloc<Package>(this, "Transient", ""));
  }
  
@@ -496,7 +494,7 @@ index cdb045bf..31cb0f17 100644
  {
  	auto& package = packages[name];
  	if (package)
-@@ -352,12 +354,26 @@ Package* PackageManager::GetPackage(const NameString& name)
+@@ -352,12 +354,26 @@
  	}
  	else
  	{
@@ -524,7 +522,7 @@ index cdb045bf..31cb0f17 100644
  Package* PackageManager::LoadMap(const std::string& path)
  {
  	const auto mapPath = convert_path_separators(path);
-@@ -395,6 +411,21 @@ Package* PackageManager::LoadMap(const std::string& path)
+@@ -395,6 +411,21 @@
  	if (!absolute_path.has_extension())
  		absolute_path.replace_extension(GetMapExtension());
  
@@ -546,7 +544,29 @@ index cdb045bf..31cb0f17 100644
  	return GC::Alloc<Package>(this, mapFilename.stem().string(), absolute_path.string());
  }
  
-@@ -523,6 +554,11 @@ void PackageManager::ScanPaths()
+@@ -459,6 +490,21 @@
+ 			// Do not add the package again if it exists
+ 			// This is useful for example when you have HD textures installed in a different folder
+ 			// And you wish to load them instead of the original ones
++			// HP2 keeps its spoken dialogue in language editions: AllDialog.USA_uax, AllDialog.RUS_uax, ... (the scripts ask for
++			// the package AllDialog). The USA edition is the default, any other is used when there is no USA one.
++			if (dir_entry.is_regular_file() && searchExt == ".uax")
++			{
++				std::string ext = dir_entry.path().extension().string();
++				std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return (char)std::tolower(c); });
++				if (ext.size() > 4 && ext.compare(ext.size() - 4, 4, "_uax") == 0)
++				{
++					NameString languageName(dir_entry.path().stem().string());
++					auto existing = packageFilenames.find(languageName);
++					if (existing == packageFilenames.end() || ext == ".usa_uax")
++						packageFilenames[languageName] = (packageDirPath / dir_entry.path().filename()).string();
++					continue;
++				}
++			}
+ 			if (dir_entry.is_regular_file() && dir_entry.path().extension() == searchExt)
+ 			{
+ 				NameString fileNameString(dir_entry.path().stem().string());
+@@ -523,6 +569,11 @@
  		// Calculate the final, absolute path
  		auto finalPath = (gameSystemFolderPath / currentPath).lexically_normal().parent_path();
  
@@ -558,7 +578,100 @@ index cdb045bf..31cb0f17 100644
  		// Add map folders in a separate list, so ScanForMaps() can use them
  		if (filename.string() == "*." + GetMapExtension())
  			mapFolders.push_back(finalPath.string());
-@@ -1114,6 +1150,9 @@ void PackageManager::RegisterFunctions()
+@@ -934,6 +985,45 @@
+ 		return IntObjects[NameString(metaclass.ToString().substr(pos + 1))];
+ }
+ 
++// A path from a script (HP2's "Cutscenes\00001PrivetIntro") uses backslashes and its own capitalisation; resolve it on case-sensitive
++// file systems too (Android): each component may differ from the real name in case only.
++static fs::path ResolveGamePath(const fs::path& root, std::string relative)
++{
++	std::replace(relative.begin(), relative.end(), '\\', '/');
++	fs::path result = root;
++	size_t pos = 0;
++	while (pos <= relative.size())
++	{
++		size_t end = relative.find('/', pos);
++		if (end == std::string::npos)
++			end = relative.size();
++		std::string part = relative.substr(pos, end - pos);
++		pos = end + 1;
++		if (part.empty())
++			continue;
++
++		fs::path candidate = result / part;
++		std::error_code error;
++		if (!fs::exists(candidate, error))
++		{
++			std::string wanted = part;
++			std::transform(wanted.begin(), wanted.end(), wanted.begin(), [](unsigned char c) { return (char)std::tolower(c); });
++			for (const auto& entry : fs::directory_iterator(result, error))
++			{
++				std::string name = entry.path().filename().string();
++				std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) { return (char)std::tolower(c); });
++				if (name == wanted)
++				{
++					candidate = entry.path();
++					break;
++				}
++			}
++		}
++		result = candidate;
++	}
++	return result;
++}
++
+ std::string PackageManager::Localize(NameString packageName, const NameString& sectionName, const NameString& keyName, const int index)
+ {
+ 	if (packageName == "Engine" && keyName == "ClassCaption")
+@@ -943,13 +1033,44 @@
+ 		else if (sectionName == "SurrealNetworkDevice") return "Surreal Network";
+ 	}
+ 
++	// The game's language (Language=rus in its ini): HP2's Russian texts are HpMenu.rus, HpDialog.rus... (8-bit, Windows-1251) beside
++	// the .int files; the language file answers first and the .int is the fallback for what it lacks.
++	if (languageExtension != "int" && languageExtension != "")
++	{
++		static std::map<std::string, std::unique_ptr<IniFile>> languageFiles;
++		auto& languageFile = languageFiles[packageName.ToString()];
++		if (!languageFile)
++		{
++			std::error_code error;
++			fs::path path = ResolveGamePath(gameSystemFolderPath, packageName.ToString() + "." + languageExtension);
++			if (fs::is_regular_file(path, error))
++			{
++				try
++				{
++					languageFile = std::make_unique<IniFile>(path.string());
++				}
++				catch (...)
++				{
++				}
++			}
++			if (!languageFile)
++				languageFile = std::make_unique<IniFile>();
++		}
++		std::string text = languageFile->GetValue(sectionName, keyName, {}, index);
++		if (!text.empty())
++		{
++			if (text.size() >= 2 && text.front() == '"' && text.back() == '"')
++				text = text.substr(1, text.size() - 2);
++			return text;
++		}
++	}
++
+ 	auto& intFile = intFiles[packageName];
+ 	if (!intFile)
+ 	{
+ 		try
+ 		{
+-			const auto intFileName = fs::path(packageName.ToString() + ".int");
+-			intFile = std::make_unique<IniFile>((gameSystemFolderPath / intFileName).string());
++			intFile = std::make_unique<IniFile>(ResolveGamePath(gameSystemFolderPath, packageName.ToString() + ".int").string());
+ 		}
+ 		catch (...)
+ 		{
+@@ -1114,6 +1235,9 @@
  	{
  		NRMusicPlayer::RegisterFunctions();
  	}
@@ -592,3 +705,83 @@ index 7ea7c66b..793ee032 100644
  	Array<std::string> maps;
  
  	// So that we don't have to build fs::path()s all over the place
+diff --git a/SurrealEngine/Native/NCanvas.cpp b/SurrealEngine/Native/NCanvas.cpp
+index 5dde6cbc..09a03abe 100644
+--- a/SurrealEngine/Native/NCanvas.cpp
++++ b/SurrealEngine/Native/NCanvas.cpp
+@@ -10,6 +10,13 @@
+ #include "Packages/Engine/UClient.h"
+ #include "Render/RenderSubsystem.h"
+ 
++// UE1 draws Canvas text and tiles without the DrawColor alpha (Masked and Normal styles ignore it). KnowWonder's scripts rely on
++// that: HP2's subtitle colour colorCutTextBlue is (255,127,127, A=0), which drew nothing.
++static float ColorAlpha(const Color& color)
++{
++	return engine->LaunchInfo.IsKnowWonder() ? 1.0f : color.A / 255.0f;
++}
++
+ #ifdef _MSC_VER
+ #pragma warning(disable: 4244) // warning C4244: 'argument': conversion from 'float' to 'int', possible loss of data
+ #endif
+@@ -107,7 +114,7 @@ void NCanvas::DrawText(UObject* Self, const std::string& Text, std::optional<boo
+ 			renderflags |= PF_Modulated;
+ 
+ 		float curXL = 0.0f;
+-		engine->render->DrawText(font, { color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f }, orgX, orgY, curX, curY, curXL, curYL, newline, Text, renderflags, center, spaceX, spaceY, clipX, clipY);
++		engine->render->DrawText(font, { color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, ColorAlpha(color) }, orgX, orgY, curX, curY, curXL, curYL, newline, Text, renderflags, center, spaceX, spaceY, clipX, clipY);
+ 	}
+ 	else
+ 	{
+@@ -144,7 +151,7 @@ void NCanvas::DrawTextClipped(UObject* Self, const std::string& Text, std::optio
+ 		else if (style == 4)
+ 			renderflags |= PF_Modulated;
+ 
+-		engine->render->DrawTextClipped(font, { color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f }, orgX, orgY, curX, curY, Text, renderflags, checkHotKey, clipX, clipY, center);
++		engine->render->DrawTextClipped(font, { color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, ColorAlpha(color) }, orgX, orgY, curX, curY, Text, renderflags, checkHotKey, clipX, clipY, center);
+ 	}
+ }
+ 
+@@ -178,7 +185,7 @@ void NCanvas::DrawTile(UObject* Self, UObject* Tex, float XL, float YL, float U,
+ 		if (noSmooth)
+ 			renderflags |= PF_NoSmooth;
+ 
+-		engine->render->DrawTile((UTexture*)Tex, orgX + curX, orgY + curY, XL, YL, U, V, UL, VL, 1.0f, { color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f }, { 0.0f }, renderflags);
++		engine->render->DrawTile((UTexture*)Tex, orgX + curX, orgY + curY, XL, YL, U, V, UL, VL, 1.0f, { color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, ColorAlpha(color) }, { 0.0f }, renderflags);
+ 	}
+ 
+ 	curX += XL + spaceX;
+@@ -217,7 +224,7 @@ void NCanvas::DrawTileClipped(UObject* Self, UObject* Tex, float XL, float YL, f
+ 		if (noSmooth)
+ 			renderflags |= PF_NoSmooth;
+ 
+-		engine->render->DrawTileClipped((UTexture*)Tex, orgX, orgY, curX, curY, XL, YL, U, V, UL, VL, 1.0f, { color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f }, { 0.0f }, renderflags, clipX, clipY);
++		engine->render->DrawTileClipped((UTexture*)Tex, orgX, orgY, curX, curY, XL, YL, U, V, UL, VL, 1.0f, { color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, ColorAlpha(color) }, { 0.0f }, renderflags, clipX, clipY);
+ 	}
+ 
+ 	float nextX = clamp(curX + XL, 0.0f, clipX);
+diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Base.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Base.cpp
+index a3942d45..da72028f 100644
+--- a/SurrealEngine/Packages/Engine/Actors/UActor_Base.cpp
++++ b/SurrealEngine/Packages/Engine/Actors/UActor_Base.cpp
+@@ -18,6 +18,21 @@ void UActor::InitBase()
+ 		NameString attachTag = AttachTag();
+ 		if (!attachTag.IsNone())
+ 		{
++			// HP2's AttachTag names the actor this one stands on (a statue with AttachTag "StatueBase01" on the pedestal mover tagged
++			// StatueBase01): the stock meaning is the reverse (the tagged actors attach to this one), which made the statue the base of its
++			// pedestal, so the pedestal slid away alone. NOT checked against HP2's Engine.dll (no IDA database here); read from the map data.
++			if (engine->LaunchInfo.IsHarryPotter2())
++			{
++				for (UActor* levelActor : XLevel()->Actors)
++				{
++					if (levelActor && levelActor != this && levelActor->Tag() == attachTag)
++					{
++						SetBase(levelActor, false);
++						break;
++					}
++				}
++				return;
++			}
+ 			for (UActor* levelActor : XLevel()->Actors)
+ 			{
+ 				if (levelActor && levelActor->Tag() == attachTag)

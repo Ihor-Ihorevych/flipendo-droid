@@ -115,6 +115,21 @@ namespace KW
 			Radius.value_or(actor->TransientSoundRadius()), Pitch.value_or(TransientSoundPitch(actor) / 64.0f), false, false);
 	}
 
+	// HP2's PlaySound/PlayOwnedSound (src/hp2/HP2Natives.cpp) add Disable3D and Loop. Disable3D is how its dialog plays (Actor.
+	// DeliverLocalizedDialog, PlaySound(.., SLOT_TALK, 1.4, , 10000, , true)): the speaker is a cutscene actor that can be
+	// anywhere in the map, so it must be heard at the same volume wherever the camera is. Done here as a radius too large
+	// for any falloff. TODO: Loop (ALAudio.dll, not reversed yet) and a centred pan for Disable3D.
+	void NPlaySoundFlags(UObject* Self, UObject* Sound, std::optional<uint8_t> Slot, std::optional<float> Volume, std::optional<bool> bNoOverride,
+		std::optional<float> Radius, std::optional<float> Pitch, std::optional<bool> Disable3D, std::optional<bool> Loop)
+	{
+		UActor* actor = UObject::Cast<UActor>(Self);
+		float radius = Radius.value_or(actor->TransientSoundRadius());
+		if (Disable3D.value_or(false))
+			radius = 1.0e7f;
+		PlaySound(actor, UObject::TryCast<USound>(Sound), Slot.value_or(SLOT_Misc), Volume.value_or(actor->TransientSoundVolume()), bNoOverride.value_or(false),
+			radius, Pitch.value_or(TransientSoundPitch(actor) / 64.0f), Disable3D.value_or(false), Loop.value_or(false));
+	}
+
 	// IDA Engine.dll: ?execModifySound@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x1040BF20]
 	// IDA Galaxy.dll: ?ModifySound@UGalaxyAudioSubsystem@@UAEHPAVAActor@@HPAVUSound@@EM@Z [HP1 Galaxy 0x10607AE0]
 	static void NModifySound(UObject* Self, uint8_t Parameter, float Value, std::optional<UObject*> Sound, std::optional<uint8_t> Slot, BitfieldBool& ReturnValue)

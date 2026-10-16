@@ -228,7 +228,7 @@ final class LogReport {
                 s.append('\n');
             }
         }
-        for (String check : new String[] { "System/HP.exe", "system/HP.exe", "System/Engine.u", "system/Engine.u", "Maps/Startup.unr", "maps/Startup.unr" }) {
+        for (String check : new String[] { "System/HP.exe", "system/HP.exe", "System/Game.exe", "system/Game.exe", "System/Engine.u", "system/Engine.u", "Maps/Startup.unr", "maps/Startup.unr" }) {
             File f = new File(game, check);
             s.append(check).append(": ").append(f.isFile() ? f.length() + " bytes" : "missing").append('\n');
         }

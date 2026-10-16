@@ -70,11 +70,85 @@ read in HP2's Engine.dll.
 
 ## Audio
 
-- Music: ALAudio.dll (OpenAL + Ogg Vorbis) plays the music; `PlayMusic` / `StopMusic` / `StopAllMusic` are still
-  missing.
+- Music: ALAudio.dll (OpenAL + Ogg Vorbis) plays the music. The scripts start it by file name: `PlayMusic(string Song,
+  float FadeInTime)` returns a handle, `StopMusic(int Handle, float FadeOutTime)`, `StopAllMusic(float FadeOutTime)`.
+  These three are declared `native` without a number (the package gives them an index of their own), so Flipendo
+  registers them by name (`src/hp2/HP2Natives.cpp`); fades are not honoured yet. `PlayerPawn` has no `Song` machinery
+  the stock audio code could use, so the update of the playing song is skipped for HP2.
+- Sounds: every sound export has a header of its own between the format name and the data, whatever the format:
+  int32 0x104 (0 for wav), float duration, int32 sample count, bits, channels, frequency, then the lazy-array skip
+  offset, then the size and data. Format `XA` is 4-bit ADPCM in 15-byte frames (1 byte shift/filter, 14 bytes of 28
+  samples); `src/hp2/HP2Sound.cpp` decodes it with the CD-XA filters. Not checked against ALAudio.dll.
+- Scripts: `CreateAnimChannel` (265) has a sixth argument `bNotReplaceable` (read and ignored for now).
+
+## Cutscenes and fades
+
+- `CutScene` actors start in `auto state disabled` and only leave it through `OnResolveGameState` (`src/hp2/HP2GameState.cpp`,
+  after the player's login), so that event is raised for every actor after a map has loaded. `CutScript` threads read the
+  scripts with `Localize("thread_N", "line_M", "Cutscenes\<File>")`: a backslash path that must also match the
+  lower-case `System/cutscenes/` folder on Android (`ResolveGamePath`, `PackageManager::Localize`).
+- A string `switch` ignores case (`CutScript.ParseCommand` switches on a command as written in the `.int` files against
+  upper-case cases). Fixed in `Frame::ProcessSwitch`.
+- The same scripts log a lot of `CutError` noise in the retail data as well (`*/` is read as a command; `PrivetIntro`
+  and `PrivetIntroPart3` both start at level load and fight over `BaseCam` and `Harry`).
+- `FlashFog.W` is the scene brightness as in HP1 (1 = normal): `ClientFadeIn` drives `ConstantGlowFog`, `ViewFlash` eases
+  it; the engine hook `KW::ViewFlashParams` serves both games.
+- Spoken dialogue is `Sounds/AllDialog.USA_uax` (language editions `.<LANG>_uax`); the scripts ask for the package
+  `AllDialog`, so the scan maps every `*_uax` to its base name and prefers `USA`.
+
+## Bytecode and loading
+
+- Script tokens: `UStruct::ReadToken` (loading) and `BytecodeStream` (running) both skip DebugInfo records (0x38) and
+  map HP2's tokens 0x39..0x46 to stock. The loader keeps the original bytes in the copy, so jump offsets stay valid.
+- `IpDrv.u` does not ship with HP2 (only `IpDrv.dll`): SurrealEngine's IpDrv property offsets accept its absence.
+- The retail 1.0 install (`Game.exe` SHA-1 `28b0e54a...`, packages version 79) is what runs; the M212 x64 rebuild
+  (packages 115) is a different engine and does not load.
+
 - `I3DL2Listener` (Engine.u): EAX / I3DL2 reverb settings per zone, used by ALAudio.
 
 ## Not needed
 
 - `WalkTexture` / `LevelInfo.bCheckWalkSurfaces` / climbable textures: stock UE1 code, raised only when a level sets
   `bCheckWalkSurfaces`; no HP1 or HP2 script uses it.
+
+## Story state, skipping, saves, volumes and subtitles (2026-10-15, written from the scripts and runs on a phone)
+
+Not reversed (no HP2 IDA database here); what the scripts and the runs show.
+
+- **Story state comes from the actor's `Group`.** The editor's Group field holds the story state an actor belongs to
+  (`"None,GSTATE000"`, `"None,GState010"`). After a map loads the engine marks an actor in the current state when it has no
+  `GSTATE` token in its Group or lists the current one (`HP2::ScreenActorsByGameState`). Without it PrivetDr's intro
+  (`GSTATE000`) and the Diagon Alley scene (`GState010`, played after the reload that Part2 triggers) both started at
+  once and fought for BaseCam and Harry.
+- **Strings in a level change.** The travel text quotes a string (`PrintValue`), and the import did not unquote it:
+  `CurrentGameState` came back as `"GSTATE010"` with the quote characters, one more pair on every travel. Fixed in
+  `ObjectTravelInfo.cpp` (0010 patch).
+- **Skipping a cutscene is in the game**: `harry.PlayerInput` calls `HPConsole.StartFastForward` while the HUD is in
+  cutscene mode and `bSkipCutScene` (Enter) is down; each `CutScene` goes to `FastForwarding`, the HPConsole raises
+  `MUTESOUNDS` / `UNMUTESOUNDS` console commands around it. On the phone a Space key-down (SKIP button, pad A) is
+  turned into the same call (`HP2::KeyDown`).
+- **Saving**: `PlayerPawn.SaveGame()` queues; `HP2::TickSave` clears `bQueuedToSaveGame` at the end of the frame, raises
+  `PreSaveGame` / `PostSaveGame` on all actors and writes the level as Save0 (`KW::SaveGame`). `LoadGame N` opens
+  SaveN like a map. HP2's own `UGameEngine::SaveGame` (changed from HP1's) is not read; hubs and persistent actors
+  (`SavePActors`, `bPersistent`) are not done.
+- **Volumes** are floats in `[ALAudio.ALAudioSubsystem]` (`MusicVolume=0.53`, `SoundVolume=0.9`) and the sliders send
+  `SETVOLUMES SOUND=x MUSIC=y` (0..1); the stock audio device reads bytes, so "0.9" read as 0 and its sound scale is
+  halved for HP1 only.
+- **Subtitles** are drawn by script (`CutSceneManager.DrawText` -> `HPHud.DrawCutStyleText`) with
+  `colorCutTextBlue = (255,127,127, A=0)`. UE1 ignores the DrawColor alpha for the Masked and Normal styles; ours used
+  it, so the text was invisible. `NCanvas` ignores the alpha for KnowWonder.
+- Console commands the scripts send and the engine answers: `MUTESOUNDS`, `UNMUTESOUNDS` (accepted, the sounds are not
+  muted), `SETVOLUMES`, `MLOD` (accepted), `ISFULLSCREEN` (True), `LoadGame`, `SavePActors` (still unknown).
+- **Dev switches** (Android): `/sdcard/FlipendoHP/start_level.txt` (map) and `/sdcard/FlipendoHP/start_state.txt`
+  (`GSTATE020`, the story state the first level is loaded in).
+
+## Saved games, new game and controls on the phone
+
+- Retail 1.0 has no slot page: `FEBook.SaveSelectedSlot` / `LoadSelectedSlot` are empty and `FEMainPage` is a developer
+  level list. The launcher (`SetupActivity`) has its own front end for HP2: New game or one of six slots, each with the
+  picture the game ships for the level (`System/Thumbnails/<map>.bmp`) from `Slot<N>.txt` written beside `Save<N>.rus`.
+  Play writes `/sdcard/FlipendoHP/hp2_start.txt` ("new N" or "load N"); `HP2::OpenStartMenu` reads it, picks the slot
+  (`HP2::SetActiveSlot`: the queued save writes `Save<N>`, `LoadGame` reads it) and loads the save or travels to PrivetDr.
+- HP2 turns with the arrow keys (`RotLeft` / `RotRight`) and strafes with A / D. The phone's stick, arrows and pad send
+  the arrow keys, so on Android `Left` / `Right` are rebound to `StrafeLeft` / `StrafeRight` (`HP2::TweakKeybindings`);
+  the camera turns by dragging the screen.

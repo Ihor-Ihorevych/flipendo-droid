@@ -1,7 +1,7 @@
 flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files, packages (Unicode strings), crash reports, music streaming and following the default audio device (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties; a GotoState from inside EndState sends no second EndState and the outer call stops (movement mod: Wingardium release overflowed the stack)
 
 diff --git a/SurrealEngine/Audio/AudioDevice.cpp b/SurrealEngine/Audio/AudioDevice.cpp
-index 03e82566..e921a0a9 100644
+index 03e82566..a891e550 100644
 --- a/SurrealEngine/Audio/AudioDevice.cpp
 +++ b/SurrealEngine/Audio/AudioDevice.cpp
 @@ -13,6 +13,7 @@
@@ -21,15 +21,15 @@ index 03e82566..e921a0a9 100644
  		}
  	}
  
-@@ -131,7 +132,21 @@ public:
+@@ -131,13 +132,37 @@ public:
  		{
  			volume = newVolume;
  			alSourcef(id, AL_GAIN, volume * globalVolume);
 -			alSourcef(id, AL_MAX_GAIN, volume * globalVolume);
 +			alSourcef(id, AL_MAX_GAIN, linearFalloff ? globalVolume : volume * globalVolume);
-+		}
-+	}
-+
+ 		}
+ 	}
+ 
 +	// Linear falloff: the volume falls in a straight line from the source to the radius, and the volume times
 +	// the falloff is capped at full volume (a loud sound stays at full volume further out). Otherwise the
 +	// sound plays at its volume within a tenth of the radius and fades out a little before the radius.
@@ -41,10 +41,27 @@ index 03e82566..e921a0a9 100644
 +			alSourcef(id, AL_ROLLOFF_FACTOR, linearFalloff ? 1.0f : 1.1f);
 +			radius = -1.0f; // applied again by the next SetRadius and SetVolume
 +			volume = -1.0f;
- 		}
++		}
++	}
++
++	// A new global volume applies to the playing sound at once. Only storing it left every looping sound at the gain it
++	// started with: an ambient started at a high volume stayed loud, and the sounds after a volume change were silent.
+ 	void SetGlobalVolume(float newGlobalVolume)
+ 	{
+-		globalVolume = newGlobalVolume;
++		if (globalVolume != newGlobalVolume)
++		{
++			globalVolume = newGlobalVolume;
++			if (volume >= 0.0f)
++			{
++				alSourcef(id, AL_GAIN, volume * globalVolume);
++				alSourcef(id, AL_MAX_GAIN, linearFalloff ? globalVolume : volume * globalVolume);
++			}
++		}
  	}
  
-@@ -173,6 +188,7 @@ private:
+ 	void SetPitch(float newPitch)
+@@ -173,6 +198,7 @@ private:
  	float pitch = 0.0f;
  	float dopplerFactor = 0.0f;
  	bool bIs3d = false;
@@ -52,7 +69,7 @@ index 03e82566..e921a0a9 100644
  };
  
  // TODO list:
-@@ -222,6 +238,9 @@ public:
+@@ -222,6 +248,9 @@ public:
  		if (alcMakeContextCurrent(alContext) == ALC_FALSE)
  			Exception::Throw("Failed to make OpenAL context current");
  
@@ -62,7 +79,15 @@ index 03e82566..e921a0a9 100644
  		// init listener state
  		ALfloat listenerOri[] = { 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, -1.0f };
  		alListener3f(AL_POSITION, 0, 0, 0.0f);
-@@ -451,6 +470,12 @@ public:
+@@ -344,6 +373,7 @@ public:
+ 		source.SetPitch(pitch);
+ 		source.SetSpatial(true);
+ 		source.Play();
++
+ 	}
+ 
+ 	void UpdateSound(int channel, USound* sound, vec3& location, float volume, float radius, float pitch) override
+@@ -451,6 +481,12 @@ public:
  		alSourcef(alMusicSource, AL_GAIN, volume);
  	}
  
@@ -75,7 +100,25 @@ index 03e82566..e921a0a9 100644
  	void SetSoundVolume(float volume) override
  	{
  		globalSoundVolume = volume;
-@@ -508,8 +533,11 @@ public:
+@@ -464,12 +500,14 @@ public:
+ 		UActor* listener = engine->CameraActor;
+ 		if (listener)
+ 		{
+-			// Update listener properties
+-			vec3& location = listener->Location();
++			// Update listener properties: where the camera is, as PlayerCalcView left it (what is drawn). The CameraActor
++			// itself is only the actor the script named; HP2's third person camera is not at its location, and sounds with a
++			// radius (footsteps, spells, pickups) played from a listener that was elsewhere.
++			vec3 location = engine->CameraLocation;
+ 			vec3& velocity = listener->Velocity();
+ 
+ 			vec3 at, left, up;
+-			Coords::Rotation(listener->Rotation()).GetAxes(at, left, up);
++			Coords::Rotation(engine->CameraRotation).GetAxes(at, left, up);
+ 
+ 			ALfloat listenerOri[6] = { up.x, up.y, -up.z, -at.x, -at.y, at.z };
+ 			alListener3f(AL_POSITION, location.x, location.y, -location.z);
+@@ -508,8 +546,11 @@ public:
  				while (musicQueue.Size() < musicBufferCount)
  				{
  					// render a chunk of music
@@ -89,7 +132,7 @@ index 03e82566..e921a0a9 100644
  				}
  
  				if (!musicPlaying)
-@@ -528,12 +556,56 @@ public:
+@@ -528,12 +569,56 @@ public:
  			{
  				musicPlaying = false;
  			}
@@ -158,7 +201,7 @@ index d201523d..1b395a9d 100644
  	virtual void Update() = 0;
  };
 diff --git a/SurrealEngine/Native/NObject.cpp b/SurrealEngine/Native/NObject.cpp
-index 1081c358..f866bb72 100644
+index 1081c358..406b3600 100644
 --- a/SurrealEngine/Native/NObject.cpp
 +++ b/SurrealEngine/Native/NObject.cpp
 @@ -12,6 +12,7 @@
@@ -169,6 +212,15 @@ index 1081c358..f866bb72 100644
  
  #ifdef _MSC_VER
  #pragma warning(disable: 4244) // warning C4244: '/=': conversion from 'float' to 'int', possible loss of data
+@@ -303,7 +304,7 @@ void NObject::RegisterFunctions()
+ 		RegisterVMNativeFunc_3("Object", "At_StrStr", &NObject::At_StrStr, 168);
+ 	}
+ 
+-	if (engine->LaunchInfo.IsHarryPotter1())
++	if (engine->LaunchInfo.IsKnowWonder()) // HP1 and HP2
+ 	{
+ 		RegisterVMNativeFunc_1("Object", "GetLanguage", &NObject::GetLanguage, 0);
+ 	}
 @@ -668,6 +669,7 @@ void NObject::Dot_QuatQuat_U227(quaternion& A, quaternion& B, float& ReturnValue
  void NObject::DynamicLoadObject(const std::string& ObjectName, UObject* ObjectClass, std::optional<bool> MayFail, UObject*& ReturnValue)
  {
@@ -259,10 +311,42 @@ index 1081c358..f866bb72 100644
  }
  
 diff --git a/SurrealEngine/ObjectTravelInfo.cpp b/SurrealEngine/ObjectTravelInfo.cpp
-index 7f6fe2b7..d584bb60 100644
+index 7f6fe2b7..9fee4d16 100644
 --- a/SurrealEngine/ObjectTravelInfo.cpp
 +++ b/SurrealEngine/ObjectTravelInfo.cpp
-@@ -106,6 +106,13 @@ ActorTravelInfo::TravelObject ActorTravelInfo::CreateObject(UObject* travelObjec
+@@ -3,6 +3,8 @@
+ #include "ObjectTravelInfo.h"
+ #include "Packages/Core/UClass.h"
+ #include "Packages/Core/Properties/UObjectProperty.h"
++#include "Packages/Core/Properties/UClassProperty.h"
++#include "Packages/Core/Properties/UStrProperty.h"
+ #include "Packages/Engine/Actors/UActor.h"
+ #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
+ #include "Engine.h"
+@@ -85,7 +87,21 @@ ActorTravelInfo::TravelObject ActorTravelInfo::CreateObject(UObject* travelObjec
+ 	info.Name = name;
+ 	for (UProperty* property : travelObject->GetAllTravelProperties())
+ 	{
+-		if (auto objProperty = UObject::TryCast<UObjectProperty>(property))
++		if (UObject::TryCast<UClassProperty>(property))
++		{
++			// A class reference (HP2's harry.SpellBook[32], the spell classes the player has learned) travels as its full name, element by
++			// element for an array: the classes are no travel objects and the lookup below only keeps what travelObjects knows.
++			UObject** data = static_cast<UObject**>(travelObject->GetProperty(property));
++			for (int i = 0; i < std::max(property->ArrayDimension, 1); i++)
++			{
++				UClass* cls = data[i] ? UObject::TryCast<UClass>(data[i]) : nullptr;
++				if (!cls || !cls->package)
++					continue;
++				std::string key = property->ArrayDimension > 1 ? property->Name.ToString() + "[" + std::to_string(i) + "]" : property->Name.ToString();
++				info.Properties[key] = "$cls$" + cls->package->GetPackageName().ToString() + "." + cls->Name.ToString();
++			}
++		}
++		else if (auto objProperty = UObject::TryCast<UObjectProperty>(property))
+ 		{
+ 			UObject* value = *static_cast<UObject**>(travelObject->GetProperty(objProperty));
+ 			std::string name;
+@@ -106,6 +122,13 @@ ActorTravelInfo::TravelObject ActorTravelInfo::CreateObject(UObject* travelObjec
  			if (!name.empty())
  				info.Properties[property->Name.ToString()] = name;
  		}
@@ -276,10 +360,25 @@ index 7f6fe2b7..d584bb60 100644
  		else
  		{
  			info.Properties[property->Name.ToString()] = travelObject->GetPropertyAsString(property->Name);
-@@ -184,6 +191,18 @@ Array<UObject*> ActorTravelInfo::Accept(UPlayerPawn* pawn, const std::string& tr
+@@ -184,6 +207,33 @@ Array<UObject*> ActorTravelInfo::Accept(UPlayerPawn* pawn, const std::string& tr
  			if (property->Name == "Inventory" && !AllFlags(property->PropFlags, PropertyFlags::Travel))
  				continue;
  
++			if (UObject::TryCast<UClassProperty>(property))
++			{
++				UObject** data = static_cast<UObject**>(acceptedObject->GetProperty(property));
++				for (int i = 0; i < std::max(property->ArrayDimension, 1); i++)
++				{
++					std::string key = property->ArrayDimension > 1 ? property->Name.ToString() + "[" + std::to_string(i) + "]" : property->Name.ToString();
++					auto element = objInfo.Properties.find(key);
++					if (element == objInfo.Properties.end() || element->second.rfind("$cls$", 0) != 0)
++						continue;
++					if (UClass* cls = engine->packages->FindClass(NameString(element->second.substr(5))))
++						data[i] = cls;
++				}
++				continue;
++			}
++
 +			if (property->ArrayDimension > 1 && !UObject::TryCast<UObjectProperty>(property))
 +			{
 +				uint8_t* data = static_cast<uint8_t*>(acceptedObject->GetProperty(property));
@@ -295,11 +394,72 @@ index 7f6fe2b7..d584bb60 100644
  			auto it = objInfo.Properties.find(property->Name.ToString());
  			if (it == objInfo.Properties.end())
  				continue;
+@@ -211,7 +261,12 @@ Array<UObject*> ActorTravelInfo::Accept(UPlayerPawn* pawn, const std::string& tr
+ 			}
+ 			else
+ 			{
+-				acceptedObject->SetPropertyFromString(property->Name, value);
++				// A string travels quoted (UStringProperty::PrintValue) but is stored as typed: take the quotes off, or
++				// HP2's CurrentGameState arrives as "GSTATE010" with the quote characters and no actor matches it.
++				if (UObject::TryCast<UStrProperty>(property) && value.size() >= 2 && value.front() == '"' && value.back() == '"')
++					acceptedObject->SetPropertyFromString(property->Name, value.substr(1, value.size() - 2));
++				else
++					acceptedObject->SetPropertyFromString(property->Name, value);
+ 			}
+ 		}
+ 	}
 diff --git a/SurrealEngine/Package/IniFile.cpp b/SurrealEngine/Package/IniFile.cpp
-index 6aab46e1..3450a8ef 100644
+index 6aab46e1..779a80a4 100644
 --- a/SurrealEngine/Package/IniFile.cpp
 +++ b/SurrealEngine/Package/IniFile.cpp
-@@ -303,18 +303,11 @@ void IniFile::UpdateFile(const std::string& filename)
+@@ -18,9 +18,46 @@ static uint32_t HashIniString(const std::string& str)
+ 	return hash;
+ }
+ 
++// HP2's Russian edition ships its .int texts as UTF-16 with a byte order mark. The rest of the engine reads 8-bit text, and
++// HP1's Russian translation (--cyrillic) is Windows-1251 with the Cyrillic drawn per byte, so a UTF-16 file is narrowed the same
++// way: Latin-1 as it is, Cyrillic to its Windows-1251 byte, anything else to '?'.
++static std::string NarrowUtf16(const std::string& text)
++{
++	std::string out;
++	out.reserve(text.size() / 2);
++	for (size_t i = 2; i + 1 < text.size(); i += 2)
++	{
++		const unsigned lo = (unsigned char)text[i], hi = (unsigned char)text[i + 1];
++		const unsigned c = lo | (hi << 8);
++		if (c < 0x100)
++			out.push_back((char)c);
++		else if (c >= 0x410 && c <= 0x44F)
++			out.push_back((char)(0xC0 + (c - 0x410)));
++		else if (c == 0x401)
++			out.push_back((char)0xA8);
++		else if (c == 0x451)
++			out.push_back((char)0xB8);
++		else if (c == 0x2116)
++			out.push_back((char)0xB9);
++		else if (c == 0x2018 || c == 0x2019)
++			out.push_back('\x27');
++		else if (c == 0x201C || c == 0x201D)
++			out.push_back('"');
++		else if (c == 0x2013 || c == 0x2014)
++			out.push_back('-');
++		else if (c == 0x2026)
++			out.append("...");
++		else
++			out.push_back('?');
++	}
++	return out;
++}
++
+ IniFile::IniFile(const std::string& filename)
+ {
+ 	std::string text = File::read_all_text(filename);
++	if (text.size() >= 2 && (unsigned char)text[0] == 0xFF && (unsigned char)text[1] == 0xFE)
++		text = NarrowUtf16(text);
+ 	size_t pos = 0;
+ 	std::string line;
+ 	std::string sectionName;
+@@ -303,18 +340,11 @@ void IniFile::UpdateFile(const std::string& filename)
  				std::string key_without_brackets = key; // Will differ from key if the said key contains brackets
  				std::string value_from_file = line.substr(equal_pos + 1);
  
@@ -430,7 +590,25 @@ index 2f91f141..e3a86d3f 100644
  		}
 --- a/SurrealEngine/Packages/Core/UObject.cpp
 +++ b/SurrealEngine/Packages/Core/UObject.cpp
-@@ -110,9 +110,14 @@
+@@ -30,7 +30,16 @@ void UObject::LoadNow()
+ 		auto stream = info->package->OpenObjectStream(info->Index, info->ObjName, info->Class);
+ 		if (!stream->IsEmptyStream())
+ 		{
+-			Load(stream.get());
++			try
++			{
++				Load(stream.get());
++			}
++			catch (...)
++			{
++				// say which object could not be read: the exception itself only says "Unexpected end of file"
++				LogMessage("Failed to load " + (Class ? Class->Name.ToString() : std::string("?")) + " " + Name.ToString() + " (export " + std::to_string(info->Index) + ") in " + info->package->GetPackageName().ToString());
++				throw;
++			}
+ 			SetObject("Outer", info->Outer);
+ 		}
+ 		else if (auto s = UObject::TryCast<UStruct>(this))
+@@ -110,9 +119,14 @@ void UObject::Load(ObjectStream* stream)
  			LogMessage("UObject::Load encountered object with a state object but no function");
  		}
  
@@ -447,7 +625,7 @@ index 2f91f141..e3a86d3f 100644
  			{
  				DisableEvent(ToNameString((EventName)i));
  			}
-@@ -144,10 +149,11 @@
+@@ -144,10 +158,11 @@ void UObject::Save(PackageStreamWriter* stream)
  		int32_t latentAction = 0;
  		int offset = -1;
  
@@ -460,7 +638,7 @@ index 2f91f141..e3a86d3f 100644
  			{
  				probeMask |= 1ULL << (uint64_t)i;
  			}
-@@ -526,12 +532,39 @@
+@@ -526,12 +541,39 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
  
  	UState* oldState = (UState*)StateFrame->Func;
  
@@ -501,7 +679,7 @@ index 2f91f141..e3a86d3f 100644
  	if (newState)
  	{
  		// HasStack is otherwise only ever inherited from the original package's export table at
-@@ -758,7 +791,9 @@
+@@ -758,7 +800,9 @@ ScriptArray::ScriptArray(UProperty* type) : Type(type)
  {
  }
  
@@ -512,7 +690,7 @@ index 2f91f141..e3a86d3f 100644
  {
  	Reserve(other.Size);
  	try
-@@ -778,7 +813,7 @@
+@@ -778,7 +822,7 @@ ScriptArray::ScriptArray(const ScriptArray& other)
  	}
  }
  
@@ -592,10 +770,18 @@ index 218f7552..68fcd29f 100644
  
  			LogMessageLine line;
 diff --git a/SurrealEngine/VM/Bytecode.h b/SurrealEngine/VM/Bytecode.h
-index 66408992..d251aff8 100644
+index 66408992..c9bbdb5f 100644
 --- a/SurrealEngine/VM/Bytecode.h
 +++ b/SurrealEngine/VM/Bytecode.h
-@@ -31,6 +31,9 @@ public:
+@@ -5,6 +5,7 @@
+ #include "Package/Package.h"
+ #include "Expression.h"
+ #include "Utils/MemoryArena.h"
++#include "HP2.h"
+ 
+ class BytecodeStream;
+ 
+@@ -31,6 +32,9 @@ public:
  
  	int FindLabelIndex(const NameString& label)
  	{
@@ -605,8 +791,58 @@ index 66408992..d251aff8 100644
  		LabelTableExpression* labels = dynamic_cast<LabelTableExpression*>(Statements.back());
  		if (labels)
  		{
+@@ -112,16 +116,18 @@ public:
+ 
+ 	ExprToken ReadToken()
+ 	{
++		pos = SkipDebugInfo(pos);
+ 		if (pos >= size)
+ 			Exception::Throw("BytecodeStream::ReadToken: Unexpected end of file in " + package->GetPackageName().ToString());
+-		return (ExprToken)data[pos++];
++		return StockToken(data[pos++]);
+ 	}
+ 
+ 	ExprToken PeekToken()
+ 	{
+-		if (pos >= size)
++		uint32_t at = SkipDebugInfo(pos);
++		if (at >= size)
+ 			Exception::Throw("BytecodeStream::PeekToken: Unexpected end of file in " + package->GetPackageName().ToString());
+-		return (ExprToken)data[pos];
++		return StockToken(data[at]);
+ 	}
+ 
+ 	NameString ReadName()
+@@ -144,6 +150,27 @@ public:
+ 	}
+ 
+ private:
++	// Harry Potter 2 stores a DebugInfo record before some tokens and numbers the tokens GlobalFunction..FloatToBool one higher
++	// than stock UE1 (src/hp2/HP2Bytecode.cpp). Offsets stay those of the original stream, so jump targets still work.
++	uint32_t SkipDebugInfo(uint32_t at) const
++	{
++		if (!HP2::BytecodeActive())
++			return at;
++		while (at < size)
++		{
++			size_t length = HP2::DebugInfoSize(data + at, size - at);
++			if (length == 0)
++				break;
++			at += (uint32_t)length;
++		}
++		return at;
++	}
++
++	ExprToken StockToken(uint8_t token) const
++	{
++		return (ExprToken)(HP2::BytecodeActive() ? HP2::ToStockToken(token) : token);
++	}
++
+ 	uint8_t* data = nullptr;
+ 	uint32_t size = 0;
+ 	uint32_t pos = 0;
 diff --git a/SurrealEngine/VM/Frame.cpp b/SurrealEngine/VM/Frame.cpp
-index ab62632c..12570002 100644
+index ab62632c..f20041ae 100644
 --- a/SurrealEngine/VM/Frame.cpp
 +++ b/SurrealEngine/VM/Frame.cpp
 @@ -11,6 +11,7 @@
@@ -617,7 +853,15 @@ index ab62632c..12570002 100644
  
  std::function<void()> Frame::RunDebugger;
  Array<Breakpoint> Frame::Breakpoints;
-@@ -209,12 +210,22 @@ ExpressionValue Frame::Call(UFunction* func, UObject* instance, ArrayView<Expres
+@@ -30,6 +31,7 @@ Frame::Frame(UObject* instance, UStruct* func)
+ void Frame::SetState(UStruct* func)
+ {
+ 	Func = func;
++	CodeOwner = nullptr;
+ 	Variables = std::make_unique<LocalVariables>(func);
+ }
+ 
+@@ -209,12 +211,22 @@ ExpressionValue Frame::Call(UFunction* func, UObject* instance, ArrayView<Expres
  	return Call(func, instance, args2);
  }
  
@@ -642,7 +886,159 @@ index ab62632c..12570002 100644
  		return ExpressionValue::NothingValue();
  	}
  
-@@ -553,7 +564,14 @@ ExpressionEvalResult Frame::Run()
+@@ -330,7 +342,16 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, Array<Expr
+ 
+ 	if (func->NativeFuncIndex != 0)
+ 	{
+-		auto& callback = NativeFunctions::NativeByIndex[func->NativeFuncIndex];
++		// a native HP2 declares without a number has an index of its own in the package: a handler registered by name serves it
++		NativeFuncHandler callback;
++		if ((size_t)func->NativeFuncIndex < NativeFunctions::NativeByIndex.size())
++			callback = NativeFunctions::NativeByIndex[func->NativeFuncIndex];
++		if (!callback)
++		{
++			auto byName = NativeFunctions::NativeByName.find({ func->Name, func->NativeStruct->Name });
++			if (byName != NativeFunctions::NativeByName.end())
++				callback = byName->second;
++		}
+ 		if (callback)
+ 		{
+ 			Frame frame(instance, func);
+@@ -451,12 +472,51 @@ void Frame::GotoLabel(const NameString& label)
+ 			if (labelIndex != -1)
+ 			{
+ 				Func = state;
++				CodeOwner = nullptr;
+ 				StatementIndex = labelIndex;
+ 				LatentState = LatentRunState::Continue;
+ 				return;
+ 			}
+ 		}
+ 	}
++	{
++		static int reported = 0;
++		if (reported < 30 && Func && (Func->Name.ToString().rfind("stateLeading", 0) == 0 || Func->Name.ToString().rfind("patrol", 0) == 0))
++		{
++			reported++;
++			std::string chain;
++			for (UClass* cls = Object->Class; cls != nullptr; cls = static_cast<UClass*>(cls->BaseStruct))
++			{
++				UState* st = cls->GetState(Func->Name);
++				if (st)
++				{
++					chain += cls->Name.ToString() + ":" + st->Name.ToString() + "(super " + (st->BaseStruct ? st->BaseStruct->Name.ToString() : std::string("none")) + ", stmts " + std::to_string(st->Code ? st->Code->Statements.size() : 0) + ") ";
++				}
++			}
++			LogMessage("GotoLabel " + Object->Name.ToString() + " state " + Func->Name.ToString() + " label " + (label.IsNone() ? std::string("Begin") : label.ToString()) + " not in the class states: " + chain);
++		}
++	}
++	// A state extends another: its labels (Begin) are the parent state's when it has none of its own
++	for (UClass* cls = Object->Class; cls != nullptr; cls = static_cast<UClass*>(cls->BaseStruct))
++	{
++		UState* state = cls->GetState(Func->Name);
++		for (UState* parent = state ? UObject::TryCast<UState>(state->BaseStruct) : nullptr; parent; parent = UObject::TryCast<UState>(parent->BaseStruct))
++		{
++			if (!parent->Code)
++				continue;
++			int labelIndex = parent->Code->FindLabelIndex(label.IsNone() ? NameString("Begin") : label);
++			if (labelIndex != -1)
++			{
++				CodeOwner = parent;
++				StatementIndex = labelIndex;
++				LatentState = LatentRunState::Continue;
++				static int reported = 0;
++				if (reported++ < 30)
++					LogMessage("State " + Object->Name.ToString() + "." + Func->Name.ToString() + " runs the label " + (label.IsNone() ? std::string("Begin") : label.ToString()) + " of its parent state " + parent->Name.ToString());
++				return;
++			}
++		}
++	}
+ 	LatentState = LatentRunState::Stop;
+ }
+ 
+@@ -473,8 +533,8 @@ ExpressionEvalResult Frame::Run()
+ 
+ 	ActiveCallStackFrame activeFrame(this);
+ 
+-	if (!Func->Code->Statements.empty())
+-		StepExpression = Func->Code->Statements[StatementIndex];
++	if (!(CodeOwner ? CodeOwner : Func)->Code->Statements.empty())
++		StepExpression = (CodeOwner ? CodeOwner : Func)->Code->Statements[StatementIndex];
+ 
+ 	if (RunState == FrameRunState::StepInto)
+ 	{
+@@ -486,14 +546,14 @@ ExpressionEvalResult Frame::Run()
+ 	int instructionsRetired = 0;
+ 	while (true)
+ 	{
+-		if (StatementIndex >= Func->Code->Statements.size())
++		if (StatementIndex >= (CodeOwner ? CodeOwner : Func)->Code->Statements.size())
+ 			ThrowException("Unexpected end of code statements");
+ 
+ 		// Note: GotoState may change StatementIndex (jump to a different location) so we have to increment the index before executing the statement
+ 		size_t curStatementIndex = StatementIndex;
+ 		StatementIndex++;
+ 
+-		StepExpression = Func->Code->Statements[curStatementIndex];
++		StepExpression = (CodeOwner ? CodeOwner : Func)->Code->Statements[curStatementIndex];
+ 
+ 		if (instructionsRetired >= maxInstructions)
+ 		{
+@@ -511,7 +571,7 @@ ExpressionEvalResult Frame::Run()
+ 			Break();
+ 		}
+ 
+-		Expression* statement = Func->Code->Statements[curStatementIndex];
++		Expression* statement = (CodeOwner ? CodeOwner : Func)->Code->Statements[curStatementIndex];
+ 		//ExpressionEvalResult result = ExpressionEvaluator::Eval(statement, Object, Object, Variables->Data);
+ 		ExpressionEvalResult result = RunExpr(statement, Object, Object, Variables->Data);
+ 		if (!Func)
+@@ -521,14 +581,21 @@ ExpressionEvalResult Frame::Run()
+ 		case StatementResult::Next:
+ 			break;
+ 		case StatementResult::Jump:
+-			StatementIndex = Func->Code->FindStatementIndex(result.JumpAddress);
++			StatementIndex = (CodeOwner ? CodeOwner : Func)->Code->FindStatementIndex(result.JumpAddress);
+ 			break;
+ 		case StatementResult::Switch:
+ 			ProcessSwitch(result.Value);
+ 			break;
+ 		case StatementResult::GotoLabel:
+ 			{
+-				int index = Func->Code->FindLabelIndex(result.Label);
++				int index = (CodeOwner ? CodeOwner : Func)->Code->FindLabelIndex(result.Label);
++				if (index == -1 && CodeOwner)
++				{
++					// running a parent state's code: the derived state's own labels count too
++					index = Func->Code->FindLabelIndex(result.Label);
++					if (index != -1)
++						CodeOwner = nullptr;
++				}
+ 				if (index != -1)
+ 				{
+ 					StatementIndex = index;
+@@ -546,14 +613,35 @@ ExpressionEvalResult Frame::Run()
+ 							if (labelIndex != -1)
+ 							{
+ 								Func = state;
++								CodeOwner = nullptr;
+ 								StatementIndex = labelIndex;
+ 								found = true;
+ 								break;
+ 							}
++							// a parent state (state B extends A)
++							for (UState* parent = UObject::TryCast<UState>(state->BaseStruct); parent && !found; parent = UObject::TryCast<UState>(parent->BaseStruct))
++							{
++								if (parent->Code && parent->Code->FindLabelIndex(result.Label) != -1)
++								{
++									Func = state;
++									CodeOwner = parent;
++									StatementIndex = parent->Code->FindLabelIndex(result.Label);
++									found = true;
++								}
++							}
++							if (found)
++								break;
  						}
  					}
  					if (!found)
@@ -658,7 +1054,16 @@ index ab62632c..12570002 100644
  				}
  			}
  			break;
-@@ -607,8 +625,7 @@ ExpressionEvalResult Frame::Run()
+@@ -587,7 +675,7 @@ ExpressionEvalResult Frame::Run()
+ 				ThrowException("Iterator statement without an iterator in " + Object->Name.ToString() + "." + Func->Name.ToString());
+ 			Iterators.push_back(std::move(result.Iter));
+ 			Iterators.back()->StartStatementIndex = curStatementIndex + 1;
+-			Iterators.back()->EndStatementIndex = Func->Code->FindStatementIndex(result.JumpAddress);
++			Iterators.back()->EndStatementIndex = (CodeOwner ? CodeOwner : Func)->Code->FindStatementIndex(result.JumpAddress);
+ 			if (Iterators.back()->Next())
+ 				StatementIndex = Iterators.back()->StartStatementIndex;
+ 			else
+@@ -607,8 +695,7 @@ ExpressionEvalResult Frame::Run()
  			Iterators.pop_back();
  			break;
  		case StatementResult::AccessedNone:
@@ -668,6 +1073,41 @@ index ab62632c..12570002 100644
  			break;
  		}
  
+@@ -623,18 +710,30 @@ ExpressionEvalResult Frame::Run()
+ 
+ void Frame::ProcessSwitch(const ExpressionValue& condition)
+ {
+-	SwitchExpression* switchexpr = static_cast<SwitchExpression*>(Func->Code->Statements[StatementIndex - 1]);
++	SwitchExpression* switchexpr = static_cast<SwitchExpression*>((CodeOwner ? CodeOwner : Func)->Code->Statements[StatementIndex - 1]);
+ 	while (true)
+ 	{
+-		CaseExpression* caseexpr = static_cast<CaseExpression*>(Func->Code->Statements[StatementIndex++]);
++		CaseExpression* caseexpr = static_cast<CaseExpression*>((CodeOwner ? CodeOwner : Func)->Code->Statements[StatementIndex++]);
+ 		if (caseexpr->Value)
+ 		{
+ 			//ExpressionValue casevalue = ExpressionEvaluator::Eval(caseexpr->Value, Object, Object, Variables->Data).Value;
+ 			ExpressionValue casevalue = RunExpr(caseexpr->Value, Object, Object, Variables->Data).Value;
+-			if (condition.IsEqual(casevalue))
++			// a string switch ignores case (UStrProperty::Identical): HP2's CutScript switches on a command as written in the
++			// cutscene files ("capture") against upper case cases ("CAPTURE")
++			bool match;
++			if (condition.GetType() == ExpressionValueType::ValueString && casevalue.GetType() == ExpressionValueType::ValueString)
++			{
++				std::string a = condition.ToString(), b = casevalue.ToString();
++				match = a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin(), [](char x, char y) { return std::tolower((unsigned char)x) == std::tolower((unsigned char)y); });
++			}
++			else
++			{
++				match = condition.IsEqual(casevalue);
++			}
++			if (match)
+ 				break;
+ 			else
+-				StatementIndex = Func->Code->FindStatementIndex(caseexpr->NextOffset);
++				StatementIndex = (CodeOwner ? CodeOwner : Func)->Code->FindStatementIndex(caseexpr->NextOffset);
+ 		}
+ 		else
+ 		{
 diff --git a/SurrealEngine/VM/Iterator.cpp b/SurrealEngine/VM/Iterator.cpp
 index 042d00a6..cf90cf4b 100644
 --- a/SurrealEngine/VM/Iterator.cpp
@@ -686,9 +1126,11 @@ index 042d00a6..cf90cf4b 100644
  				VisibleActors.push_back(levelActor);
  		}
  	}
+diff --git a/SurrealEngine/Packages/Core/UObject.h b/SurrealEngine/Packages/Core/UObject.h
+index 7dd57a47..470e3966 100644
 --- a/SurrealEngine/Packages/Core/UObject.h
 +++ b/SurrealEngine/Packages/Core/UObject.h
-@@ -335,6 +335,11 @@
+@@ -335,6 +335,11 @@ public:
  
  	std::map<NameString, std::set<NameString>> DisabledEvents;
  
@@ -700,3 +1142,160 @@ index 042d00a6..cf90cf4b 100644
  	std::unique_ptr<ObjectDelayLoad> DelayLoad;
  
  	NameString Name;
+@@ -462,12 +467,12 @@ inline void* PropertyDataBlock::Ptr(size_t offset)
+ {
+ 	if (offset < Size)
+ 		return static_cast<uint8_t*>(Data) + offset;
+-	Exception::Throw("Property offset out of bounds!");
++	Exception::Throw("Property offset out of bounds! (offset " + std::to_string(offset) + ", size " + std::to_string(Size) + ")");
+ }
+ 
+ inline const void* PropertyDataBlock::Ptr(size_t offset) const
+ {
+ 	if (offset < Size)
+ 		return static_cast<const uint8_t*>(Data) + offset;
+-	Exception::Throw("Property offset out of bounds!");
++	Exception::Throw("Property offset out of bounds! (offset " + std::to_string(offset) + ", size " + std::to_string(Size) + ")");
+ }
+diff --git a/SurrealEngine/Packages/Core/UStruct.cpp b/SurrealEngine/Packages/Core/UStruct.cpp
+index 535a5549..b5388e64 100644
+--- a/SurrealEngine/Packages/Core/UStruct.cpp
++++ b/SurrealEngine/Packages/Core/UStruct.cpp
+@@ -8,6 +8,7 @@
+ #include "Packages/Core/UTextBuffer.h"
+ #include "Packages/Core/Properties/UBoolProperty.h"
+ #include "Compiler/Frontend/Compiler.h"
++#include "HP2.h"
+ 
+ UStruct::UStruct(NameString name, UClass* cls, ObjectFlags flags) : UField(std::move(name), cls, flags)
+ {
+@@ -286,8 +287,22 @@ ExprToken UStruct::ReadToken(ObjectStream* stream, int depth)
+ 		Exception::Throw("Bytecode parsing error");
+ 	depth++;
+ 
+-	ExprToken token = (ExprToken)stream->ReadUInt8();
+-	PushUInt8((uint8_t)token);
++	uint8_t rawToken = stream->ReadUInt8();
++	if (HP2::BytecodeActive() && rawToken == HP2::DebugInfoToken)
++	{
++		// HP2's DebugInfo record (int32 version, line, position, then the opcode name): kept in the copy so jump offsets
++		// stay those of the original script, skipped when the copy is executed (BytecodeStream)
++		PushUInt8(rawToken);
++		PushUInt32(stream->ReadUInt32());
++		PushUInt32(stream->ReadUInt32());
++		PushUInt32(stream->ReadUInt32());
++		PushAsciiZ(stream->ReadAsciiZ());
++		return ReadToken(stream, depth - 1);
++	}
++	// HP2 numbers the tokens GlobalFunction..FloatToBool one higher than stock UE1: the copy keeps HP2's byte, the decisions
++	// below use the stock value
++	ExprToken token = (ExprToken)(HP2::BytecodeActive() ? HP2::ToStockToken(rawToken) : rawToken);
++	PushUInt8(rawToken);
+ 
+ #ifdef _DEBUG
+ 	std::string tokendebug;
+diff --git a/SurrealEngine/PropertyOffsets.cpp b/SurrealEngine/PropertyOffsets.cpp
+index 5308fe1c..47d55f76 100644
+--- a/SurrealEngine/PropertyOffsets.cpp
++++ b/SurrealEngine/PropertyOffsets.cpp
+@@ -2567,11 +2567,22 @@ static void InitPropertyOffsets_IceTexture(PackageManager* packages)
+ 	PropOffsets_IceTexture.VertPanSpeed = cls->GetPropertyDataOffset("VertPanSpeed");
+ }
+ 
++// IpDrv is not a package of every game (HP2 ships IpDrv.dll but no IpDrv.u): its classes are then absent
++static UObject* FindIpDrvClass(PackageManager* packages, const char* name)
++{
++	for (const NameString& package : packages->GetPackageNames())
++	{
++		if (package == "IpDrv")
++			return packages->GetPackage("IpDrv")->GetUObject("Class", name);
++	}
++	return nullptr;
++}
++
+ PropertyOffsets_InternetLink PropOffsets_InternetLink;
+ 
+ static void InitPropertyOffsets_InternetLink(PackageManager* packages)
+ {
+-	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("IpDrv")->GetUObject("Class", "InternetLink"));
++	UClass* cls = UObject::TryCast<UClass>(FindIpDrvClass(packages, "InternetLink"));
+ 	if (!cls)
+ 	{
+ 		memset(&PropOffsets_InternetLink, 0xff, sizeof(PropOffsets_InternetLink));
+@@ -2590,7 +2601,7 @@ PropertyOffsets_UdpLink PropOffsets_UdpLink;
+ 
+ static void InitPropertyOffsets_UdpLink(PackageManager* packages)
+ {
+-	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("IpDrv")->GetUObject("Class", "UdpLink"));
++	UClass* cls = UObject::TryCast<UClass>(FindIpDrvClass(packages, "UdpLink"));
+ 	if (!cls)
+ 	{
+ 		memset(&PropOffsets_UdpLink, 0xff, sizeof(PropOffsets_UdpLink));
+@@ -2603,7 +2614,7 @@ PropertyOffsets_TcpLink PropOffsets_TcpLink;
+ 
+ static void InitPropertyOffsets_TcpLink(PackageManager* packages)
+ {
+-	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("IpDrv")->GetUObject("Class", "TcpLink"));
++	UClass* cls = UObject::TryCast<UClass>(FindIpDrvClass(packages, "TcpLink"));
+ 	if (!cls)
+ 	{
+ 		memset(&PropOffsets_TcpLink, 0xff, sizeof(PropOffsets_TcpLink));
+diff --git a/SurrealEngine/Packages/Core/Properties/UProperty.h b/SurrealEngine/Packages/Core/Properties/UProperty.h
+index 355f97f3..e56e03cf 100644
+--- a/SurrealEngine/Packages/Core/Properties/UProperty.h
++++ b/SurrealEngine/Packages/Core/Properties/UProperty.h
+@@ -146,7 +146,7 @@ inline void* PropertyDataBlock::Ptr(const UProperty* prop)
+ 	size_t offset = prop->DataOffset.DataOffset;
+ 	if (offset < Size)
+ 		return static_cast<uint8_t*>(Data) + offset;
+-	Exception::Throw("Property offset out of bounds!");
++	Exception::Throw("Property offset out of bounds! (" + prop->Name.ToString() + " at " + std::to_string(offset) + ", size " + std::to_string(Size) + ")");
+ }
+ 
+ inline const void* PropertyDataBlock::Ptr(const UProperty* prop) const
+@@ -154,5 +154,5 @@ inline const void* PropertyDataBlock::Ptr(const UProperty* prop) const
+ 	size_t offset = prop->DataOffset.DataOffset;
+ 	if (offset < Size)
+ 		return static_cast<const uint8_t*>(Data) + offset;
+-	Exception::Throw("Property offset out of bounds!");
++	Exception::Throw("Property offset out of bounds! (" + prop->Name.ToString() + " at " + std::to_string(offset) + ", size " + std::to_string(Size) + ")");
+ }
+diff --git a/SurrealEngine/Audio/AudioSource.cpp b/SurrealEngine/Audio/AudioSource.cpp
+index 241acddf..e1275d63 100644
+--- a/SurrealEngine/Audio/AudioSource.cpp
++++ b/SurrealEngine/Audio/AudioSource.cpp
+@@ -365,6 +365,9 @@ public:
+ 		if (handle == nullptr)
+ 			Exception::Throw("Unable to read ogg file");
+ 
++		pcm = nullptr; // they pointed into the closed decoder
++		pcm_position = 0;
++		pcm_samples = 0;
+ 		stream_info = stb_vorbis_get_info(handle);
+ 		stream_eof = false;
+ 	}
+@@ -389,6 +392,10 @@ public:
+ 				}
+ 			}
+ 
++			// at the end of the stream there is no decoded block (pcm is null): nothing to copy
++			if (!pcm || pcm_samples <= pcm_position)
++				break;
++
+ 			int samples = pcm_samples - pcm_position;
+ 			if (samples > data_left) samples = data_left;
+ 
+diff --git a/SurrealEngine/VM/Frame.h b/SurrealEngine/VM/Frame.h
+index d97f9745..6c531d2b 100644
+--- a/SurrealEngine/VM/Frame.h
++++ b/SurrealEngine/VM/Frame.h
+@@ -96,6 +96,9 @@ public:
+ 	std::unique_ptr<LocalVariables> Variables;
+ 	UObject* Object = nullptr;
+ 	UStruct* Func = nullptr;
++	// The parent state whose code runs when the state has no label of its own ("state B extends A" with A's Begin: HP2's
++	// stateLeadingActor extends patrol); Func stays the state, so its name and functions are the derived state's.
++	UStruct* CodeOwner = nullptr;
+ 	size_t StatementIndex = 0;
+ 	Array<std::unique_ptr<Iterator>> Iterators;
+ 

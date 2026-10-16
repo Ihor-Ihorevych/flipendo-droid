@@ -1,6 +1,7 @@
 #include "Precomp.h"
 #include "HP2.h"
 #include <cstring>
+#include "Engine.h"
 
 // HP2's script bytecode differs from HP1's (and stock UE1's) in the token table only (docs/re/engine/scripting.md).
 // HP2's Core.dll registers its opcodes with GRegisterNative; compared with HP1:
@@ -10,12 +11,17 @@
 //   0x47-0x5A  same as stock (the shift ends in stock's unused 0x46)
 // Everything else, including HP1's DynArrayCount at 0x37 and StringToName at 0x5A, is the same.
 //
-// Planned hook (not applied yet): BytecodeStream::ReadToken/PeekToken in src/engine/SurrealEngine/VM/Bytecode.h, gated by
-// IsHarryPotter2(), skip DebugInfoSize() bytes while the next byte is a DebugInfo record and return
+// Hook: BytecodeStream::ReadToken/PeekToken in src/engine/SurrealEngine/VM/Bytecode.h (engine fixes patch), active when
+// BytecodeActive() says HP2 runs: they skip DebugInfoSize() bytes while the next byte is a DebugInfo record and return
 // ToStockToken(byte). The rest of SurrealEngine's bytecode reader then works unchanged for both games.
 
 namespace HP2
 {
+	bool BytecodeActive()
+	{
+		return engine && engine->LaunchInfo.IsHarryPotter2();
+	}
+
 	// IDA Core.dll: ?GRegisterNative@@YAEHABQ8UObject@@AEXAAUFFrame@@QAX@Z@Z [HP2 Core 0x10144550]
 	// not exported: the static registration stubs that set GNativeDuplicate (sub_101331E0 for DebugInfo = 0x38,
 	// sub_10134570 for GlobalFunction = 0x39 [HP2 Core]); find them as the data xrefs of intUObjectexec<Name>.

@@ -44,7 +44,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  #include <alsa/asoundlib.h>
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
-@@ -1,5 +1,9 @@
+@@ -1,8 +1,13 @@
  
  #include "Precomp.h"
 +#ifdef __ANDROID__
@@ -54,7 +54,11 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  #include "Engine.h"
  #include "KW.h"
  #include "HP1.h"
-@@ -131,7 +135,12 @@
++#include "HP2.h"
+ #include "Utils/File.h"
+ #include "Utils/StrTools.h"
+ #include "Utils/SHA1Sum.h"
+@@ -131,7 +136,12 @@
  	audiodev->InitDevice();
  	render = std::make_unique<RenderSubsystem>(window->GetRenderDevice());
  
@@ -67,7 +71,85 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  		viewport->bWindowsMouseAvailable() = true;
  
  	window->LockCursor();
-@@ -1678,6 +1687,9 @@
+@@ -202,6 +212,11 @@
+ 		CallEvent(console, EventName::Tick, { ExpressionValue::FloatValue(levelElapsed) });
+ 		if (LaunchInfo.IsHarryPotter1()) // src/hp1/mods (cutscene skip, launch skips)
+ 			HP1::TickMods(realTimeElapsed);
++		if (LaunchInfo.IsHarryPotter2()) // the main menu at boot (src/hp2/HP2GameState.cpp)
++		{
++			HP2::OpenStartMenu();
++			HP2::TickTouch();
++		}
+ 
+ 		// To do: set these to true if the frame rate is too low
+ 		if (LaunchInfo.ue1Version >= 436)
+@@ -226,6 +241,9 @@
+ 		viewport->SetViewportRect(0, 0, engine->window->GetPixelWidth(), engine->window->GetPixelHeight());
+ 		render->DrawGame(levelElapsed);
+ 
++		if (LaunchInfo.IsHarryPotter2()) // the queued save (src/hp2/HP2Save.cpp)
++			HP2::TickSave();
++
+ 		// Save the game if there is a request for it
+ 		if (SaveGameInfo.SaveGameSlot != DONT_SAVE_GAME)
+ 		{
+@@ -1003,7 +1021,12 @@
+ 			playerName = packages->GetIniValue("system", "URL", "Name");
+ 
+ 		auto it = travelInfo.find(playerName);
+-		if (!playerName.empty() && it != travelInfo.end())
++		// One player: the only entry is his. The key is the name the pawn had when it left (HP2's Login with no name gives the localized
++		// default, Cyrillic in the Russian edition), which is not the Name the URL or the ini holds; the next level change then found
++		// nothing and Harry arrived empty-handed in the story state "None".
++		if (it == travelInfo.end() && LaunchInfo.IsKnowWonder() && travelInfo.size() == 1)
++			it = travelInfo.begin();
++		if ((!playerName.empty() || LaunchInfo.IsKnowWonder()) && it != travelInfo.end())
+ 		{
+ 			acceptedObjects = ActorTravelInfo::Accept(pawn, it->second);
+ 		}
+@@ -1028,6 +1051,8 @@
+ 
+ 	CallEvent(pawn, EventName::TravelPostAccept);
+ 	CallEvent(LevelInfo->Game(), EventName::PostLogin, { ExpressionValue::ObjectValue(pawn) });
++	if (LaunchInfo.IsHarryPotter2()) // story-state screening of the level's actors (src/hp2/HP2GameState.cpp)
++		HP2::ScreenActorsByGameState(UObject::TryCast<UPlayerPawn>(pawn));
+ 
+ 	render->OnMapLoaded();
+ }
+@@ -1151,6 +1176,14 @@
+ 	for (char& c : command) c = std::tolower(c);
+ 
+ 	found = true;
++	// the console commands HP2's scripts send that the engine answers its own way, ahead of the stock ones: its audio settings
++	// ("get/set ini:Engine.Engine.AudioDevice SoundVolume 0.9") are fractions, not bytes (src/hp2/HP2Console.cpp)
++	if (LaunchInfo.IsHarryPotter2())
++	{
++		std::string hp2Result;
++		if (HP2::ConsoleCommand(commandline, hp2Result))
++			return hp2Result;
++	}
+ 	if (command == "exit" || command == "quit")
+ 	{
+ 		quit = true;
+@@ -1575,6 +1608,8 @@
+ #else
+ 	windowingSystemName = packages->GetIniValue("System", "Engine.SurrealWindowSystem", "WindowSystem", "SDL2");
+ #endif
++	if (LaunchInfo.IsHarryPotter2()) // its volumes are floats in [ALAudio.ALAudioSubsystem] (src/hp2/HP2Console.cpp)
++		HP2::LoadAudioVolumes();
+ }
+ 
+ void Engine::LoadKeybindings()
+@@ -1609,6 +1644,8 @@
+ 			}
+ 		}
+ 	}
++	if (LaunchInfo.IsHarryPotter2()) // Left/Right strafe on the phone (src/hp2/HP2Console.cpp)
++		HP2::TweakKeybindings();
+ }
+ 
+ void Engine::UpdateInput(float timeElapsed)
+@@ -1686,6 +1723,9 @@
  {
  	if (window && engine->LaunchInfo.ue1Version > 219)
  	{
@@ -77,8 +159,83 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  		if (viewport->bShowWindowsMouse() && viewport->bWindowsMouseAvailable())
  			window->UnlockCursor();
  		else
+@@ -1728,7 +1768,7 @@
+ 	{
+ 		viewport->WindowsMouseX() = (float)(pos.x * window->GetDpiScale());
+ 		viewport->WindowsMouseY() = (float)(pos.y * window->GetDpiScale());
+-		if (LaunchInfo.IsHarryPotter1()) // into the menu canvas (src/hp1/HP1Canvas.cpp)
++		if (LaunchInfo.IsKnowWonder()) // into the menu canvas (src/hp1/HP1Canvas.cpp)
+ 			HP1::MenuMousePosition(viewport->WindowsMouseX(), viewport->WindowsMouseY());
+ 	}
+ }
+@@ -1805,6 +1845,8 @@
+ {
+ 	if (LaunchInfo.IsHarryPotter1()) // src/hp1/mods see key presses (skip prompts)
+ 		HP1::ModsKeyDown((int)key);
++	if (LaunchInfo.IsHarryPotter2()) // a Space key-down skips a cutscene (src/hp2/HP2Touch.cpp)
++		HP2::KeyDown((int)key);
+ 
+ 	if (playingAvi)
+ 	{
 --- a/SurrealEngine/Render/RenderCanvas.cpp
 +++ b/SurrealEngine/Render/RenderCanvas.cpp
+@@ -24,7 +24,7 @@
+ 	// Assume 1280x960 for UT and newer.
+ 	int vertResolution = engine->LaunchInfo.ue1Version < 400 ? 768 : 960;
+ 	Canvas.uiscale = std::max((engine->viewport->ViewportHeight() + vertResolution / 2) / vertResolution, 1);
+-	if (engine->LaunchInfo.IsHarryPotter1()) // fractional UI scale (src/hp1/HP1Canvas.cpp)
++	if (engine->LaunchInfo.IsKnowWonder()) // fractional UI scale (src/hp1/HP1Canvas.cpp)
+ 		Canvas.uiscale = HP1::CanvasUIScale(engine->viewport->ViewportHeight());
+ 
+ 	SceneNode frame;
+@@ -59,7 +59,7 @@
+ 	engine->canvas->SizeX() = sizeX;
+ 	engine->canvas->SizeY() = sizeY;
+ 
+-	if (engine->LaunchInfo.IsHarryPotter1()) // full-width HUD canvas; menus get a 4:3 area in PostRender (src/hp1/HP1Canvas.cpp)
++	if (engine->LaunchInfo.IsKnowWonder()) // full-width HUD canvas; menus get a 4:3 area in PostRender (src/hp1/HP1Canvas.cpp)
+ 		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, false);
+ 
+ 	//engine->viewport->bShowWindowsMouse() = true; // bShowWindowsMouse is set to true by WindowConsole if mouse cursor should be visible
+@@ -82,7 +82,7 @@
+ 	Device->SetSceneNode(&Canvas.Frame);
+ 	if (engine->viewport->Actor())
+ 	{
+-		if (engine->LaunchInfo.IsHarryPotter1())
++		if (engine->LaunchInfo.IsKnowWonder())
+ 		{
+ 			// URender::DrawWorld only raises RenderOverlays without bBehindView, on the ViewTarget if any.
+ 			// (Weapon.RenderOverlays draws the first person weapon with Canvas.DrawActor, which leaves it bHidden:
+@@ -112,13 +112,13 @@
+ 	Device->SetSceneNode(&Canvas.Frame);
+ 	if (engine->viewport->Actor())
+ 		CallEvent(engine->viewport->Actor(), EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
+-	if (engine->LaunchInfo.IsHarryPotter1()) // console/menus in a centred 4:3 area (src/hp1/HP1Canvas.cpp)
++	if (engine->LaunchInfo.IsKnowWonder()) // console/menus in a centred 4:3 area (src/hp1/HP1Canvas.cpp)
+ 	{
+ 		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, true);
+ 		Device->SetSceneNode(&Canvas.Frame);
+ 	}
+ 	CallEvent(engine->console, EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
+-	if (engine->LaunchInfo.IsHarryPotter1())
++	if (engine->LaunchInfo.IsKnowWonder())
+ 	{
+ 		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, false);
+ 		Device->SetSceneNode(&Canvas.Frame);
+@@ -136,11 +136,11 @@
+ 	Device->Brightness = engine->client->Brightness;
+ 	Device->Lock(vec4(0.5f, 0.5f, 0.5f, 1.0f), vec4(0.0f, 0.0f, 0.0f, 1.0f), vec4(0.0f), nullptr, nullptr);
+ 	ResetCanvas();
+-	if (engine->LaunchInfo.IsHarryPotter1()) // console/menus in a centred 4:3 area (src/hp1/HP1Canvas.cpp)
++	if (engine->LaunchInfo.IsKnowWonder()) // console/menus in a centred 4:3 area (src/hp1/HP1Canvas.cpp)
+ 		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, true);
+ 	Device->SetSceneNode(&Canvas.Frame);
+ 	CallEvent(engine->console, "DrawLevelInfo", { ExpressionValue::ObjectValue(engine->canvas), ExpressionValue::StringValue(levelEnterText) });
+-	if (engine->LaunchInfo.IsHarryPotter1())
++	if (engine->LaunchInfo.IsKnowWonder())
+ 		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, false);
+ 	Device->Unlock(true);
+ }
 @@ -289,6 +289,7 @@
  
  void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<std::string>& textBlocks, size_t start, size_t end, UFont* font, vec4 color, uint32_t polyflags, float spaceX)
@@ -798,9 +955,23 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  
  	// Harry Potter 2 (UK)
  	{"3a43d9ec8be7ec441b18a8dc710b4bdd5b29bda3", KnownUE1Games::HARRYPOTTER2_433},
+diff --git a/SurrealEngine/Utils/Exception.cpp b/SurrealEngine/Utils/Exception.cpp
+index b498aa6c..b2a16117 100644
 --- a/SurrealEngine/Utils/Exception.cpp
 +++ b/SurrealEngine/Utils/Exception.cpp
-@@ -131,7 +131,7 @@
+@@ -49,6 +49,11 @@ struct InitDbgHelp
+ 
+ #endif
+ 
++#ifdef __ANDROID__
++#include <unwind.h>
++#include <dlfcn.h>
++#endif
++
+ std::mutex Exception::mutex;
+ 
+ int Exception::CaptureStackFrames(std::ostringstream& sstream, int maxframes)
+@@ -131,7 +136,7 @@ int Exception::CaptureStackFrames(std::ostringstream& sstream, int maxframes)
  
  
  /////////////////////////////////////////////////////////////////////
@@ -809,6 +980,49 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  
  	if (maxframes <= 0)
  		return 0;
+@@ -194,6 +199,42 @@ int Exception::CaptureStackFrames(std::ostringstream& sstream, int maxframes)
+ 
+ 	return frameCount;
+ 
++/////////////////////////////////////////////////////////////////////
++#elif defined __ANDROID__
++
++	// Android has no backtrace(): walk the stack with the unwinder and name the frames with dladdr
++	struct Walk
++	{
++		std::ostringstream* out;
++		int left;
++		int count;
++	} walk{ &sstream, maxframes, 0 };
++	_Unwind_Backtrace([](_Unwind_Context* context, void* arg) -> _Unwind_Reason_Code
++	{
++		Walk* w = static_cast<Walk*>(arg);
++		if (w->left <= 0)
++			return _URC_END_OF_STACK;
++		uintptr_t pc = _Unwind_GetIP(context);
++		if (pc == 0)
++			return _URC_END_OF_STACK;
++		Dl_info info;
++		if (dladdr(reinterpret_cast<void*>(pc), &info) && info.dli_sname)
++		{
++			int status = 0;
++			char* demangled = abi::__cxa_demangle(info.dli_sname, nullptr, nullptr, &status);
++			*w->out << "at " << (status == 0 && demangled ? demangled : info.dli_sname) << " + " << (pc - reinterpret_cast<uintptr_t>(info.dli_saddr)) << std::endl;
++			free(demangled);
++		}
++		else if (info.dli_fname)
++		{
++			*w->out << "at " << info.dli_fname << " +0x" << std::hex << (pc - reinterpret_cast<uintptr_t>(info.dli_fbase)) << std::dec << std::endl;
++		}
++		w->left--;
++		w->count++;
++		return _URC_NO_REASON;
++	}, &walk);
++	return walk.count;
++
+ /////////////////////////////////////////////////////////////////////
+ #else
+ 
 --- a/SurrealEngine/Utils/UTF16.cpp
 +++ b/SurrealEngine/Utils/UTF16.cpp
 @@ -35,14 +35,82 @@
@@ -1230,7 +1444,48 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  		CreateScenePass();
  		CreatePresentPass();
  		CreateBloomPass();
-@@ -145,7 +191,7 @@
+@@ -97,14 +143,33 @@
+ {
+ 	LogMessage("GLDrv: exit called");
+ 
+-	UnmapVertices();
++	// Exit runs from the destructor while the game closes, often after the GL context is gone or in a bad state:
++	// the GL error check in UnmapVertices threw out of a destructor and std::terminate aborted the process, which
++	// Android reports as a crash on a normal quit.
++	try
++	{
++		UnmapVertices();
++	}
++	catch (const std::exception& e)
++	{
++		LogMessage(std::string("GLDrv: exit: ") + e.what());
++		SceneVertices = nullptr;
++		SceneIndexes = nullptr;
++	}
+ 
+-	Uploads.reset();
+-	Textures.reset();
+-	ReleasePresentPass();
+-	ReleaseBloomPass();
+-	ReleaseScenePass();
+-	ReleaseSceneBuffers();
++	try
++	{
++		Uploads.reset();
++		Textures.reset();
++		ReleasePresentPass();
++		ReleaseBloomPass();
++		ReleaseScenePass();
++		ReleaseSceneBuffers();
++	}
++	catch (const std::exception& e)
++	{
++		LogMessage(std::string("GLDrv: exit: ") + e.what());
++	}
+ }
+ 
+ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
+@@ -145,7 +210,7 @@
  	{
  		glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, SceneBuffers.ColorBuffer->Handle);
  		SetDebugName(SceneBuffers.ColorBuffer, "SceneBuffers.ColorBuffer");
@@ -1239,7 +1494,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  		glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAX_LEVEL, 0);
  		ThrowIfGLError("glTexStorage2DMultisample(SceneBuffers.ColorBuffer) failed");
  	}
-@@ -153,7 +199,7 @@
+@@ -153,7 +218,7 @@
  	{
  		glBindTexture(GL_TEXTURE_2D, SceneBuffers.ColorBuffer->Handle);
  		SetDebugName(SceneBuffers.ColorBuffer, "SceneBuffers.ColorBuffer");
@@ -1248,7 +1503,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
  		ThrowIfGLError("glTexImage2D(SceneBuffers.ColorBuffer) failed");
  	}
-@@ -214,7 +260,7 @@
+@@ -214,7 +279,7 @@
  		SceneBuffers.PPImage[i] = std::make_shared<GLTexture2D>();
  		glBindTexture(GL_TEXTURE_2D, SceneBuffers.PPImage[i]->Handle);
  		SetDebugName(SceneBuffers.PPImage[i], "SceneBuffers.PPImage");
@@ -1257,7 +1512,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
  		ThrowIfGLError("glTexImage2D(SceneBuffers.PPImage) failed");
  	}
-@@ -227,6 +273,14 @@
+@@ -227,6 +292,14 @@
  	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, SceneBuffers.DepthBuffer->Handle, 0);
  	ThrowIfGLError("Creating SceneBuffers.Framebuffer failed");
  
@@ -1272,7 +1527,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  	SceneBuffers.HitFramebuffer = std::make_shared<GLFramebuffer>();
  	glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.HitFramebuffer->Handle);
  	SetDebugName(SceneBuffers.HitFramebuffer, "SceneBuffers.HitFramebuffer");
-@@ -258,14 +312,14 @@
+@@ -258,14 +331,14 @@
  		level.VTexture = std::make_shared<GLTexture2D>();
  		glBindTexture(GL_TEXTURE_2D, level.VTexture->Handle);
  		SetDebugName(level.VTexture, "SceneBuffers.BlurLevels.VTexture");
@@ -1289,7 +1544,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
  		ThrowIfGLError("glTexImage2D(SceneBuffers.BlurLevels.HTexture) failed");
  
-@@ -486,7 +540,11 @@
+@@ -486,7 +559,11 @@
  		GLuint sampler = ScenePass.Samplers[i]->Handle;
  
  		int dummyMipmapCount = (i >> 2) & 3;
@@ -1301,7 +1556,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  
  #if 0
  		glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, (i & 1) ? GL_NEAREST : GL_LINEAR);
-@@ -494,14 +552,20 @@
+@@ -494,14 +571,20 @@
  #else
  		glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, (i & 1) ? GL_NEAREST_MIPMAP_NEAREST : GL_LINEAR_MIPMAP_LINEAR);
  		glSamplerParameteri(sampler, GL_TEXTURE_MAG_FILTER, (i & 1) ? GL_NEAREST : GL_LINEAR);
@@ -1322,7 +1577,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  
  		ThrowIfGLError("Could not create sampler");
  	}
-@@ -866,7 +930,11 @@
+@@ -866,7 +949,11 @@
  	PresentPass.DitherTexture = std::make_shared<GLTexture>();
  	glBindTexture(GL_TEXTURE_2D, PresentPass.DitherTexture->Handle);
  	SetDebugName(PresentPass.DitherTexture, "PresentPass.DitherTexture");
@@ -1334,7 +1589,103 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
  	ThrowIfGLError("CreateTexture2D(DitherTexture) failed");
  
-@@ -1953,7 +2021,14 @@
+@@ -892,8 +979,18 @@
+ 		PrecacheOnFlip = 1;
+ }
+ 
++static void DrainStaleGLErrors(const char* where);
++
+ void GLRenderDevice::MapVertices(bool nextBuffer)
+ {
++	// A buffer filled to its last element has nothing left to map (a zero length range is a GL error): start the next one. This
++	// killed HP2 about a hundred seconds in, when a draw ended exactly at 16384 vertices and the next map had no room.
++	if (!nextBuffer && ((!SceneVertices && GLSceneVertexPos >= SceneVertexBufferSize) || (!SceneIndexes && SceneIndexPos >= SceneIndexBufferSize)))
++	{
++		nextBuffer = true;
++		Batch.SceneIndexStart = 0;
++	}
++
+ 	if (nextBuffer)
+ 	{
+ 		GLSceneVertexPos = 0;
+@@ -901,15 +998,26 @@
+ 		Stats.BuffersUsed++;
+ 	}
+ 
++	DrainStaleGLErrors("before mapping the scene buffers");
++
+ 	if (!SceneVertices)
+ 	{
+ 		glBindBuffer(GL_ARRAY_BUFFER, ScenePass.VertexBuffer->Handle);
+ 		if (nextBuffer)
+ 			glBufferData(GL_ARRAY_BUFFER, SceneVertexBufferSize * sizeof(GLSceneVertex), nullptr, GL_STREAM_DRAW); // Should we use GL_MAP_INVALIDATE_BUFFER_BIT here instead? OpenGL truly sucked.
+-		SceneVertices = (GLSceneVertex*)glMapBufferRange(GL_ARRAY_BUFFER, GLSceneVertexPos * sizeof(GLSceneVertex), (SceneVertexBufferSize - GLSceneVertexPos) * sizeof(GLSceneVertex), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
+-		SceneVertices -= GLSceneVertexPos; // Draw code assumes the pointer is relative to the start of the buffer, even if we never touch that part
+-		if (!SceneVertices)
++		GLSceneVertex* mappedVertices = (GLSceneVertex*)glMapBufferRange(GL_ARRAY_BUFFER, GLSceneVertexPos * sizeof(GLSceneVertex), (SceneVertexBufferSize - GLSceneVertexPos) * sizeof(GLSceneVertex), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
++		if (!mappedVertices)
++		{
++			// GL_INVALID_OPERATION: the buffer is still mapped from a frame that ended early (seen in HP2 when the spell cursor locks on). Unmap it
++			// and map again instead of ending the game.
++			LogMessage("GL: mapping ScenePass.VertexBuffer failed (error " + std::to_string((int)glGetError()) + ", offset " + std::to_string(GLSceneVertexPos) + " of " + std::to_string(SceneVertexBufferSize) + "), unmapping and trying again");
++			glUnmapBuffer(GL_ARRAY_BUFFER);
++			DrainStaleGLErrors("after a failed vertex map");
++			mappedVertices = (GLSceneVertex*)glMapBufferRange(GL_ARRAY_BUFFER, GLSceneVertexPos * sizeof(GLSceneVertex), (SceneVertexBufferSize - GLSceneVertexPos) * sizeof(GLSceneVertex), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
++		}
++		if (!mappedVertices)
+ 			throw std::runtime_error("Could not map ScenePass.VertexBuffer");
++		SceneVertices = mappedVertices - GLSceneVertexPos; // Draw code assumes the pointer is relative to the start of the buffer, even if we never touch that part
+ 	}
+ 
+ 	if (!SceneIndexes)
+@@ -917,15 +1025,43 @@
+ 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ScenePass.IndexBuffer->Handle);
+ 		if (nextBuffer)
+ 			glBufferData(GL_ELEMENT_ARRAY_BUFFER, SceneIndexBufferSize * sizeof(uint32_t), nullptr, GL_STREAM_DRAW); // Should we use GL_MAP_INVALIDATE_BUFFER_BIT here instead? OpenGL truly sucked.
+-		SceneIndexes = (uint32_t*)glMapBufferRange(GL_ELEMENT_ARRAY_BUFFER, SceneIndexPos * sizeof(uint32_t), (SceneIndexBufferSize - SceneIndexPos) * sizeof(uint32_t), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
+-		SceneIndexes -= SceneIndexPos; // Draw code assumes the pointer is relative to the start of the buffer, even if we never touch that part
+-		if (!SceneIndexes)
++		uint32_t* mappedIndexes = (uint32_t*)glMapBufferRange(GL_ELEMENT_ARRAY_BUFFER, SceneIndexPos * sizeof(uint32_t), (SceneIndexBufferSize - SceneIndexPos) * sizeof(uint32_t), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
++		if (!mappedIndexes)
++		{
++			LogMessage("GL: mapping ScenePass.IndexBuffer failed (error " + std::to_string((int)glGetError()) + "), unmapping and trying again");
++			glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
++			DrainStaleGLErrors("after a failed index map");
++			mappedIndexes = (uint32_t*)glMapBufferRange(GL_ELEMENT_ARRAY_BUFFER, SceneIndexPos * sizeof(uint32_t), (SceneIndexBufferSize - SceneIndexPos) * sizeof(uint32_t), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
++		}
++		if (!mappedIndexes)
+ 			throw std::runtime_error("Could not map ScenePass.SceneIndexes");
++		SceneIndexes = mappedIndexes - SceneIndexPos; // Draw code assumes the pointer is relative to the start of the buffer, even if we never touch that part
++	}
++}
++
++// A GL error left by an earlier call (a texture upload, a state change) shows up at the next ThrowIfGLError, which sits in the
++// buffer map and unmap code: the unmap threw with the index buffer still mapped and the frame failed with "Could not map
++// ScenePass.VertexBuffer" about a hundred seconds into HP2 (the spell cursor locking on). The stale error is read here, logged a few
++// times to find its source, and cleared.
++static void DrainStaleGLErrors(const char* where)
++{
++	static int logged = 0;
++	GLenum error;
++	int guard = 0;
++	while ((error = glGetError()) != GL_NO_ERROR && guard++ < 16)
++	{
++		if (logged < 12)
++		{
++			logged++;
++			LogMessage(std::string("GL error ") + std::to_string((int)error) + " left by an earlier call, found " + where);
++		}
+ 	}
+ }
+ 
+ void GLRenderDevice::UnmapVertices()
+ {
++	DrainStaleGLErrors("before unmapping the scene buffers");
++
+ 	if (SceneVertices)
+ 	{
+ 		glBindBuffer(GL_ARRAY_BUFFER, ScenePass.VertexBuffer->Handle);
+@@ -1953,7 +2089,14 @@
  
  void GLRenderDevice::SetBlendState(GLBlendState* blendState, const float* blendConstants)
  {
@@ -1350,7 +1701,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  	{
  		// To do: this might require OpenGL 4.0 - glBlendFuncSeparatei does, not sure about glEnablei(GL_BLEND)
  		for (int i = 0; i < 2; i++)
-@@ -2014,6 +2089,10 @@
+@@ -2014,6 +2157,10 @@
  
  	glFrontFace(rasterizerState->desc.FrontCounterClockwise ? GL_CCW : GL_CW);
  
@@ -1361,7 +1712,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  	if (rasterizerState->desc.DepthClipEnable)
  		glEnable(GL_DEPTH_CLAMP);
  	else
-@@ -2200,6 +2279,9 @@
+@@ -2200,6 +2347,9 @@
  		log.resize(length);
  		throw std::runtime_error("Could not link program'" + programName + "':" + log);
  	}
@@ -1371,7 +1722,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  	return program;
  }
  
-@@ -2219,9 +2301,71 @@
+@@ -2219,9 +2369,71 @@
  	return shader;
  }
  
@@ -1443,7 +1794,7 @@ flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CP
  	for (const std::string& define : defines)
  	{
  		code += "#define ";
-@@ -2229,7 +2373,13 @@
+@@ -2229,7 +2441,13 @@
  		code += "\r\n";
  	}
  	code += "#line 1\r\n";
