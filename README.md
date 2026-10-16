@@ -61,9 +61,6 @@ pick the game on the start screen.
 
 If the folder you picked has no game in it, the app tells you and lets you pick another one.
 
-**Russian text in HP2:** copy the `harry2` folder of the Russian edition into the HP2 folder; the start screen switches the
-game's texts to Russian by itself.
-
 ## Controls
 
 The first-time help is in the game: Settings, then **? How to play**.
@@ -128,8 +125,6 @@ Open them with the gear (top right) or the View button on a gamepad. Everything 
   screen (HP2: in the slot list).
 - **Spell lessons**: trace the glowing symbol with your finger (or the right stick while holding RT). The drawing is judged
   more gently than on the PC: what counts is that you went over the whole symbol, not how neat the line is.
-- **Buying in HP2** (a duel or a broom for jelly beans): tap Yes or No on the screen, or move the cursor with the right
-  stick and press A on a gamepad.
 - **Slow phone?** Lower the render scale in Settings, 40-50% runs smoothly on most phones.
 - **Leaving the app** and coming back keeps your game running. If Android closes it in the background, you continue from
   your last save.
