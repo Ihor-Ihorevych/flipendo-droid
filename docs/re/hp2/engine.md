@@ -72,6 +72,7 @@ read in HP2's Engine.dll.
 
 - Music: ALAudio.dll (OpenAL + Ogg Vorbis) plays the music; `PlayMusic` / `StopMusic` / `StopAllMusic` are still
   missing.
+- HP2 has no IpDrv package; SurrealEngine's IpDrv property offsets are skipped for it (`0200-hp2.patch`).
 - `I3DL2Listener` (Engine.u): EAX / I3DL2 reverb settings per zone, used by ALAudio.
 
 ## Not needed

@@ -18,6 +18,7 @@ them, kept as patch files so a newer SurrealEngine rarely conflicts.
 | `src/surreal-patches/0120-knowwonder-actors.patch` | KnowWonder actor tick, native actors, animation |
 | `src/surreal-patches/0130-knowwonder-render.patch` | KnowWonder rendering; HP1's menu canvas |
 | `src/surreal-patches/0140-knowwonder-audio.patch` | KnowWonder sound and music |
+| `src/surreal-patches/0200-hp2.patch` | Harry Potter 2: its sound objects' extra fields, no IpDrv package |
 
 `src/surreal-patches/routes.txt` maps engine files to these patches (globs, first match wins) and documents the number ranges:
 0001-0009 plumbing, 0010-0099 game-independent fixes, 0100-0199 HP1, 0200-0299 free for HP2. Patches split by file,
@@ -139,4 +140,6 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Engine.cpp` (LoadMap, LoadFromSaveFile), `Render/RenderSubsystem.h`, `RenderCanvas.cpp` | the loading screen: `KW::LoadMapFadeOut` at the start (fade to black over Console.FadeoutTime), `KW::LoadMapLevelInfo` once LevelInfo is loaded; `RenderSubsystem::DrawLevelInfo` draws Console.DrawLevelInfo on a black frame |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `KW::PawnRotateToward` in `TickRotateTo` (100-unit yaw tolerance); `KW::PawnTurnStep` when TurnTo / TurnToward start and in their polls |
 | `VM/Bytecode.h`, `VM/Bytecode.cpp`, `Packages/Core/UStruct.cpp` | `IsHarryPotter2()`: HP2's bytecode, `HP2::ToStockToken` and DebugInfo records skipped ([scripting](re/engine/scripting.md#how-flipendo-reads-it)); HP1's DynArrayCount token for HP2 too |
+| `Packages/Engine/Resources/USound.cpp`, `USound.h` | `IsHarryPotter2()`: HP2's extra sound fields in Load/Save ([sound](re/engine/sound.md#hp2s-sound-objects)) |
+| `PropertyOffsets.cpp`, `Package/PackageManager.h` | `IsHarryPotter2()`: no IpDrv offsets (HP2 ships without IpDrv) |
 | `Utils/File.cpp/.h`, `Package/PackageManager.cpp`, `UE1GameDatabase.cpp` | `File::find_ignoring_case` for `System/`, the ini files and the `Paths=` folders (any game; HP2 ships `system/default.ini`) |

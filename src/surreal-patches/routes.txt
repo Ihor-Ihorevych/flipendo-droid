@@ -63,3 +63,7 @@ SurrealEngine/Packages/Engine/Resources/Textures/**
 
 [0140-knowwonder-audio.patch] flipendo: KnowWonder sound and music
 SurrealEngine/Packages/Engine/Subsystems/**
+
+[0200-hp2.patch] flipendo: Harry Potter 2: its sound objects' extra fields, no IpDrv package
+SurrealEngine/Packages/Engine/Resources/USound.*
+SurrealEngine/PropertyOffsets.cpp

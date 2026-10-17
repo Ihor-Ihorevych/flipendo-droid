@@ -1,0 +1,111 @@
+flipendo: Harry Potter 2: its sound objects' extra fields, no IpDrv package
+
+diff --git a/SurrealEngine/Packages/Engine/Resources/USound.cpp b/SurrealEngine/Packages/Engine/Resources/USound.cpp
+index 75eb4e30..f7149388 100644
+--- a/SurrealEngine/Packages/Engine/Resources/USound.cpp
++++ b/SurrealEngine/Packages/Engine/Resources/USound.cpp
+@@ -15,11 +15,33 @@ void USound::Load(ObjectStream* stream)
+ 	UObject::Load(stream);
+ 
+ 	Format = stream->ReadName();
++	bool hp2 = engine->LaunchInfo.IsHarryPotter2();
++	if (hp2)
++	{
++		HP2Flags = stream->ReadUInt32();
++		HP2Values[0] = stream->ReadUInt32();
++		if (stream->GetVersion() > 76)
++			HP2Values[1] = stream->ReadUInt32();
++		if (stream->GetVersion() > 77)
++		{
++			HP2Values[2] = stream->ReadUInt32();
++			HP2Values[3] = stream->ReadUInt32();
++		}
++		if (stream->GetVersion() > 78)
++			HP2Values[4] = stream->ReadUInt32();
++	}
+ 	if (stream->GetVersion() >= 63)
+ 		stream->ReadUInt32(); // lazy array skip offset
+ 	uint32_t size = stream->ReadIndex();
+ 	Data.resize(size);
+ 	stream->ReadBytes(Data.data(), size);
++	if (hp2 && (HP2Flags & 0x80))
++	{
++		stream->ReadUInt32(); // lazy array skip offset
++		size = stream->ReadIndex();
++		HP2ExtraData.resize(size);
++		stream->ReadBytes(HP2ExtraData.data(), size);
++	}
+ }
+ 
+ void USound::Save(PackageStreamWriter* stream)
+@@ -27,12 +49,34 @@ void USound::Save(PackageStreamWriter* stream)
+ 	UObject::Save(stream);
+ 
+ 	stream->WriteName(Format);
++	bool hp2 = engine->LaunchInfo.IsHarryPotter2();
++	if (hp2)
++	{
++		stream->WriteUInt32(HP2Flags);
++		stream->WriteUInt32(HP2Values[0]);
++		if (stream->GetVersion() > 76)
++			stream->WriteUInt32(HP2Values[1]);
++		if (stream->GetVersion() > 77)
++		{
++			stream->WriteUInt32(HP2Values[2]);
++			stream->WriteUInt32(HP2Values[3]);
++		}
++		if (stream->GetVersion() > 78)
++			stream->WriteUInt32(HP2Values[4]);
++	}
+ 	if (stream->GetVersion() >= 63)
+ 		stream->BeginSkipOffset();
+ 	stream->WriteIndex((int)Data.size());
+ 	stream->WriteBytes(Data.data(), (uint32_t)Data.size());
+ 	if (stream->GetVersion() >= 63)
+ 		stream->EndSkipOffset();
++	if (hp2 && (HP2Flags & 0x80))
++	{
++		stream->BeginSkipOffset();
++		stream->WriteIndex((int)HP2ExtraData.size());
++		stream->WriteBytes(HP2ExtraData.data(), (uint32_t)HP2ExtraData.size());
++		stream->EndSkipOffset();
++	}
+ }
+ 
+ void USound::GetSound()
+diff --git a/SurrealEngine/Packages/Engine/Resources/USound.h b/SurrealEngine/Packages/Engine/Resources/USound.h
+index f4c32aea..decbebf6 100644
+--- a/SurrealEngine/Packages/Engine/Resources/USound.h
++++ b/SurrealEngine/Packages/Engine/Resources/USound.h
+@@ -32,6 +32,11 @@ public:
+ 	NameString Format;
+ 	Array<uint8_t> Data;
+ 
++	// Harry Potter 2: flags, five more ints (some only in later package versions) and, with flag 0x80, a second data block
++	uint32_t HP2Flags = 0;
++	uint32_t HP2Values[5] = {};
++	Array<uint8_t> HP2ExtraData;
++
+ 	Array<float> samples;
+ 	float duration = 0.0f;
+ 	int frequency = 0;
+diff --git a/SurrealEngine/PropertyOffsets.cpp b/SurrealEngine/PropertyOffsets.cpp
+index 5308fe1c..4414bc97 100644
+--- a/SurrealEngine/PropertyOffsets.cpp
++++ b/SurrealEngine/PropertyOffsets.cpp
+@@ -5603,9 +5603,12 @@ void InitPropertyOffsets(PackageManager* packages)
+ 	InitPropertyOffsets_WarpZoneMarker(packages);
+ 	InitPropertyOffsets_LiftCenter(packages);
+ 	InitPropertyOffsets_RenderIterator(packages);
+-	InitPropertyOffsets_InternetLink(packages);
+-	InitPropertyOffsets_UdpLink(packages);
+-	InitPropertyOffsets_TcpLink(packages);
++	if (!packages->IsHarryPotter2()) // HP2 ships without IpDrv
++	{
++		InitPropertyOffsets_InternetLink(packages);
++		InitPropertyOffsets_UdpLink(packages);
++		InitPropertyOffsets_TcpLink(packages);
++	}
+ 	InitPropertyOffsets_RMusic_Player(packages);
+ 	if (packages->IsUnreal1())
+ 	{
