@@ -102,6 +102,11 @@ particle effects.
         CutCommand hasnt finished yet": Dobby and Harry in PrivetDr, `FordFlying0`, Harry in Adv1Willow): a move or
         animation that doesn't report done. Compare with the original before calling it a bug
   - [ ] Skipping: "SKIP ERROR ... failed to advance after 16 loops" when fast-forwarding PrivetDr's intro
+  - [ ] PrivetDr's intro flyover: the camera doesn't follow the original's path and shows the map's edges (playtest
+        2026-10-17); the shot is also much darker. Check BaseCam's `FollowSpline ... EaseBetween` and FlyTo against HP2's
+        code, and the sky through the backdrop surfaces
+  - [ ] Subtitles and other canvas text with a DrawColor alpha (HP2's cutscene text may set alpha 0): check how HP2's
+        canvas treats alpha
   - [ ] Dobby's and Filch's eye blink channels fail (`eye_close` anim / `eye_root` bone not found): check HP2's mesh
         and animation data against `CreateEyeBlinkAnimChannel`
   - [ ] Accessed None in scripts that the original may not hit: `harry.CutCommand`, `HPConsole.Tick`,
@@ -111,11 +116,14 @@ particle effects.
         songs, looping, volumes; `StopSound`'s fade-out, `PlaySound`'s Disable3D and Loop
   - [ ] XA sounds: check the decoder by ear (nibble order), and the stereo XA case
   - [ ] Check the remaining "changed" ports for real behaviour differences (beyond the DebugInfo check)
+  - [ ] Engine behaviour HP2's scripts may need, worth checking: state labels inherited from a parent state, class
+        references in travel data, dialogue with `Disable3D` playing at full volume wherever the camera is
   3. Menus and options (1-2 days)
-  - [ ] The in-game book (Esc): pages, rollover sounds, the folio, the map; HP2's menu canvas (HP1's 4:3 menu canvas
-        and UI scaling in `src/hp1/HP1Canvas.cpp` are HP1 only)
-  - [ ] Console commands the options page sends: `SETVOLUMES SOUND=` / `MUSIC=`, `MLOD`, `IsFullscreen`, and the
-        `[Engine.Engine] GameRenderDevice` ini read
+  - [ ] The in-game book (Esc) is cut off at the window's edges (playtest 2026-10-17): HP2 needs the menu canvas HP1
+        has (the centred 4:3 area and UI scaling in `src/hp1/HP1Canvas.cpp`, gated `IsHarryPotter1()`); check HP2's
+        WindowConsole / FEBook sizes first. Then pages, rollover sounds, the folio, the map
+  - [ ] Console commands the options page sends: `SETVOLUMES SOUND=` / `MUSIC=` (HP2's volumes are 0..1 floats, not
+        HP1's bytes), `MLOD`, `IsFullscreen`, and the `[Engine.Engine] GameRenderDevice` ini read
   - [ ] Resolution and full screen for HP2 (`system/SE-Game.ini`, made by hand for the 2026-10-17 playtest)
   4. Play the 43 maps through, incl. the 10 duels and Quidditch (4-8 days)
   5. Polish (1-2 days)
