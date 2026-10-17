@@ -84,27 +84,46 @@ particle effects.
   Estimate (2026-10-17): about 3 weeks at HP1's pace (10-19 working days). The engine side is ~85-90% reused (180 of
   ~183 natives covered; of 205 IDA-tagged ports 64 carry over as is, 56 are exec wrappers that differ only by the
   DebugInfo check, 66 need reading in HP2); the 43-map playthrough is new work. In order:
-  1. Start a game. HP2 boots on Linux straight into a new game (PrivetDr and its intro).
+  Status (2026-10-17): boots on Linux straight into a new game; the intro and its cutscenes play (with Enter to skip)
+  through the flying car to the Whomping Willow. Not tried past that; no saves, no start menu. In order:
+  1. Start and save (2-4 days)
   - [ ] Recreate HP2's front end: `Game.exe`'s own Windows menu, which the engine doesn't have
         ([docs/re/hp2/startup.md](docs/re/hp2/startup.md)). The EA splash (`EALogo1.bmp`), then Main Menu (New Game,
         Load Game, Options), the save slot pages, and Options (video, sound, joystick), drawn with HP2's `Help/*.bmp`
         art and `Startup.int` text. New Game starts `PrivetDr.unr`, Load Game `-LOADGAME=<slot>`. Until then a run
         without a URL starts a new game.
-  - [ ] `-LOADGAME=<slot>` (HP2's Engine.dll reads it)
-  2. First level, PrivetDr (2-3 days)
-  - [ ] HP2 music natives: check `src/hp2/HP2Music.cpp` (written from the scripts) against ALAudio.dll, `StopSound`
-        fade-out, `PlaySound`'s Disable3D and Loop
-  - [ ] XA sounds: check the decoder by ear (nibble order)
+  - [ ] `-LOADGAME=<slot>` (HP2's Engine.dll reads it) and HP2's save flow: queued saves, a directory per slot, `LoadGame 0`
+        after death ([docs/re/engine/savegames.md](docs/re/engine/savegames.md))
+  - [ ] Persistent actors across hub travel ([docs/re/hp2/engine.md](docs/re/hp2/engine.md)): `bPersistent` actors keep
+        their state when Harry leaves a hub map and comes back (the `SavePActors` console command, logged as unknown on
+        every level change, and the persistent actor cache)
+  2. The intro and first levels as the original (2-3 days)
+  - [ ] Cutscene commands that start before the previous one finished ("Trying to issue command to: ... when previous
+        CutCommand hasnt finished yet": Dobby and Harry in PrivetDr, `FordFlying0`, Harry in Adv1Willow): a move or
+        animation that doesn't report done. Compare with the original before calling it a bug
+  - [ ] Skipping: "SKIP ERROR ... failed to advance after 16 loops" when fast-forwarding PrivetDr's intro
+  - [ ] Dobby's and Filch's eye blink channels fail (`eye_close` anim / `eye_root` bone not found): check HP2's mesh
+        and animation data against `CreateEyeBlinkAnimChannel`
+  - [ ] Accessed None in scripts that the original may not hit: `harry.CutCommand`, `HPConsole.Tick`,
+        `harry.PlayerWalking.Landed`, `harry.TravelPostAccept`, `harry.PlayerTick`, `baseWand.StopChargingSpell`
+        (`fxChargeParticles`), `FESoundVideoPage.Created` (volume labels)
+  - [ ] HP2 music: check `src/hp2/HP2Music.cpp` (written from the scripts) against ALAudio.dll: crossfades between
+        songs, looping, volumes; `StopSound`'s fade-out, `PlaySound`'s Disable3D and Loop
+  - [ ] XA sounds: check the decoder by ear (nibble order), and the stereo XA case
   - [ ] Check the remaining "changed" ports for real behaviour differences (beyond the DebugInfo check)
-  3. Hubs and saves (2-4 days): persistent actors and HP2's save flow (below)
+  3. Menus and options (1-2 days)
+  - [ ] The in-game book (Esc): pages, rollover sounds, the folio, the map; HP2's menu canvas (HP1's 4:3 menu canvas
+        and UI scaling in `src/hp1/HP1Canvas.cpp` are HP1 only)
+  - [ ] Console commands the options page sends: `SETVOLUMES SOUND=` / `MUSIC=`, `MLOD`, `IsFullscreen`, and the
+        `[Engine.Engine] GameRenderDevice` ini read
+  - [ ] Resolution and full screen for HP2 (`system/SE-Game.ini`, made by hand for the 2026-10-17 playtest)
   4. Play the 43 maps through, incl. the 10 duels and Quidditch (4-8 days)
-  5. Polish (1-2 days): Lumos surfaces, lip sync, oval collision cylinders
+  5. Polish (1-2 days)
   - [ ] Check the unverified HP2 engine differences in HP2's code ([docs/re/hp2/gameplay.md](docs/re/hp2/gameplay.md)):
         music always loops, save loading, lip sync, movers colliding by bounding box
   - [ ] HP2-only engine features ([docs/re/hp2/engine.md](docs/re/hp2/engine.md)): the `GAMESTATE=` command line
-        override, Lumos surfaces, TurnTo's flattened focus, particle Opacity, I3DL2 reverb
-  - [ ] Persistent actors across hub travel ([docs/re/hp2/engine.md](docs/re/hp2/engine.md)): `bPersistent` actors keep
-        their state when Harry leaves a hub map and comes back (`SavePActors`, the persistent actor cache)
+        override, Lumos surfaces, TurnTo's flattened focus, particle Opacity, I3DL2 reverb, oval collision cylinders
+  - [ ] Linux: `HP1_SHOTS` screenshots crash the game after the first one (also HP2), which limits automated testing
 - [ ] HP3 (Prisoner of Azkaban, UE2 build 2226, packages 129): no UE2 counterpart of SurrealEngine exists. First check,
       with UELib: how many native classes/functions its gameplay packages have (HP1's have none). Mostly script =
       extending SurrealEngine towards UE2 is worth a look; otherwise fixes for the original exe are the better route
