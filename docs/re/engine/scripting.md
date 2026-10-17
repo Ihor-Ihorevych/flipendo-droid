@@ -117,3 +117,12 @@ frame and ran off the end of the empty state. (HP1's Engine.dll; HP2 not checked
 (0x10136710) returns 0 and leaves the variable alone. Scripts rely on it: `HPMenuOptionComboList` sizes its rows as
 `(WinHeight-7)/Count`, so an options dropdown with no entries divides by zero. SurrealEngine used plain C++ division
 there and crashed ("Integer divide by zero"). (HP1's Core.dll; HP2 not checked.)
+
+## switch on strings ignores case
+
+`switch` matches its cases with the property's `Identical`, and `UStrProperty::Identical` compares with `appStricmp`
+(checked in HP2's Core.dll [HP2 Core 0x10172510]; stock UE1 behaviour). HP2's `CutScript.ParseCommand` switches on the
+first word of a cutscene line against `"CUE"`, `"WAITFOR"`, `"SLEEP"`, ... while the scripts write `waitfor` and `Cue`.
+SurrealEngine compared strings exactly, so every such line was taken for an actor name ("Failed to find capture. Actor
+not captured.") and PrivetDr's intro stayed black. `Frame::ProcessSwitch` now ignores case for strings
+(`0010-engine-fixes.patch`, any game).

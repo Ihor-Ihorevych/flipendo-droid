@@ -1046,10 +1046,17 @@ index dfa376d1..52d434b8 100644
 +	bool hp2Tokens = false;
  };
 diff --git a/SurrealEngine/VM/Frame.cpp b/SurrealEngine/VM/Frame.cpp
-index 1e7b3c96..155201ae 100644
+index 1e7b3c96..20368457 100644
 --- a/SurrealEngine/VM/Frame.cpp
 +++ b/SurrealEngine/VM/Frame.cpp
-@@ -12,6 +12,7 @@
+@@ -1,5 +1,6 @@
+ 
+ #include "Precomp.h"
++#include "Utils/StrTools.h"
+ #include "Frame.h"
+ #include "Bytecode.h"
+ #include "ExpressionEvaluator.h"
+@@ -12,6 +13,7 @@
  #include "Utils/AlignedAlloc.h"
  #include "Commandlet/VM/DisassemblyCommandlet.h"
  #include <cassert>
@@ -1057,7 +1064,7 @@ index 1e7b3c96..155201ae 100644
  
  std::function<void()> Frame::RunDebugger;
  Array<Breakpoint> Frame::Breakpoints;
-@@ -285,12 +286,22 @@ std::string Frame::GetCallstack()
+@@ -285,12 +287,22 @@ std::string Frame::GetCallstack()
  	return result;
  }
  
@@ -1082,7 +1089,7 @@ index 1e7b3c96..155201ae 100644
  		return ExpressionValue::NothingValue();
  	}
  
-@@ -658,8 +669,7 @@ ExpressionEvalResult Frame::Run()
+@@ -658,8 +670,7 @@ ExpressionEvalResult Frame::Run()
  			Iterators.pop_back();
  			break;
  		case StatementResult::AccessedNone:
@@ -1092,3 +1099,17 @@ index 1e7b3c96..155201ae 100644
  			break;
  		}
  
+@@ -682,7 +693,12 @@ void Frame::ProcessSwitch(const ExpressionValue& condition)
+ 		{
+ 			//ExpressionValue casevalue = ExpressionEvaluator::Eval(caseexpr->Value, Object, Object, Variables).Value;
+ 			ExpressionValue casevalue = RunExpr(caseexpr->Value, Object, Object, Variables).Value;
+-			if (condition.IsEqual(casevalue))
++			// UE1 matches a case with the property's Identical, which ignores case for strings (UStrProperty::Identical
++			// uses appStricmp); HP2's cutscene scripts rely on it ("waitfor" against case "WAITFOR")
++			bool match = condition.GetType() == ExpressionValueType::ValueString ?
++				StrTools::equals_ignore_case(condition.ToString(), casevalue.ToString()) :
++				condition.IsEqual(casevalue);
++			if (match)
+ 				break;
+ 			else
+ 				StatementIndex = Func->Code->FindStatementIndex(caseexpr->NextOffset);
