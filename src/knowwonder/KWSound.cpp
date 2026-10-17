@@ -10,6 +10,8 @@
 #include "Packages/Engine/UViewport.h"
 #include "KWActor.h"
 #include "KWCheck.h"
+#include "KWGame.h"
+#include "HP2.h"
 #include "Packages/Core/UClass.h"
 #include "Package/PackageManager.h"
 #include "Audio/AudioSource.h"
@@ -273,6 +275,10 @@ namespace KW
 	// IDA Galaxy.dll: ?SetVolumes@UGalaxyAudioSubsystem@@QAEXXZ [HP1 Galaxy 0x10606640]
 	float UpdateMusic(AudioDevice* device, UPlayerPawn* player, uint8_t musicVolume, int latency)
 	{
+		// HP2 has no Galaxy music: its scripts play Ogg songs by name (src/hp2/HP2Music.cpp)
+		if (IsHP2())
+			return HP2::UpdateMusic(device, musicVolume);
+
 		// Galaxy's time step: real time since the last update, at most 1 s
 		auto now = std::chrono::steady_clock::now();
 		float deltaTime = music.started ? std::chrono::duration<float>(now - music.lastUpdate).count() : 0.0f;

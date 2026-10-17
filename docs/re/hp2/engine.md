@@ -70,8 +70,11 @@ read in HP2's Engine.dll.
 
 ## Audio
 
-- Music: ALAudio.dll (OpenAL + Ogg Vorbis) plays the music; `PlayMusic` / `StopMusic` / `StopAllMusic` are still
-  missing.
+- Music: ALAudio.dll (OpenAL + Ogg Vorbis) plays the music. Scripts pass a file name in `Music/`
+  (`PlayMusic("sm_dia_Ambient02_01.ogg", 0.5)` returns a handle; `StopMusic(handle, fade)`, `StopAllMusic(fade)`;
+  `PlayerPawn.Song` is a string). Flipendo: `src/hp2/HP2Music.cpp`, written from the scripts and NOT yet checked against
+  ALAudio.dll: one song at a time, looping, linear fades. `KW::UpdateMusic` hands over to it for HP2 (HP1's Galaxy
+  music properties don't exist in HP2's PlayerPawn).
 - HP2 has no IpDrv package; SurrealEngine's IpDrv property offsets are skipped for it (`0200-hp2.patch`).
 - `I3DL2Listener` (Engine.u): EAX / I3DL2 reverb settings per zone, used by ALAudio.
 

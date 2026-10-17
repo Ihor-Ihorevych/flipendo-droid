@@ -6,10 +6,11 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <filesystem>
 
 // KnowWonder's engine (src/knowwonder/): what Flipendo reimplements of the modified Engine.dll / Fire.dll that the Harry Potter
 // games share. These are the entry points called from our hooks inside src/engine/, each gated by
-// engine->LaunchInfo.IsKnowWonder() (HP1 for now; HP2 joins once its differences are handled).
+// engine->LaunchInfo.IsKnowWonder() (HP1 and HP2).
 // Game-specific code (HP1's mods and menu canvas) is in src/hp1/HP1.h.
 
 class UObject;
@@ -210,4 +211,8 @@ namespace KW
 
 	// UIceTexture::UpdateFrame: Fire.dll's IceTexture (refraction of SourceTexture through GlassTexture, panning).
 	void UpdateIceTexture(UIceTexture* ice, float frameTime);
+
+	// The folder entry whose name matches `name` ignoring case (the games' folder and file names vary in case),
+	// empty if there is none (src/knowwonder/KWIcon.cpp)
+	std::filesystem::path FindIgnoringCase(const std::filesystem::path& folder, const std::string& name);
 }

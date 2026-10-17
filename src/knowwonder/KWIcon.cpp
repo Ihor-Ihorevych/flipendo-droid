@@ -11,20 +11,19 @@
 // the window keeps SurrealEngine's icon.
 namespace KW
 {
+	std::filesystem::path FindIgnoringCase(const std::filesystem::path& folder, const std::string& name)
+	{
+		std::error_code ec;
+		for (const auto& entry : std::filesystem::directory_iterator(folder, ec))
+		{
+			if (StrTools::equals_ignore_case(entry.path().filename().string(), name))
+				return entry.path();
+		}
+		return {};
+	}
+
 	namespace
 	{
-		// The folder entry whose name matches `name` ignoring case (the games' folder and file names vary in case).
-		std::filesystem::path FindIgnoringCase(const std::filesystem::path& folder, const std::string& name)
-		{
-			std::error_code ec;
-			for (const auto& entry : std::filesystem::directory_iterator(folder, ec))
-			{
-				if (StrTools::equals_ignore_case(entry.path().filename().string(), name))
-					return entry.path();
-			}
-			return {};
-		}
-
 		uint32_t ReadU32(const std::vector<uint8_t>& d, size_t at) { return d[at] | (d[at + 1] << 8) | (d[at + 2] << 16) | ((uint32_t)d[at + 3] << 24); }
 		uint16_t ReadU16(const std::vector<uint8_t>& d, size_t at) { return (uint16_t)(d[at] | (d[at + 1] << 8)); }
 

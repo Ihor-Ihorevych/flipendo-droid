@@ -11,7 +11,7 @@
 #include "Native/NCanvas.h"
 #include "Packages/Core/UClass.h"
 
-// HP2's natives: the ones HP1 doesn't have (BoneRot, IsSoftwareRendering, GetCurrentKeyState; music still to do), and
+// HP2's natives: the ones HP1 doesn't have (BoneRot, IsSoftwareRendering, GetCurrentKeyState; music in HP2Music.cpp), and
 // adapters for natives whose script signature grew in HP2. Adapters only unpack the HP2 arguments and call the shared
 // body in src/knowwonder/, so the behaviour exists once (docs/one-engine.md).
 
@@ -101,6 +101,6 @@ namespace HP2
 		KW::OverrideNative(264, [] { RegisterVMNativeFunc_8("Actor", "PlaySound", &NPlaySound, 264); });
 		RegisterVMNativeFunc_8("Actor", "PlayOwnedSound", &NPlaySound, 0);
 		KW::OverrideNative(465, [] { RegisterVMNativeFunc_4("Canvas", "DrawText", &NDrawText, 465); });
-		// Still missing: Actor.PlayMusic / StopMusic / StopAllMusic (ALAudio.dll).
+		RegisterMusicNatives();
 	}
 }
