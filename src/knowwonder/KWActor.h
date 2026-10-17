@@ -12,6 +12,7 @@ namespace KW
 		PropertyDataOffset AnimBone;
 		PropertyDataOffset TweenAlpha;
 		PropertyDataOffset bAnimTransient;
+		PropertyDataOffset bAnimNotReplaceable; // HP2 only
 		PropertyDataOffset bAnimMove;
 		PropertyDataOffset Wideness;
 		PropertyDataOffset CollideType;
@@ -43,6 +44,7 @@ namespace KW
 	inline uint8_t& AnimBone(UActor* a) { return a->Value<uint8_t>(GetActorProps().AnimBone); }
 	inline float& TweenAlpha(UActor* a) { return a->Value<float>(GetActorProps().TweenAlpha); }
 	inline BitfieldBool bAnimTransient(UActor* a) { return a->BoolValue(GetActorProps().bAnimTransient); }
+	inline BitfieldBool bAnimNotReplaceable(UActor* a) { return a->BoolValue(GetActorProps().bAnimNotReplaceable); } // HP2 only
 	inline BitfieldBool bAnimMove(UActor* a) { return a->BoolValue(GetActorProps().bAnimMove); }
 	inline uint8_t& Wideness(UActor* a) { return a->Value<uint8_t>(GetActorProps().Wideness); }
 	inline uint8_t& CollideType(UActor* a) { return a->Value<uint8_t>(GetActorProps().CollideType); }

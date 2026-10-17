@@ -99,7 +99,8 @@ sounds; ambient sounds out of range are stopped instead of left to the priority;
 ## HP1 and HP2
 
 HP2's `PlaySound` adds `optional bool Disable3D, optional bool Loop`, and HP2 plays through ALAudio.dll (OpenAL)
-instead of Galaxy. `KW::PlaySound` takes both parameters for HP2's adapter but ignores them so far.
+instead of Galaxy. `KW::PlaySound` takes both parameters for HP2's adapter (`src/hp2/HP2Natives.cpp`, also
+`PlayOwnedSound`) but ignores them so far.
 
 ### HP2's sound objects
 

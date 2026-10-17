@@ -22,9 +22,9 @@ Next to the repository (not in it): `../eagames/hp1` and `../eagames/hp2` are th
 
 How code is split between `src/knowwonder/`, `src/hp1/` and `src/hp2/` so that each behaviour exists once: [one-engine.md](one-engine.md).
 
-**Engine hooks** call into `src/knowwonder/` (`src/knowwonder/KW.h`) gated by `engine->LaunchInfo.IsKnowWonder()`, which is HP1 only for
-now; HP1-only hooks (mods, menu canvas) call `src/hp1/HP1.h` gated by `IsHarryPotter1()`. HP2 joins `IsKnowWonder()`
-once its differences are handled.
+**Engine hooks** call into `src/knowwonder/` (`src/knowwonder/KW.h`) gated by `engine->LaunchInfo.IsKnowWonder()` (HP1 and
+HP2); HP1-only hooks (mods, menu canvas) call `src/hp1/HP1.h` gated by `IsHarryPotter1()`, HP2-only ones `src/hp2/HP2.h`
+gated by `IsHarryPotter2()`.
 
 The ground rules are in [CONTRIBUTING.md](../CONTRIBUTING.md#ground-rules), the full set in [`CLAUDE.md`](../CLAUDE.md).
 

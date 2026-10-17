@@ -55,9 +55,9 @@ written for HP1 today is the code HP2 runs tomorrow. The rules with examples: `d
   the tag ("NOT yet verified against ..."). Add the tag in the same change that adds the function.
 - **No `flipendo:` markers in engine code.** Our engine changes exist only as `src/surreal-patches/*.patch`, each headed
   `flipendo: ...` (from `src/surreal-patches/routes.txt`); that marks the altered source as the zlib licence requires. Comments in
-  engine changes explain the code like any other comment. Gate hooks into `src/knowwonder/` behind `engine->LaunchInfo.IsKnowWonder()` (HP1 only for now; HP2
-  joins when its differences are handled), HP1-only behaviour behind
-  `IsHarryPotter1()` and HP2-only behaviour behind `IsHarryPotter2()`, so other UE1 games keep working. Fixes to SurrealEngine bugs that affect every game go
+  engine changes explain the code like any other comment. Gate hooks into `src/knowwonder/` behind `engine->LaunchInfo.IsKnowWonder()`
+  (HP1 and HP2), HP1-only behaviour behind `IsHarryPotter1()` and HP2-only behaviour behind `IsHarryPotter2()`, so other
+  UE1 games keep working. Fixes to SurrealEngine bugs that affect every game go
   ungated in `src/surreal-patches/0010-engine-fixes.patch` (`src/surreal-patches/routes.txt` assigns files to patches).
 - **Never commit extracted scripts, map dumps or game data** (`*.u *.unr *.utx *.uax *.umx`, exes, DLLs).
   The extracted scripts are derived from the game; `.gitignore` covers them.
@@ -146,7 +146,7 @@ The steps (audit, scripts, IDA, HP2 check, registration, tag, rerun the audits):
 ## Where things are in SurrealEngine
 
 - Game detection: `UE1GameDatabase.h` (SHA-1 of `System/HP.exe` / HP2's `System/Game.exe`), `GameFolder.cpp/.h`
-  (`IsHarryPotter1()` = exe stem `"HP"`, `IsHarryPotter2()` = `"Game"`, our `IsKnowWonder()` = HP1 for now).
+  (`IsHarryPotter1()` = exe stem `"HP"`, `IsHarryPotter2()` = `"Game"`, our `IsKnowWonder()` = both).
 - Our hooks: grep `IsKnowWonder` and `IsHarryPotter1` (SurrealEngine's own pre-existing HP1 special cases also use
   `IsHarryPotter1`: NActor, UStruct/Bytecode `DynArrayToInt_HP1`, ...).
 - Logging: `LogMessage` / `LogUnimplemented` (`Utils/Logger.h`). Missing natives log

@@ -27,8 +27,8 @@ so a file has one owner.
 `tools/build.sh` applies them to the submodule's working tree (`tools/apply_patches.sh`). Each patch starts with a
 `flipendo: ...` header line (from `src/surreal-patches/routes.txt`), which marks the altered source as SurrealEngine's zlib licence
 requires; the changed lines themselves carry no marker. Hooks into `src/knowwonder/`
-are gated behind `engine->LaunchInfo.IsKnowWonder()` (HP1 for now, HP2 later), HP1-only hooks (mods, menu canvas)
-behind `IsHarryPotter1()`, so other UE1 games keep working. Fixes to SurrealEngine bugs that affect any game
+are gated behind `engine->LaunchInfo.IsKnowWonder()` (HP1 and HP2), HP1-only hooks (mods, menu canvas)
+behind `IsHarryPotter1()`, HP2-only ones behind `IsHarryPotter2()`, so other UE1 games keep working. Fixes to SurrealEngine bugs that affect any game
 (`0010-engine-fixes.patch`) aren't gated.
 
 ### Changing a hook
@@ -139,7 +139,9 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `RenderDevice/RenderDevice.h`, `Vulkan/`, `D3D11/`, `OpenGL/` | `GouraudVertex::Alpha` (default 1), passed to the vertex colour's alpha by `DrawGouraudPolygon` (premultiplied with PF_Highlighted) |
 | `Engine.cpp` (LoadMap, LoadFromSaveFile), `Render/RenderSubsystem.h`, `RenderCanvas.cpp` | the loading screen: `KW::LoadMapFadeOut` at the start (fade to black over Console.FadeoutTime), `KW::LoadMapLevelInfo` once LevelInfo is loaded; `RenderSubsystem::DrawLevelInfo` draws Console.DrawLevelInfo on a black frame |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `KW::PawnRotateToward` in `TickRotateTo` (100-unit yaw tolerance); `KW::PawnTurnStep` when TurnTo / TurnToward start and in their polls |
+| `GameFolder.h` | `IsKnowWonder()` is HP1 or HP2 |
 | `VM/Bytecode.h`, `VM/Bytecode.cpp`, `Packages/Core/UStruct.cpp` | `IsHarryPotter2()`: HP2's bytecode, `HP2::ToStockToken` and DebugInfo records skipped ([scripting](re/engine/scripting.md#how-flipendo-reads-it)); HP1's DynArrayCount token for HP2 too |
 | `Packages/Engine/Resources/USound.cpp`, `USound.h` | `IsHarryPotter2()`: HP2's extra sound fields in Load/Save ([sound](re/engine/sound.md#hp2s-sound-objects)) |
 | `PropertyOffsets.cpp`, `Package/PackageManager.h` | `IsHarryPotter2()`: no IpDrv offsets (HP2 ships without IpDrv) |
+| `Native/NObject.cpp`, `Native/NActor.cpp` | Object.GetLanguage and Actor's HP1 natives (PlayAnim, LoopAnim, GetWorldCollisionBox, GetRenderExtent) also for HP2 |
 | `Utils/File.cpp/.h`, `Package/PackageManager.cpp`, `UE1GameDatabase.cpp` | `File::find_ignoring_case` for `System/`, the ini files and the `Paths=` folders (any game; HP2 ships `system/default.ini`) |

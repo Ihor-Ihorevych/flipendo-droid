@@ -415,9 +415,18 @@ index cd676125..95009837 100644
  	void CloseWindow();
  	void TickWindow();
 diff --git a/SurrealEngine/Native/NActor.cpp b/SurrealEngine/Native/NActor.cpp
-index 498c0f84..6696eac3 100644
+index 498c0f84..9eb0d097 100644
 --- a/SurrealEngine/Native/NActor.cpp
 +++ b/SurrealEngine/Native/NActor.cpp
+@@ -142,7 +142,7 @@ void NActor::RegisterFunctions()
+ 		RegisterVMNativeFunc_4("Actor", "PlayBlendAnim", &NActor::PlayBlendAnim, 1010);
+ 		RegisterVMNativeFunc_3("Actor", "TweenBlendAnim", &NActor::TweenBlendAnim, 1012);
+ 	}
+-	if (engine->LaunchInfo.IsHarryPotter1())
++	if (engine->LaunchInfo.IsHarryPotter1() || engine->LaunchInfo.IsHarryPotter2())
+ 	{
+ 		RegisterVMNativeFunc_5("Actor", "PlayAnim", &NActor::PlayAnim_HP, 259);
+ 		RegisterVMNativeFunc_6("Actor", "LoopAnim", &NActor::LoopAnim_HP, 260);
 @@ -665,7 +665,7 @@ void NActor::SetTimer(UObject* Self, float NewTimerRate, bool bLoop)
  void NActor::Sleep(UObject* Self, float Seconds)
  {

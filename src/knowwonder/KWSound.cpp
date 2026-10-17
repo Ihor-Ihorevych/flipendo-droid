@@ -107,11 +107,17 @@ namespace KW
 		}
 	}
 
+	// The default Pitch of PlaySound: TransientSoundPitch, where 64 is normal speed
+	float TransientSoundPitchScale(UActor* actor)
+	{
+		return TransientSoundPitch(actor) / 64.0f;
+	}
+
 	static void NPlaySound(UObject* Self, UObject* Sound, std::optional<uint8_t> Slot, std::optional<float> Volume, std::optional<bool> bNoOverride, std::optional<float> Radius, std::optional<float> Pitch)
 	{
 		UActor* actor = UObject::Cast<UActor>(Self);
 		PlaySound(actor, UObject::TryCast<USound>(Sound), Slot.value_or(SLOT_Misc), Volume.value_or(actor->TransientSoundVolume()), bNoOverride.value_or(false),
-			Radius.value_or(actor->TransientSoundRadius()), Pitch.value_or(TransientSoundPitch(actor) / 64.0f), false, false);
+			Radius.value_or(actor->TransientSoundRadius()), Pitch.value_or(TransientSoundPitchScale(actor)), false, false);
 	}
 
 	// IDA Engine.dll: ?execModifySound@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x1040BF20]
