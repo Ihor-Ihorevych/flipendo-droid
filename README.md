@@ -7,10 +7,10 @@
 </p>
 
 <p align="center">
-  <b>Play the KnowWonder Harry Potter PC games on a modern PC:<br>
+  <b>Play the first two Harry Potter PC games on a modern PC:<br>
   native resolution, real widescreen, no SafeDisc, moddable.</b><br>
   <sub>Philosopher's Stone / Sorcerer's Stone (2001) is playable from start to finish; Chamber of Secrets (2002) is in progress.<br>
-  One open-source engine for both. Named after the first spell Harry learns in the first game.</sub>
+  One open-source engine for both.</sub>
 </p>
 
 <p align="center">
@@ -27,7 +27,7 @@
   <img src="images/screenshots/grand-staircase.jpg" alt="The grand staircase in the first level, 1920x1080" width="100%">
 </p>
 
-Flipendo is one engine for KnowWonder's Harry Potter games on PC, built on
+Flipendo is one engine for KnowWonder's first two Harry Potter games on PC, built on
 [SurrealEngine](https://github.com/dpjudas/SurrealEngine), an open-source reimplementation of Unreal Engine 1:
 
 - **Harry Potter and the Philosopher's Stone** (*Sorcerer's Stone* in the US; 2001): **finished**, the whole story
@@ -55,7 +55,7 @@ The 2001 release is getting hard to run. SafeDisc copy protection doesn't work o
 - **The same game.** Nothing is remade or altered. Optional extras (skippable cutscenes and storybooks, fast forward) can all
   be switched off with `--vanilla`.
 - **Fixable.** Bugs in the original engine get fixed in source ([list](docs/re/hp1/original_bugs.md)).
-- **Windows and Linux.** macOS and Steam Deck can follow because SurrealEngine already runs on them.
+- **Windows and Linux.**
 
 ## Screenshots
 
@@ -88,10 +88,9 @@ All taken in Flipendo at 1920x1080 from the original game files.
 
 | | |
 |---|---|
-| ✅ Works | The whole story, every level from the first lesson to the final encounter with Voldemort, tested by playing it through. Menus and options (incl. key rebinding), widescreen at any resolution, music, cutscenes, characters and their animations, doors, NPCs, Peeves, jelly beans, wizard cards, saving and loading |
-| 🟡 Partly | Spell casting and particle effects mostly work; side-by-side comparison with the original (lighting, animations) is still to do |
-| 🐧 Linux | Builds and plays from source (tested on Fedora); no download yet |
-| ❌ Not yet | The Quidditch League, macOS and Steam Deck builds |
+| ✅ Works | The whole story, every level from the first lesson to the final encounter with Voldemort, tested by playing it through. Menus and options (incl. key rebinding), widescreen at any resolution, music, cutscenes, characters and their animations, spells and particle effects, doors, NPCs, Peeves, jelly beans, wizard cards, saving and loading |
+| 🐧 Linux | Builds and plays from source (tested on Fedora) |
+| ⚪ Not tested | The Quidditch League |
 
 Playtesters are welcome: anything that looks or behaves differently from the original is a useful bug report.
 
@@ -102,9 +101,9 @@ now. It is not ready to play yet; the [roadmap](ROADMAP.md) has the full list.
 
 | | |
 |---|---|
-| ✅ Works | Starts straight into a new game (tested on Linux), the opening cutscenes up to the Whomping Willow (Enter skips them) |
+| ✅ Works | Starts straight into a new game (tested on Linux), the opening cutscenes up to the Whomping Willow with subtitles (Enter skips them), the in-game menu and options at any resolution |
 | 🟡 Partly | Sound effects and music play but aren't checked against the original yet |
-| ❌ Not yet | The start menu (New Game / Load Game / Options), saving and loading, the in-game menu (cut off at the screen edges), playing past the first scenes, the cutscene camera in the opening flyover |
+| ❌ Not yet | Voices, the start menu (New Game / Load Game / Options), saving and loading, playing past the first scenes, the cutscene camera in the opening flyover |
 
 If you try it, build from source (below) and point it at your Chamber of Secrets folder (retail 1.0, the one with
 `system/Game.exe`). Bug reports are welcome, but expect rough edges.
@@ -176,7 +175,7 @@ switched on, and `--vanilla` switches all of them off.
 | Map fixes | on | fixes broken paths in the original maps (Peeves now flies off after the Lev_Tut3b duel instead of drifting through the walls) |
 | Launch skips | off | `--skip-splash`, `--skip-intro` |
 
-More is coming (an in-game page to switch these, more extras): see the [roadmap](ROADMAP.md#6-extras-srchp1mods),
+More is coming (an in-game page to switch these, more extras): see the [roadmap](ROADMAP.md#extras-for-hp1-srchp1mods),
 and [docs/modding.md](docs/modding.md) to write a mod today.
 
 ## Community

@@ -67,5 +67,5 @@ scripts is in the [reverse-engineering notes](re/README.md).
 ## Where modding is going
 
 What is planned (an Extras page, per-mod settings, more extras) is phase 6 of the
-[roadmap](../ROADMAP.md#6-extras-srchp1mods). Not planned: speedrun tools (timer, splits, practice states), since the
+[roadmap](../ROADMAP.md#extras-for-hp1-srchp1mods). Not planned: speedrun tools (timer, splits, practice states), since the
 HP1 PC leaderboards accept runs of the original game only, not of reimplementations.
