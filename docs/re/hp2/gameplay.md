@@ -17,6 +17,16 @@ sections) from `System/cutscenes/<FileName>.int` (214 files on the retail disc) 
 (`bBumpStarts`, `bTriggerStarts`, `bLevelLoadStarts`), and has its own skip: state `FastForwarding`, allowed when
 `bSkipAllowed` (default true). HP1 has no skip (Flipendo adds one as a mod).
 
+The package name `Localize` gets is `"Cutscenes\\" $ FileName`: a Windows path, and the retail folder is lowercase
+`cutscenes`. SurrealEngine looked for a file literally named that on Linux, read every script as empty, and each
+cutscene went to `Finished` the moment it started (PrivetDr's intro did nothing). `PackageManager::Localize` now
+converts the separators and matches the file name ignoring case (`0100-knowwonder-core.patch`, any game).
+
+Which cutscenes may start also depends on the story state: a CutScene outside the current GameState disables itself in
+`OnResolveGameState`. Without GameState screening ([engine.md](engine.md#gamestate-actors-screened-by-the-story-state))
+that event never comes and every `bLevelLoadStarts` cutscene in the map starts (PrivetDr runs `00001PrivetIntro` and
+`00001PrivetIntroPart3` at once).
+
 ## Saving
 
 `PlayerPawn.SaveGame()` only queues a save for the end of the level tick; the slot page reads save number 0 from a

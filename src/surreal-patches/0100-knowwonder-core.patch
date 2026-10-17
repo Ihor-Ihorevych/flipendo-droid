@@ -485,7 +485,7 @@ index 287956c1..27898722 100644
  }
  
 diff --git a/SurrealEngine/Package/PackageManager.cpp b/SurrealEngine/Package/PackageManager.cpp
-index 333a3135..1f6b0dd6 100644
+index 333a3135..af95412a 100644
 --- a/SurrealEngine/Package/PackageManager.cpp
 +++ b/SurrealEngine/Package/PackageManager.cpp
 @@ -6,6 +6,7 @@
@@ -641,7 +641,35 @@ index 333a3135..1f6b0dd6 100644
  	}
  }
  
-@@ -1182,6 +1221,9 @@ void PackageManager::RegisterFunctions()
+@@ -994,8 +1033,9 @@ std::string PackageManager::Localize(NameString packageName, const NameString& s
+ 	{
+ 		try
+ 		{
+-			auto localizedFileName = fs::path(packageName.ToString() + "." + languageExtension);
+-			auto intFileName = fs::path(packageName.ToString() + ".int");
++			// The name can hold a folder written the Windows way (HP2's cutscene scripts: "Cutscenes\\00001PrivetIntro")
++			auto localizedFileName = convert_path_separators(packageName.ToString() + "." + languageExtension);
++			auto intFileName = convert_path_separators(packageName.ToString() + ".int");
+ 
+ 			if (IsUnreal1_227k() || (IsUnrealTournament_469() && launchInfo.gameSubVersion >= 4))
+ 			{
+@@ -1012,11 +1052,12 @@ std::string PackageManager::Localize(NameString packageName, const NameString& s
+ 			if (!intFile)
+ 			{
+ 				// Check the System path
+-				if (fs::exists(gameSystemFolderPath / localizedFileName) && !fs::is_directory(gameSystemFolderPath / localizedFileName))
+-					intFile = std::make_shared<IniFile>((gameSystemFolderPath / localizedFileName).string());
++				const auto localizedPath = File::find_ignoring_case(gameSystemFolderPath / localizedFileName);
++				if (fs::exists(localizedPath) && !fs::is_directory(localizedPath))
++					intFile = std::make_shared<IniFile>(localizedPath.string());
+ 				else
+ 					// Try the global localization
+-					intFile = std::make_shared<IniFile>((gameSystemFolderPath / intFileName).string());
++					intFile = std::make_shared<IniFile>(File::find_ignoring_case(gameSystemFolderPath / intFileName).string());
+ 			}
+ 		}
+ 		catch (...)
+@@ -1182,6 +1223,9 @@ void PackageManager::RegisterFunctions()
  	{
  		NRMusicPlayer::RegisterFunctions();
  	}

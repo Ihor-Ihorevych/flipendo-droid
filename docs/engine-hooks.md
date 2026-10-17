@@ -145,4 +145,4 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Packages/Engine/Resources/USound.cpp`, `USound.h` | `IsHarryPotter2()`: HP2's extra sound fields in Load/Save, XA sounds through `HP2::DecodeXA` ([sound](re/engine/sound.md#hp2s-sound-objects)) |
 | `PropertyOffsets.cpp`, `Package/PackageManager.h` | `IsHarryPotter2()`: no IpDrv offsets (HP2 ships without IpDrv) |
 | `Native/NObject.cpp`, `Native/NActor.cpp` | Object.GetLanguage and Actor's HP1 natives (PlayAnim, LoopAnim, GetWorldCollisionBox, GetRenderExtent) also for HP2 |
-| `Utils/File.cpp/.h`, `Package/PackageManager.cpp`, `UE1GameDatabase.cpp` | `File::find_ignoring_case` for `System/`, the ini files and the `Paths=` folders (any game; HP2 ships `system/default.ini`) |
+| `Utils/File.cpp/.h`, `Package/PackageManager.cpp`, `UE1GameDatabase.cpp` | `File::find_ignoring_case` for `System/`, the ini files, the `Paths=` folders and `Localize` files (whose name may hold a `\\` folder, HP2's cutscenes) (any game; HP2 ships `system/default.ini`) |
