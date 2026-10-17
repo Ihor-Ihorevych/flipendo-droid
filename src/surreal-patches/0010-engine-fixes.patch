@@ -1378,8 +1378,36 @@ index ff500427..4a95be24 100644
  	}
  }
  
+diff --git a/SurrealEngine/VM/ExpressionValue.h b/SurrealEngine/VM/ExpressionValue.h
+index 908adb98..a1c36683 100644
+--- a/SurrealEngine/VM/ExpressionValue.h
++++ b/SurrealEngine/VM/ExpressionValue.h
+@@ -161,6 +161,7 @@ public:
+ 
+ 	ExpressionValueType GetType() const { return Type; }
+ 	bool IsVariable() const { return VariableProperty; }
++	bool HasData() const { return Ptr != nullptr; }
+ 
+ 	ExpressionValue ItemAt(int index)
+ 	{
+@@ -417,6 +418,7 @@ inline void ExpressionValue::Store(const ExpressionValue& rvalue)
+ 	case ExpressionValueType::ValueName: *PtrName = rvalue.ToName(); break;
+ 	case ExpressionValueType::ValueColor: *PtrColor = rvalue.ToColor(); break;
+ 	case ExpressionValueType::ValueStruct:
++		if (rvalue.Type != ExpressionValueType::ValueStruct || !rvalue.Ptr || !Ptr) break; // an Accessed None (or mismatched) value: the struct keeps its value
+ 		if (UStruct* Struct = VariableProperty ? static_cast<UStructProperty*>(VariableProperty)->Struct : GetStructValue()->Struct)
+ 		{
+ 			for (UProperty* prop : Struct->Properties)
+@@ -426,6 +428,7 @@ inline void ExpressionValue::Store(const ExpressionValue& rvalue)
+ 		}
+ 		break;
+ 	case ExpressionValueType::ValueArray:
++		if (rvalue.Type == ExpressionValueType::Nothing) break;
+ 		if (UArrayProperty* Array = VariableProperty ? static_cast<UArrayProperty*>(VariableProperty) : GetArrayValue()->Type)
+ 		{
+ 			Array->CopyArray(Ptr, rvalue.Ptr);
 diff --git a/SurrealEngine/VM/Frame.cpp b/SurrealEngine/VM/Frame.cpp
-index 1e7b3c96..9eb6f671 100644
+index 1e7b3c96..b094781b 100644
 --- a/SurrealEngine/VM/Frame.cpp
 +++ b/SurrealEngine/VM/Frame.cpp
 @@ -1,5 +1,6 @@
@@ -1441,7 +1469,28 @@ index 1e7b3c96..9eb6f671 100644
  		return ExpressionValue::NothingValue();
  	}
  
-@@ -387,11 +402,16 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, const Arra
+@@ -318,12 +333,19 @@ ExpressionValue Frame::Call(UFunction* func, UObject* instance, const ArrayView<
+ 			{
+ 				if (argindex < args.size())
+ 				{
++					if (lvalue.GetType() == ExpressionValueType::ValueStruct && (args[argindex].GetType() != ExpressionValueType::ValueStruct || !args[argindex].HasData()))
++						LogMessage("Call " + func->Name.ToString() + " (" + instance->Name.ToString() + "): struct parameter " + prop->Name.ToString() + " gets a value of type " + std::to_string((int)args[argindex].GetType()) + (args[argindex].IsVariable() ? " variable" : " value"));
+ 					lvalue.Store(args[argindex]);
+ 				}
+ 				else
+ 				{
+ 					// Trailing optional args may be missing.
+-					lvalue.Store(ExpressionValue::DefaultValue(prop));
++					{
++						ExpressionValue defaultValue = ExpressionValue::DefaultValue(prop);
++						if (lvalue.GetType() == ExpressionValueType::ValueStruct && !defaultValue.HasData())
++							LogMessage("Call " + func->Name.ToString() + " (" + instance->Name.ToString() + "): the default of struct parameter " + prop->Name.ToString() + " has no data");
++						lvalue.Store(defaultValue);
++					}
+ 				}
+ 
+ 				argindex++;
+@@ -387,11 +409,16 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, const Arra
  		}
  	}
  
@@ -1460,7 +1509,7 @@ index 1e7b3c96..9eb6f671 100644
  
  	if (callback)
  	{
-@@ -497,6 +517,25 @@ void Frame::GotoLabel(const NameString& label)
+@@ -497,6 +524,25 @@ void Frame::GotoLabel(const NameString& label)
  			if (labelIndex != -1)
  			{
  				Func = state;
@@ -1486,7 +1535,7 @@ index 1e7b3c96..9eb6f671 100644
  				StatementIndex = labelIndex;
  				LatentState = LatentRunState::Continue;
  				return;
-@@ -519,8 +558,8 @@ ExpressionEvalResult Frame::Run()
+@@ -519,8 +565,8 @@ ExpressionEvalResult Frame::Run()
  
  	ActiveCallStackFrame activeFrame(this);
  
@@ -1497,7 +1546,7 @@ index 1e7b3c96..9eb6f671 100644
  
  	if (RunState == FrameRunState::StepInto)
  	{
-@@ -532,14 +571,22 @@ ExpressionEvalResult Frame::Run()
+@@ -532,14 +578,22 @@ ExpressionEvalResult Frame::Run()
  	int instructionsRetired = 0;
  	while (true)
  	{
@@ -1522,7 +1571,7 @@ index 1e7b3c96..9eb6f671 100644
  
  		if (instructionsRetired >= maxInstructions)
  		{
-@@ -557,7 +604,7 @@ ExpressionEvalResult Frame::Run()
+@@ -557,7 +611,7 @@ ExpressionEvalResult Frame::Run()
  			Break();
  		}
  
@@ -1531,7 +1580,7 @@ index 1e7b3c96..9eb6f671 100644
  		//ExpressionEvalResult result = ExpressionEvaluator::Eval(statement, Object, Object, Variables);
  		ExpressionEvalResult result = RunExpr(statement, Object, Object, Variables);
  		if (!Func)
-@@ -567,14 +614,21 @@ ExpressionEvalResult Frame::Run()
+@@ -567,14 +621,21 @@ ExpressionEvalResult Frame::Run()
  		case StatementResult::Next:
  			break;
  		case StatementResult::Jump:
@@ -1555,7 +1604,7 @@ index 1e7b3c96..9eb6f671 100644
  				if (index != -1)
  				{
  					StatementIndex = index;
-@@ -592,10 +646,24 @@ ExpressionEvalResult Frame::Run()
+@@ -592,10 +653,24 @@ ExpressionEvalResult Frame::Run()
  							if (labelIndex != -1)
  							{
  								Func = state;
@@ -1580,7 +1629,7 @@ index 1e7b3c96..9eb6f671 100644
  						}
  					}
  					if (!found)
-@@ -638,7 +706,7 @@ ExpressionEvalResult Frame::Run()
+@@ -638,7 +713,7 @@ ExpressionEvalResult Frame::Run()
  				ThrowException("Iterator statement without an iterator in " + Object->Name.ToString() + "." + Func->Name.ToString());
  			Iterators.push_back(std::move(result.Iter));
  			Iterators.back()->StartStatementIndex = curStatementIndex + 1;
@@ -1589,7 +1638,7 @@ index 1e7b3c96..9eb6f671 100644
  			if (Iterators.back()->Next())
  				StatementIndex = Iterators.back()->StartStatementIndex;
  			else
-@@ -658,8 +726,7 @@ ExpressionEvalResult Frame::Run()
+@@ -658,8 +733,7 @@ ExpressionEvalResult Frame::Run()
  			Iterators.pop_back();
  			break;
  		case StatementResult::AccessedNone:
@@ -1599,7 +1648,7 @@ index 1e7b3c96..9eb6f671 100644
  			break;
  		}
  
-@@ -674,18 +741,23 @@ ExpressionEvalResult Frame::Run()
+@@ -674,18 +748,23 @@ ExpressionEvalResult Frame::Run()
  
  void Frame::ProcessSwitch(const ExpressionValue& condition)
  {
@@ -1627,7 +1676,7 @@ index 1e7b3c96..9eb6f671 100644
  		}
  		else
  		{
-@@ -1020,7 +1092,8 @@ ExpressionEvalResult Frame::RunExpr(Expression* statementExpr, UObject* self, UO
+@@ -1020,7 +1099,8 @@ ExpressionEvalResult Frame::RunExpr(Expression* statementExpr, UObject* self, UO
  					}
  					else
  					{
