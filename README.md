@@ -7,10 +7,10 @@
 </p>
 
 <p align="center">
-  <b>Play the 2001 Harry Potter PC game on a modern PC:<br>
+  <b>Play the KnowWonder Harry Potter PC games on a modern PC:<br>
   native resolution, real widescreen, no SafeDisc, moddable.</b><br>
-  <sub>Harry Potter and the Philosopher's Stone / Sorcerer's Stone (KnowWonder, 2001), running on an open-source engine.<br>
-  Named after the first spell Harry learns in the game.</sub>
+  <sub>Philosopher's Stone / Sorcerer's Stone (2001) is playable from start to finish; Chamber of Secrets (2002) is in progress.<br>
+  One open-source engine for both. Named after the first spell Harry learns in the first game.</sub>
 </p>
 
 <p align="center">
@@ -27,12 +27,21 @@
   <img src="images/screenshots/grand-staircase.jpg" alt="The grand staircase in the first level, 1920x1080" width="100%">
 </p>
 
-Flipendo runs your copy of **Harry Potter and the Philosopher's Stone** (called *Sorcerer's Stone* in the US;
-PC, 2001, KnowWonder / EA) on [SurrealEngine](https://github.com/dpjudas/SurrealEngine), an open-source
-reimplementation of Unreal Engine 1. The levels, scripts, voices and music all come from your own installation.
-Flipendo replaces only the 2001 engine underneath them.
+Flipendo is one engine for KnowWonder's Harry Potter games on PC, built on
+[SurrealEngine](https://github.com/dpjudas/SurrealEngine), an open-source reimplementation of Unreal Engine 1:
+
+- **Harry Potter and the Philosopher's Stone** (*Sorcerer's Stone* in the US; 2001): **finished**, the whole story
+  plays through.
+- **Harry Potter and the Chamber of Secrets** (2002): **work in progress**. It starts and plays its first cutscenes;
+  it isn't playable through yet.
+
+Point it at your installed game and it plays that game. The levels, scripts, voices and music all come from your own
+installation; Flipendo replaces only the engine underneath them.
 
 **You need your own copy of the game.** Flipendo contains no game data.
+
+Everything below is about Philosopher's Stone unless it says otherwise; Chamber of Secrets has its own
+[status section](#chamber-of-secrets-work-in-progress).
 
 ## Why play it this way?
 
@@ -72,6 +81,8 @@ All taken in Flipendo at 1920x1080 from the original game files.
 
 ## Status
 
+### Philosopher's Stone: finished
+
 > **The whole story has been played through, start to finish, in Flipendo** (October 2026). [Download it for
 > Windows](https://github.com/kroplabeskidu/flipendo/releases/latest). Follow progress in [`ROADMAP.md`](ROADMAP.md).
 
@@ -84,7 +95,19 @@ All taken in Flipendo at 1920x1080 from the original game files.
 
 Playtesters are welcome: anything that looks or behaves differently from the original is a useful bug report.
 
-Harry Potter and the Chamber of Secrets (2002) runs on the same engine and is next once the first game is finished.
+### Chamber of Secrets: work in progress
+
+Most of the engine work is shared with the first game, so Chamber of Secrets reuses it; what differs is being ported
+now. It is not ready to play yet; the [roadmap](ROADMAP.md) has the full list.
+
+| | |
+|---|---|
+| ✅ Works | Starts straight into a new game (tested on Linux), the opening cutscenes up to the Whomping Willow (Enter skips them) |
+| 🟡 Partly | Sound effects and music play but aren't checked against the original yet |
+| ❌ Not yet | The start menu (New Game / Load Game / Options), saving and loading, the in-game menu (cut off at the screen edges), playing past the first scenes, the cutscene camera in the opening flyover |
+
+If you try it, build from source (below) and point it at your Chamber of Secrets folder (retail 1.0, the one with
+`system/Game.exe`). Bug reports are welcome, but expect rough edges.
 
 ## How to play
 
@@ -94,6 +117,7 @@ Harry Potter and the Chamber of Secrets (2002) runs on the same engine and is ne
   `Maps/`, `Textures/` and so on. Known versions: UK 1.1, EN retail and a community No-CD,
   Russian (EA Hit-Parade) and its No-CD. If yours isn't
   recognised, the error shows a code (SHA-1); please [report it](CONTRIBUTING.md#other-game-versions).
+- Or **Chamber of Secrets for PC (2002)**, to try the [work in progress](#chamber-of-secrets-work-in-progress).
 - **Windows 10/11**, or **Linux** if you build it yourself (below).
 
 ### Get it running
@@ -138,7 +162,8 @@ build-linux/SurrealEngine ~/Games/HarryPotter
 
 ## Extras and mods
 
-The faithful port and the additions are kept apart: an extra never changes how the game plays unless it is
+These are for Philosopher's Stone; Chamber of Secrets has none yet (its own cutscene skip, Enter, is part of the
+original game). The faithful port and the additions are kept apart: an extra never changes how the game plays unless it is
 switched on, and `--vanilla` switches all of them off.
 
 | Extra | Default | What it does |
