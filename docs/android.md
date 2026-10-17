@@ -380,3 +380,17 @@ while the game is in cutscene mode. While `harry.CurrVendorManager` is set the o
 or the pad's cursor is the mouse; `FlipendoActivity.menuActive`), and the touch position goes into HUD units instead of the
 4:3 menu area (`HP1::MenuMousePosition`), the space the vendor's hit test works in. Duels use the existing controls: the wand
 button charges and casts, the jump button (right mouse) cycles the three spells, left and right strafe.
+
+## 0.3.3
+
+- **HP2 controls:** the wand button also turns the camera (a stick with a small range, `Overlay.aimStick`; Y inverted against HP1's), and Harry
+  can run while the wand is held (`NGetCurrentKeyState` answers "mouse button down" for keys 1, 2 and 4 while `bAltFire` is held:
+  `harry.PlayerInput` allows moving while casting only then). The toolbar's SAVE button and the pad's Y save are off in HP2 (the game's
+  save points still save); the Movement mod row is HP1's only. The launcher has a button that deletes the selected HP2 slot.
+- **HP2 English text:** the launcher sets `Language=` in `default.ini` / `SE-Game.ini` (`rus` for the Russian choice, `usa` for English when
+  `HpDialog.usa` is in System: the Russian edition's `.int` files are Russian), so English shows its subtitles.
+- **The wand's tip (HP2):** the scripts put the tip at `WeaponLoc + (0, 0, 20)` rotated by `WeaponRot`. HP2's weapon bone has Z pointing away
+  from the wand (opposite to it for Harry), so `KW::PawnWeaponFrame` takes WeaponRot's Z from the wand model (its origin to the far corner of
+  its bounds, through the transform the wand is drawn with; 19.9 long): Lumos and the spell particles sit on the tip.
+- **Adreno 735:** when the driver won't map the scene vertex or index buffer (`glMapBufferRange` returns null without a GL error), the frame is
+  built in memory and copied in with `glBufferSubData` (`GLRenderDevice::MapVertices` / `UnmapVertices`).

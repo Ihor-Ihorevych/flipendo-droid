@@ -1,4 +1,4 @@
-flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files, packages (Unicode strings), crash reports, music streaming and following the default audio device (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties; a GotoState from inside EndState sends no second EndState and the outer call stops (movement mod: Wingardium release overflowed the stack)
+flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files, packages (Unicode strings), crash reports, music streaming and following the default audio device (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties
 
 diff --git a/SurrealEngine/Audio/AudioDevice.cpp b/SurrealEngine/Audio/AudioDevice.cpp
 index 03e82566..a891e550 100644
@@ -200,6 +200,52 @@ index d201523d..1b395a9d 100644
 +	virtual void SetLinearFalloff(bool enable) { } // see ALSoundSource::SetLinearFalloff
  	virtual void Update() = 0;
  };
+diff --git a/SurrealEngine/Audio/AudioPlayer.cpp b/SurrealEngine/Audio/AudioPlayer.cpp
+index f1bb061f..418bf582 100644
+--- a/SurrealEngine/Audio/AudioPlayer.cpp
++++ b/SurrealEngine/Audio/AudioPlayer.cpp
+@@ -290,6 +290,16 @@ public:
+ 	bool mixer_stop_flag = false;
+ };
+ 
++#elif defined(__ANDROID__)
++
++// Spike: silent music player (no ALSA on Android).
++class AudioPlayerImpl : public AudioPlayer
++{
++public:
++	AudioPlayerImpl(std::unique_ptr<AudioSource> audiosource) : source(std::move(audiosource)) { }
++	std::unique_ptr<AudioSource> source;
++};
++
+ #else
+ 
+ #include <alsa/asoundlib.h>
+diff --git a/SurrealEngine/Audio/AudioSource.cpp b/SurrealEngine/Audio/AudioSource.cpp
+index 241acddf..e1275d63 100644
+--- a/SurrealEngine/Audio/AudioSource.cpp
++++ b/SurrealEngine/Audio/AudioSource.cpp
+@@ -365,6 +365,9 @@ public:
+ 		if (handle == nullptr)
+ 			Exception::Throw("Unable to read ogg file");
+ 
++		pcm = nullptr; // they pointed into the closed decoder
++		pcm_position = 0;
++		pcm_samples = 0;
+ 		stream_info = stb_vorbis_get_info(handle);
+ 		stream_eof = false;
+ 	}
+@@ -389,6 +392,10 @@ public:
+ 				}
+ 			}
+ 
++			// at the end of the stream there is no decoded block (pcm is null): nothing to copy
++			if (!pcm || pcm_samples <= pcm_position)
++				break;
++
+ 			int samples = pcm_samples - pcm_position;
+ 			if (samples > data_left) samples = data_left;
+ 
 diff --git a/SurrealEngine/Native/NObject.cpp b/SurrealEngine/Native/NObject.cpp
 index 1081c358..406b3600 100644
 --- a/SurrealEngine/Native/NObject.cpp
@@ -545,6 +591,26 @@ index 78b0a27d..c96a6e5b 100644
  		return obj;
  	}
  	else
+diff --git a/SurrealEngine/Packages/Core/Properties/UProperty.h b/SurrealEngine/Packages/Core/Properties/UProperty.h
+index 355f97f3..e56e03cf 100644
+--- a/SurrealEngine/Packages/Core/Properties/UProperty.h
++++ b/SurrealEngine/Packages/Core/Properties/UProperty.h
+@@ -146,7 +146,7 @@ inline void* PropertyDataBlock::Ptr(const UProperty* prop)
+ 	size_t offset = prop->DataOffset.DataOffset;
+ 	if (offset < Size)
+ 		return static_cast<uint8_t*>(Data) + offset;
+-	Exception::Throw("Property offset out of bounds!");
++	Exception::Throw("Property offset out of bounds! (" + prop->Name.ToString() + " at " + std::to_string(offset) + ", size " + std::to_string(Size) + ")");
+ }
+ 
+ inline const void* PropertyDataBlock::Ptr(const UProperty* prop) const
+@@ -154,5 +154,5 @@ inline const void* PropertyDataBlock::Ptr(const UProperty* prop) const
+ 	size_t offset = prop->DataOffset.DataOffset;
+ 	if (offset < Size)
+ 		return static_cast<const uint8_t*>(Data) + offset;
+-	Exception::Throw("Property offset out of bounds!");
++	Exception::Throw("Property offset out of bounds! (" + prop->Name.ToString() + " at " + std::to_string(offset) + ", size " + std::to_string(Size) + ")");
+ }
 diff --git a/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp b/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp
 index 2f91f141..e3a86d3f 100644
 --- a/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp
@@ -588,6 +654,8 @@ index 2f91f141..e3a86d3f 100644
  				}
  			}
  		}
+diff --git a/SurrealEngine/Packages/Core/UObject.cpp b/SurrealEngine/Packages/Core/UObject.cpp
+index 2b855f33..39ed63e0 100644
 --- a/SurrealEngine/Packages/Core/UObject.cpp
 +++ b/SurrealEngine/Packages/Core/UObject.cpp
 @@ -30,7 +30,16 @@ void UObject::LoadNow()
@@ -699,6 +767,37 @@ index 2f91f141..e3a86d3f 100644
  {
  	Data = other.Data;
  	Size = other.Size;
+diff --git a/SurrealEngine/Packages/Core/UObject.h b/SurrealEngine/Packages/Core/UObject.h
+index 7dd57a47..470e3966 100644
+--- a/SurrealEngine/Packages/Core/UObject.h
++++ b/SurrealEngine/Packages/Core/UObject.h
+@@ -335,6 +335,11 @@ public:
+ 
+ 	std::map<NameString, std::set<NameString>> DisabledEvents;
+ 
++	// UObject::GotoState while the state's EndState is running: the nested call sends no second EndState, and the outer call
++	// does not switch the state again (the state was changed from inside EndState).
++	bool InEndState = false;
++	bool StateChangedInEndState = false;
++
+ 	std::unique_ptr<ObjectDelayLoad> DelayLoad;
+ 
+ 	NameString Name;
+@@ -462,12 +467,12 @@ inline void* PropertyDataBlock::Ptr(size_t offset)
+ {
+ 	if (offset < Size)
+ 		return static_cast<uint8_t*>(Data) + offset;
+-	Exception::Throw("Property offset out of bounds!");
++	Exception::Throw("Property offset out of bounds! (offset " + std::to_string(offset) + ", size " + std::to_string(Size) + ")");
+ }
+ 
+ inline const void* PropertyDataBlock::Ptr(size_t offset) const
+ {
+ 	if (offset < Size)
+ 		return static_cast<const uint8_t*>(Data) + offset;
+-	Exception::Throw("Property offset out of bounds!");
++	Exception::Throw("Property offset out of bounds! (offset " + std::to_string(offset) + ", size " + std::to_string(Size) + ")");
+ }
 diff --git a/SurrealEngine/Packages/Core/UState.cpp b/SurrealEngine/Packages/Core/UState.cpp
 index 55f5c3f7..57069c47 100644
 --- a/SurrealEngine/Packages/Core/UState.cpp
@@ -732,6 +831,43 @@ index e0615c50..98d86ac5 100644
 +	UFunction* GetFunction(const NameString& name);
  	std::map<NameString, UFunction*> Functions;
  };
+diff --git a/SurrealEngine/Packages/Core/UStruct.cpp b/SurrealEngine/Packages/Core/UStruct.cpp
+index 535a5549..b5388e64 100644
+--- a/SurrealEngine/Packages/Core/UStruct.cpp
++++ b/SurrealEngine/Packages/Core/UStruct.cpp
+@@ -8,6 +8,7 @@
+ #include "Packages/Core/UTextBuffer.h"
+ #include "Packages/Core/Properties/UBoolProperty.h"
+ #include "Compiler/Frontend/Compiler.h"
++#include "HP2.h"
+ 
+ UStruct::UStruct(NameString name, UClass* cls, ObjectFlags flags) : UField(std::move(name), cls, flags)
+ {
+@@ -286,8 +287,22 @@ ExprToken UStruct::ReadToken(ObjectStream* stream, int depth)
+ 		Exception::Throw("Bytecode parsing error");
+ 	depth++;
+ 
+-	ExprToken token = (ExprToken)stream->ReadUInt8();
+-	PushUInt8((uint8_t)token);
++	uint8_t rawToken = stream->ReadUInt8();
++	if (HP2::BytecodeActive() && rawToken == HP2::DebugInfoToken)
++	{
++		// HP2's DebugInfo record (int32 version, line, position, then the opcode name): kept in the copy so jump offsets
++		// stay those of the original script, skipped when the copy is executed (BytecodeStream)
++		PushUInt8(rawToken);
++		PushUInt32(stream->ReadUInt32());
++		PushUInt32(stream->ReadUInt32());
++		PushUInt32(stream->ReadUInt32());
++		PushAsciiZ(stream->ReadAsciiZ());
++		return ReadToken(stream, depth - 1);
++	}
++	// HP2 numbers the tokens GlobalFunction..FloatToBool one higher than stock UE1: the copy keeps HP2's byte, the decisions
++	// below use the stock value
++	ExprToken token = (ExprToken)(HP2::BytecodeActive() ? HP2::ToStockToken(rawToken) : rawToken);
++	PushUInt8(rawToken);
+ 
+ #ifdef _DEBUG
+ 	std::string tokendebug;
 diff --git a/SurrealEngine/Packages/Engine/Resources/Level/UModel.cpp b/SurrealEngine/Packages/Engine/Resources/Level/UModel.cpp
 index 79b40d31..53de1d53 100644
 --- a/SurrealEngine/Packages/Engine/Resources/Level/UModel.cpp
@@ -745,6 +881,52 @@ index 79b40d31..53de1d53 100644
  			break;
  		}
  	}
+diff --git a/SurrealEngine/PropertyOffsets.cpp b/SurrealEngine/PropertyOffsets.cpp
+index 5308fe1c..47d55f76 100644
+--- a/SurrealEngine/PropertyOffsets.cpp
++++ b/SurrealEngine/PropertyOffsets.cpp
+@@ -2567,11 +2567,22 @@ static void InitPropertyOffsets_IceTexture(PackageManager* packages)
+ 	PropOffsets_IceTexture.VertPanSpeed = cls->GetPropertyDataOffset("VertPanSpeed");
+ }
+ 
++// IpDrv is not a package of every game (HP2 ships IpDrv.dll but no IpDrv.u): its classes are then absent
++static UObject* FindIpDrvClass(PackageManager* packages, const char* name)
++{
++	for (const NameString& package : packages->GetPackageNames())
++	{
++		if (package == "IpDrv")
++			return packages->GetPackage("IpDrv")->GetUObject("Class", name);
++	}
++	return nullptr;
++}
++
+ PropertyOffsets_InternetLink PropOffsets_InternetLink;
+ 
+ static void InitPropertyOffsets_InternetLink(PackageManager* packages)
+ {
+-	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("IpDrv")->GetUObject("Class", "InternetLink"));
++	UClass* cls = UObject::TryCast<UClass>(FindIpDrvClass(packages, "InternetLink"));
+ 	if (!cls)
+ 	{
+ 		memset(&PropOffsets_InternetLink, 0xff, sizeof(PropOffsets_InternetLink));
+@@ -2590,7 +2601,7 @@ PropertyOffsets_UdpLink PropOffsets_UdpLink;
+ 
+ static void InitPropertyOffsets_UdpLink(PackageManager* packages)
+ {
+-	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("IpDrv")->GetUObject("Class", "UdpLink"));
++	UClass* cls = UObject::TryCast<UClass>(FindIpDrvClass(packages, "UdpLink"));
+ 	if (!cls)
+ 	{
+ 		memset(&PropOffsets_UdpLink, 0xff, sizeof(PropOffsets_UdpLink));
+@@ -2603,7 +2614,7 @@ PropertyOffsets_TcpLink PropOffsets_TcpLink;
+ 
+ static void InitPropertyOffsets_TcpLink(PackageManager* packages)
+ {
+-	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("IpDrv")->GetUObject("Class", "TcpLink"));
++	UClass* cls = UObject::TryCast<UClass>(FindIpDrvClass(packages, "TcpLink"));
+ 	if (!cls)
+ 	{
+ 		memset(&PropOffsets_TcpLink, 0xff, sizeof(PropOffsets_TcpLink));
 diff --git a/SurrealEngine/UI/ErrorWindow/ErrorWindow.cpp b/SurrealEngine/UI/ErrorWindow/ErrorWindow.cpp
 index 218f7552..68fcd29f 100644
 --- a/SurrealEngine/UI/ErrorWindow/ErrorWindow.cpp
@@ -841,6 +1023,20 @@ index 66408992..c9bbdb5f 100644
  	uint8_t* data = nullptr;
  	uint32_t size = 0;
  	uint32_t pos = 0;
+diff --git a/SurrealEngine/VM/ExpressionEvaluator.cpp b/SurrealEngine/VM/ExpressionEvaluator.cpp
+index d1dc2284..59352175 100644
+--- a/SurrealEngine/VM/ExpressionEvaluator.cpp
++++ b/SurrealEngine/VM/ExpressionEvaluator.cpp
+@@ -204,7 +204,8 @@ void ExpressionEvaluator::Expr(ClassContextExpression* expr)
+ 	}
+ 	else
+ 	{
+-		Frame::ThrowException("Class reference is None");
++		// reading the default of a None class is an Accessed None (the expression yields zero), as in the original engine
++		Result.Result = StatementResult::AccessedNone;
+ 	}
+ }
+ 
 diff --git a/SurrealEngine/VM/Frame.cpp b/SurrealEngine/VM/Frame.cpp
 index ab62632c..abd998e3 100644
 --- a/SurrealEngine/VM/Frame.cpp
@@ -1125,6 +1321,20 @@ index ab62632c..abd998e3 100644
  					PushValue(ExpressionValue::NothingValue());
  					PopExpr();
  				}
+diff --git a/SurrealEngine/VM/Frame.h b/SurrealEngine/VM/Frame.h
+index d97f9745..6c531d2b 100644
+--- a/SurrealEngine/VM/Frame.h
++++ b/SurrealEngine/VM/Frame.h
+@@ -96,6 +96,9 @@ public:
+ 	std::unique_ptr<LocalVariables> Variables;
+ 	UObject* Object = nullptr;
+ 	UStruct* Func = nullptr;
++	// The parent state whose code runs when the state has no label of its own ("state B extends A" with A's Begin: HP2's
++	// stateLeadingActor extends patrol); Func stays the state, so its name and functions are the derived state's.
++	UStruct* CodeOwner = nullptr;
+ 	size_t StatementIndex = 0;
+ 	Array<std::unique_ptr<Iterator>> Iterators;
+ 
 diff --git a/SurrealEngine/VM/Iterator.cpp b/SurrealEngine/VM/Iterator.cpp
 index 042d00a6..cf90cf4b 100644
 --- a/SurrealEngine/VM/Iterator.cpp
@@ -1143,190 +1353,3 @@ index 042d00a6..cf90cf4b 100644
  				VisibleActors.push_back(levelActor);
  		}
  	}
-diff --git a/SurrealEngine/Packages/Core/UObject.h b/SurrealEngine/Packages/Core/UObject.h
-index 7dd57a47..470e3966 100644
---- a/SurrealEngine/Packages/Core/UObject.h
-+++ b/SurrealEngine/Packages/Core/UObject.h
-@@ -335,6 +335,11 @@ public:
- 
- 	std::map<NameString, std::set<NameString>> DisabledEvents;
- 
-+	// UObject::GotoState while the state's EndState is running: the nested call sends no second EndState, and the outer call
-+	// does not switch the state again (the state was changed from inside EndState).
-+	bool InEndState = false;
-+	bool StateChangedInEndState = false;
-+
- 	std::unique_ptr<ObjectDelayLoad> DelayLoad;
- 
- 	NameString Name;
-@@ -462,12 +467,12 @@ inline void* PropertyDataBlock::Ptr(size_t offset)
- {
- 	if (offset < Size)
- 		return static_cast<uint8_t*>(Data) + offset;
--	Exception::Throw("Property offset out of bounds!");
-+	Exception::Throw("Property offset out of bounds! (offset " + std::to_string(offset) + ", size " + std::to_string(Size) + ")");
- }
- 
- inline const void* PropertyDataBlock::Ptr(size_t offset) const
- {
- 	if (offset < Size)
- 		return static_cast<const uint8_t*>(Data) + offset;
--	Exception::Throw("Property offset out of bounds!");
-+	Exception::Throw("Property offset out of bounds! (offset " + std::to_string(offset) + ", size " + std::to_string(Size) + ")");
- }
-diff --git a/SurrealEngine/Packages/Core/UStruct.cpp b/SurrealEngine/Packages/Core/UStruct.cpp
-index 535a5549..b5388e64 100644
---- a/SurrealEngine/Packages/Core/UStruct.cpp
-+++ b/SurrealEngine/Packages/Core/UStruct.cpp
-@@ -8,6 +8,7 @@
- #include "Packages/Core/UTextBuffer.h"
- #include "Packages/Core/Properties/UBoolProperty.h"
- #include "Compiler/Frontend/Compiler.h"
-+#include "HP2.h"
- 
- UStruct::UStruct(NameString name, UClass* cls, ObjectFlags flags) : UField(std::move(name), cls, flags)
- {
-@@ -286,8 +287,22 @@ ExprToken UStruct::ReadToken(ObjectStream* stream, int depth)
- 		Exception::Throw("Bytecode parsing error");
- 	depth++;
- 
--	ExprToken token = (ExprToken)stream->ReadUInt8();
--	PushUInt8((uint8_t)token);
-+	uint8_t rawToken = stream->ReadUInt8();
-+	if (HP2::BytecodeActive() && rawToken == HP2::DebugInfoToken)
-+	{
-+		// HP2's DebugInfo record (int32 version, line, position, then the opcode name): kept in the copy so jump offsets
-+		// stay those of the original script, skipped when the copy is executed (BytecodeStream)
-+		PushUInt8(rawToken);
-+		PushUInt32(stream->ReadUInt32());
-+		PushUInt32(stream->ReadUInt32());
-+		PushUInt32(stream->ReadUInt32());
-+		PushAsciiZ(stream->ReadAsciiZ());
-+		return ReadToken(stream, depth - 1);
-+	}
-+	// HP2 numbers the tokens GlobalFunction..FloatToBool one higher than stock UE1: the copy keeps HP2's byte, the decisions
-+	// below use the stock value
-+	ExprToken token = (ExprToken)(HP2::BytecodeActive() ? HP2::ToStockToken(rawToken) : rawToken);
-+	PushUInt8(rawToken);
- 
- #ifdef _DEBUG
- 	std::string tokendebug;
-diff --git a/SurrealEngine/PropertyOffsets.cpp b/SurrealEngine/PropertyOffsets.cpp
-index 5308fe1c..47d55f76 100644
---- a/SurrealEngine/PropertyOffsets.cpp
-+++ b/SurrealEngine/PropertyOffsets.cpp
-@@ -2567,11 +2567,22 @@ static void InitPropertyOffsets_IceTexture(PackageManager* packages)
- 	PropOffsets_IceTexture.VertPanSpeed = cls->GetPropertyDataOffset("VertPanSpeed");
- }
- 
-+// IpDrv is not a package of every game (HP2 ships IpDrv.dll but no IpDrv.u): its classes are then absent
-+static UObject* FindIpDrvClass(PackageManager* packages, const char* name)
-+{
-+	for (const NameString& package : packages->GetPackageNames())
-+	{
-+		if (package == "IpDrv")
-+			return packages->GetPackage("IpDrv")->GetUObject("Class", name);
-+	}
-+	return nullptr;
-+}
-+
- PropertyOffsets_InternetLink PropOffsets_InternetLink;
- 
- static void InitPropertyOffsets_InternetLink(PackageManager* packages)
- {
--	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("IpDrv")->GetUObject("Class", "InternetLink"));
-+	UClass* cls = UObject::TryCast<UClass>(FindIpDrvClass(packages, "InternetLink"));
- 	if (!cls)
- 	{
- 		memset(&PropOffsets_InternetLink, 0xff, sizeof(PropOffsets_InternetLink));
-@@ -2590,7 +2601,7 @@ PropertyOffsets_UdpLink PropOffsets_UdpLink;
- 
- static void InitPropertyOffsets_UdpLink(PackageManager* packages)
- {
--	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("IpDrv")->GetUObject("Class", "UdpLink"));
-+	UClass* cls = UObject::TryCast<UClass>(FindIpDrvClass(packages, "UdpLink"));
- 	if (!cls)
- 	{
- 		memset(&PropOffsets_UdpLink, 0xff, sizeof(PropOffsets_UdpLink));
-@@ -2603,7 +2614,7 @@ PropertyOffsets_TcpLink PropOffsets_TcpLink;
- 
- static void InitPropertyOffsets_TcpLink(PackageManager* packages)
- {
--	UClass* cls = UObject::TryCast<UClass>(packages->GetPackage("IpDrv")->GetUObject("Class", "TcpLink"));
-+	UClass* cls = UObject::TryCast<UClass>(FindIpDrvClass(packages, "TcpLink"));
- 	if (!cls)
- 	{
- 		memset(&PropOffsets_TcpLink, 0xff, sizeof(PropOffsets_TcpLink));
-diff --git a/SurrealEngine/Packages/Core/Properties/UProperty.h b/SurrealEngine/Packages/Core/Properties/UProperty.h
-index 355f97f3..e56e03cf 100644
---- a/SurrealEngine/Packages/Core/Properties/UProperty.h
-+++ b/SurrealEngine/Packages/Core/Properties/UProperty.h
-@@ -146,7 +146,7 @@ inline void* PropertyDataBlock::Ptr(const UProperty* prop)
- 	size_t offset = prop->DataOffset.DataOffset;
- 	if (offset < Size)
- 		return static_cast<uint8_t*>(Data) + offset;
--	Exception::Throw("Property offset out of bounds!");
-+	Exception::Throw("Property offset out of bounds! (" + prop->Name.ToString() + " at " + std::to_string(offset) + ", size " + std::to_string(Size) + ")");
- }
- 
- inline const void* PropertyDataBlock::Ptr(const UProperty* prop) const
-@@ -154,5 +154,5 @@ inline const void* PropertyDataBlock::Ptr(const UProperty* prop) const
- 	size_t offset = prop->DataOffset.DataOffset;
- 	if (offset < Size)
- 		return static_cast<const uint8_t*>(Data) + offset;
--	Exception::Throw("Property offset out of bounds!");
-+	Exception::Throw("Property offset out of bounds! (" + prop->Name.ToString() + " at " + std::to_string(offset) + ", size " + std::to_string(Size) + ")");
- }
-diff --git a/SurrealEngine/Audio/AudioSource.cpp b/SurrealEngine/Audio/AudioSource.cpp
-index 241acddf..e1275d63 100644
---- a/SurrealEngine/Audio/AudioSource.cpp
-+++ b/SurrealEngine/Audio/AudioSource.cpp
-@@ -365,6 +365,9 @@ public:
- 		if (handle == nullptr)
- 			Exception::Throw("Unable to read ogg file");
- 
-+		pcm = nullptr; // they pointed into the closed decoder
-+		pcm_position = 0;
-+		pcm_samples = 0;
- 		stream_info = stb_vorbis_get_info(handle);
- 		stream_eof = false;
- 	}
-@@ -389,6 +392,10 @@ public:
- 				}
- 			}
- 
-+			// at the end of the stream there is no decoded block (pcm is null): nothing to copy
-+			if (!pcm || pcm_samples <= pcm_position)
-+				break;
-+
- 			int samples = pcm_samples - pcm_position;
- 			if (samples > data_left) samples = data_left;
- 
-diff --git a/SurrealEngine/VM/Frame.h b/SurrealEngine/VM/Frame.h
-index d97f9745..6c531d2b 100644
---- a/SurrealEngine/VM/Frame.h
-+++ b/SurrealEngine/VM/Frame.h
-@@ -96,6 +96,9 @@ public:
- 	std::unique_ptr<LocalVariables> Variables;
- 	UObject* Object = nullptr;
- 	UStruct* Func = nullptr;
-+	// The parent state whose code runs when the state has no label of its own ("state B extends A" with A's Begin: HP2's
-+	// stateLeadingActor extends patrol); Func stays the state, so its name and functions are the derived state's.
-+	UStruct* CodeOwner = nullptr;
- 	size_t StatementIndex = 0;
- 	Array<std::unique_ptr<Iterator>> Iterators;
- 
-diff --git a/SurrealEngine/VM/ExpressionEvaluator.cpp b/SurrealEngine/VM/ExpressionEvaluator.cpp
-index d1dc2284..59352175 100644
---- a/SurrealEngine/VM/ExpressionEvaluator.cpp
-+++ b/SurrealEngine/VM/ExpressionEvaluator.cpp
-@@ -204,7 +204,8 @@ void ExpressionEvaluator::Expr(ClassContextExpression* expr)
- 	}
- 	else
- 	{
--		Frame::ThrowException("Class reference is None");
-+		// reading the default of a None class is an Accessed None (the expression yields zero), as in the original engine
-+		Result.Result = StatementResult::AccessedNone;
- 	}
- }
- 

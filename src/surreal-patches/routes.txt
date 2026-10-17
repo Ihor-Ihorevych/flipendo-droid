@@ -85,6 +85,7 @@ SurrealGPU/src/vulkanswapchain.cpp
 SurrealGPU/src/vulkanbuilders.cpp
 SurrealGPU/src/gpupipeline.cpp
 SurrealGPU/include/surrealgpu/vulkanbuilders.h
+SurrealGPU/include/surrealgpu/vulkanswapchain.h
 SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.*
 SurrealEngine/RenderDevice/Vulkan/RenderPassManager.cpp
 SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.*

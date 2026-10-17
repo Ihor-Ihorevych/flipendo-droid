@@ -121,10 +121,10 @@ index bf6912eb..39dc0382 100644
  }
 \ No newline at end of file
 diff --git a/SurrealEngine/UE1GameDatabase.h b/SurrealEngine/UE1GameDatabase.h
-index 18ca9c13..bbe3a6b1 100644
+index 18ca9c13..c458698c 100644
 --- a/SurrealEngine/UE1GameDatabase.h
 +++ b/SurrealEngine/UE1GameDatabase.h
-@@ -197,6 +197,12 @@ static const std::map<std::string, KnownUE1Games> SHA1Database = {
+@@ -197,6 +197,13 @@ static const std::map<std::string, KnownUE1Games> SHA1Database = {
  	// Harry Potter 1 (UK), post-patched, archive.org cracked exe
  	{"7e675aa863f55049f3cf530dfea0b241b112d03a", KnownUE1Games::HARRYPOTTER1_433},
  
@@ -133,11 +133,12 @@ index 18ca9c13..bbe3a6b1 100644
 +
 +	// Harry Potter 1 (EN), unpatched retail 1.0, community No-CD exe
 +	{"9aad58812940d27c7cd96d2920c726cc2d2fdde9", KnownUE1Games::HARRYPOTTER1_433},
++	{"97882c5533b8eae434b10fab743f812a2993cfe4", KnownUE1Games::HARRYPOTTER1_433}, // spike: US 1.0 with no-CD HP.exe
 +
  	// Harry Potter 2 (UK)
  	{"3a43d9ec8be7ec441b18a8dc710b4bdd5b29bda3", KnownUE1Games::HARRYPOTTER2_433},
  
-@@ -230,4 +236,5 @@ static const Array<std::string> knownUE1ExecutableNames = {
+@@ -230,4 +237,5 @@ static const Array<std::string> knownUE1ExecutableNames = {
  };
  
  // Returns a pair of UE1-Game type and executable name

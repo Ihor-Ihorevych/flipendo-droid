@@ -1,5 +1,7 @@
 flipendo: --autolaunch, --logfile, --level and --renderer command line flags
 
+diff --git a/SurrealEngine/GameApp.cpp b/SurrealEngine/GameApp.cpp
+index 3b059e5c..f9be3c3e 100644
 --- a/SurrealEngine/GameApp.cpp
 +++ b/SurrealEngine/GameApp.cpp
 @@ -9,14 +9,22 @@
@@ -25,7 +27,7 @@ flipendo: --autolaunch, --logfile, --level and --renderer command line flags
  	try
  	{
  		CommandLine cmd(args);
-@@ -27,20 +35,71 @@
+@@ -27,20 +35,71 @@ int GameApp::main(Array<std::string> args)
  
  		if (commandline->HasArg("-h", "--help"))
  		{

@@ -183,6 +183,21 @@ public class SetupActivity extends Activity {
         LinearLayout.LayoutParams ssp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         ssp.topMargin = dp(8);
         slotsBox.addView(slotsScroll, ssp);
+        deleteSave = new TextView(this);
+        deleteSave.setTextColor(0xFFFF8A80);
+        deleteSave.setTextSize(13);
+        deleteSave.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        deleteSave.setPadding(dp(14), dp(8), dp(14), dp(8));
+        deleteSave.setBackground(rounded(0x14FF5252, 10, 0x55FF5252));
+        deleteSave.setFocusable(true);
+        deleteSave.setOnClickListener(new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) {
+                askDeleteSave();
+            }
+        });
+        LinearLayout.LayoutParams dsp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        dsp.topMargin = dp(8);
+        slotsBox.addView(deleteSave, dsp);
         card.addView(slotsBox);
         refreshSlots();
 
@@ -285,6 +300,7 @@ public class SetupActivity extends Activity {
 
     private TextView hp1Pill, hp2Pill;
     private LinearLayout slotsBox, slotsRow;
+    private TextView deleteSave; // under the slots: deletes the selected saved game
     static final String PREF_START = "hp2Start"; // "new" or "load:N": what Play does in HP2
     static final String START_FILE = "/sdcard/FlipendoHP/hp2_start.txt"; // read by HP2::OpenStartMenu
 
@@ -428,6 +444,14 @@ public class SetupActivity extends Activity {
             prefs.edit().putString(PREF_START, start).apply();
         }
 
+        // the button for the selected saved game
+        if (start.startsWith("load:")) {
+            deleteSave.setText("Delete the saved game in slot " + (Integer.parseInt(start.substring(5)) + 1));
+            deleteSave.setVisibility(android.view.View.VISIBLE);
+        } else {
+            deleteSave.setVisibility(android.view.View.GONE);
+        }
+
         slotsRow.removeAllViews();
         slotsRow.addView(slotCard("New game", "Start from the beginning", null, "new", start.equals("new")));
         for (int i = 0; i < 6; i++) {
@@ -444,6 +468,49 @@ public class SetupActivity extends Activity {
                 sub = "Empty";
             }
             slotsRow.addView(slotCard(title, sub, pic, slots[i].exists ? "load:" + i : null, start.equals("load:" + i)));
+        }
+    }
+
+    /** Asks, then deletes the selected saved game: its Save<N> file and the slot's info (Slot<N>.txt) in the save folder. */
+    private void askDeleteSave() {
+        String start = getSharedPreferences("setup", MODE_PRIVATE).getString(PREF_START, "new");
+        if (!start.startsWith("load:")) {
+            return;
+        }
+        final int slot;
+        try {
+            slot = Integer.parseInt(start.substring(5));
+        } catch (NumberFormatException e) {
+            return;
+        }
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("Delete the saved game?")
+                .setMessage("Slot " + (slot + 1) + " of Harry Potter 2 will be deleted for good.")
+                .setPositiveButton("Delete", new android.content.DialogInterface.OnClickListener() {
+                    public void onClick(android.content.DialogInterface d, int which) {
+                        deleteSlot(slot);
+                        getSharedPreferences("setup", MODE_PRIVATE).edit().remove(PREF_START).apply(); // the newest save, or a new game
+                        refreshSlots();
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void deleteSlot(int slot) {
+        File game = hasStorageAccess(this) ? hp2Folder() : null;
+        File folder = game != null ? saveFolder(game) : null;
+        File[] files = folder != null ? folder.listFiles() : null;
+        if (files == null) {
+            return;
+        }
+        for (File f : files) {
+            String n = f.getName().toLowerCase(java.util.Locale.ROOT);
+            if (n.startsWith("save" + slot + ".") || n.equals("slot" + slot + ".txt")) {
+                if (!f.delete()) {
+                    android.util.Log.e("flipendo", "could not delete " + f);
+                }
+            }
         }
     }
 
@@ -848,6 +915,35 @@ public class SetupActivity extends Activity {
      *  Game.rus, HpDialog.rus, HpMenu.rus, Startup.rus...). The game's ini says Language=rus, so with the files in System it
      *  reads them instead of the .int texts. Put in for a Russian language choice, taken out for any other; HP1's translation,
      *  dubbing and mod (the rest of the language machinery) are not used for HP2. */
+    /**
+     * The game's text language in its ini files (Engine.Engine Language=): rus for the Russian choice; for English the .usa texts
+     * (HpDialog.usa, HpMenu.usa...) when the folder has them, which is the case in the Russian edition whose .int files are
+     * Russian; else int. Without it an English choice on that edition read the Russian .int texts and showed no subtitles.
+     */
+    private void setHp2IniLanguage(File system, boolean russian) {
+        String value = russian ? "rus" : (findIgnoringCase(system, "HpDialog.usa").isFile() ? "usa" : "int");
+        for (String name : new String[] { "default.ini", "SE-Game.ini" }) {
+            File ini = findIgnoringCase(system, name);
+            if (!ini.isFile()) {
+                continue;
+            }
+            try {
+                String text = new String(readAll(new java.io.FileInputStream(ini)), java.nio.charset.StandardCharsets.ISO_8859_1);
+                String changed = text.replaceFirst("(?m)^Language=.*?(\r?)$", "Language=" + value + "$1");
+                if (!changed.equals(text)) {
+                    java.io.FileOutputStream out = new java.io.FileOutputStream(ini);
+                    try {
+                        out.write(changed.getBytes(java.nio.charset.StandardCharsets.ISO_8859_1));
+                    } finally {
+                        out.close();
+                    }
+                }
+            } catch (IOException e) {
+                android.util.Log.e("flipendo", "could not set the language in " + name + ": " + e);
+            }
+        }
+    }
+
     private void applyHp2Language(File game) throws IOException {
         File pack = findIgnoringCase(game, "harry2");
         File system = systemDir(game);
@@ -859,6 +955,9 @@ public class SetupActivity extends Activity {
             writeSmallFile(textMarker, "hp2-rus");
         } else {
             textMarker.delete();
+        }
+        if (system != null) {
+            setHp2IniLanguage(system, russian);
         }
         if (pack == null || !pack.isDirectory() || system == null) {
             return;

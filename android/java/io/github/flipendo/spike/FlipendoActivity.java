@@ -692,6 +692,7 @@ public class FlipendoActivity extends SDLActivity {
         /** Gameplay buttons are hidden while a menu is open; MENU stays as the way back. */
         boolean visible(Btn b) {
             if (layoutEdit) return b != skip; // the layout editor shows every control
+            if (b == save && isHp2Game()) return false; // HP2 has no saving here
             if (b == menu || b == gear) return true;
             if (b == skip) return cutsceneShown; // the skip button exists only in cutscenes
             if (cutsceneShown) return false;       // and they leave only the skip, settings and menu buttons
@@ -965,15 +966,21 @@ public class FlipendoActivity extends SDLActivity {
                 if (mag > AIM_DEADZONE) {
                     float scaled = (Math.min(mag, 1f) - AIM_DEADZONE) / (1f - AIM_DEADZONE);
                     float length = (float) Math.hypot(aimDx, aimDy); // the knob offset, at most aimR
+                    float yFlip = isHp2Game() ? -1f : 1f; // HP2: the stick looks the other way up and down than in HP1
                     SDLActivity.onNativeMouse(0, MotionEvent.ACTION_MOVE,
-                            aimDx / length * scaled * AIM_GAIN, aimDy / length * scaled * AIM_GAIN, true);
+                            aimDx / length * scaled * AIM_GAIN, yFlip * aimDy / length * scaled * AIM_GAIN, true);
                 }
                 postDelayed(this, 16);
             }
         };
 
+        /** The wand button is also a stick that turns the camera: with the movement mod, on the broom, and in HP2 (with a small range). */
+        boolean aimStick() {
+            return modOn || broomShown || isHp2Game();
+        }
+
         boolean aimVisible() {
-            return (modOn || broomShown) && !padActive && !settingsOpen && !menuShown && !lessonShown && !cutsceneShown;
+            return aimStick() && !padActive && !settingsOpen && !menuShown && !lessonShown && !cutsceneShown;
         }
 
         void setAim(float x, float y) {
@@ -1078,7 +1085,7 @@ public class FlipendoActivity extends SDLActivity {
                     updatePadCast();
                     return true;
                 case KeyEvent.KEYCODE_BUTTON_Y:
-                    if (down && !menuShown && !lessonShown && !cutsceneShown) nativeRequestSave();
+                    if (down && !menuShown && !lessonShown && !cutsceneShown && !isHp2Game()) nativeRequestSave();
                     return true;
                 case KeyEvent.KEYCODE_BUTTON_B:
                 case KeyEvent.KEYCODE_BACK:
@@ -1448,7 +1455,7 @@ public class FlipendoActivity extends SDLActivity {
             setRects.add(new android.graphics.RectF(autoJumpBtn)); setIds.add(SET_JUMP);
             setRects.add(new android.graphics.RectF(layoutBtn)); setIds.add(SET_LAYOUT);
             if (languages.size() > 1) { setRects.add(new android.graphics.RectF(languageBtn)); setIds.add(SET_LANG); }
-            setRects.add(new android.graphics.RectF(modBtn)); setIds.add(SET_MOD);
+            if (!isHp2Game()) { setRects.add(new android.graphics.RectF(modBtn)); setIds.add(SET_MOD); }
             setRects.add(new android.graphics.RectF(debugBtn)); setIds.add(SET_DEBUG);
             setRects.add(new android.graphics.RectF(helpBtn)); setIds.add(SET_HELP);
             setRects.add(new android.graphics.RectF(telegramBtn)); setIds.add(SET_TELEGRAM);
@@ -1503,7 +1510,7 @@ public class FlipendoActivity extends SDLActivity {
                 case SET_LAYOUT: startLayoutEdit(); break;
                 case SET_HELP: helpOpen = true; break;
                 case SET_LANG: languageTap(); break;
-                case SET_MOD: modTap(); break;
+                case SET_MOD: if (!isHp2Game()) modTap(); break;
                 case SET_DEBUG:
                     if (isHp2Game()) { settingsOpen = false; activity.openHp2Debug(); } else activity.applyDebugMode(!debugMode, true);
                     break;
@@ -1741,7 +1748,7 @@ public class FlipendoActivity extends SDLActivity {
             jump.r = Math.max(0.08f * u, 32f * dp);
             jump.cx = cast.cx - cast.r - jump.r - 0.04f * u; jump.cy = sb - m - jump.r;
             text.setTextSize(0.035f * u);
-            aimR = 0.12f * u; // how far the wand button follows the finger
+            aimR = (isHp2Game() && !modOn && !broomShown ? 0.045f : 0.12f) * u; // how far the wand button follows the finger (HP2: a small ring)
 
             // bottom left: the arrows on one round pad
             float ad = 0.15f * u;
@@ -1802,8 +1809,12 @@ public class FlipendoActivity extends SDLActivity {
             } else {
                 languageBtn.setEmpty();
             }
-            modBtn.set(colR0, y, colR1, y + rowH); // always: without a mod it imports one from a file
-            y += rowH + rowGap;
+            if (isHp2Game()) {
+                modBtn.setEmpty(); // the movement mod is HP1's: no row in HP2
+            } else {
+                modBtn.set(colR0, y, colR1, y + rowH); // always: without a mod it imports one from a file
+                y += rowH + rowGap;
+            }
             debugBtn.set(colR0, y, colR1, y + rowH);
 
             // footer: the channel on the left, Done on the right
@@ -1930,7 +1941,9 @@ public class FlipendoActivity extends SDLActivity {
                 String current = languages.get(languageIndex(currentLanguage()))[1];
                 drawValueRow(c, languageBtn, "Language", "Game texts (and voices, where the build has them)", current, langListOpen);
             }
-            if (mods.isEmpty()) {
+            if (isHp2Game()) {
+                // no movement mod in HP2
+            } else if (mods.isEmpty()) {
                 drawValueRow(c, modBtn, "Movement mod", modAsk
                         ? "Tap again: pick the mod's zip, the game restarts (unsaved progress is lost)"
                         : "By AdamJD: camera, climbing, aim. Pick its zip (or .u files)", "Choose file", modAsk);
@@ -2291,7 +2304,7 @@ public class FlipendoActivity extends SDLActivity {
                             } else {
                                 ((FlipendoActivity) getContext()).applyDebugMode(!debugMode, true);
                             }
-                        } else if (modBtn.contains(x, y)) {
+                        } else if (!isHp2Game() && modBtn.contains(x, y)) {
                             modTap();
                         } else if (languages.size() > 1 && languageBtn.contains(x, y)) {
                             languageTap();
@@ -2312,7 +2325,7 @@ public class FlipendoActivity extends SDLActivity {
                         roles.put(id, Role.BUTTON);
                         b.pointer = id;
                         if (isArrow(b)) arrowFingers.add(id);
-                        if (b == cast && (modOn || broomShown)) {
+                        if (b == cast && aimStick()) {
                             // the wand button is a stick too: where the finger went down is its centre
                             aimPointer = id;
                             aimCx = x;
@@ -2919,7 +2932,7 @@ public class FlipendoActivity extends SDLActivity {
                     c.drawCircle(cast.cx, cast.cy, aimR + cast.r, line);
                 }
                 c.save();
-                if ((modOn || broomShown) && aimPointer != -1) c.translate(aimDx, aimDy); // the wand button is the stick: it follows the finger
+                if (aimStick() && aimPointer != -1) c.translate(aimDx, aimDy); // the wand button is the stick: it follows the finger
                 drawDisc(c, cast.cx, cast.cy, cast.down ? cast.r * 0.94f : cast.r, cast.down);
                 if (cast.icon != null) drawIcon(c, cast, cast.cx, cast.cy, cast.r * 0.66f);
                 c.restore();

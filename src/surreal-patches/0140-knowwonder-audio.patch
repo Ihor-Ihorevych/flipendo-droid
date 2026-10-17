@@ -1,5 +1,50 @@
 flipendo: KnowWonder sound and music (HP2's XA ADPCM sounds)
 
+diff --git a/SurrealEngine/Packages/Engine/Resources/USound.cpp b/SurrealEngine/Packages/Engine/Resources/USound.cpp
+index 75eb4e30..efd8e1d2 100644
+--- a/SurrealEngine/Packages/Engine/Resources/USound.cpp
++++ b/SurrealEngine/Packages/Engine/Resources/USound.cpp
+@@ -6,6 +6,7 @@
+ #include "Audio/AudioDevice.h"
+ #include "Packages/Engine/Subsystems/USurrealAudioDevice.h"
+ #include "kissfft/kiss_fftr.h"
++#include "HP2.h"
+ 
+ #include <algorithm>
+ #include <type_traits>
+@@ -15,6 +16,32 @@ void USound::Load(ObjectStream* stream)
+ 	UObject::Load(stream);
+ 
+ 	Format = stream->ReadName();
++	if (engine->LaunchInfo.IsHarryPotter2())
++	{
++		// HP2 puts a header of its own between the format name and the data, in every format (src/hp2/HP2Sound.cpp); its ADPCM
++		// "XA" sounds are decoded here to a wav, which the rest of the engine reads
++		stream->ReadUInt32();
++		stream->ReadUInt32(); // duration, float
++		int sampleCount = stream->ReadUInt32();
++		stream->ReadUInt32(); // bits per sample
++		int channels = stream->ReadUInt32();
++		int frequency = stream->ReadUInt32();
++		stream->ReadUInt32(); // lazy array skip offset
++		uint32_t xaSize = stream->ReadIndex();
++		std::vector<uint8_t> xa(xaSize);
++		stream->ReadBytes(xa.data(), xaSize);
++		if (Format == "XA")
++		{
++			std::vector<uint8_t> wav = HP2::DecodeXASound(xa.data(), xa.size(), sampleCount, channels, frequency);
++			Data.assign(wav.begin(), wav.end());
++			Format = "wav";
++		}
++		else
++		{
++			Data.assign(xa.begin(), xa.end());
++		}
++		return;
++	}
+ 	if (stream->GetVersion() >= 63)
+ 		stream->ReadUInt32(); // lazy array skip offset
+ 	uint32_t size = stream->ReadIndex();
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 index d5615c73..72179b37 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
@@ -169,48 +214,3 @@ index 81534ba9..0f506047 100644
  	void ActorDestroyed(UActor* Actor);
  	void StopSounds();
  
-diff --git a/SurrealEngine/Packages/Engine/Resources/USound.cpp b/SurrealEngine/Packages/Engine/Resources/USound.cpp
-index 75eb4e30..efd8e1d2 100644
---- a/SurrealEngine/Packages/Engine/Resources/USound.cpp
-+++ b/SurrealEngine/Packages/Engine/Resources/USound.cpp
-@@ -6,6 +6,7 @@
- #include "Audio/AudioDevice.h"
- #include "Packages/Engine/Subsystems/USurrealAudioDevice.h"
- #include "kissfft/kiss_fftr.h"
-+#include "HP2.h"
- 
- #include <algorithm>
- #include <type_traits>
-@@ -15,6 +16,32 @@ void USound::Load(ObjectStream* stream)
- 	UObject::Load(stream);
- 
- 	Format = stream->ReadName();
-+	if (engine->LaunchInfo.IsHarryPotter2())
-+	{
-+		// HP2 puts a header of its own between the format name and the data, in every format (src/hp2/HP2Sound.cpp); its ADPCM
-+		// "XA" sounds are decoded here to a wav, which the rest of the engine reads
-+		stream->ReadUInt32();
-+		stream->ReadUInt32(); // duration, float
-+		int sampleCount = stream->ReadUInt32();
-+		stream->ReadUInt32(); // bits per sample
-+		int channels = stream->ReadUInt32();
-+		int frequency = stream->ReadUInt32();
-+		stream->ReadUInt32(); // lazy array skip offset
-+		uint32_t xaSize = stream->ReadIndex();
-+		std::vector<uint8_t> xa(xaSize);
-+		stream->ReadBytes(xa.data(), xaSize);
-+		if (Format == "XA")
-+		{
-+			std::vector<uint8_t> wav = HP2::DecodeXASound(xa.data(), xa.size(), sampleCount, channels, frequency);
-+			Data.assign(wav.begin(), wav.end());
-+			Format = "wav";
-+		}
-+		else
-+		{
-+			Data.assign(xa.begin(), xa.end());
-+		}
-+		return;
-+	}
- 	if (stream->GetVersion() >= 63)
- 		stream->ReadUInt32(); // lazy array skip offset
- 	uint32_t size = stream->ReadIndex();

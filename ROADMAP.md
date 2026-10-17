@@ -73,7 +73,6 @@ particle effects.
 - [~] HP2 (Chamber of Secrets, UE1 build 433): runs on Android since 0.3.0 (new game, six save slots, story state, duels, shops,
   Russian text; [docs/android.md](docs/android.md)); what is left:
   - [ ] Play it through and fix what breaks (the later levels, the Basilisk and the final scenes have had little play)
-  - [ ] Lumos light: not on the wand's tip (`baseWand.Tick` -> `LumosLight.UpdateLocation(WandEndPoint)`)
   - [ ] Translucent walls come out red in some levels
   - [ ] `MUTESOUNDS` does not mute; the `Loop` flag of `PlaySound`
   - [ ] Spawned persistent actors (jelly beans) are not carried to the next level; old saves lost their spells

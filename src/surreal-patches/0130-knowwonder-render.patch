@@ -225,7 +225,7 @@ index 07a06c4e..23cfa38c 100644
  	{
  		UnrealMipmap& mipmap = UsedMipmaps.front();
 diff --git a/SurrealEngine/Render/RenderCanvas.cpp b/SurrealEngine/Render/RenderCanvas.cpp
-index 4b2aa5c5..bec4dcb3 100644
+index 4b2aa5c5..ea9324c8 100644
 --- a/SurrealEngine/Render/RenderCanvas.cpp
 +++ b/SurrealEngine/Render/RenderCanvas.cpp
 @@ -8,12 +8,15 @@
@@ -248,7 +248,7 @@ index 4b2aa5c5..bec4dcb3 100644
  	// Assume 1280x960 for UT and newer.
  	int vertResolution = engine->LaunchInfo.ue1Version < 400 ? 768 : 960;
  	Canvas.uiscale = std::max((engine->viewport->ViewportHeight() + vertResolution / 2) / vertResolution, 1);
-+	if (engine->LaunchInfo.IsHarryPotter1()) // fractional UI scale (src/hp1/HP1Canvas.cpp)
++	if (engine->LaunchInfo.IsKnowWonder()) // fractional UI scale (src/hp1/HP1Canvas.cpp)
 +		Canvas.uiscale = HP1::CanvasUIScale(engine->viewport->ViewportHeight());
  
  	SceneNode frame;
@@ -262,7 +262,7 @@ index 4b2aa5c5..bec4dcb3 100644
 -		engine->canvas->ClipX() = (float)sizeY * (4.0f / 3.0f);
 -		engine->canvas->SizeX() = (int)std::round(sizeY * (4.0f / 3.0f));
 -	}
-+	if (engine->LaunchInfo.IsHarryPotter1()) // full-width HUD canvas; menus get a 4:3 area in PostRender (src/hp1/HP1Canvas.cpp)
++	if (engine->LaunchInfo.IsKnowWonder()) // full-width HUD canvas; menus get a 4:3 area in PostRender (src/hp1/HP1Canvas.cpp)
 +		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, false);
  
  	//engine->viewport->bShowWindowsMouse() = true; // bShowWindowsMouse is set to true by WindowConsole if mouse cursor should be visible
@@ -272,7 +272,7 @@ index 4b2aa5c5..bec4dcb3 100644
  	if (engine->viewport->Actor())
  	{
 -		if (engine->LaunchInfo.ue1Version > 219)
-+		if (engine->LaunchInfo.IsHarryPotter1())
++		if (engine->LaunchInfo.IsKnowWonder())
 +		{
 +			// URender::DrawWorld only raises RenderOverlays without bBehindView, on the ViewTarget if any.
 +			// (Weapon.RenderOverlays draws the first person weapon with Canvas.DrawActor, which leaves it bHidden:
@@ -289,13 +289,13 @@ index 4b2aa5c5..bec4dcb3 100644
  	Device->SetSceneNode(&Canvas.Frame);
  	if (engine->viewport->Actor())
  		CallEvent(engine->viewport->Actor(), EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
-+	if (engine->LaunchInfo.IsHarryPotter1()) // console/menus in a centred 4:3 area (src/hp1/HP1Canvas.cpp)
++	if (engine->LaunchInfo.IsKnowWonder()) // console/menus in a centred 4:3 area (src/hp1/HP1Canvas.cpp)
 +	{
 +		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, true);
 +		Device->SetSceneNode(&Canvas.Frame);
 +	}
  	CallEvent(engine->console, EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
-+	if (engine->LaunchInfo.IsHarryPotter1())
++	if (engine->LaunchInfo.IsKnowWonder())
 +	{
 +		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, false);
 +		Device->SetSceneNode(&Canvas.Frame);
@@ -313,11 +313,11 @@ index 4b2aa5c5..bec4dcb3 100644
 +	Device->Brightness = engine->client->Brightness;
 +	Device->Lock(vec4(0.5f, 0.5f, 0.5f, 1.0f), vec4(0.0f, 0.0f, 0.0f, 1.0f), vec4(0.0f), nullptr, nullptr);
 +	ResetCanvas();
-+	if (engine->LaunchInfo.IsHarryPotter1()) // console/menus in a centred 4:3 area (src/hp1/HP1Canvas.cpp)
++	if (engine->LaunchInfo.IsKnowWonder()) // console/menus in a centred 4:3 area (src/hp1/HP1Canvas.cpp)
 +		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, true);
 +	Device->SetSceneNode(&Canvas.Frame);
 +	CallEvent(engine->console, "DrawLevelInfo", { ExpressionValue::ObjectValue(engine->canvas), ExpressionValue::StringValue(levelEnterText) });
-+	if (engine->LaunchInfo.IsHarryPotter1())
++	if (engine->LaunchInfo.IsKnowWonder())
 +		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, false);
 +	Device->Unlock(true);
 +}
@@ -340,6 +340,22 @@ index 4b2aa5c5..bec4dcb3 100644
  	frame.FX = (float)X * Canvas.uiscale;
  	frame.FY = (float)Y * Canvas.uiscale;
  	frame.FX2 = frame.FX * 0.5f;
+@@ -252,6 +289,7 @@ Array<std::string> RenderSubsystem::FindTextBlocks(const std::string& text)
+ 
+ void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<std::string>& textBlocks, size_t start, size_t end, UFont* font, vec4 color, uint32_t polyflags, float spaceX)
+ {
++	if (!font) return; // script can draw text with Canvas.Font == None (debug mode HUD)
+ 	for (size_t i = start; i < end; i++)
+ 	{
+ 		for (char c : textBlocks[i])
+@@ -288,6 +326,7 @@ void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<std::stri
+ 
+ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY, float& curX, float& curY, float& curXL, float& curYL, bool newlineAtEnd, const std::string& text, uint32_t polyflags, bool center, float spaceX, float spaceY, float clipX, float clipY, bool noDraw)
+ {
++	if (!font) return; // script can draw text with Canvas.Font == None (debug mode HUD)
+ 	float totalWidth = 0.0f;
+ 	float totalHeight = 0.0f;
+ 
 diff --git a/SurrealEngine/Render/RenderSubsystem.cpp b/SurrealEngine/Render/RenderSubsystem.cpp
 index f3fcef6d..fd253c8c 100644
 --- a/SurrealEngine/Render/RenderSubsystem.cpp
@@ -1042,6 +1058,40 @@ index 70dc72e3..1ec0d278 100644
 +	vec3 MirrorBase = vec3(0.0f);
 +	vec3 MirrorNormal = vec3(0.0f);
  };
+diff --git a/SurrealEngine/Render/VisibleSprite.cpp b/SurrealEngine/Render/VisibleSprite.cpp
+index 9a053a7f..b8789bef 100644
+--- a/SurrealEngine/Render/VisibleSprite.cpp
++++ b/SurrealEngine/Render/VisibleSprite.cpp
+@@ -75,20 +75,25 @@ void VisibleSprite::Draw(VisibleFrame* frame, UActor* actor)
+ 	vec3 color = clamp(actor->ScaleGlow(), 0.0f, 1.0f);
+ 
+ 	GouraudVertex vertices[4];
++	// Row 0 of a texture is its top, so the top edge of the quad takes V = 0. HP2 draws the spell symbol under the cursor
++	// (GestureSprite) this way up; with the bottom edge at V = 0 it came out upside down.
++	const bool topIsV0 = engine->LaunchInfo.IsHarryPotter2();
++	const float vBottom = topIsV0 ? texheight : 0.0f;
++	const float vTop = topIsV0 ? 0.0f : texheight;
+ 	vertices[0].Point = location - sideAxis - upAxis;
+-	vertices[0].UV = { 0.0f, 0.0f };
++	vertices[0].UV = { 0.0f, vBottom };
+ 	vertices[0].Light = color;
+ 	vertices[0].Fog = { 0.0f };
+ 	vertices[1].Point = location + sideAxis - upAxis;
+-	vertices[1].UV = { texwidth, 0.0f };
++	vertices[1].UV = { texwidth, vBottom };
+ 	vertices[1].Light = color;
+ 	vertices[1].Fog = { 0.0f };
+ 	vertices[2].Point = location + sideAxis + upAxis;
+-	vertices[2].UV = { texwidth, texheight };
++	vertices[2].UV = { texwidth, vTop };
+ 	vertices[2].Light = color;
+ 	vertices[2].Fog = { 0.0f };
+ 	vertices[3].Point = location - sideAxis + upAxis;
+-	vertices[3].UV = { 0.0f, texheight };
++	vertices[3].UV = { 0.0f, vTop };
+ 	vertices[3].Light = color;
+ 	vertices[3].Fog = { 0.0f };
+ 
 diff --git a/SurrealEngine/RenderDevice/D3D11/D3D11FileResource.cpp b/SurrealEngine/RenderDevice/D3D11/D3D11FileResource.cpp
 index a2940705..c8f614e1 100644
 --- a/SurrealEngine/RenderDevice/D3D11/D3D11FileResource.cpp
@@ -1078,21 +1128,128 @@ index ba22defd..1bb02add 100644
  				vertex++;
  			}
  		}
+diff --git a/SurrealEngine/RenderDevice/OpenGL/GLESCompat.h b/SurrealEngine/RenderDevice/OpenGL/GLESCompat.h
+new file mode 100644
+index 00000000..72bc5ec3
+--- /dev/null
++++ b/SurrealEngine/RenderDevice/OpenGL/GLESCompat.h
+@@ -0,0 +1,67 @@
++#pragma once
++
++// OpenGL ES 3.2 in place of desktop OpenGL 4.2 (Android). The device is written against desktop GL: the few calls ES lacks
++// are mapped here, and the states ES doesn't have are skipped where they are used (GLRenderDevice.cpp, under __ANDROID__).
++
++#include <GLES3/gl32.h>
++#include <GLES2/gl2ext.h>
++#include <cstring>
++
++// No loader: libGLESv3 exports every ES 3.2 entry point.
++#define ogl_LOAD_FAILED 0
++#define ogl_LOAD_SUCCEEDED 1
++inline int ogl_LoadFunctions() { return ogl_LOAD_SUCCEEDED; }
++
++// Desktop enums the shared code names. They are only used on paths that check IsGLES() or that ES ignores.
++#ifndef GL_BGRA
++#define GL_BGRA 0x80E1
++#endif
++#ifndef GL_RGBA16
++#define GL_RGBA16 0x805B
++#endif
++#ifndef GL_UNSIGNED_INT_8_8_8_8
++#define GL_UNSIGNED_INT_8_8_8_8 0x8035
++#endif
++#ifndef GL_TEXTURE_LOD_BIAS
++#define GL_TEXTURE_LOD_BIAS 0x8501
++#endif
++#ifndef GL_MIRROR_CLAMP_TO_EDGE
++#define GL_MIRROR_CLAMP_TO_EDGE 0x8743
++#endif
++#ifndef GL_DEPTH_CLAMP
++#define GL_DEPTH_CLAMP 0x864F
++#endif
++#ifndef GL_MULTISAMPLE
++#define GL_MULTISAMPLE 0x809D
++#endif
++
++inline void glClearDepth(double depth) { glClearDepthf((GLfloat)depth); }
++inline void glDepthRange(double nearVal, double farVal) { glDepthRangef((GLfloat)nearVal, (GLfloat)farVal); }
++inline void glDrawBuffer(GLenum buffer) { glDrawBuffers(1, &buffer); }
++
++// ES 3.1 has the immutable multisample storage only (MSAA is off on Android, kept for completeness)
++inline void glTexImage2DMultisample(GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations)
++{
++	glTexStorage2DMultisample(target, samples, internalformat, width, height, fixedsamplelocations);
++}
++
++// glFramebufferTexture is ES 3.2; every attachment here is a 2D texture
++inline void glFramebufferTextureCompat(GLenum target, GLenum attachment, GLuint texture, GLint level)
++{
++	glFramebufferTexture2D(target, attachment, GL_TEXTURE_2D, texture, level);
++}
++#define glFramebufferTexture glFramebufferTextureCompat
++
++// An extension in the context's list (GL_EXTENSIONS per index, ES 3.0)
++inline bool GLHasExtension(const char* name)
++{
++	GLint count = 0;
++	glGetIntegerv(GL_NUM_EXTENSIONS, &count);
++	for (GLint i = 0; i < count; i++)
++	{
++		const char* ext = (const char*)glGetStringi(GL_EXTENSIONS, (GLuint)i);
++		if (ext && strcmp(ext, name) == 0)
++			return true;
++	}
++	return false;
++}
 diff --git a/SurrealEngine/RenderDevice/OpenGL/GLFileResource.cpp b/SurrealEngine/RenderDevice/OpenGL/GLFileResource.cpp
-index 593b4239..701428a9 100644
+index 593b4239..59ba1c9e 100644
 --- a/SurrealEngine/RenderDevice/OpenGL/GLFileResource.cpp
 +++ b/SurrealEngine/RenderDevice/OpenGL/GLFileResource.cpp
-@@ -85,7 +85,8 @@ std::string GLFileResource::readAllText(const std::string& filename)
- 				float actorXBlending = (flags & 32) != 0 ? 1.5 : 1.0;
- 				float oneXBlending = (flags & 64) != 0 ? 1.0 : 2.0;
+@@ -82,42 +82,43 @@ std::string GLFileResource::readAllText(const std::string& filename)
+ 
+ 			void main()
+ 			{
+-				float actorXBlending = (flags & 32) != 0 ? 1.5 : 1.0;
+-				float oneXBlending = (flags & 64) != 0 ? 1.0 : 2.0;
++				float actorXBlending = (flags & 32u) != 0u ? 1.5 : 1.0;
++				float oneXBlending = (flags & 64u) != 0u ? 1.0 : 2.0;
  
 -				outColor = darkClamp(textureTex(texCoord)) * color;
 +				vec4 texel = darkClamp(textureTex(texCoord));
 +				outColor = texel * color;
  				outColor.rgb *= actorXBlending;
  
- 				if ((flags & 2) != 0) // Macro texture
-@@ -117,7 +118,7 @@ std::string GLFileResource::readAllText(const std::string& filename)
+-				if ((flags & 2) != 0) // Macro texture
++				if ((flags & 2u) != 0u) // Macro texture
+ 				{
+ 					outColor *= darkClamp(textureMacro(texCoord3));
+ 				}
+ 
+-				if ((flags & 1) != 0) // Lightmap
++				if ((flags & 1u) != 0u) // Lightmap
+ 				{
+ 					outColor.rgb *= clamp(textureLightmap(texCoord2).rgb, 0.0, 1.0) * oneXBlending;
+ 				}
+ 
+-				if ((flags & 4) != 0) // Detail texture
++				if ((flags & 4u) != 0u) // Detail texture
+ 				{
+ 					float fadedistance = 380.0f;
+ 					float a = clamp(2.0f - (1.0f / gl_FragCoord.w) / fadedistance, 0.0f, 1.0f);
+ 					vec4 detailColor = (textureDetail(texCoord4) - 0.5) * 0.8 + 1.0;
+ 					outColor.rgb = mix(outColor.rgb, outColor.rgb * detailColor.rgb, a);
+ 				}
+-				else if ((flags & 8) != 0) // Fog map
++				else if ((flags & 8u) != 0u) // Fog map
+ 				{
+ 					vec4 fogcolor = textureDetail(texCoord4);
+ 					outColor.rgb = fogcolor.rgb + outColor.rgb * (1.0 - fogcolor.a);
+ 				}
+-				else if ((flags & 16) != 0) // Fog color
++				else if ((flags & 16u) != 0u) // Fog color
+ 				{
+ 					vec4 fogcolor = vec4(texCoord2, texCoord3);
+ 					outColor.rgb = fogcolor.rgb + outColor.rgb * (1.0 - fogcolor.a);
  				}
  
  				#if defined(ALPHATEST)
@@ -1101,11 +1258,410 @@ index 593b4239..701428a9 100644
  				#endif
  
  				outColor = clamp(outColor, 0.0, 1.0);
+@@ -230,7 +231,7 @@ std::string GLFileResource::readAllText(const std::string& filename)
+ 			vec3 colorCorrect(vec3 c)
+ 			{
+ 				float v = c.r + c.g + c.b;
+-				vec3 valgray = vec3(v, v, v) * (1 - Saturation) / 3 + c * Saturation;
++				vec3 valgray = vec3(v, v, v) * (1.0 - Saturation) / 3.0 + c * Saturation;
+ 				vec3 val = valgray * Contrast - (Contrast - 1.0) * 0.5;
+ 				val += Brightness * 0.5;
+ 				return max(val, vec3(0.0, 0.0, 0.0));
+diff --git a/SurrealEngine/RenderDevice/OpenGL/GLHandles.h b/SurrealEngine/RenderDevice/OpenGL/GLHandles.h
+index 3268fcbf..323fecc6 100644
+--- a/SurrealEngine/RenderDevice/OpenGL/GLHandles.h
++++ b/SurrealEngine/RenderDevice/OpenGL/GLHandles.h
+@@ -1,6 +1,10 @@
+ #pragma once
+ 
++#ifdef __ANDROID__
++#include "GLESCompat.h"
++#else
+ #include "gl_load/gl_load.h"
++#endif
+ #include <utility>
+ #include <memory>
+ 
 diff --git a/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp b/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp
-index 00a0aab8..406a3ea9 100644
+index 00a0aab8..362d62d1 100644
 --- a/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp
 +++ b/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp
-@@ -1469,7 +1469,7 @@ void GLRenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info, con
+@@ -10,6 +10,25 @@
+ #include <surrealwidgets/core/widget.h>
+ #include <cmath>
+ 
++// The scene's colour targets: half float, as on the desktop. OpenGL ES can render into half float only with an extension
++// (every ES 3.2 phone we know has it); without it the scene is RGBA8 (no overbright bloom).
++#ifdef __ANDROID__
++static GLenum SceneColorFormat()
++{
++	static GLenum format = (GLHasExtension("GL_EXT_color_buffer_half_float") || GLHasExtension("GL_EXT_color_buffer_float")) ? GL_RGBA16F : GL_RGBA8;
++	return format;
++}
++static GLenum SceneColorType() { return SceneColorFormat() == GL_RGBA16F ? GL_FLOAT : GL_UNSIGNED_BYTE; }
++#else
++static GLenum SceneColorFormat() { return GL_RGBA16F; }
++static GLenum SceneColorType() { return GL_FLOAT; }
++#endif
++
++#ifdef __ANDROID__
++static std::string ToGlslEs300(const std::string& source, bool vertex);
++static void BindSamplerUnits(GLuint program);
++#endif
++
+ static Widget* InitGLWidget = nullptr;
+ extern "C"
+ {
+@@ -33,6 +52,9 @@ GLRenderDevice::~GLRenderDevice()
+ 
+ int GLRenderDevice::GetSettingsMultisample()
+ {
++#ifdef __ANDROID__
++	return 0; // the scene is drawn at a reduced size on phones anyway
++#endif
+ 	switch (AntialiasMode)
+ 	{
+ 	default:
+@@ -58,6 +80,30 @@ bool GLRenderDevice::Init(int NewX, int NewY, bool Fullscreen)
+ 		if (result == ogl_LOAD_FAILED)
+ 			throw std::runtime_error("ogl_LoadFunctions failed");
+ 
++		const char* glVersion = (const char*)glGetString(GL_VERSION);
++		const char* glRenderer = (const char*)glGetString(GL_RENDERER);
++		LogMessage(std::string("OpenGL renderer: ") + (glRenderer ? glRenderer : "?") + ", " + (glVersion ? glVersion : "?"));
++#ifdef __ANDROID__
++		{
++			GLint count = 0, maxTexture = 0, maxUnits = 0;
++			glGetIntegerv(GL_NUM_EXTENSIONS, &count);
++			glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTexture);
++			glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &maxUnits);
++			std::string extensions;
++			for (GLint i = 0; i < count; i++)
++			{
++				const char* ext = (const char*)glGetStringi(GL_EXTENSIONS, (GLuint)i);
++				if (ext)
++					extensions += std::string(extensions.empty() ? "" : " ") + (strncmp(ext, "GL_", 3) == 0 ? ext + 3 : ext);
++			}
++			LogMessage("OpenGL limits: max texture size " + std::to_string(maxTexture) + ", texture units " + std::to_string(maxUnits));
++			LogMessage("OpenGL extensions: " + extensions);
++		}
++#endif
++#ifdef __ANDROID__
++		LogMessage(std::string("OpenGL scene buffer: ") + (SceneColorFormat() == GL_RGBA16F ? "half float" : "RGBA8 (no half float render targets)"));
++#endif
++
+ 		CreateScenePass();
+ 		CreatePresentPass();
+ 		CreateBloomPass();
+@@ -97,14 +143,33 @@ void GLRenderDevice::Exit()
+ {
+ 	LogMessage("GLDrv: exit called");
+ 
+-	UnmapVertices();
++	// Exit runs from the destructor while the game closes, often after the GL context is gone or in a bad state:
++	// the GL error check in UnmapVertices threw out of a destructor and std::terminate aborted the process, which
++	// Android reports as a crash on a normal quit.
++	try
++	{
++		UnmapVertices();
++	}
++	catch (const std::exception& e)
++	{
++		LogMessage(std::string("GLDrv: exit: ") + e.what());
++		SceneVertices = nullptr;
++		SceneIndexes = nullptr;
++	}
+ 
+-	Uploads.reset();
+-	Textures.reset();
+-	ReleasePresentPass();
+-	ReleaseBloomPass();
+-	ReleaseScenePass();
+-	ReleaseSceneBuffers();
++	try
++	{
++		Uploads.reset();
++		Textures.reset();
++		ReleasePresentPass();
++		ReleaseBloomPass();
++		ReleaseScenePass();
++		ReleaseSceneBuffers();
++	}
++	catch (const std::exception& e)
++	{
++		LogMessage(std::string("GLDrv: exit: ") + e.what());
++	}
+ }
+ 
+ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
+@@ -145,7 +210,7 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
+ 	{
+ 		glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, SceneBuffers.ColorBuffer->Handle);
+ 		SetDebugName(SceneBuffers.ColorBuffer, "SceneBuffers.ColorBuffer");
+-		glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, SceneBuffers.Multisample, GL_RGBA16F, SceneBuffers.Width, SceneBuffers.Height, GL_FALSE);
++		glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, SceneBuffers.Multisample, SceneColorFormat(), SceneBuffers.Width, SceneBuffers.Height, GL_FALSE);
+ 		glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAX_LEVEL, 0);
+ 		ThrowIfGLError("glTexStorage2DMultisample(SceneBuffers.ColorBuffer) failed");
+ 	}
+@@ -153,7 +218,7 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
+ 	{
+ 		glBindTexture(GL_TEXTURE_2D, SceneBuffers.ColorBuffer->Handle);
+ 		SetDebugName(SceneBuffers.ColorBuffer, "SceneBuffers.ColorBuffer");
+-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SceneBuffers.Width, SceneBuffers.Height, 0, GL_RGBA, GL_FLOAT, nullptr);
++		glTexImage2D(GL_TEXTURE_2D, 0, SceneColorFormat(), SceneBuffers.Width, SceneBuffers.Height, 0, GL_RGBA, SceneColorType(), nullptr);
+ 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+ 		ThrowIfGLError("glTexImage2D(SceneBuffers.ColorBuffer) failed");
+ 	}
+@@ -214,7 +279,7 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
+ 		SceneBuffers.PPImage[i] = std::make_shared<GLTexture2D>();
+ 		glBindTexture(GL_TEXTURE_2D, SceneBuffers.PPImage[i]->Handle);
+ 		SetDebugName(SceneBuffers.PPImage[i], "SceneBuffers.PPImage");
+-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SceneBuffers.Width, SceneBuffers.Height, 0, GL_RGBA, GL_FLOAT, nullptr);
++		glTexImage2D(GL_TEXTURE_2D, 0, SceneColorFormat(), SceneBuffers.Width, SceneBuffers.Height, 0, GL_RGBA, SceneColorType(), nullptr);
+ 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+ 		ThrowIfGLError("glTexImage2D(SceneBuffers.PPImage) failed");
+ 	}
+@@ -227,6 +292,14 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
+ 	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, SceneBuffers.DepthBuffer->Handle, 0);
+ 	ThrowIfGLError("Creating SceneBuffers.Framebuffer failed");
+ 
++#ifdef __ANDROID__
++	{
++		glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.Framebuffer->Handle);
++		GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
++		if (status != GL_FRAMEBUFFER_COMPLETE)
++			throw std::runtime_error("The scene framebuffer is incomplete (status 0x" + std::to_string((int)status) + ")");
++	}
++#endif
+ 	SceneBuffers.HitFramebuffer = std::make_shared<GLFramebuffer>();
+ 	glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.HitFramebuffer->Handle);
+ 	SetDebugName(SceneBuffers.HitFramebuffer, "SceneBuffers.HitFramebuffer");
+@@ -258,14 +331,14 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
+ 		level.VTexture = std::make_shared<GLTexture2D>();
+ 		glBindTexture(GL_TEXTURE_2D, level.VTexture->Handle);
+ 		SetDebugName(level.VTexture, "SceneBuffers.BlurLevels.VTexture");
+-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, bloomWidth, bloomHeight, 0, GL_RGBA, GL_FLOAT, nullptr);
++		glTexImage2D(GL_TEXTURE_2D, 0, SceneColorFormat(), bloomWidth, bloomHeight, 0, GL_RGBA, SceneColorType(), nullptr);
+ 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+ 		ThrowIfGLError("glTexImage2D(SceneBuffers.BlurLevels.VTexture) failed");
+ 
+ 		level.HTexture = std::make_shared<GLTexture2D>();
+ 		glBindTexture(GL_TEXTURE_2D, level.HTexture->Handle);
+ 		SetDebugName(level.HTexture, "SceneBuffers.BlurLevels.HTexture");
+-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, bloomWidth, bloomHeight, 0, GL_RGBA, GL_FLOAT, nullptr);
++		glTexImage2D(GL_TEXTURE_2D, 0, SceneColorFormat(), bloomWidth, bloomHeight, 0, GL_RGBA, SceneColorType(), nullptr);
+ 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+ 		ThrowIfGLError("glTexImage2D(SceneBuffers.BlurLevels.HTexture) failed");
+ 
+@@ -486,7 +559,11 @@ void GLRenderDevice::CreateSceneSamplers()
+ 		GLuint sampler = ScenePass.Samplers[i]->Handle;
+ 
+ 		int dummyMipmapCount = (i >> 2) & 3;
++#ifdef __ANDROID__
++		GLint addressmode = (i & 2) ? (GLHasExtension("GL_EXT_texture_mirror_clamp_to_edge") ? GL_MIRROR_CLAMP_TO_EDGE : GL_MIRRORED_REPEAT) : GL_REPEAT;
++#else
+ 		GLint addressmode = (i & 2) ? GL_MIRROR_CLAMP_TO_EDGE : GL_REPEAT;
++#endif
+ 
+ #if 0
+ 		glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, (i & 1) ? GL_NEAREST : GL_LINEAR);
+@@ -494,14 +571,20 @@ void GLRenderDevice::CreateSceneSamplers()
+ #else
+ 		glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, (i & 1) ? GL_NEAREST_MIPMAP_NEAREST : GL_LINEAR_MIPMAP_LINEAR);
+ 		glSamplerParameteri(sampler, GL_TEXTURE_MAG_FILTER, (i & 1) ? GL_NEAREST : GL_LINEAR);
++#ifdef __ANDROID__
++		if ((i & 1) && GLHasExtension("GL_EXT_texture_filter_anisotropic"))
++#else
+ 		if (i & 1)
++#endif
+ 			glSamplerParameterf(sampler, GL_TEXTURE_MAX_ANISOTROPY_EXT, 8.0f); // To do: we should check for this extension
+ #endif
+ 		glSamplerParameteri(sampler, GL_TEXTURE_WRAP_S, addressmode);
+ 		glSamplerParameteri(sampler, GL_TEXTURE_WRAP_T, addressmode);
+ 		glSamplerParameteri(sampler, GL_TEXTURE_WRAP_R, addressmode);
+ 		glSamplerParameterf(sampler, GL_TEXTURE_MIN_LOD, (float)dummyMipmapCount);
++#ifndef __ANDROID__ // OpenGL ES samplers have no LOD bias; MIN_LOD still skips the dummy mipmaps
+ 		glSamplerParameterf(sampler, GL_TEXTURE_LOD_BIAS, (float)dummyMipmapCount + LODBias);
++#endif
+ 
+ 		ThrowIfGLError("Could not create sampler");
+ 	}
+@@ -866,7 +949,11 @@ void GLRenderDevice::CreatePresentPass()
+ 	PresentPass.DitherTexture = std::make_shared<GLTexture>();
+ 	glBindTexture(GL_TEXTURE_2D, PresentPass.DitherTexture->Handle);
+ 	SetDebugName(PresentPass.DitherTexture, "PresentPass.DitherTexture");
++#ifdef __ANDROID__
++	glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, 8, 8, 0, GL_RED, GL_FLOAT, ditherdata); // 32-bit float textures can't be filtered on ES
++#else
+ 	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, 8, 8, 0, GL_RED, GL_FLOAT, ditherdata);
++#endif
+ 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+ 	ThrowIfGLError("CreateTexture2D(DitherTexture) failed");
+ 
+@@ -892,8 +979,18 @@ void GLRenderDevice::Flush(bool AllowPrecache)
+ 		PrecacheOnFlip = 1;
+ }
+ 
++static void DrainStaleGLErrors(const char* where);
++
+ void GLRenderDevice::MapVertices(bool nextBuffer)
+ {
++	// A buffer filled to its last element has nothing left to map (a zero length range is a GL error): start the next one. This
++	// killed HP2 about a hundred seconds in, when a draw ended exactly at 16384 vertices and the next map had no room.
++	if (!nextBuffer && ((!SceneVertices && GLSceneVertexPos >= SceneVertexBufferSize) || (!SceneIndexes && SceneIndexPos >= SceneIndexBufferSize)))
++	{
++		nextBuffer = true;
++		Batch.SceneIndexStart = 0;
++	}
++
+ 	if (nextBuffer)
+ 	{
+ 		GLSceneVertexPos = 0;
+@@ -901,15 +998,42 @@ void GLRenderDevice::MapVertices(bool nextBuffer)
+ 		Stats.BuffersUsed++;
+ 	}
+ 
++	DrainStaleGLErrors("before mapping the scene buffers");
++
+ 	if (!SceneVertices)
+ 	{
+ 		glBindBuffer(GL_ARRAY_BUFFER, ScenePass.VertexBuffer->Handle);
+ 		if (nextBuffer)
+ 			glBufferData(GL_ARRAY_BUFFER, SceneVertexBufferSize * sizeof(GLSceneVertex), nullptr, GL_STREAM_DRAW); // Should we use GL_MAP_INVALIDATE_BUFFER_BIT here instead? OpenGL truly sucked.
+-		SceneVertices = (GLSceneVertex*)glMapBufferRange(GL_ARRAY_BUFFER, GLSceneVertexPos * sizeof(GLSceneVertex), (SceneVertexBufferSize - GLSceneVertexPos) * sizeof(GLSceneVertex), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
+-		SceneVertices -= GLSceneVertexPos; // Draw code assumes the pointer is relative to the start of the buffer, even if we never touch that part
+-		if (!SceneVertices)
+-			throw std::runtime_error("Could not map ScenePass.VertexBuffer");
++		GLSceneVertex* mappedVertices = (GLSceneVertex*)glMapBufferRange(GL_ARRAY_BUFFER, GLSceneVertexPos * sizeof(GLSceneVertex), (SceneVertexBufferSize - GLSceneVertexPos) * sizeof(GLSceneVertex), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
++		if (!mappedVertices)
++		{
++			// GL_INVALID_OPERATION: the buffer is still mapped from a frame that ended early (seen in HP2 when the spell cursor locks on). Unmap it
++			// and map again instead of ending the game.
++			LogMessage("GL: mapping ScenePass.VertexBuffer failed (error " + std::to_string((int)glGetError()) + ", offset " + std::to_string(GLSceneVertexPos) + " of " + std::to_string(SceneVertexBufferSize) + "), unmapping and trying again");
++			glUnmapBuffer(GL_ARRAY_BUFFER);
++			DrainStaleGLErrors("after a failed vertex map");
++			mappedVertices = (GLSceneVertex*)glMapBufferRange(GL_ARRAY_BUFFER, GLSceneVertexPos * sizeof(GLSceneVertex), (SceneVertexBufferSize - GLSceneVertexPos) * sizeof(GLSceneVertex), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
++		}
++		if (!mappedVertices)
++		{
++			// still no: build this frame's vertices in memory and copy them in when the buffer is unmapped
++			static bool reported = false;
++			if (!reported)
++			{
++				reported = true;
++				LogMessage("GL: the vertex buffer can't be mapped on this driver: vertices go through memory");
++			}
++			VertexShadow.resize((size_t)SceneVertexBufferSize);
++			VertexShadowed = true;
++			VertexShadowStart = GLSceneVertexPos;
++			SceneVertices = VertexShadow.data();
++		}
++		else
++		{
++			VertexShadowed = false;
++			SceneVertices = mappedVertices - GLSceneVertexPos; // Draw code assumes the pointer is relative to the start of the buffer, even if we never touch that part
++		}
+ 	}
+ 
+ 	if (!SceneIndexes)
+@@ -917,27 +1041,89 @@ void GLRenderDevice::MapVertices(bool nextBuffer)
+ 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ScenePass.IndexBuffer->Handle);
+ 		if (nextBuffer)
+ 			glBufferData(GL_ELEMENT_ARRAY_BUFFER, SceneIndexBufferSize * sizeof(uint32_t), nullptr, GL_STREAM_DRAW); // Should we use GL_MAP_INVALIDATE_BUFFER_BIT here instead? OpenGL truly sucked.
+-		SceneIndexes = (uint32_t*)glMapBufferRange(GL_ELEMENT_ARRAY_BUFFER, SceneIndexPos * sizeof(uint32_t), (SceneIndexBufferSize - SceneIndexPos) * sizeof(uint32_t), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
+-		SceneIndexes -= SceneIndexPos; // Draw code assumes the pointer is relative to the start of the buffer, even if we never touch that part
+-		if (!SceneIndexes)
+-			throw std::runtime_error("Could not map ScenePass.SceneIndexes");
++		uint32_t* mappedIndexes = (uint32_t*)glMapBufferRange(GL_ELEMENT_ARRAY_BUFFER, SceneIndexPos * sizeof(uint32_t), (SceneIndexBufferSize - SceneIndexPos) * sizeof(uint32_t), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
++		if (!mappedIndexes)
++		{
++			LogMessage("GL: mapping ScenePass.IndexBuffer failed (error " + std::to_string((int)glGetError()) + "), unmapping and trying again");
++			glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
++			DrainStaleGLErrors("after a failed index map");
++			mappedIndexes = (uint32_t*)glMapBufferRange(GL_ELEMENT_ARRAY_BUFFER, SceneIndexPos * sizeof(uint32_t), (SceneIndexBufferSize - SceneIndexPos) * sizeof(uint32_t), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
++		}
++		if (!mappedIndexes)
++		{
++			static bool reported = false;
++			if (!reported)
++			{
++				reported = true;
++				LogMessage("GL: the index buffer can't be mapped on this driver: indexes go through memory");
++			}
++			IndexShadow.resize((size_t)SceneIndexBufferSize);
++			IndexShadowed = true;
++			IndexShadowStart = SceneIndexPos;
++			SceneIndexes = IndexShadow.data();
++		}
++		else
++		{
++			IndexShadowed = false;
++			SceneIndexes = mappedIndexes - SceneIndexPos; // Draw code assumes the pointer is relative to the start of the buffer, even if we never touch that part
++		}
++	}
++}
++
++// A GL error left by an earlier call (a texture upload, a state change) shows up at the next ThrowIfGLError, which sits in the
++// buffer map and unmap code: the unmap threw with the index buffer still mapped and the frame failed with "Could not map
++// ScenePass.VertexBuffer" about a hundred seconds into HP2 (the spell cursor locking on). The stale error is read here, logged a few
++// times to find its source, and cleared.
++static void DrainStaleGLErrors(const char* where)
++{
++	static int logged = 0;
++	GLenum error;
++	int guard = 0;
++	while ((error = glGetError()) != GL_NO_ERROR && guard++ < 16)
++	{
++		if (logged < 12)
++		{
++			logged++;
++			LogMessage(std::string("GL error ") + std::to_string((int)error) + " left by an earlier call, found " + where);
++		}
+ 	}
+ }
+ 
+ void GLRenderDevice::UnmapVertices()
+ {
++	DrainStaleGLErrors("before unmapping the scene buffers");
++
+ 	if (SceneVertices)
+ 	{
+ 		glBindBuffer(GL_ARRAY_BUFFER, ScenePass.VertexBuffer->Handle);
+-		glUnmapBuffer(GL_ARRAY_BUFFER);
+-		SceneVertices = nullptr;
++		if (VertexShadowed)
++		{
++			if (GLSceneVertexPos > VertexShadowStart)
++				glBufferSubData(GL_ARRAY_BUFFER, VertexShadowStart * sizeof(GLSceneVertex), (GLSceneVertexPos - VertexShadowStart) * sizeof(GLSceneVertex), VertexShadow.data() + VertexShadowStart);
++			VertexShadowed = false;
++			SceneVertices = nullptr;
++		}
++		else
++		{
++			glUnmapBuffer(GL_ARRAY_BUFFER);
++			SceneVertices = nullptr;
++		}
+ 		ThrowIfGLError("Could not unmap ScenePass.VertexBuffer");
+ 	}
+ 
+ 	if (SceneIndexes)
+ 	{
+ 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ScenePass.IndexBuffer->Handle);
+-		glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
++		if (IndexShadowed)
++		{
++			if (SceneIndexPos > IndexShadowStart)
++				glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, IndexShadowStart * sizeof(uint32_t), (SceneIndexPos - IndexShadowStart) * sizeof(uint32_t), IndexShadow.data() + IndexShadowStart);
++			IndexShadowed = false;
++		}
++		else
++		{
++			glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
++		}
+ 		ThrowIfGLError("Could not unmap ScenePass.IndexBuffer");
+ 		SceneIndexes = nullptr;
+ 	}
+@@ -1469,7 +1655,7 @@ void GLRenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info, con
  				vertex->Color.r = P->Light.x;
  				vertex->Color.g = P->Light.y;
  				vertex->Color.b = P->Light.z;
@@ -1114,6 +1670,382 @@ index 00a0aab8..406a3ea9 100644
  				vertex++;
  			}
  		}
+@@ -1953,7 +2139,14 @@ void GLRenderDevice::SetBufferData(GLenum target, GLenum usage, GLBuffer* buffer
+ 
+ void GLRenderDevice::SetBlendState(GLBlendState* blendState, const float* blendConstants)
+ {
+-	if (blendState->desc.IndependentBlendEnable)
++#ifdef __ANDROID__
++	// OpenGL ES 3.0 has one blend state for all attachments (the indexed calls are ES 3.2). The scene's second attachment is
++	// the integer hit buffer, which ES never blends anyway, so the colour attachment's state serves both.
++	const bool independent = false;
++#else
++	const bool independent = blendState->desc.IndependentBlendEnable;
++#endif
++	if (independent)
+ 	{
+ 		// To do: this might require OpenGL 4.0 - glBlendFuncSeparatei does, not sure about glEnablei(GL_BLEND)
+ 		for (int i = 0; i < 2; i++)
+@@ -2014,6 +2207,10 @@ void GLRenderDevice::SetRasterizerState(GLRasterizerState* rasterizerState)
+ 
+ 	glFrontFace(rasterizerState->desc.FrontCounterClockwise ? GL_CCW : GL_CW);
+ 
++#ifdef __ANDROID__
++	return; // OpenGL ES has neither depth clamp (only as an extension) nor a multisample switch
++#endif
++
+ 	if (rasterizerState->desc.DepthClipEnable)
+ 		glEnable(GL_DEPTH_CLAMP);
+ 	else
+@@ -2200,6 +2397,9 @@ std::shared_ptr<GLProgram> GLRenderDevice::CreateProgram(const std::string& prog
+ 		log.resize(length);
+ 		throw std::runtime_error("Could not link program'" + programName + "':" + log);
+ 	}
++#ifdef __ANDROID__
++	BindSamplerUnits(program->Handle);
++#endif
+ 	return program;
+ }
+ 
+@@ -2219,9 +2419,71 @@ std::shared_ptr<GLFragmentShader> GLRenderDevice::CreateFragmentShader(const std
+ 	return shader;
+ }
+ 
++#ifdef __ANDROID__
++// The desktop shaders (GLSL 4.20) as GLSL ES 3.00, line by line. ES 3.00 has no binding qualifier (the sampler units are set
++// after linking, BindSamplerUnits), and layout(location) only on vertex inputs and fragment outputs: the varyings between
++// the stages match by name, which they do. "centroid" is dropped (no multisampling on Android; ES 3.00 drivers disagree on
++// whether it must match between the stages), and so is the scene's unused textureBinds input, which no vertex output feeds.
++static std::string ToGlslEs300(const std::string& source, bool vertex)
++{
++	std::string out;
++	size_t pos = 0;
++	while (pos < source.size())
++	{
++		size_t end = source.find('\n', pos);
++		if (end == std::string::npos)
++			end = source.size();
++		std::string line = source.substr(pos, end - pos);
++		pos = end + 1;
++
++		if (line.find("textureBinds") != std::string::npos && line.find(" in ") != std::string::npos)
++			continue;
++		size_t layout = line.find("layout(");
++		if (layout != std::string::npos)
++		{
++			size_t close = line.find(')', layout);
++			std::string qualifier = line.substr(layout, close - layout + 1);
++			bool binding = qualifier.find("binding") != std::string::npos;
++			bool varying = qualifier.find("location") != std::string::npos &&
++				(vertex ? line.find(" out ") != std::string::npos : line.find(" in ") != std::string::npos);
++			if (binding || varying)
++				line.erase(layout, close - layout + 2); // the qualifier and the space after it
++		}
++		size_t centroid = line.find("centroid ");
++		if (centroid != std::string::npos)
++			line.erase(centroid, 9);
++		out += line;
++		out += '\n';
++	}
++	return out;
++}
++
++// The sampler units the desktop shaders gave with layout(binding = N), set by name once the program is linked
++static void BindSamplerUnits(GLuint program)
++{
++	static const struct { const char* name; int unit; } units[] = {
++		{ "tex", 0 }, { "lightmap", 1 }, { "macro", 2 }, { "detail", 3 }, // Scene.frag
++		{ "texSampler", 0 }, { "texDither", 1 },                           // Present, bloom and blur
++	};
++	glUseProgram(program);
++	for (const auto& u : units)
++	{
++		GLint location = glGetUniformLocation(program, u.name);
++		if (location >= 0)
++			glUniform1i(location, u.unit);
++	}
++	glUseProgram(0);
++}
++#endif
++
+ void GLRenderDevice::CompileGlsl(GLShader* shader, const std::string& filename, const std::vector<std::string> defines)
+ {
++#ifdef __ANDROID__
++	// GLSL ES 3.00 (OpenGL ES 3.0, the lowest the port asks for): uniform blocks laid out as std140 like the desktop's buffers
++	std::string code = "#version 300 es\r\nprecision highp float;\r\nprecision highp int;\r\nprecision highp sampler2D;\r\nlayout(std140) uniform;\r\n";
++#else
+ 	std::string code = "#version 420\r\n";
++#endif
+ 	for (const std::string& define : defines)
+ 	{
+ 		code += "#define ";
+@@ -2229,7 +2491,13 @@ void GLRenderDevice::CompileGlsl(GLShader* shader, const std::string& filename,
+ 		code += "\r\n";
+ 	}
+ 	code += "#line 1\r\n";
++#ifdef __ANDROID__
++	GLint stage = 0;
++	glGetShaderiv(shader->Handle, GL_SHADER_TYPE, &stage);
++	code += ToGlslEs300(GLFileResource::readAllText(filename), stage == GL_VERTEX_SHADER);
++#else
+ 	code += GLFileResource::readAllText(filename);
++#endif
+ 
+ 	GLchar* source = (GLchar*)code.data();
+ 	GLint length = (GLint)code.size();
+diff --git a/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.h b/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.h
+index 4b0cb7f5..cf48b614 100644
+--- a/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.h
++++ b/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.h
+@@ -179,6 +179,13 @@ public:
+ 	std::vector<DrawBatchEntry> QueuedBatches;
+ 	GLCachedTexture* nulltex = nullptr;
+ 
++	// A driver that refuses to map a scene buffer (Adreno 735: glMapBufferRange returns null with no GL error): the frame is built in
++	// these arrays and copied into the buffer when it is unmapped (glBufferSubData of what was written)
++	std::vector<GLSceneVertex> VertexShadow;
++	std::vector<uint32_t> IndexShadow;
++	bool VertexShadowed = false, IndexShadowed = false;
++	size_t VertexShadowStart = 0, IndexShadowStart = 0;
++
+ 	GLSceneVertex* SceneVertices = nullptr;
+ 	size_t GLSceneVertexPos = 0;
+ 
+@@ -439,5 +446,5 @@ inline void ThrowIfGLError(const char* msg)
+ {
+ 	GLenum error = glGetError();
+ 	if (error != GL_NO_ERROR)
+-		throw std::runtime_error(msg);
++		throw std::runtime_error(std::string(msg) + " (GL error 0x" + [error] { char text[16]; snprintf(text, sizeof(text), "%04X", (unsigned)error); return std::string(text); }() + ")");
+ }
+diff --git a/SurrealEngine/RenderDevice/OpenGL/GLTextureManager.cpp b/SurrealEngine/RenderDevice/OpenGL/GLTextureManager.cpp
+index 2df5d18a..120376c6 100644
+--- a/SurrealEngine/RenderDevice/OpenGL/GLTextureManager.cpp
++++ b/SurrealEngine/RenderDevice/OpenGL/GLTextureManager.cpp
+@@ -97,7 +97,7 @@ GLCachedTexture* GLTextureManager::CreateNullTexture()
+ 	uint32_t white = 0xffffffff;
+ 	NullTexture->Texture = std::make_shared<GLTexture2D>();
+ 	glBindTexture(GL_TEXTURE_2D, NullTexture->Texture->Handle);
+-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, &white);
++	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, &white); // all bytes 0xff: the byte order does not matter (and ES has no 8_8_8_8)
+ 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+ 	return NullTexture.get();
+ }
+diff --git a/SurrealEngine/RenderDevice/OpenGL/GLTextureUploader.cpp b/SurrealEngine/RenderDevice/OpenGL/GLTextureUploader.cpp
+index cdc86848..fd175ea9 100644
+--- a/SurrealEngine/RenderDevice/OpenGL/GLTextureUploader.cpp
++++ b/SurrealEngine/RenderDevice/OpenGL/GLTextureUploader.cpp
+@@ -17,9 +17,19 @@ GLTextureUploader* GLTextureUploader::GetUploader(TextureFormat format)
+ 		Uploaders[TextureFormat::P8].reset(new GLTextureUploader_P8());
+ 		Uploaders[TextureFormat::BGRA8_LM].reset(new GLTextureUploader_BGRA8_LM());
+ 		Uploaders[TextureFormat::R5G6B5].reset(new GLTextureUploader_Simple(GL_RGB565, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, 2));
++#ifdef __ANDROID__
++		// OpenGL ES: no S3TC on phones (decoded on the CPU, as the Android Vulkan path does) and no BGRA uploads (swizzled)
++		Uploaders[TextureFormat::BC1].reset(new GLTextureUploader_BCDecode(1));
++		Uploaders[TextureFormat::BC1_PA].reset(new GLTextureUploader_BCDecode(1));
++		Uploaders[TextureFormat::BC2].reset(new GLTextureUploader_BCDecode(2));
++		Uploaders[TextureFormat::BC3].reset(new GLTextureUploader_BCDecode(3));
++		Uploaders[TextureFormat::RGB8].reset(new GLTextureUploader_RGB8());
++		Uploaders[TextureFormat::BGRA8].reset(new GLTextureUploader_BGRA8Swizzle());
++#else
+ 		Uploaders[TextureFormat::BC1].reset(new GLTextureUploader_4x4Block(GL_COMPRESSED_RGBA_S3TC_DXT1_EXT, 0, 0, 8)); // To do: GL_COMPRESSED_RGB_S3TC_DXT1_EXT and also needs different upload
+ 		Uploaders[TextureFormat::RGB8].reset(new GLTextureUploader_RGB8());
+ 		Uploaders[TextureFormat::BGRA8].reset(new GLTextureUploader_Simple(GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE, 4));
++#endif
+ 		Uploaders[TextureFormat::RGBA32_F].reset(new GLTextureUploader_Simple(GL_RGBA32F, GL_RGBA, GL_FLOAT, 16));
+ 	}
+ 
+@@ -351,3 +361,68 @@ void GLTextureUploader_2DBlock::UploadRect(void* d, UnrealMipmap* mip, int x, in
+ 		src += pitch;
+ 	}
+ }
++
++/////////////////////////////////////////////////////////////////////////////
++
++#ifdef __ANDROID__
++
++void BCDecodeBlock(int kind, const uint8_t* src, uint8_t* out); // RenderDevice/Vulkan/TextureUploader.cpp
++
++int GLTextureUploader_BCDecode::GetUploadSize(int x, int y, int w, int h)
++{
++	return w * h * 4;
++}
++
++void GLTextureUploader_BCDecode::UploadRect(void* d, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked)
++{
++	int bytesPerBlock = (Kind == 1) ? 8 : 16;
++	int blocksPerRow = (mip->Width + 3) / 4;
++	uint8_t* dst = (uint8_t*)d;
++	uint8_t rgba[64];
++	int decoded = -1;
++	for (int py = 0; py < h; py++)
++	{
++		int sy = y + py;
++		for (int px = 0; px < w; px++)
++		{
++			int sx = x + px;
++			int block = (sy / 4) * blocksPerRow + (sx / 4);
++			if (block != decoded)
++			{
++				size_t offset = (size_t)block * bytesPerBlock;
++				memset(rgba, 0, sizeof(rgba));
++				if (offset + bytesPerBlock <= mip->Data.size())
++					BCDecodeBlock(Kind, mip->Data.data() + offset, rgba);
++				decoded = block;
++			}
++			int i = (sy & 3) * 4 + (sx & 3);
++			memcpy(dst + ((size_t)py * w + px) * 4, rgba + i * 4, 4);
++		}
++	}
++}
++
++int GLTextureUploader_BGRA8Swizzle::GetUploadSize(int x, int y, int w, int h)
++{
++	return w * h * 4;
++}
++
++void GLTextureUploader_BGRA8Swizzle::UploadRect(void* d, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked)
++{
++	int pitch = mip->Width * 4;
++	const uint8_t* src = mip->Data.data() + x * 4 + y * pitch;
++	uint8_t* dst = (uint8_t*)d;
++	for (int i = 0; i < h; i++)
++	{
++		for (int j = 0; j < w; j++)
++		{
++			dst[0] = src[j * 4 + 2];
++			dst[1] = src[j * 4 + 1];
++			dst[2] = src[j * 4 + 0];
++			dst[3] = src[j * 4 + 3];
++			dst += 4;
++		}
++		src += pitch;
++	}
++}
++
++#endif
+diff --git a/SurrealEngine/RenderDevice/OpenGL/GLTextureUploader.h b/SurrealEngine/RenderDevice/OpenGL/GLTextureUploader.h
+index 81144e57..0e0a8d43 100644
+--- a/SurrealEngine/RenderDevice/OpenGL/GLTextureUploader.h
++++ b/SurrealEngine/RenderDevice/OpenGL/GLTextureUploader.h
+@@ -119,3 +119,30 @@ private:
+ 	int BlockY;
+ 	int BytesPerBlock;
+ };
++
++#ifdef __ANDROID__
++
++// BC1-3 decoded to RGBA8 on the CPU (OpenGL ES on phones has no S3TC)
++class GLTextureUploader_BCDecode : public GLTextureUploader
++{
++public:
++	GLTextureUploader_BCDecode(int kind) : GLTextureUploader(GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE), Kind(kind) { }
++
++	int GetUploadSize(int x, int y, int w, int h) override;
++	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
++
++private:
++	int Kind;
++};
++
++// BGRA8 uploaded as RGBA8 (OpenGL ES has no BGRA upload format without an extension)
++class GLTextureUploader_BGRA8Swizzle : public GLTextureUploader
++{
++public:
++	GLTextureUploader_BGRA8Swizzle() : GLTextureUploader(GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE) { }
++
++	int GetUploadSize(int x, int y, int w, int h) override;
++	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
++};
++
++#endif
+diff --git a/SurrealEngine/RenderDevice/OpenGL/GLUploadManager.cpp b/SurrealEngine/RenderDevice/OpenGL/GLUploadManager.cpp
+index a7d42da7..ac41df50 100644
+--- a/SurrealEngine/RenderDevice/OpenGL/GLUploadManager.cpp
++++ b/SurrealEngine/RenderDevice/OpenGL/GLUploadManager.cpp
+@@ -3,6 +3,9 @@
+ #include "GLUploadManager.h"
+ #include "GLRenderDevice.h"
+ #include "GLCachedTexture.h"
++#ifdef __ANDROID__
++#include <unistd.h>
++#endif
+ 
+ GLUploadManager::GLUploadManager(GLRenderDevice* renderer) : renderer(renderer)
+ {
+@@ -52,6 +55,11 @@ void GLUploadManager::UploadTexture(GLCachedTexture* tex, const TextureInfo& Inf
+ 	// We fix this by creating 1 or 2 additional mipmap levels that are empty.
+ 
+ 	int minSize = Info.Format == TextureFormat::BC1 || (Info.Format >= TextureFormat::BC2 && Info.Format <= TextureFormat::BC6H) ? 4 : 0;
++#ifdef __ANDROID__
++	// OpenGL ES: BC textures are decoded to RGBA8 on the CPU, so there are no 4x4 blocks to complete. Uploading a 4x4 block
++	// into a 2x2 or 1x1 mip level (what the compressed path does) is GL_INVALID_VALUE for an uncompressed level.
++	minSize = 0;
++#endif
+ 
+ 	if (!tex->Texture)
+ 	{
+@@ -75,6 +83,23 @@ void GLUploadManager::UploadTexture(GLCachedTexture* tex, const TextureInfo& Inf
+ 
+ 		tex->Texture = std::make_shared<GLTexture2D>();
+ 		glBindTexture(GL_TEXTURE_2D, tex->Texture->Handle);
++#ifdef __ANDROID__
++		// OpenGL ES: immutable storage with a mip chain that is complete by construction (levels down to 1x1 at most). The
++		// mutable glTexImage2D-per-level texture the desktop device makes is mipmap-incomplete on some drivers (Mali-G52 r32:
++		// every mipmapped texture, the level's walls and floors, sampled black while single-level ones were fine).
++		{
++			static const bool noMips = access("/sdcard/FlipendoHP/gl_nomip.txt", F_OK) == 0; // test aid: no mip chains at all
++			int possible = 1;
++			for (int size = std::max(width, height); size > 1; size >>= 1)
++				possible++;
++			mipcount = std::max(1, std::min(mipcount, possible));
++			if (noMips)
++				mipcount = 1;
++			glTexStorage2D(GL_TEXTURE_2D, mipcount, internalFormat, width, height);
++			ThrowIfGLError("UploadTexture (glTexStorage2D) failed");
++			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, mipcount - 1);
++		}
++#else
+ 		int mipwidth = width;
+ 		int mipheight = height;
+ 		for (int miplevel = 0; miplevel < mipcount; miplevel++)
+@@ -85,6 +110,7 @@ void GLUploadManager::UploadTexture(GLCachedTexture* tex, const TextureInfo& Inf
+ 			mipheight = std::max(mipheight >> 1, 1);
+ 		}
+ 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, std::max(mipcount - 1, 0));
++#endif
+ 	}
+ 
+ 	if (uploader)
+@@ -97,6 +123,9 @@ void GLUploadManager::UploadTexture(GLCachedTexture* tex, const TextureInfo& Inf
+ 
+ void GLUploadManager::UploadTextureRect(GLCachedTexture* tex, const TextureInfo& Info, int x, int y, int w, int h)
+ {
++#ifdef __ANDROID__
++	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
++#endif
+ 	GLTextureUploader* uploader = GLTextureUploader::GetUploader(Info.Format);
+ 	if (!uploader || Info.NumMips < 1 || x < 0 || y < 0 || w <= 0 || h <= 0 || x + w > Info.Mips[0].Width || y + h > Info.Mips[0].Height || Info.Mips[0].Data.empty())
+ 		return;
+@@ -121,8 +150,18 @@ void GLUploadManager::UploadTextureRect(GLCachedTexture* tex, const TextureInfo&
+ 
+ void GLUploadManager::UploadData(GLTexture2D* image, const TextureInfo& Info, bool masked, GLTextureUploader* uploader, int dummyMipmapCount, int minSize)
+ {
++#ifdef __ANDROID__
++	glPixelStorei(GL_UNPACK_ALIGNMENT, 1); // the upload buffers are tightly packed rows (RGB565 with an odd width, ...)
++	GLint levelsAllocated = 0; // the texture is immutable storage: levels past its chain are not uploaded
++	glBindTexture(GL_TEXTURE_2D, image->Handle);
++	glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_IMMUTABLE_LEVELS, &levelsAllocated);
++#endif
+ 	for (int level = 0; level < Info.NumMips; level++)
+ 	{
++#ifdef __ANDROID__
++		if (level + dummyMipmapCount >= levelsAllocated)
++			break;
++#endif
+ 		UnrealMipmap* Mip = &Info.Mips[level];
+ 		if (!Mip->Data.empty())
+ 		{
 diff --git a/SurrealEngine/RenderDevice/RenderDevice.h b/SurrealEngine/RenderDevice/RenderDevice.h
 index 2e23b3c1..72b3f515 100644
 --- a/SurrealEngine/RenderDevice/RenderDevice.h
@@ -1126,11 +2058,305 @@ index 2e23b3c1..72b3f515 100644
  };
  
  struct SurfaceFacet
+diff --git a/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp b/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
+index 118f3de3..6dd4ff35 100644
+--- a/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
++++ b/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
+@@ -66,22 +66,37 @@ void CommandBufferManager::SubmitCommands(bool present, int presentWidth, int pr
+ 			UsingVsync = renderer->UseVSync;
+ 			UsingHdr = renderer->Hdr;
+ 			renderer->Framebuffers->DestroySwapChainFramebuffers();
+-			SwapChain->Create(presentWidth, presentHeight, renderer->UseVSync ? 2 : 3, renderer->UseVSync, renderer->Hdr);
+-			renderer->Framebuffers->CreateSwapChainFramebuffers();
+-
+-			RenderFinishedSemaphores.clear();
+-			for (int i = 0; i < SwapChain->ImageCount(); i++)
++			if (SwapChain->SurfaceLost())
++			{
++				// The window was destroyed (Android: the app went to the background) and a new one exists now. While there
++				// is no window yet (still in the background, or the screen being rebuilt) this frame is not shown: making a
++				// surface for a window that has no native window crashed in the Vulkan loader (Redmi Note 10S, Mali-G76).
++				SwapChain->ReleaseSwapchain();
++				if (!renderer->RecreateSurface())
++					present = false;
++			}
++			if (present)
+ 			{
+-				RenderFinishedSemaphores.push_back(SemaphoreBuilder()
+-					.DebugName("RenderFinishedSemaphore")
+-					.Create(renderer->Device.get()));
++				SwapChain->Create(presentWidth, presentHeight, renderer->UseVSync ? 2 : 3, renderer->UseVSync, renderer->Hdr);
++				renderer->Framebuffers->CreateSwapChainFramebuffers();
++
++				RenderFinishedSemaphores.clear();
++				for (int i = 0; i < SwapChain->ImageCount(); i++)
++				{
++					RenderFinishedSemaphores.push_back(SemaphoreBuilder()
++						.DebugName("RenderFinishedSemaphore")
++						.Create(renderer->Device.get()));
++				}
+ 			}
+ 		}
+ 
+-		PresentImageIndex = SwapChain->AcquireImage(ImageAvailableSemaphore.get());
+-		if (PresentImageIndex != -1)
++		if (present)
+ 		{
+-			renderer->DrawPresentTexture(presentWidth, presentHeight);
++			PresentImageIndex = SwapChain->AcquireImage(ImageAvailableSemaphore.get());
++			if (PresentImageIndex != -1)
++			{
++				renderer->DrawPresentTexture(presentWidth, presentHeight);
++			}
+ 		}
+ 	}
+ 
+@@ -129,6 +144,8 @@ void CommandBufferManager::SubmitCommands(bool present, int presentWidth, int pr
+ 	DrawCommands.reset();
+ 	TransferCommands.reset();
+ 	DeleteFrameObjects();
++	// Spike: Mali keeps command-stream memory until the pool is reset; recycle it every frame.
++	vkResetCommandPool(renderer->Device.get()->device, CommandPool->pool, 0);
+ }
+ 
+ VulkanCommandBuffer* CommandBufferManager::GetTransferCommands()
+diff --git a/SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.cpp b/SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.cpp
+index 2ff37d79..11586c86 100644
+--- a/SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.cpp
++++ b/SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.cpp
+@@ -8,7 +8,10 @@
+ 
+ DescriptorSetManager::DescriptorSetManager(VulkanRenderDevice* renderer) : renderer(renderer)
+ {
+-	CreateBindlessTextureSet();
++	if (renderer->Bindless)
++		CreateBindlessTextureSet();
++	else
++		CreateFixedTextureSets();
+ 	CreatePresentLayout();
+ 	CreatePresentSet();
+ 	CreateBloomLayout();
+@@ -17,6 +20,8 @@ DescriptorSetManager::DescriptorSetManager(VulkanRenderDevice* renderer) : rende
+ 
+ DescriptorSetManager::~DescriptorSetManager()
+ {
++	if (FixedTextures.Pool != VK_NULL_HANDLE)
++		vkDestroyDescriptorPool(renderer->Device->device, FixedTextures.Pool, nullptr);
+ }
+ 
+ void DescriptorSetManager::ClearCache()
+@@ -68,6 +73,8 @@ int DescriptorSetManager::GetTextureArrayIndex(uint32_t PolyFlags, CachedTexture
+ 
+ void DescriptorSetManager::UpdateBindlessSet()
+ {
++	if (!renderer->Bindless)
++		return;
+ 	Textures.WriteBindless.Execute(renderer->Device.get());
+ 	Textures.WriteBindless = WriteDescriptors();
+ }
+@@ -155,3 +162,69 @@ void DescriptorSetManager::UpdateFrameDescriptors()
+ 	write.AddCombinedImageSampler(Bloom.PPImageSet.get(), 0, textures->Scene->PPImageView[0].get(), samplers->PPLinearClamp.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+ 	write.Execute(renderer->Device.get());
+ }
++
++void DescriptorSetManager::CreateFixedTextureSets()
++{
++	FixedTextures.Layout = DescriptorSetLayoutBuilder()
++		.AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
++		.AddBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
++		.AddBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
++		.AddBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
++		.DebugName("FixedTextureLayout")
++		.Create(renderer->Device.get());
++
++	VkDescriptorPoolSize size = {};
++	size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
++	size.descriptorCount = 4 * MaxFixedTextureSets;
++
++	VkDescriptorPoolCreateInfo info = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
++	info.maxSets = MaxFixedTextureSets;
++	info.poolSizeCount = 1;
++	info.pPoolSizes = &size;
++	VkResult result = vkCreateDescriptorPool(renderer->Device->device, &info, nullptr, &FixedTextures.Pool);
++	renderer->Device->CheckVulkanError(result, "Could not create the fixed texture descriptor pool");
++}
++
++VkDescriptorSet DescriptorSetManager::GetFixedTextureSet(const FixedTextureKey& key)
++{
++	auto it = FixedTextures.Cache.find(key);
++	if (it != FixedTextures.Cache.end())
++		return it->second;
++
++	VkDescriptorSetAllocateInfo alloc = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
++	alloc.descriptorPool = FixedTextures.Pool;
++	alloc.descriptorSetCount = 1;
++	alloc.pSetLayouts = &FixedTextures.Layout->layout;
++	VkDescriptorSet set = VK_NULL_HANDLE;
++	VkResult result = vkAllocateDescriptorSets(renderer->Device->device, &alloc, &set);
++	renderer->Device->CheckVulkanError(result, "Could not allocate a texture descriptor set");
++
++	VkDescriptorImageInfo images[4] = {};
++	VkWriteDescriptorSet writes[4] = {};
++	for (int i = 0; i < 4; i++)
++	{
++		images[i].sampler = key.sampler[i];
++		images[i].imageView = key.view[i];
++		images[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
++		writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
++		writes[i].dstSet = set;
++		writes[i].dstBinding = (uint32_t)i;
++		writes[i].descriptorCount = 1;
++		writes[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
++		writes[i].pImageInfo = &images[i];
++	}
++	vkUpdateDescriptorSets(renderer->Device->device, 4, writes, 0, nullptr);
++
++	FixedTextures.Cache[key] = set;
++	FixedTextures.Count++;
++	return set;
++}
++
++void DescriptorSetManager::ResetFixedTextureSets()
++{
++	if (FixedTextures.Pool == VK_NULL_HANDLE)
++		return;
++	vkResetDescriptorPool(renderer->Device->device, FixedTextures.Pool, 0);
++	FixedTextures.Cache.clear();
++	FixedTextures.Count = 0;
++}
+diff --git a/SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.h b/SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.h
+index 41f3ca90..fed21d8c 100644
+--- a/SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.h
++++ b/SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.h
+@@ -2,6 +2,7 @@
+ 
+ #include "SceneTextures.h"
+ #include <unordered_map>
++#include <map>
+ #include <surrealgpu/vulkanbuilders.h>
+ 
+ class VulkanRenderDevice;
+@@ -45,6 +46,36 @@ template<> struct std::hash<TexDescriptorKey>
+ 	}
+ };
+ 
++// Without bindless textures (GPUs that lack descriptor indexing, e.g. older Mali): the four textures of a draw call
++// (texture, macro, detail, lightmap) with their samplers. A descriptor set per distinct key, made on demand each frame.
++struct FixedTextureKey
++{
++	VkImageView view[4] = {};
++	VkSampler sampler[4] = {};
++
++	bool operator==(const FixedTextureKey& other) const
++	{
++		for (int i = 0; i < 4; i++)
++			if (view[i] != other.view[i] || sampler[i] != other.sampler[i])
++				return false;
++		return true;
++	}
++
++	bool operator!=(const FixedTextureKey& other) const { return !(*this == other); }
++
++	bool operator<(const FixedTextureKey& other) const
++	{
++		for (int i = 0; i < 4; i++)
++		{
++			if (view[i] != other.view[i])
++				return view[i] < other.view[i];
++			if (sampler[i] != other.sampler[i])
++				return sampler[i] < other.sampler[i];
++		}
++		return false;
++	}
++};
++
+ class DescriptorSetManager
+ {
+ public:
+@@ -63,6 +94,13 @@ public:
+ 	VulkanDescriptorSet* GetBloomHTextureSet(int level) { return Bloom.HTextureSets[level].get(); }
+ 
+ 	void UpdateBindlessSet();
++
++	// No-bindless path
++	VkDescriptorSet GetFixedTextureSet(const FixedTextureKey& key);
++	void ResetFixedTextureSets();
++	bool FixedTextureSetsFull() const { return FixedTextures.Count + 2 > MaxFixedTextureSets; }
++	static const int MaxFixedTextureSets = 6000;
++	VulkanDescriptorSetLayout* GetFixedTextureLayout() { return FixedTextures.Layout.get(); }
+ 	void UpdateFrameDescriptors();
+ 
+ 	static const int MaxBindlessTextures = 16536;
+@@ -73,6 +111,7 @@ public:
+ 
+ private:
+ 	void CreateBindlessTextureSet();
++	void CreateFixedTextureSets();
+ 	void CreatePresentLayout();
+ 	void CreatePresentSet();
+ 	void CreateBloomLayout();
+@@ -90,6 +129,14 @@ private:
+ 
+ 	} Textures;
+ 
++	struct
++	{
++		std::unique_ptr<VulkanDescriptorSetLayout> Layout;
++		VkDescriptorPool Pool = VK_NULL_HANDLE;
++		std::map<FixedTextureKey, VkDescriptorSet> Cache;
++		int Count = 0;
++	} FixedTextures;
++
+ 	struct
+ 	{
+ 		std::unique_ptr<VulkanDescriptorSetLayout> Layout;
 diff --git a/SurrealEngine/RenderDevice/Vulkan/FileResource.cpp b/SurrealEngine/RenderDevice/Vulkan/FileResource.cpp
-index 681fb558..1caf4fa1 100644
+index 681fb558..aa399fbc 100644
 --- a/SurrealEngine/RenderDevice/Vulkan/FileResource.cpp
 +++ b/SurrealEngine/RenderDevice/Vulkan/FileResource.cpp
-@@ -85,7 +85,8 @@ std::string FileResource::readAllText(const std::string& filename)
+@@ -39,7 +39,9 @@ std::string FileResource::readAllText(const std::string& filename)
+ 			void main()
+ 			{
+ 				gl_Position = objectToProjection * vec4(aPosition, 1.0);
++#ifdef SE_CLIP_DISTANCE
+ 				gl_ClipDistance[0] = dot(nearClip, objectToView * vec4(aPosition, 1.0));
++#endif
+ 				flags = aFlags;
+ 				texCoord = aTexCoord;
+ 				texCoord2 = aTexCoord2;
+@@ -54,7 +56,14 @@ std::string FileResource::readAllText(const std::string& filename)
+ 	else if (filename == "shaders/Scene.frag")
+ 	{
+ 		return R"(
++#ifdef NO_BINDLESS
++			layout(binding = 0) uniform sampler2D texTex;
++			layout(binding = 1) uniform sampler2D texMacro;
++			layout(binding = 2) uniform sampler2D texDetail;
++			layout(binding = 3) uniform sampler2D texLightmap;
++#else
+ 			layout(binding = 0) uniform sampler2D textures[];
++#endif
+ 
+ 			layout(location = 0) flat in uint flags;
+ 			layout(location = 1) centroid in vec2 texCoord;
+@@ -75,17 +84,25 @@ std::string FileResource::readAllText(const std::string& filename)
+ 				return vec4(clamp((c.rgb - cutoff) / (1.0 - cutoff), 0.0, 1.0), c.a);
+ 			}
+ 
++#ifdef NO_BINDLESS
++			vec4 textureTex(vec2 uv) { return texture(texTex, uv); }
++			vec4 textureMacro(vec2 uv) { return texture(texMacro, uv); }
++			vec4 textureDetail(vec2 uv) { return texture(texDetail, uv); }
++			vec4 textureLightmap(vec2 uv) { return texture(texLightmap, uv); }
++#else
+ 			vec4 textureTex(vec2 uv) { return texture(textures[nonuniformEXT(textureBinds.x)], uv); }
+ 			vec4 textureMacro(vec2 uv) { return texture(textures[nonuniformEXT(textureBinds.y)], uv); }
+ 			vec4 textureDetail(vec2 uv) { return texture(textures[nonuniformEXT(textureBinds.z)], uv); }
+ 			vec4 textureLightmap(vec2 uv) { return texture(textures[nonuniformEXT(textureBinds.w)], uv); }
++#endif
+ 
+ 			void main()
+ 			{
  				float actorXBlending = (flags & 32) != 0 ? 1.5 : 1.0;
  				float oneXBlending = (flags & 64) != 0 ? 1.0 : 2.0;
  
@@ -1140,7 +2366,7 @@ index 681fb558..1caf4fa1 100644
  				outColor.rgb *= actorXBlending;
  
  				if ((flags & 2) != 0) // Macro texture
-@@ -117,7 +118,7 @@ std::string FileResource::readAllText(const std::string& filename)
+@@ -117,7 +134,7 @@ std::string FileResource::readAllText(const std::string& filename)
  				}
  
  				#if defined(ALPHATEST)
@@ -1149,11 +2375,348 @@ index 681fb558..1caf4fa1 100644
  				#endif
  
  				outColor = clamp(outColor, 0.0, 1.0);
+diff --git a/SurrealEngine/RenderDevice/Vulkan/RenderPassManager.cpp b/SurrealEngine/RenderDevice/Vulkan/RenderPassManager.cpp
+index 62d8e05d..bfc2dca0 100644
+--- a/SurrealEngine/RenderDevice/Vulkan/RenderPassManager.cpp
++++ b/SurrealEngine/RenderDevice/Vulkan/RenderPassManager.cpp
+@@ -23,7 +23,7 @@ RenderPassManager::~RenderPassManager()
+ void RenderPassManager::CreateSceneBindlessPipelineLayout()
+ {
+ 	Scene.BindlessPipelineLayout = PipelineLayoutBuilder()
+-		.AddSetLayout(renderer->DescriptorSets->GetTextureBindlessLayout())
++		.AddSetLayout(renderer->Bindless ? renderer->DescriptorSets->GetTextureBindlessLayout() : renderer->DescriptorSets->GetFixedTextureLayout())
+ 		.AddPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ScenePushConstants))
+ 		.DebugName("SceneBindlessPipelineLayout")
+ 		.Create(renderer->Device.get());
+diff --git a/SurrealEngine/RenderDevice/Vulkan/ShaderManager.cpp b/SurrealEngine/RenderDevice/Vulkan/ShaderManager.cpp
+index 940c2285..1372f6e3 100644
+--- a/SurrealEngine/RenderDevice/Vulkan/ShaderManager.cpp
++++ b/SurrealEngine/RenderDevice/Vulkan/ShaderManager.cpp
+@@ -5,23 +5,30 @@
+ #include "VulkanRenderDevice.h"
+ #include <surrealgpu/vulkanbuilders.h>
+ 
++// Mali drivers crash compiling gl_ClipDistance in the scene vertex shader; the near clip is skipped on Android.
++#ifdef __ANDROID__
++#define SE_CLIP_DISTANCE_DEFINE ""
++#else
++#define SE_CLIP_DISTANCE_DEFINE "#define SE_CLIP_DISTANCE\r\n"
++#endif
++
+ ShaderManager::ShaderManager(VulkanRenderDevice* renderer) : renderer(renderer)
+ {
+ 	GLSLCompiler::Init();
+ 
+ 	Scene.VertexShader = GLSLCompiler()
+ 		.Type(ShaderType::Vertex)
+-		.AddSource("shaders/Scene.vert", LoadShaderCode("shaders/Scene.vert", "#extension GL_EXT_nonuniform_qualifier : enable\r\n"))
++		.AddSource("shaders/Scene.vert", LoadShaderCode("shaders/Scene.vert", "#extension GL_EXT_nonuniform_qualifier : enable\r\n" SE_CLIP_DISTANCE_DEFINE))
+ 		.Compile(renderer->Device.get());
+ 
+ 	Scene.FragmentShader = GLSLCompiler()
+ 		.Type(ShaderType::Fragment)
+-		.AddSource("shaders/Scene.frag", LoadShaderCode("shaders/Scene.frag", "#extension GL_EXT_nonuniform_qualifier : enable\r\n#"))
++		.AddSource("shaders/Scene.frag", LoadShaderCode("shaders/Scene.frag", "#extension GL_EXT_nonuniform_qualifier : enable\r\n" + std::string(renderer->Bindless ? "" : "#define NO_BINDLESS\r\n") + "#"))
+ 		.Compile(renderer->Device.get());
+ 
+ 	Scene.FragmentShaderAlphaTest = GLSLCompiler()
+ 		.Type(ShaderType::Fragment)
+-		.AddSource("shaders/Scene.frag", LoadShaderCode("shaders/Scene.frag", "#extension GL_EXT_nonuniform_qualifier : enable\r\n#define ALPHATEST"))
++		.AddSource("shaders/Scene.frag", LoadShaderCode("shaders/Scene.frag", "#extension GL_EXT_nonuniform_qualifier : enable\r\n" + std::string(renderer->Bindless ? "" : "#define NO_BINDLESS\r\n") + "#define ALPHATEST"))
+ 		.Compile(renderer->Device.get());
+ 
+ 	Postprocess.VertexShader = GLSLCompiler()
+diff --git a/SurrealEngine/RenderDevice/Vulkan/TextureUploader.cpp b/SurrealEngine/RenderDevice/Vulkan/TextureUploader.cpp
+index c925f9ad..058ea168 100644
+--- a/SurrealEngine/RenderDevice/Vulkan/TextureUploader.cpp
++++ b/SurrealEngine/RenderDevice/Vulkan/TextureUploader.cpp
+@@ -18,13 +18,25 @@ TextureUploader* TextureUploader::GetUploader(TextureFormat format)
+ 		Uploaders[TextureFormat::BGRA8_LM].reset(new TextureUploader_BGRA8_LM());
+ 		Uploaders[TextureFormat::R5G6B5].reset(new TextureUploader_Simple(VK_FORMAT_R5G6B5_UNORM_PACK16, 2));
+ 		// Note: according to formats this should have been VK_FORMAT_BC1_RGB_UNORM_BLOCK, but some textures does use the alpha bit!
++#ifdef __ANDROID__
++		Uploaders[TextureFormat::BC1].reset(new TextureUploader_BCDecode(1));
++#else
+ 		Uploaders[TextureFormat::BC1].reset(new TextureUploader_4x4Block(VK_FORMAT_BC1_RGBA_UNORM_BLOCK, 8));
++#endif
+ 		Uploaders[TextureFormat::RGB8].reset(new TextureUploader_Simple(VK_FORMAT_R8G8B8_UNORM, 3));
+ 		Uploaders[TextureFormat::BGRA8].reset(new TextureUploader_Simple(VK_FORMAT_B8G8R8A8_UNORM, 4));
+ 
+ 		// S3TC (continued).
++#ifdef __ANDROID__
++		Uploaders[TextureFormat::BC2].reset(new TextureUploader_BCDecode(2));
++#else
+ 		Uploaders[TextureFormat::BC2].reset(new TextureUploader_4x4Block(VK_FORMAT_BC2_UNORM_BLOCK, 16));
++#endif
++#ifdef __ANDROID__
++		Uploaders[TextureFormat::BC3].reset(new TextureUploader_BCDecode(3));
++#else
+ 		Uploaders[TextureFormat::BC3].reset(new TextureUploader_4x4Block(VK_FORMAT_BC3_UNORM_BLOCK, 16));
++#endif
+ 
+ 		// RGTC.
+ 		Uploaders[TextureFormat::BC4].reset(new TextureUploader_4x4Block(VK_FORMAT_BC4_UNORM_BLOCK, 8));
+@@ -44,7 +56,11 @@ TextureUploader* TextureUploader::GetUploader(TextureFormat format)
+ 		//Uploaders[TextureFormat::RGBA32_S].reset(new TextureUploader_Simple(VK_FORMAT_R32G32B32A32_SNORM, 16));
+ 
+ 		// S3TC (continued).
++#ifdef __ANDROID__
++		Uploaders[TextureFormat::BC1_PA].reset(new TextureUploader_BCDecode(1));
++#else
+ 		Uploaders[TextureFormat::BC1_PA].reset(new TextureUploader_4x4Block(VK_FORMAT_BC1_RGBA_UNORM_BLOCK, 8));
++#endif
+ 
+ 		// Normalized RGBA (continued).
+ 		Uploaders[TextureFormat::R8].reset(new TextureUploader_Simple(VK_FORMAT_R8_UNORM, 1));
+@@ -471,3 +487,111 @@ void TextureUploader_2DBlock::UploadRect(void* d, UnrealMipmap* mip, int x, int
+ 		src += pitch;
+ 	}
+ }
++
++/////////////////////////////////////////////////////////////////////////////
++
++int TextureUploader_BCDecode::GetUploadSize(int x, int y, int w, int h)
++{
++	return w * h * 4;
++}
++
++static void BCExpand565(uint16_t c, uint8_t* rgb)
++{
++	int r = (c >> 11) & 31, g = (c >> 5) & 63, b = c & 31;
++	rgb[0] = (uint8_t)((r << 3) | (r >> 2));
++	rgb[1] = (uint8_t)((g << 2) | (g >> 4));
++	rgb[2] = (uint8_t)((b << 3) | (b >> 2));
++}
++
++// Decodes one 4x4 block (kind 1 = BC1, 2 = BC2, 3 = BC3) to 16 RGBA pixels.
++void BCDecodeBlock(int kind, const uint8_t* src, uint8_t* out) // also used by the OpenGL ES uploader (GLTextureUploader.cpp)
++{
++	const uint8_t* color = (kind == 1) ? src : src + 8;
++	uint16_t c0 = color[0] | (color[1] << 8);
++	uint16_t c1 = color[2] | (color[3] << 8);
++	uint8_t pal[4][4];
++	BCExpand565(c0, pal[0]);
++	BCExpand565(c1, pal[1]);
++	pal[0][3] = pal[1][3] = pal[2][3] = pal[3][3] = 255;
++	if (kind != 1 || c0 > c1)
++	{
++		for (int i = 0; i < 3; i++)
++		{
++			pal[2][i] = (uint8_t)((2 * pal[0][i] + pal[1][i]) / 3);
++			pal[3][i] = (uint8_t)((pal[0][i] + 2 * pal[1][i]) / 3);
++		}
++	}
++	else
++	{
++		for (int i = 0; i < 3; i++)
++		{
++			pal[2][i] = (uint8_t)((pal[0][i] + pal[1][i]) / 2);
++			pal[3][i] = 0;
++		}
++		pal[3][3] = 0; // transparent black
++	}
++
++	uint32_t bits = color[4] | (color[5] << 8) | (color[6] << 16) | ((uint32_t)color[7] << 24);
++	for (int i = 0; i < 16; i++)
++	{
++		const uint8_t* p = pal[(bits >> (i * 2)) & 3];
++		out[i * 4 + 0] = p[0];
++		out[i * 4 + 1] = p[1];
++		out[i * 4 + 2] = p[2];
++		out[i * 4 + 3] = p[3];
++	}
++
++	if (kind == 2)
++	{
++		for (int i = 0; i < 16; i++)
++		{
++			int a = (src[i / 2] >> ((i & 1) * 4)) & 15;
++			out[i * 4 + 3] = (uint8_t)(a * 17);
++		}
++	}
++	else if (kind == 3)
++	{
++		uint8_t a[8];
++		a[0] = src[0];
++		a[1] = src[1];
++		if (a[0] > a[1])
++		{
++			for (int i = 1; i < 7; i++)
++				a[i + 1] = (uint8_t)(((7 - i) * a[0] + i * a[1]) / 7);
++		}
++		else
++		{
++			for (int i = 1; i < 5; i++)
++				a[i + 1] = (uint8_t)(((5 - i) * a[0] + i * a[1]) / 5);
++			a[6] = 0;
++			a[7] = 255;
++		}
++		uint64_t abits = 0;
++		for (int i = 0; i < 6; i++)
++			abits |= (uint64_t)src[2 + i] << (8 * i);
++		for (int i = 0; i < 16; i++)
++			out[i * 4 + 3] = a[(abits >> (3 * i)) & 7];
++	}
++}
++
++void TextureUploader_BCDecode::UploadRect(void* d, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked)
++{
++	int bytesPerBlock = (Kind == 1) ? 8 : 16;
++	int blocksPerRow = (mip->Width + 3) / 4;
++	uint8_t* dst = (uint8_t*)d;
++	for (int py = 0; py < h; py++)
++	{
++		int sy = y + py;
++		for (int px = 0; px < w; px++)
++		{
++			int sx = x + px;
++			int block = (sy / 4) * blocksPerRow + (sx / 4);
++			size_t offset = (size_t)block * bytesPerBlock;
++			uint8_t rgba[64] = {};
++			if (offset + bytesPerBlock <= mip->Data.size())
++				BCDecodeBlock(Kind, mip->Data.data() + offset, rgba);
++			int i = (sy & 3) * 4 + (sx & 3);
++			memcpy(dst + ((size_t)py * w + px) * 4, rgba + i * 4, 4);
++		}
++	}
++}
+diff --git a/SurrealEngine/RenderDevice/Vulkan/TextureUploader.h b/SurrealEngine/RenderDevice/Vulkan/TextureUploader.h
+index 8705efbe..7f604c57 100644
+--- a/SurrealEngine/RenderDevice/Vulkan/TextureUploader.h
++++ b/SurrealEngine/RenderDevice/Vulkan/TextureUploader.h
+@@ -106,3 +106,16 @@ private:
+ 	int BlockY;
+ 	int BytesPerBlock;
+ };
++
++// Spike: CPU decoder for S3TC (BC1/BC2/BC3) into RGBA8, for GPUs without textureCompressionBC (all Mali/Adreno phones).
++class TextureUploader_BCDecode : public TextureUploader
++{
++public:
++	TextureUploader_BCDecode(int kind) : TextureUploader(VK_FORMAT_R8G8B8A8_UNORM), Kind(kind) { }
++
++	int GetUploadSize(int x, int y, int w, int h) override;
++	void UploadRect(void* dst, UnrealMipmap* mip, int x, int y, int w, int h, TextureColor* palette, bool masked) override;
++
++private:
++	int Kind; // 1 = BC1, 2 = BC2, 3 = BC3
++};
 diff --git a/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp b/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp
-index 0c7b3bb7..a2a627f3 100644
+index 0c7b3bb7..0abf9dfa 100644
 --- a/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp
 +++ b/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp
-@@ -534,7 +534,7 @@ void VulkanRenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info,
+@@ -10,6 +10,9 @@
+ #include <surrealwidgets/core/widget.h>
+ #include <cmath>
+ #include <stdexcept>
++#ifdef __ANDROID__
++#include <unistd.h>
++#endif
+ 
+ VulkanRenderDevice::VulkanRenderDevice(Widget* InViewport)
+ {
+@@ -31,7 +34,8 @@ VulkanRenderDevice::VulkanRenderDevice(Widget* InViewport)
+ 		deviceBuilder.OptionalDescriptorIndexing();
+ 		deviceBuilder.OptionalRayQuery();
+ 		deviceBuilder.Surface(surface);
+-		deviceBuilder.RequireExtension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
++		// Descriptor indexing is optional (above): a Vulkan 1.1 driver without it (the Mali-G52 of a Redmi 13) runs the path
++		// without bindless textures.
+ 		deviceBuilder.RequireExtension(VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME);
+ 		deviceBuilder.SelectDevice(VkDeviceIndex);
+ 		Device = deviceBuilder.Create(surface->Instance);
+@@ -41,8 +45,16 @@ VulkanRenderDevice::VulkanRenderDevice(Widget* InViewport)
+ 			Device->EnabledFeatures.DescriptorIndexing.runtimeDescriptorArray &&
+ 			Device->EnabledFeatures.DescriptorIndexing.shaderSampledImageArrayNonUniformIndexing;
+ 
+-		if (!supportsBindless)
+-			throw std::runtime_error("VulkanDrv requires a GPU that supports bindless textures!");
++#ifdef __ANDROID__
++		// Testing aid: this file forces the path for GPUs without bindless textures.
++		if (access("/sdcard/FlipendoHP/no_bindless.txt", F_OK) == 0)
++			supportsBindless = false;
++		// Testing aid: this file makes Vulkan fail like Qualcomm's driver does, to try the switch to OpenGL ES.
++		if (access("/sdcard/FlipendoHP/fail_vulkan.txt", F_OK) == 0)
++			throw std::runtime_error("Could not create graphics pipeline (fail_vulkan.txt): vkResult -13");
++#endif
++		// Without descriptor indexing (older Mali): textures are bound four at a time per draw instead.
++		Bindless = supportsBindless;
+ 
+ 		Commands.reset(new CommandBufferManager(this));
+ 		Samplers.reset(new SamplerManager(this));
+@@ -73,6 +85,7 @@ VulkanRenderDevice::VulkanRenderDevice(Widget* InViewport)
+ 		LogMessage(std::string("Vulkan device: ") + props.deviceName);
+ 		LogMessage("Vulkan device type: " + deviceType);
+ 		LogMessage("Vulkan version: " + apiVersion + " (api) " + driverVersion + " (driver)");
++		LogMessage(std::string("Bindless textures: ") + (Bindless ? "yes" : "no, textures are bound four at a time") + " (partiallyBound " + std::to_string(Device->EnabledFeatures.DescriptorIndexing.descriptorBindingPartiallyBound) + ", runtimeArray " + std::to_string(Device->EnabledFeatures.DescriptorIndexing.runtimeDescriptorArray) + ", nonUniformIndexing " + std::to_string(Device->EnabledFeatures.DescriptorIndexing.shaderSampledImageArrayNonUniformIndexing) + ")");
+ 	}
+ 	catch (const std::exception& e)
+ 	{
+@@ -113,6 +126,8 @@ void VulkanRenderDevice::SubmitAndWait(bool present, int presentWidth, int prese
+ 	DescriptorSets->UpdateBindlessSet();
+ 
+ 	Commands->SubmitCommands(present, presentWidth, presentHeight, presentFullscreen);
++	if (!Bindless)
++		DescriptorSets->ResetFixedTextureSets();
+ 
+ 	Batch.SceneIndexStart = 0;
+ 	SceneVertexPos = 0;
+@@ -336,6 +351,37 @@ void VulkanRenderDevice::UpdateTextureRect(TextureInfo& Info, int U, int V, int
+ 	Textures->UpdateTextureRect(&Info, U, V, UL, VL);
+ }
+ 
++// Not Bindless: the textures of a draw are fixed per batch, so a change of textures ends the batch.
++void VulkanRenderDevice::SetFixedTextures(uint32_t PolyFlags, CachedTexture* tex, bool clamp, CachedTexture* macrotex, CachedTexture* detailtex, CachedTexture* lightmap)
++{
++	uint32_t samplermode = 0;
++	if (PolyFlags & PF_NoSmooth) samplermode |= 1;
++	if (clamp) samplermode |= 2;
++
++	CachedTexture* textures[4] = { tex, macrotex, detailtex, lightmap };
++	FixedTextureKey key;
++	for (int i = 0; i < 4; i++)
++	{
++		VulkanImageView* view = textures[i] ? textures[i]->imageView.get() : Textures->NullTextureView.get();
++		key.view[i] = view->view;
++		key.sampler[i] = Samplers->Samplers[i == 0 ? samplermode : 0]->sampler; // as the bindless path: only the texture itself picks its sampler
++	}
++
++	if (key != Batch.Fixed)
++	{
++		if (DescriptorSets->FixedTextureSetsFull())
++		{
++			FlushDrawBatchAndWait(); // submits and waits, then the sets can be recycled
++			DescriptorSets->ResetFixedTextureSets();
++		}
++		else
++		{
++			DrawBatch(Commands->GetDrawCommands());
++		}
++		Batch.Fixed = key;
++	}
++}
++
+ void VulkanRenderDevice::DrawBatch(VulkanCommandBuffer* cmdbuffer)
+ {
+ 	size_t icount = SceneIndexPos - Batch.SceneIndexStart;
+@@ -350,7 +396,15 @@ void VulkanRenderDevice::DrawBatch(VulkanCommandBuffer* cmdbuffer)
+ 
+ 		auto layout = RenderPasses->Scene.BindlessPipelineLayout.get();
+ 		cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, Batch.Pipeline->Pipeline.get());
+-		cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, DescriptorSets->GetBindlessSet());
++		if (Bindless)
++		{
++			cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, DescriptorSets->GetBindlessSet());
++		}
++		else
++		{
++			VkDescriptorSet textureSet = DescriptorSets->GetFixedTextureSet(Batch.Fixed);
++			cmdbuffer->bindDescriptorSets(VK_PIPELINE_BIND_POINT_GRAPHICS, layout->layout, 0, 1, &textureSet, 0, nullptr);
++		}
+ 		cmdbuffer->pushConstants(layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ScenePushConstants), &pushconstants);
+ 		cmdbuffer->setBlendConstants(Batch.BlendConstants);
+ 		cmdbuffer->drawIndexed((uint32_t)icount, 1, (uint32_t)Batch.SceneIndexStart, 0, 0);
+@@ -534,7 +588,7 @@ void VulkanRenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info,
  				vertex->Color.r = P->Light.x;
  				vertex->Color.g = P->Light.y;
  				vertex->Color.b = P->Light.z;
@@ -1162,37 +2725,76 @@ index 0c7b3bb7..a2a627f3 100644
  				vertex->TextureBinds = textureBinds;
  				vertex++;
  			}
-diff --git a/SurrealEngine/Render/VisibleSprite.cpp b/SurrealEngine/Render/VisibleSprite.cpp
-index 9a053a7f..b8789bef 100644
---- a/SurrealEngine/Render/VisibleSprite.cpp
-+++ b/SurrealEngine/Render/VisibleSprite.cpp
-@@ -75,20 +75,25 @@ void VisibleSprite::Draw(VisibleFrame* frame, UActor* actor)
- 	vec3 color = clamp(actor->ScaleGlow(), 0.0f, 1.0f);
+@@ -1437,3 +1491,16 @@ void VulkanRenderDevice::DrawPresentTexture(int width, int height)
+ 		.AddImage(Commands->SwapChain->GetImage(Commands->PresentImageIndex), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0)
+ 		.Execute(cmdbuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+ }
++
++bool VulkanRenderDevice::RecreateSurface()
++{
++	vkDeviceWaitIdle(Device->device);
++	VkInstance instance = Device->Surface->Instance->Instance;
++	VkSurfaceKHR fresh = Viewport->CreateVulkanSurface(instance);
++	if (fresh == VK_NULL_HANDLE)
++		return false; // no native window right now; the next frame tries again
++	vkDestroySurfaceKHR(instance, Device->Surface->Surface, nullptr);
++	Device->Surface->Surface = fresh;
++	LogMessage("Vulkan surface recreated (the window was recreated, e.g. the app came back from the background)");
++	return true;
++}
+diff --git a/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.h b/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.h
+index d84b42bd..9098aed2 100644
+--- a/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.h
++++ b/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.h
+@@ -61,6 +61,12 @@ public:
  
- 	GouraudVertex vertices[4];
-+	// Row 0 of a texture is its top, so the top edge of the quad takes V = 0. HP2 draws the spell symbol under the cursor
-+	// (GestureSprite) this way up; with the bottom edge at V = 0 it came out upside down.
-+	const bool topIsV0 = engine->LaunchInfo.IsHarryPotter2();
-+	const float vBottom = topIsV0 ? texheight : 0.0f;
-+	const float vTop = topIsV0 ? 0.0f : texheight;
- 	vertices[0].Point = location - sideAxis - upAxis;
--	vertices[0].UV = { 0.0f, 0.0f };
-+	vertices[0].UV = { 0.0f, vBottom };
- 	vertices[0].Light = color;
- 	vertices[0].Fog = { 0.0f };
- 	vertices[1].Point = location + sideAxis - upAxis;
--	vertices[1].UV = { texwidth, 0.0f };
-+	vertices[1].UV = { texwidth, vBottom };
- 	vertices[1].Light = color;
- 	vertices[1].Fog = { 0.0f };
- 	vertices[2].Point = location + sideAxis + upAxis;
--	vertices[2].UV = { texwidth, texheight };
-+	vertices[2].UV = { texwidth, vTop };
- 	vertices[2].Light = color;
- 	vertices[2].Fog = { 0.0f };
- 	vertices[3].Point = location - sideAxis + upAxis;
--	vertices[3].UV = { 0.0f, texheight };
-+	vertices[3].UV = { 0.0f, vTop };
- 	vertices[3].Light = color;
- 	vertices[3].Fog = { 0.0f };
+ 	int VkDeviceIndex = 0;
  
++	// False on GPUs without descriptor indexing: textures are then bound four at a time per draw (DescriptorSetManager).
++	bool Bindless = true;
++
++	// A new VkSurfaceKHR for the window (the old one died with it: the app was in the background); SwapChain must be released first.
++	bool RecreateSurface(); // false while the window has no native surface (Android, in the background)
++
+ 	void RunBloomPass();
+ 	void BloomStep(VulkanCommandBuffer* cmdbuffer, VulkanPipeline* pipeline, VulkanDescriptorSet* input, VulkanFramebuffer* output, int width, int height, const BloomPushConstants &pushconstants);
+ 	static float ComputeBlurGaussian(float n, float theta);
+@@ -141,6 +147,7 @@ private:
+ 	ivec4 GetTextureIndexes(uint32_t PolyFlags, CachedTexture* tex, bool clamp = false);
+ 	ivec4 GetTextureIndexes(uint32_t PolyFlags, CachedTexture* tex, CachedTexture* lightmap, CachedTexture* macrotex, CachedTexture* detailtex);
+ 	void DrawBatch(VulkanCommandBuffer* cmdbuffer);
++	void SetFixedTextures(uint32_t PolyFlags, CachedTexture* tex, bool clamp, CachedTexture* macrotex, CachedTexture* detailtex, CachedTexture* lightmap);
+ 	void SubmitAndWait(bool present, int presentWidth, int presentHeight, bool presentFullscreen);
+ 
+ 	vec4 ApplyInverseGamma(vec4 color);
+@@ -150,6 +157,7 @@ private:
+ 		size_t SceneIndexStart = 0;
+ 		PipelineState* Pipeline = nullptr;
+ 		float BlendConstants[4] = {};
++		FixedTextureKey Fixed; // the textures of the batch when not Bindless
+ 	} Batch;
+ 
+ 	ScenePushConstants pushconstants = {};
+@@ -184,11 +192,22 @@ inline void VulkanRenderDevice::SetPipeline(PipelineState* pipeline)
+ 
+ inline ivec4 VulkanRenderDevice::GetTextureIndexes(uint32_t PolyFlags, CachedTexture* tex, bool clamp)
+ {
++	if (!Bindless)
++	{
++		SetFixedTextures(PolyFlags, tex, clamp, nullptr, nullptr, nullptr);
++		return ivec4(0, 0, 0, 0);
++	}
+ 	return ivec4(DescriptorSets->GetTextureArrayIndex(PolyFlags, tex, clamp), 0, 0, 0);
+ }
+ 
+ inline ivec4 VulkanRenderDevice::GetTextureIndexes(uint32_t PolyFlags, CachedTexture* tex, CachedTexture* lightmap, CachedTexture* macrotex, CachedTexture* detailtex)
+ {
++	if (!Bindless)
++	{
++		SetFixedTextures(PolyFlags, tex, false, macrotex, detailtex, lightmap);
++		return ivec4(0, 0, 0, 0);
++	}
++
+ 	if (DescriptorSets->IsTextureArrayFull())
+ 	{
+ 		FlushDrawBatchAndWait();

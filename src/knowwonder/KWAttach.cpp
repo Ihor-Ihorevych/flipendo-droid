@@ -2,6 +2,7 @@
 #include "KW.h"
 #include "KWMove.h"
 #include "KWActor.h"
+#include "KWGame.h"
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Engine/Actors/Pawn/UPawn.h"
 #include "Packages/Engine/Actors/Inventory/UWeapon.h"
@@ -128,9 +129,6 @@ namespace KW
 			weaponLoc = cls->GetPropertyDataOffset("WeaponLoc");
 			weaponRot = cls->GetPropertyDataOffset("WeaponRot");
 		}
-		pawn->Value<vec3>(weaponLoc) = origin;
-		pawn->Value<Rotator>(weaponRot) = OrthoRotation(x, y, z);
-
 		frameToWorld = mat4::identity();
 		for (int i = 0; i < 3; i++)
 		{
@@ -139,6 +137,68 @@ namespace KW
 			frameToWorld.matrix[8 + i] = z[i];
 			frameToWorld.matrix[12 + i] = origin[i];
 		}
+
+		// The scripts put the wand's tip at WeaponLoc + (0, 0, length) rotated by WeaponRot (baseWand.GetWandEndPoint: Lumos, the
+		// charge particles, the spells' start), so the rotator's Z axis has to be the wand's own direction. HP1's weapon frame is
+		// built that way. In HP2 the weapon bone's Z points elsewhere (down, for Harry) and the wand model is turned to its
+		// place by its own mesh transform, so the direction is taken from the model: from its origin to the corner of its bounds
+		// farthest from it, through the transform the wand is drawn with.
+		vec3 zAxis = z, xAxis = x, yAxis = y;
+		if (IsHP2())
+		{
+			UWeapon* weapon = pawn->Weapon();
+			UMesh* weaponMesh = weapon ? weapon->ThirdPersonMesh() : nullptr;
+			if (weaponMesh)
+			{
+				mat4 m = frameToWorld * mat4::scale(weapon->ThirdPersonScale()) * weaponMesh->meshToObject;
+				auto transform = [&](const vec3& v)
+				{
+					vec3 r;
+					for (int k = 0; k < 3; k++)
+						r[k] = m.matrix[0 + k] * v.x + m.matrix[4 + k] * v.y + m.matrix[8 + k] * v.z + m.matrix[12 + k];
+					return r;
+				};
+				const BBox& bounds = weaponMesh->MeshBoundingBox;
+				vec3 root = transform(vec3(0.0f));
+				vec3 tip = root;
+				float farthest = 0.0f;
+				for (int corner = 0; corner < 8; corner++)
+				{
+					vec3 local((corner & 1) ? bounds.max.x : bounds.min.x, (corner & 2) ? bounds.max.y : bounds.min.y, (corner & 4) ? bounds.max.z : bounds.min.z);
+					vec3 world = transform(local);
+					vec3 d = world - root;
+					float length = dot(d, d);
+					if (length > farthest)
+					{
+						farthest = length;
+						tip = world;
+					}
+				}
+				vec3 d = tip - root;
+				float length = std::sqrt(dot(d, d));
+				if (length > 1e-3f)
+				{
+					zAxis = d * (1.0f / length);
+					static bool reported = false;
+					if (!reported)
+					{
+						reported = true;
+						LogMessage("Wand tip: direction " + std::to_string(zAxis.x) + "," + std::to_string(zAxis.y) + "," + std::to_string(zAxis.z) + " length " + std::to_string(length) + " (the scripts use 20), frame Z " + std::to_string(z.x) + "," + std::to_string(z.y) + "," + std::to_string(z.z));
+					}
+					xAxis = x - zAxis * dot(x, zAxis);
+					float xl = std::sqrt(dot(xAxis, xAxis));
+					if (xl < 1e-3f)
+					{
+						xAxis = y - zAxis * dot(y, zAxis);
+						xl = std::sqrt(dot(xAxis, xAxis));
+					}
+					xAxis = xAxis * (1.0f / xl);
+					yAxis = cross(xAxis, zAxis);
+				}
+			}
+		}
+		pawn->Value<vec3>(weaponLoc) = origin;
+		pawn->Value<Rotator>(weaponRot) = OrthoRotation(xAxis, yAxis, zAxis);
 		return true;
 	}
 
