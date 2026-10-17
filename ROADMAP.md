@@ -43,6 +43,8 @@ Legend: [~] partly done / in progress · [ ] not started
   - [ ] HP2 music: check `src/hp2/HP2Music.cpp` (written from the scripts) against ALAudio.dll: crossfades between
         songs, looping, volumes; `StopSound`'s fade-out, `PlaySound`'s Disable3D and Loop
   - [ ] XA sounds: check the decoder by ear (nibble order), and the stereo XA case
+  - [ ] Lumos: after casting it the light beam on the wand stays for good (playtest 2026-10-17); check how HP2's
+        scripts turn the wand's Lumos effect off
   - [ ] Check the remaining "changed" ports for real behaviour differences (beyond the DebugInfo check)
   - [ ] Engine behaviour HP2's scripts may need, worth checking: state labels inherited from a parent state, class
         references in travel data, dialogue with `Disable3D` playing at full volume wherever the camera is
@@ -58,6 +60,8 @@ Legend: [~] partly done / in progress · [ ] not started
   - [ ] HP2-only engine features ([docs/re/hp2/engine.md](docs/re/hp2/engine.md)): the `GAMESTATE=` command line
         override, Lumos surfaces, TurnTo's flattened focus, particle Opacity, I3DL2 reverb, oval collision cylinders
   - [ ] Linux: `HP1_SHOTS` screenshots crash the game after the first one (also HP2), which limits automated testing
+        (segfault in radv's `vkCmdEndRenderPass`, called from `VulkanRenderDevice::Unlock` in `RenderSubsystem::DrawGame`
+        right after the shot is saved)
 
 ## Extras for HP1 (`src/hp1/mods/`)
 - [ ] Per-mod on/off and settings in an ini section (`[Flipendo.Mods]`), not only command-line flags; an *Extras*
