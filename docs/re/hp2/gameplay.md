@@ -24,8 +24,9 @@ converts the separators and matches the file name ignoring case (`0100-knowwonde
 
 Which cutscenes may start also depends on the story state: a CutScene outside the current GameState disables itself in
 `OnResolveGameState`. Without GameState screening ([engine.md](engine.md#gamestate-actors-screened-by-the-story-state))
-that event never comes and every `bLevelLoadStarts` cutscene in the map starts (PrivetDr runs `00001PrivetIntro` and
-`00001PrivetIntroPart3` at once).
+that event never comes and every `bLevelLoadStarts` cutscene in the map starts (PrivetDr ran `00001PrivetIntro` and
+`00001PrivetIntroPart3` at once). Flipendo screens actors since 2026-10-17. `ParseCommand` also relies on `switch`
+ignoring case ([scripting.md](../engine/scripting.md#switch-on-strings-ignores-case)).
 
 ## Saving
 

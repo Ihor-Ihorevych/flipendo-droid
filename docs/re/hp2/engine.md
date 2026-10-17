@@ -13,13 +13,26 @@ The biggest engine feature HP1 doesn't have. HP2's Engine.dll has it (`ScreenAct
 - `PlayerPawn.GameStateMasterList` (const string, the list of GameState tokens), `GameStateTokenLen`,
   `TotalGameStateTokens`, `CurrentGameState` (travel string); script helpers `GetGameStateMasterListToken`,
   `SetGameState`.
-- Each actor has GameState tokens and `ExcludeGameStates`; `bInCurrentGameState` (const, "Set by Engine:
+- An actor lists the states it belongs to in its `Group` name (`None,GSTATE000`; case doesn't matter) and the ones it
+  stays out of in `ExcludeGameStates`; `bInCurrentGameState` (const, default true, "Set by Engine:
   ULevelBase::ScreenActorsByGameState()") and `bPersistent` (saved separately).
-- After a map loads, `ScreenActorsByGameState` takes the player's `CurrentGameState` (upper-cased) and walks every actor
-  that has tokens: it is in the current state unless the state is in its `ExcludeGameStates`; each token must have
-  `GameStateTokenLen` characters and be in the master list (else "*** GameState ERROR Actor: %s has an invalid
-  GameState Token: %s!!!"). It sets `bInCurrentGameState` and, outside the editor, raises `OnResolveGameState()`.
-- Flipendo: nothing yet. Needs a hook after LoadMap's BeginPlay calls (and save loading), gated `KW::IsHP2()`.
+- `ULevel::ScreenActorsByGameState` [HP2 0x103B86D0], from `UGameEngine::LoadMap` for every map but Entry, late, once
+  the player is in. The player is the first pawn with `bIsPlayer`; its `CurrentGameState`, upper-cased, is the state.
+  `NONE` (`PlayerPawn`'s default): nothing is screened and no event raised. A `GAMESTATE=` command line option
+  overrides the state when it is in the master list. A state not in the master list: "**** Caution: The player pawn has
+  an Invalid CurrentGameState ..." and nothing else. Then for every actor: a non-empty `ExcludeGameStates` holding the
+  state puts it out; otherwise each `GSTATE` token in its upper-cased `Group` (up to the next comma) is checked: one of
+  `GameStateTokenLen` characters found in the master list and equal to the state puts it in, any other token logs
+  "*** GameState ERROR Actor: %s has an invalid GameState Token: %s". An actor with tokens and no match is out; one with
+  neither tokens nor exclusion keeps its `bInCurrentGameState`. Every actor (outside the editor) then gets
+  `OnResolveGameState()`.
+- The state comes with the map: KnowWonder's maps place Harry, and his saved `CurrentGameState` is the level's start
+  state (PrivetDr's `Harry1`: `gstate000`). `PlayerPawn.SetGameState` only stores a new state "to be applied when we
+  load a level".
+- Without it every CutScene stays enabled: PrivetDr ran its intro (`GSTATE000`) and `00001PrivetIntroPart3`
+  (`GState010`) at once, and Part3 took over Harry and the camera.
+- Flipendo: `HP2::ScreenActorsByGameState` (`src/hp2/HP2GameState.cpp`), called at the end of `Engine::LoginPlayer`
+  for maps other than Entry. The `GAMESTATE=` override isn't ported.
 
 ## Persistent actors across hub travel
 

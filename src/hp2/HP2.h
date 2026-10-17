@@ -5,6 +5,7 @@
 #include "Utils/Array.h"
 
 class AudioDevice;
+class ULevel;
 
 // Harry Potter 2 only: what HP2's engine has that HP1's doesn't (docs/one-engine.md). The shared KnowWonder engine code is
 // in src/knowwonder/KW.h, HP1-only code in src/hp1/HP1.h. Nothing here runs yet: IsKnowWonder() is still HP1 only (GameFolder.h).
@@ -19,6 +20,10 @@ namespace HP2
 	// KW::UpdateMusic hands over to. Returns the music volume (0..1).
 	void RegisterMusicNatives();
 	float UpdateMusic(AudioDevice* device, uint8_t musicVolume);
+
+	// After a map loads (not Entry): sets each actor's bInCurrentGameState from the player's CurrentGameState and raises
+	// OnResolveGameState (src/hp2/HP2GameState.cpp)
+	void ScreenActorsByGameState(ULevel* level);
 
 	// What HP2's Game.exe starts the engine with after New Game in its own Windows front end (docs/re/hp2/startup.md).
 	// Flipendo has no front end yet, so a run without a URL starts a new game here instead of in the Startup test map.

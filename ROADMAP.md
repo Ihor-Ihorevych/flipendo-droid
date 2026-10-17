@@ -94,15 +94,15 @@ particle effects.
   2. First level, PrivetDr (2-3 days)
   - [ ] HP2 music natives: check `src/hp2/HP2Music.cpp` (written from the scripts) against ALAudio.dll, `StopSound`
         fade-out, `PlaySound`'s Disable3D and Loop
-  - [ ] XA sounds: check the decoder by ear (nibble order), GameState screening (below)
+  - [ ] XA sounds: check the decoder by ear (nibble order)
   - [ ] Check the remaining "changed" ports for real behaviour differences (beyond the DebugInfo check)
   3. Hubs and saves (2-4 days): persistent actors and HP2's save flow (below)
   4. Play the 43 maps through, incl. the 10 duels and Quidditch (4-8 days)
   5. Polish (1-2 days): Lumos surfaces, lip sync, oval collision cylinders
   - [ ] Check the unverified HP2 engine differences in HP2's code ([docs/re/hp2/gameplay.md](docs/re/hp2/gameplay.md)):
         music always loops, save loading, lip sync, movers colliding by bounding box
-  - [ ] HP2-only engine features ([docs/re/hp2/engine.md](docs/re/hp2/engine.md)): GameState screening
-        (`OnResolveGameState`), Lumos surfaces, TurnTo's flattened focus, particle Opacity, I3DL2 reverb
+  - [ ] HP2-only engine features ([docs/re/hp2/engine.md](docs/re/hp2/engine.md)): the `GAMESTATE=` command line
+        override, Lumos surfaces, TurnTo's flattened focus, particle Opacity, I3DL2 reverb
   - [ ] Persistent actors across hub travel ([docs/re/hp2/engine.md](docs/re/hp2/engine.md)): `bPersistent` actors keep
         their state when Harry leaves a hub map and comes back (`SavePActors`, the persistent actor cache)
 - [ ] HP3 (Prisoner of Azkaban, UE2 build 2226, packages 129): no UE2 counterpart of SurrealEngine exists. First check,
