@@ -48,10 +48,17 @@ definitions), with tokens shifted like HP2's. Our disc already has the 1.1 scrip
 either the shift is in the US build only or there is none. Before calling a token table final, compare `HPBase.u` from a
 US and a UK copy.
 
-### What SurrealEngine needs
+### How Flipendo reads it
 
-Its bytecode reader uses the stock values (`ExprToken`, Packages/Core/UStruct.h). For HP2, `BytecodeStream`'s
-ReadToken / PeekToken must skip DebugInfo records and map tokens with `HP2::ToStockToken` (not hooked yet).
+Both of SurrealEngine's bytecode readers handle it, gated by `IsHarryPotter2()` (`0010-engine-fixes.patch`):
+
+- `UStruct::ReadToken` (package load) maps each token with `HP2::ToStockToken` and copies a DebugInfo record into the
+  in-memory bytecode unchanged, then reads the token after it in its place. The record stays, so jump and label
+  offsets (in-memory offsets, counting the record) keep matching.
+- `BytecodeStream::ReadToken` / `PeekToken` (building the expression tree) skip DebugInfo records and map the token.
+  `Bytecode::ReadToken` keys an expression that follows a record under both offsets, the record's and its own, since a
+  jump can land on either.
+- HP2 also uses HP1's DynArrayCount at 0x37 (`DynArrayToInt_HP1`), so that case is open to both games.
 
 ## disable() and GotoState
 
@@ -73,6 +80,20 @@ disabled probes too (nearly always none, a mask of 0); read the new way, every a
 probes until its first GotoState (the camera stopped following Harry after a reload). It now writes the enabled
 ones, and Load takes a mask of 0 as nothing disabled, so saves from before still load.
 
+## GotoState from inside EndState
+
+`UObject::GotoState` (Core 0x10131BB0) takes the old state's name first. It calls EndState only when the new state
+differs, `IsProbing('EndState')` and the object flag 0x2000 (in EndState) is clear; around that call it sets 0x2000 and
+clears 0x1000 (state changed). If 0x1000 is set afterwards, a GotoState made inside EndState already switched state and
+this call returns 2 (preempted) without touching the state frame. Then it sets the state, calls BeginState when the
+name differs from the old one (0x1000 cleared before; set afterwards again means preempted), sets 0x1000 and
+returns 1. `execGotoState` (0x10141C50) skips the call when the name equals the current state, and jumps to the label
+only on 1. So an EndState that leads to another GotoState on the same object runs once. SurrealEngine called EndState
+again for every nested GotoState and recursed until the stack overflowed: a player's Charms Class crash (stack
+overflow in GotoState → EndState → script → GotoState, after levitating the first block) on a game whose scripts
+differ from the retail disc's (Core.u and Engine.u SHA-1 `0c077b5c…` / `25945edf…`, `cHarryAnimChannel` with a
+`stateCasting` state). Fixed in `0010-engine-fixes.patch`. HP2 not checked.
+
 ## Functions of an extended state
 
 `state Beater extends Fly` inherits Fly's functions. HP1's `UObject::FindObjectField` (Core 0x1015A650, called by
@@ -90,16 +111,18 @@ In HP1's Lev_Tut1, `SpellLearnTrigger` calls `Teacher.TurnToward(Cam)` on Quirre
 frames that have code, so a pawn in a code-less state never polls it and never turns. SurrealEngine resumed that
 frame and ran off the end of the empty state. (HP1's Engine.dll; HP2 not checked.)
 
-## GotoState from inside EndState
+## Division by zero
 
-`UObject::GotoState` sends EndState to the old state before it switches, so while EndState runs the object is still in the
-old state. A script that calls `GotoState` from there (AdamJD's movement mod: `baseHarry.wingspell.EndState` calls
-`freeHarry()`, which is `GotoState('playerWalking')`, to let go of a levitated object) made SurrealEngine send EndState again,
-and again: the stack ran out on releasing Wingardium Leviosa (SIGSEGV on the guard page; 512 identical frames in the
-Android log). The vanilla scripts never do it.
+`execDivide_IntInt` (Core.dll 0x10136FD0) returns 0 when the divisor is 0, and `execDivideEqual_ByteByte`
+(0x10136710) returns 0 and leaves the variable alone. Scripts rely on it: `HPMenuOptionComboList` sizes its rows as
+`(WinHeight-7)/Count`, so an options dropdown with no entries divides by zero. SurrealEngine used plain C++ division
+there and crashed ("Integer divide by zero"). (HP1's Core.dll; HP2 not checked.)
 
-`UObject` now has an `InEndState` flag: a nested `GotoState` sends no second EndState, switches the state, and marks the
-outer call, which on return from EndState sees the state already changed and stops (the outer target is dropped). UActor's
-destroy path (KnowWonder, EndState before the actor is deleted) sets the flag too. Written from how UE1 behaves, **not yet
-checked against HP1's `UObject::GotoState` (Core 0x10131BB0)**: confirm the flag handling and the "outer call stops" part
-there. In `0010-engine-fixes.patch` (UObject) and `0120-knowwonder-actors.patch` (UActor).
+## switch on strings ignores case
+
+`switch` matches its cases with the property's `Identical`, and `UStrProperty::Identical` compares with `appStricmp`
+(checked in HP2's Core.dll [HP2 Core 0x10172510]; stock UE1 behaviour). HP2's `CutScript.ParseCommand` switches on the
+first word of a cutscene line against `"CUE"`, `"WAITFOR"`, `"SLEEP"`, ... while the scripts write `waitfor` and `Cue`.
+SurrealEngine compared strings exactly, so every such line was taken for an actor name ("Failed to find capture. Actor
+not captured.") and PrivetDr's intro stayed black. `Frame::ProcessSwitch` now ignores case for strings
+(`0010-engine-fixes.patch`, any game).

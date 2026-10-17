@@ -1,5 +1,118 @@
 flipendo: only recenter the mouse cursor, and only act on raw mouse/keyboard input, while the game window is the active (foreground) window; window icons the right way up
 
+diff --git a/SurrealWidgets/CMakeLists.txt b/SurrealWidgets/CMakeLists.txt
+index 03ecfe9f..45a3fa84 100644
+--- a/SurrealWidgets/CMakeLists.txt
++++ b/SurrealWidgets/CMakeLists.txt
+@@ -12,7 +12,7 @@ else()
+ 	option(ENABLE_SDL2 "Enable SDL2 backend. Optional on all platforms" ON)
+ endif()
+ 
+-if (UNIX AND NOT APPLE)
++if (UNIX AND NOT APPLE AND NOT ANDROID)
+ 	include(FindPkgConfig)
+ 	if (NOT HAIKU)
+ 		pkg_check_modules(DBUS dbus-1)
+@@ -45,6 +45,10 @@ if(ENABLE_SDL3)
+ 	endif()
+ endif()
+ 
++if(ANDROID)
++	set(SDL3_FOUND TRUE)
++endif()
++
+ # SDL2 finding stuff
+ # Optional on all platforms
+ if(ENABLE_SDL2)
+@@ -360,6 +364,11 @@ elseif(APPLE)
+ 	if (NOT UNIFORMTYPEIDENTIFIERS_FRAMEWORK)
+ 		message(FATAL_ERROR "UniformTypeIdentifiers framework not found")
+ 	endif()
++elseif(ANDROID)
++	set(SURREALWIDGETS_SOURCES ${SURREALWIDGETS_SOURCES} ${CMAKE_CURRENT_SOURCE_DIR}/../../../android/jni/resourcedata_android.cpp)
++	set(SURREALWIDGETS_LIBS ${CMAKE_DL_LIBS})
++	set(SURREALWIDGETS_DEFINES -DUNIX -D_UNIX)
++	set(SURREALWIDGETS_LINK_OPTIONS -pthread)
+ elseif(HAIKU)
+ 	set(SURREALWIDGETS_SOURCES ${SURREALWIDGETS_SOURCES} ${SURREALWIDGETS_UNIX_SOURCES})
+ 	set(SURREALWIDGETS_INCLUDE_DIRS ${SURREALWIDGETS_INCLUDE_DIRS} ${GLIB_INCLUDE_DIRS} ${FONTCONFIG_INCLUDE_DIRS})
+diff --git a/SurrealWidgets/src/window/sdl3/sdl3_display_window.cpp b/SurrealWidgets/src/window/sdl3/sdl3_display_window.cpp
+index 5dfaca1f..f850ab79 100644
+--- a/SurrealWidgets/src/window/sdl3/sdl3_display_window.cpp
++++ b/SurrealWidgets/src/window/sdl3/sdl3_display_window.cpp
+@@ -12,13 +12,39 @@ Uint32 SDL3DisplayWindow::PaintEventNumber = 0xffffffff;
+ bool SDL3DisplayWindow::ExitRunLoop;
+ std::unordered_map<unsigned int, SDL3DisplayWindow*> SDL3DisplayWindow::WindowList;
+ 
++#ifdef __ANDROID__
++// Whether the Android surface exists right now (defined by the app, android_main.cpp; absent in other programs)
++extern "C" __attribute__((weak)) bool FlipendoAndroidSurfaceAlive();
++#endif
++
++#ifdef __ANDROID__
++// Android: an OpenGL ES 3.0 (or newer) context, set before the window is made (SDL chooses the EGL config then). No depth or stencil in
++// the window: the renderer draws into its own framebuffers and only copies the result to the window.
++static void SetAndroidGLAttributes()
++{
++	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
++	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
++	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0); // ES 3.0 at least; drivers give their newest compatible version
++	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
++	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
++	SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
++	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
++	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 0);
++}
++#endif
++
+ SDL3DisplayWindow::SDL3DisplayWindow(DisplayWindowHost* windowHost, WidgetType type, SDL3DisplayWindow* owner, RenderAPI renderAPI, double uiscale) : WindowHost(windowHost), UIScale(uiscale)
+ {
+ 	unsigned int flags = SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
+ 	if (renderAPI == RenderAPI::Vulkan)
+ 		flags |= SDL_WINDOW_VULKAN;
+ 	else if (renderAPI == RenderAPI::OpenGL)
++	{
+ 		flags |= SDL_WINDOW_OPENGL;
++#ifdef __ANDROID__
++		SetAndroidGLAttributes();
++#endif
++	}
+ #if defined(__APPLE__)
+ 	else if (renderAPI == RenderAPI::Metal)
+ 		flags |= SDL_WINDOW_METAL;
+@@ -86,6 +112,13 @@ std::vector<std::string> SDL3DisplayWindow::GetVulkanInstanceExtensions()
+ VkSurfaceKHR SDL3DisplayWindow::CreateVulkanSurface(VkInstance instance)
+ {
+ 	VkSurfaceKHR surfaceHandle = {};
++#ifdef __ANDROID__
++	// Android: between the surface being destroyed (the app goes to the background) and a new one, the window has no native
++	// window (SDL keeps a stale pointer in the window property); a Vulkan surface made then crashed in the loader. The app
++	// (android_main.cpp) tracks the surface; the renderer skips frames until one exists again.
++	if (FlipendoAndroidSurfaceAlive && !FlipendoAndroidSurfaceAlive())
++		return {};
++#endif
+ 	if (!SDL_Vulkan_CreateSurface(Handle.window, instance, nullptr, &surfaceHandle))
+ 		throw std::runtime_error("Could not create vulkan surface");
+ 	return surfaceHandle;
+@@ -667,11 +700,18 @@ void SDL3DisplayWindow::OnTimerEvent(const SDL_UserEvent& event)
+ 
+ void SDL3DisplayWindow::CreateGLContext()
+ {
++#ifdef __ANDROID__
++	SetAndroidGLAttributes();
++	m_GLContext = SDL_GL_CreateContext(Handle.window);
++	if (!m_GLContext)
++		throw std::runtime_error(std::string("Could not create an OpenGL ES 3.0 context: ") + SDL_GetError());
++#else
+ 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+ 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+ 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+ 
+ 	m_GLContext = SDL_GL_CreateContext(Handle.window);
++#endif
+ }
+ 
+ void SDL3DisplayWindow::MakeGLContextCurrent()
 diff --git a/SurrealWidgets/src/window/win32/win32_display_window.cpp b/SurrealWidgets/src/window/win32/win32_display_window.cpp
 index 03451a7d..b8ff6974 100644
 --- a/SurrealWidgets/src/window/win32/win32_display_window.cpp

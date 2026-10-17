@@ -28,6 +28,7 @@ A note that says "HP2 not checked" means exactly that: don't assume HP2 is the s
 | [music.md](engine/music.md) | songs: looping (bDontLoopSong), bSongFinished, the end of a song played once |
 | [gestures.md](engine/gestures.md) | the Gesture natives that score a drawn spell shape |
 | [textures.md](engine/textures.md) | Fire.dll procedural textures (IceTexture) |
+| [fonts.md](engine/fonts.md) | UFont in the package (CharRemap), character to glyph, system fonts (Console.CreateNativeFont, WinDrv.dll) |
 | [packages.md](engine/packages.md) | package file contents SurrealEngine didn't read: Unicode (UTF-16) strings |
 | [native_classes.md](engine/native_classes.md) | native classes with no native code (ImpactSoundSet, LocationID, ...) and leftover natives (FindStairRotation, ScreenToWorld, CreateNativeFont) |
 
@@ -40,6 +41,7 @@ A note that says "HP2 not checked" means exactly that: don't assume HP2 is the s
 | [menus.md](hp1/menus.md) | the menu book (title menu, pause, storybook: bIsOpen, bGamePlaying), level titles from Dobby.int / HPMenu.int |
 | [collectibles.md](hp1/collectibles.md) | wizard cards (IDs, where each of the 24 is), chests and their contents, beans |
 | [cut_content.md](hp1/cut_content.md) | what the retail files contain but the game never uses: cut spells, classes, dialogue, commentary |
+| [localized_releases.md](hp1/localized_releases.md) | the Russian release: its exes, UTF-16 `.rus` text, system fonts, Object.GetLanguage |
 | [original_bugs.md](hp1/original_bugs.md) | bugs in the original game that Flipendo fixes instead of reproducing |
 
 ## Harry Potter 2 (`hp2/`)
@@ -47,6 +49,7 @@ A note that says "HP2 not checked" means exactly that: don't assume HP2 is the s
 | Note | Topic |
 |---|---|
 | [gameplay.md](hp2/gameplay.md) | HP2's `hgame` scripts against HP1's: cutscenes from files, queued saves, the new spell system, HP2-only natives; engine differences not checked yet |
+| [startup.md](hp2/startup.md) | how HP2 starts: Game.exe's Windows front end (splash, New/Load/Options), its command lines, the Startup map |
 | [engine.md](hp2/engine.md) | HP2 engine work for later: GameState screening, Lumos surfaces, TurnTo, particle Opacity, ALAudio music and reverb |
 
 ## Adding a note

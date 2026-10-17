@@ -41,6 +41,7 @@ Times are seconds since the first frame.
 | `@state <actor> <state>` | `GotoState(state)` on every actor whose name starts with `<actor>` (reach a script state without playing up to it, e.g. `@state tut3peeves2 dieing`) |
 | `@travel <map>` | change level as the game's level exits do (`baseConsole.ChangeLevel(map, true)`: Harry's travel properties come along), e.g. `@travel Lev2_HogFront` |
 | `@bump <actor> <other>` | raise `Bump(other)` on every actor whose name starts with `<actor>` (push a GridMover without aiming a spell: `@set GridMover0 bProjTarget False` first, so it takes the player as the bumper) |
+| `@surfs <texture>` | log every BSP surface of the level drawn with that texture: PolyFlags, the texture's own flags, center |
 | `@polys <actor>` | log the brush polygons of every actor whose name starts with `<actor>`: normal, PolyFlags (0x1000 = mountable), texture, vertices (brush space) |
 | `@sweep sx sy sz ex ey ez bx by bz` | KnowWonder's BSP line check from start to end with a box of half size b, point checks at both ends (zone, leaf, push-out), and every actor the box sweep hits (MultiLineCheck), and the hit node's coplanar polygons with their flags and vertices: debugging collision and ledge grabs |
 | `@hull <actor>` | log every collision leaf hull of the actor's brush: its planes in world space (node, flipped) and its local box: where a mover is solid |

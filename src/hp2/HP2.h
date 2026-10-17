@@ -3,8 +3,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <vector>
+#include "Utils/Array.h"
 
 class UPlayerPawn;
+class AudioDevice;
+class ULevel;
 
 // Harry Potter 2 only: what HP2's engine has that HP1's doesn't (docs/one-engine.md). The shared KnowWonder engine code is
 // in src/knowwonder/KW.h, HP1-only code in src/hp1/HP1.h. IsKnowWonder() is true for HP1 and HP2 (GameFolder.h).
@@ -14,6 +17,15 @@ namespace HP2
 	// Called at the end of KW::RegisterNatives() when HP2 runs: HP2-only natives, and the natives whose script
 	// signature changed in HP2 (they override src/knowwonder/'s HP1-signature registration at the same index).
 	void RegisterNatives();
+
+	// HP2's music (src/hp2/HP2Music.cpp): Actor.PlayMusic / StopMusic / StopAllMusic, and the per-frame fade that
+	// KW::UpdateMusic hands over to. Returns the music volume (0..1).
+	void RegisterMusicNatives();
+	float UpdateMusic(AudioDevice* device, uint8_t musicVolume);
+	// ALAudio's console commands: MUTESOUNDS / UNMUTESOUNDS (HPConsole sends them while a skipped cutscene fast-forwards).
+	// While muted the sound effects play at volume 0; the music goes on.
+	bool AudioCommand(const Array<std::string>& args);
+	bool SoundsMuted();
 
 	// HP2's script bytecode (src/hp2/HP2Bytecode.cpp, docs/re/engine/scripting.md). HP2 inserted a DebugInfo token at 0x38
 	// and moved GlobalFunction..FloatToBool up by one. ToStockToken maps an HP2 token byte to the stock UE1 value

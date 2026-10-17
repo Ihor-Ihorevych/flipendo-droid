@@ -1,6 +1,7 @@
 #include "Precomp.h"
 #include "KW.h"
 #include "KWActor.h"
+#include "KWGame.h"
 #include "Anim/KWAnimation.h"
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Engine/Resources/Mesh/USkeletalMesh.h"
@@ -57,6 +58,9 @@ namespace KW
 				if (chBone < boneIndex || chBone >= boneIndex + (int)skel->RefSkeleton[boneIndex].NumChildren)
 					continue;
 			}
+			// HP2: a channel created with bNotReplaceable is left alone (HP2's CreateAnimChannel and PlayAnim)
+			if (IsHP2() && bAnimNotReplaceable(ch))
+				continue;
 			if (destroyPersistent || bAnimTransient(ch))
 			{
 				ch->Destroy();
@@ -70,7 +74,9 @@ namespace KW
 	}
 
 	// IDA Engine.dll: ?CreateAnimChannel@AActor@@QAEPAV1@PAVUClass@@W4EAnimType@@VFName@@_N@Z [HP1 0x10408600]
-	UActor* CreateAnimChannel(UActor* actor, UClass* newClass, EAnimType type, const NameString& rootBone, bool bTransient)
+	// IDA Engine.dll: ?CreateAnimChannel@AActor@@QAEPAV1@PAVUClass@@W4EAnimType@@VFName@@_N3@Z [HP2 0x10415ED0]
+	// HP2 added bNotReplaceable: an existing channel is reused only if its flag matches too, and the new channel keeps it.
+	UActor* CreateAnimChannel(UActor* actor, UClass* newClass, EAnimType type, const NameString& rootBone, bool bTransient, bool bNotReplaceable)
 	{
 		auto skel = UObject::TryCast<USkeletalMesh>(actor->Mesh());
 		if (!skel || rootBone.IsNone() || !newClass)
@@ -81,7 +87,7 @@ namespace KW
 			return nullptr;
 
 		for (UActor* ch : AuxAnims(actor))
-			if (ch && AnimBone(ch) == (uint8_t)boneIndex && (bool)bAnimTransient(ch) == bTransient)
+			if (ch && AnimBone(ch) == (uint8_t)boneIndex && (bool)bAnimTransient(ch) == bTransient && (!IsHP2() || (bool)bAnimNotReplaceable(ch) == bNotReplaceable))
 				return ch;
 
 		UActor* ch = actor->Spawn(newClass, actor, {}, actor->Location(), actor->Rotation());
@@ -92,6 +98,8 @@ namespace KW
 		ch->SkelAnim() = actor->SkelAnim();
 		AnimBone(ch) = (uint8_t)boneIndex;
 		bAnimTransient(ch) = bTransient;
+		if (IsHP2())
+			bAnimNotReplaceable(ch) = bNotReplaceable;
 
 		auto aux = AuxAnims(actor);
 		if (type == EAnimType::AT_Combine)
@@ -141,7 +149,7 @@ namespace KW
 			}
 
 			UClass* channelClass = engine->packages->FindClass("Engine.AnimChannel");
-			if (UActor* ch = CreateAnimChannel(actor, channelClass, type, rootBone, true))
+			if (UActor* ch = CreateAnimChannel(actor, channelClass, type, rootBone, true, false))
 				return PlayAnim(ch, sequence, bLoop, rate, tweenTime, minRate, EAnimType::AT_Replace, {});
 		}
 
@@ -247,7 +255,7 @@ namespace KW
 		// The original sets the latent action on the *target's* state frame, so FinishAnim(RootBone)
 		// doesn't block the caller. AnimChannels have no state code, so for them this is a no-op.
 		if (target == actor && IsAnimatingSelf(target) && target->AnimFrame() < target->AnimLast() && target->StateFrame)
-			target->StateFrame->LatentState = LatentRunState::FinishAnim;
+			target->StateFrame->SetLatentState(LatentRunState::FinishAnim);
 	}
 
 	static void CallAnimEnd(UActor* a)
@@ -259,8 +267,8 @@ namespace KW
 	void TickAnimation(UActor* actor, float elapsed)
 	{
 		// execPollFinishAnim: the latent FinishAnim ends once bAnimFinished is set.
-		if (actor->StateFrame && actor->StateFrame->LatentState == LatentRunState::FinishAnim && actor->bAnimFinished())
-			actor->StateFrame->LatentState = LatentRunState::Continue;
+		if (actor->StateFrame && actor->StateFrame->GetLatentState() == LatentRunState::FinishAnim && actor->bAnimFinished())
+			actor->StateFrame->SetLatentState(LatentRunState::Continue);
 
 		// Transient channels send notifies and AnimEnd to the actor they animate.
 		UActor* animator = (AnimBone(actor) != 0 && bAnimTransient(actor)) ? actor->Owner() : actor;
@@ -339,7 +347,7 @@ namespace KW
 
 				if (oldFrame < actor->AnimLast())
 				{
-					if (actor->StateFrame && actor->StateFrame->LatentState == LatentRunState::FinishAnim)
+					if (actor->StateFrame && actor->StateFrame->GetLatentState() == LatentRunState::FinishAnim)
 						actor->bAnimFinished() = true;
 					CallAnimEnd(actor); // looping AnimEnd goes to the channel itself, not the animator
 				}
@@ -355,8 +363,8 @@ namespace KW
 			}
 		}
 
-		if (actor->StateFrame && actor->StateFrame->LatentState == LatentRunState::FinishAnim && actor->bAnimFinished())
-			actor->StateFrame->LatentState = LatentRunState::Continue;
+		if (actor->StateFrame && actor->StateFrame->GetLatentState() == LatentRunState::FinishAnim && actor->bAnimFinished())
+			actor->StateFrame->SetLatentState(LatentRunState::Continue);
 	}
 
 	//
@@ -396,7 +404,7 @@ namespace KW
 	// IDA Engine.dll: ?execCreateAnimChannel@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x10408C50]
 	static void NCreateAnimChannel(UObject* self, UObject* NewClass, uint8_t Type, const NameString& RootBone, std::optional<bool> bTransient, UObject*& ReturnValue)
 	{
-		ReturnValue = CreateAnimChannel(UObject::Cast<UActor>(self), UObject::Cast<UClass>(NewClass), (EAnimType)Type, RootBone, bTransient.value_or(false));
+		ReturnValue = CreateAnimChannel(UObject::Cast<UActor>(self), UObject::Cast<UClass>(NewClass), (EAnimType)Type, RootBone, bTransient.value_or(false), false);
 	}
 
 	// IDA Engine.dll: ?execHasAnim@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x1040A3D0]

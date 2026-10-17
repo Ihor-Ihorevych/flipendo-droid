@@ -312,7 +312,7 @@ namespace HP2
 		for (size_t i = 0; i < count; i++)
 		{
 			UActor* actor = engine->Level->Actors[i];
-			if (!actor || !actor->StateFrame || actor->StateFrame->LatentState != LatentRunState::Stop || actor->StateFrame->StatementIndex != 0)
+			if (!actor || !actor->StateFrame || actor->StateFrame->GetLatentState() != LatentRunState::Stop || actor->StateFrame->GetStatementIndex() != 0)
 				continue;
 			const NameString stateName = actor->GetStateName();
 			if (stateName != NameString("stateLeadingActor"))

@@ -38,7 +38,26 @@ build/Release/SurrealEngine.exe "C:/Games/Harry Potter"            # opens the l
 `build/Release/SurrealEngine.exe --autolaunch --logfile=hp1.log <game folder>` launches straight into the game with a
 log ([docs/development.md](docs/development.md)).
 
-### Linux / macOS
+### Linux
+
+Tested on Fedora 44 (GCC 16, Wayland through XWayland). Development packages (Fedora names; other distributions in
+SurrealEngine's [`src/engine/Docs/Building.md`](src/engine/Docs/Building.md)):
+
+```sh
+sudo dnf install cmake ninja-build gcc-c++ libX11-devel libxkbcommon-devel alsa-lib-devel openal-soft-devel
+```
+
+```sh
+bash tools/apply_patches.sh                                         # tools/build.sh is Windows-only (VS generator)
+cmake -S src/engine -B build-linux -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build-linux --target SurrealEngine
+build-linux/SurrealEngine --autolaunch --logfile=hp1.log ~/Games/HarryPotter
+```
+
+Linux file names are case-sensitive: the game saves into `Save/` (`SavePath=../Save` in the ini). A folder copied
+from Windows may have it as `save/`; rename it, or saves made there won't show up.
+
+### macOS
 
 See SurrealEngine's [`src/engine/Docs/Building.md`](src/engine/Docs/Building.md). Not tested with Flipendo yet; reports
 are welcome.

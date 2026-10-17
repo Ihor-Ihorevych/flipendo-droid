@@ -448,6 +448,7 @@ namespace HP1
 		if (commandline && commandline->HasArg("", "--cyrillic"))
 		{
 			UFont::ExtraGlyph = &CyrillicGlyph;
+			UFont::ByteText = true; // the texts are 8-bit: a code point is a byte
 			LogMessage("Cyrillic text: on (Windows-1251 .int files, glyphs from Noto Sans)");
 		}
 	}

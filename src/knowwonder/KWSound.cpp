@@ -10,6 +10,8 @@
 #include "Packages/Engine/UViewport.h"
 #include "KWActor.h"
 #include "KWCheck.h"
+#include "KWGame.h"
+#include "HP2.h"
 #include "Packages/Core/UClass.h"
 #include "Package/PackageManager.h"
 #include "Audio/AudioSource.h"
@@ -108,11 +110,17 @@ namespace KW
 		}
 	}
 
+	// The default Pitch of PlaySound: TransientSoundPitch, where 64 is normal speed
+	float TransientSoundPitchScale(UActor* actor)
+	{
+		return TransientSoundPitch(actor) / 64.0f;
+	}
+
 	static void NPlaySound(UObject* Self, UObject* Sound, std::optional<uint8_t> Slot, std::optional<float> Volume, std::optional<bool> bNoOverride, std::optional<float> Radius, std::optional<float> Pitch)
 	{
 		UActor* actor = UObject::Cast<UActor>(Self);
 		PlaySound(actor, UObject::TryCast<USound>(Sound), Slot.value_or(SLOT_Misc), Volume.value_or(actor->TransientSoundVolume()), bNoOverride.value_or(false),
-			Radius.value_or(actor->TransientSoundRadius()), Pitch.value_or(TransientSoundPitch(actor) / 64.0f), false, false);
+			Radius.value_or(actor->TransientSoundRadius()), Pitch.value_or(TransientSoundPitchScale(actor)), false, false);
 	}
 
 	// HP2's PlaySound/PlayOwnedSound (src/hp2/HP2Natives.cpp) add Disable3D and Loop. Disable3D is how its dialog plays (Actor.
@@ -283,6 +291,10 @@ namespace KW
 	// IDA Galaxy.dll: ?SetVolumes@UGalaxyAudioSubsystem@@QAEXXZ [HP1 Galaxy 0x10606640]
 	float UpdateMusic(AudioDevice* device, UPlayerPawn* player, uint8_t musicVolume, int latency)
 	{
+		// HP2 has no Galaxy music: its scripts play Ogg songs by name (src/hp2/HP2Music.cpp)
+		if (IsHP2())
+			return HP2::UpdateMusic(device, musicVolume);
+
 		// Galaxy's time step: real time since the last update, at most 1 s
 		auto now = std::chrono::steady_clock::now();
 		float deltaTime = music.started ? std::chrono::duration<float>(now - music.lastUpdate).count() : 0.0f;

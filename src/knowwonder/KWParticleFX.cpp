@@ -939,7 +939,7 @@ namespace KW
 		vec3 Velocity;
 		float Lifetime;
 		float Alpha;
-		Color Color;
+		::Color Color;
 		float Width;
 		float Length;
 		float DripTimer;

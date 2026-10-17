@@ -1,0 +1,18 @@
+flipendo: Harry Potter 2: its sound objects' extra fields and XA sounds, no IpDrv package
+
+diff --git a/SurrealEngine/Packages/Engine/Resources/USound.h b/SurrealEngine/Packages/Engine/Resources/USound.h
+index f4c32aea..decbebf6 100644
+--- a/SurrealEngine/Packages/Engine/Resources/USound.h
++++ b/SurrealEngine/Packages/Engine/Resources/USound.h
+@@ -32,6 +32,11 @@ public:
+ 	NameString Format;
+ 	Array<uint8_t> Data;
+ 
++	// Harry Potter 2: flags, five more ints (some only in later package versions) and, with flag 0x80, a second data block
++	uint32_t HP2Flags = 0;
++	uint32_t HP2Values[5] = {};
++	Array<uint8_t> HP2ExtraData;
++
+ 	Array<float> samples;
+ 	float duration = 0.0f;
+ 	int frequency = 0;

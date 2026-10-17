@@ -9,15 +9,16 @@ them, kept as patch files so a newer SurrealEngine rarely conflicts.
 
 | Patch | What |
 |---|---|
-| `src/surreal-patches/0001-game-detection.patch` | HP1 `System/HP.exe` hashes (UK 1.1, EN retail SafeDisc, community No-CD); why a folder isn't a game |
+| `src/surreal-patches/0001-game-detection.patch` | HP1 `System/HP.exe` hashes (UK 1.1, EN retail SafeDisc, community No-CD, Russian retail and No-CD), also under the long exe names some releases use; why a folder isn't a game |
 | `src/surreal-patches/0002-launcher-flags.patch` | `--autolaunch`, `--logfile`, the flags the HP1 code reads |
 | `src/surreal-patches/0003-cursor-focus.patch` | cursor recentering and raw input only while the game window has focus; window icons the right way up |
-| `src/surreal-patches/0010-engine-fixes.patch` | fixes to SurrealEngine bugs that aren't specific to one game (VM, properties, ini, packages, crash reports, audio device) |
+| `src/surreal-patches/0010-engine-fixes.patch` | fixes to SurrealEngine bugs that aren't specific to one game (VM, properties, ini (UTF-16 files), packages, GetLanguage, fonts, crash reports, audio device) |
 | `src/surreal-patches/0100-knowwonder-core.patch` | build (`src/flipendo.cmake`), natives registration, engine loop (input, console, saves, view), missing data messages |
 | `src/surreal-patches/0110-knowwonder-physics.patch` | KnowWonder physics, pawn movement, collision |
 | `src/surreal-patches/0120-knowwonder-actors.patch` | KnowWonder actor tick, native actors, animation |
 | `src/surreal-patches/0130-knowwonder-render.patch` | KnowWonder rendering; HP1's menu canvas |
 | `src/surreal-patches/0140-knowwonder-audio.patch` | KnowWonder sound and music |
+| `src/surreal-patches/0200-hp2.patch` | Harry Potter 2: its sound objects' extra fields and XA sounds, no IpDrv package |
 
 `src/surreal-patches/routes.txt` maps engine files to these patches (globs, first match wins) and documents the number ranges:
 0001-0009 plumbing, 0010-0099 game-independent fixes, 0100-0199 HP1, 0200-0299 free for HP2. Patches split by file,
@@ -26,8 +27,8 @@ so a file has one owner.
 `tools/build.sh` applies them to the submodule's working tree (`tools/apply_patches.sh`). Each patch starts with a
 `flipendo: ...` header line (from `src/surreal-patches/routes.txt`), which marks the altered source as SurrealEngine's zlib licence
 requires; the changed lines themselves carry no marker. Hooks into `src/knowwonder/`
-are gated behind `engine->LaunchInfo.IsKnowWonder()` (HP1 for now, HP2 later), HP1-only hooks (mods, menu canvas)
-behind `IsHarryPotter1()`, so other UE1 games keep working. Fixes to SurrealEngine bugs that affect any game
+are gated behind `engine->LaunchInfo.IsKnowWonder()` (HP1 and HP2), HP1-only hooks (mods, menu canvas)
+behind `IsHarryPotter1()`, HP2-only ones behind `IsHarryPotter2()`, so other UE1 games keep working. Fixes to SurrealEngine bugs that affect any game
 (`0010-engine-fixes.patch`) aren't gated.
 
 ### Changing a hook
@@ -56,6 +57,7 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `src/engine/CMakeLists.txt` | includes `src/flipendo.cmake` (`src/knowwonder/knowwonder.cmake`, `src/hp1/hp1.cmake`) |
 | `Engine.cpp` (OpenWindow) | window icon `KW::GameIcons`: the game's own `System/<exe>.ico` from the player's folder (HP1 `hp.ico`, grey background made transparent), else SurrealEngine's |
 | `Package/PackageManager.cpp` | `HP1::RegisterNatives()` after SurrealEngine natives |
+| `Package/PackageManager.cpp` (ScanFolder) | `IsKnowWonder()`: the plain package file wins over a language file next to it (`AllDialog.uax` over `AllDialog.int_uax`, [packages](re/engine/packages.md#language-files-appfindpackagefile-hp1-core-0x10153f40)); also fixes the doubled folder in a language file's path (any game) |
 | `Packages/Engine/Resources/Mesh/UAnimation.cpp` | `HP1::LoadAnimation` |
 | `Packages/Engine/Actors/UActor_Animation.cpp` | `HP1::TickAnimation` |
 | `Render/VisibleMesh.cpp` | `HP1::DrawSkeletalMesh` in `DrawSkeletalMesh` |
@@ -69,6 +71,7 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Collision/TopLevel/CollisionSystem.cpp/.h` | the hash files KnowWonder actors by `KW::ActorWorldCollisionBox` (CollisionWidth offset, CT_Box); `ActorsInBox` for KnowWonder's actor checks |
 | `Render/RenderSubsystem.cpp` | `HP1::OnFrameRendered` (`HP1_SHOTS` debug screenshots) |
 | `Render/RenderCanvas.cpp`, `RenderSubsystem.h` | `HP1::CanvasUIScale` (float `uiscale`), `HP1::SetCanvasArea` (full-width HUD, 4:3 console/menus); `DrawClippedActor` relative to the canvas area |
+| `Render/RenderCanvas.cpp` (DrawText, DrawTextClipped), `Packages/Engine/Resources/UFont.*` | fonts made by `KW::CreateNativeFont` (`UFont::SetNativeGlyphs`, `IsNative`, `src/knowwonder/KWNativeFont.cpp`) draw premultiplied in the DrawColor whatever the style, like HP1's GDI text |
 | `Engine.cpp` | `HP1::ViewFovAngle` after PlayerCalcView (Hor+ FOV); trim `\|` input subcommands; `SET Input` takes the rest of the line (multi-word aliases; no alias unbinds); `getres` → `HP1::AvailableResolutions`; `HP1::MenuMousePosition` in `OnWindowMouseMove` |
 | `Collision/TopLevel/TraceTest.cpp`, `OverlapTest.cpp`, `CollisionSystem.cpp` | CT_Box trace/overlap/hash extents |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `HP1::PawnMoveToward`, `HP1::PawnPhysicsTime`, `HP1::PawnPhysicsRotation` |
@@ -91,6 +94,7 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Packages/Engine/Actors/UActor_PhysWalking.cpp`, `UActor_PhysRolling.cpp` | `HP1::PawnWalkOffLedge` / `HP1::StartFalling` (MayFall, ledge rule, auto-jump, Falling) |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `HP1::PawnPollMoveToward`, `PawnPollStrafeFacing`, `PawnPollWaitForLanding`; WaitForLanding sets LatentFloat |
 | `Engine.cpp` | save games ([re/engine/savegames.md](re/engine/savegames.md)): `SaveGame` → `KW::SaveGame` at once (not at the end of the frame): LevelAction saving, the blue progress frame (`PaintProgress`), the save; `open saveN.usa` → `HP1::SaveGameLoadURL` (`?load=N`); `KW::SaveGameLoaded` after LoadFromSaveFile (BSP leaves found again); `HP1::LevelInfoLoaded` in LoadMap (empty LevelEnterText = URL map); `KW::ViewportCommand` before the exec functions (`Snap`) |
+| `Engine.cpp` (ConsoleCommand), `Packages/Engine/Subsystems/USurrealAudioDevice.cpp` (Update) | `IsHarryPotter2()`: ALAudio's `MUTESOUNDS` / `UNMUTESOUNDS` (`HP2::AudioCommand`) hold the sound volume at 0 while a skipped cutscene fast-forwards |
 | `Engine.cpp` (LoginPlayer) | `HP1::LevelStartPlayer` before Possess: `--level` sets `HPConsole.bInHubFlow` and Harry's travel state (`src/hp1/HP1LevelStart.cpp`) |
 | `Engine.cpp` (LoadMap) | `KW::SetStartupZones` after BeginPlay: every loaded actor's zone and BSP leaf, as HP1's LoadMap does (a map saves movers with leaf -1, which left bDynamicLightMover movers unlit) |
 | `Native/NPlayerPawn.cpp` | ClientTravel raises PreClientTravel |
@@ -136,3 +140,12 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `RenderDevice/RenderDevice.h`, `Vulkan/`, `D3D11/`, `OpenGL/` | `GouraudVertex::Alpha` (default 1), passed to the vertex colour's alpha by `DrawGouraudPolygon` (premultiplied with PF_Highlighted) |
 | `Engine.cpp` (LoadMap, LoadFromSaveFile), `Render/RenderSubsystem.h`, `RenderCanvas.cpp` | the loading screen: `KW::LoadMapFadeOut` at the start (fade to black over Console.FadeoutTime), `KW::LoadMapLevelInfo` once LevelInfo is loaded; `RenderSubsystem::DrawLevelInfo` draws Console.DrawLevelInfo on a black frame |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `KW::PawnRotateToward` in `TickRotateTo` (100-unit yaw tolerance); `KW::PawnTurnStep` when TurnTo / TurnToward start and in their polls |
+| `GameFolder.h` | `IsKnowWonder()` is HP1 or HP2 |
+| `Render/VisibleFrame.cpp` (ProcessNodeSurface) | a one-sided BSP surface seen from behind is neither drawn nor an occluder, as in UE1 (any game; [rendering](re/engine/rendering.md#one-sided-bsp-surfaces-seen-from-behind)) |
+| `Engine.cpp` (LoginPlayer) | `IsHarryPotter2()`: `HP2::ScreenActorsByGameState` once the player is in, except on Entry ([GameState](re/hp2/engine.md#gamestate-actors-screened-by-the-story-state)) |
+| `Engine.cpp` (Run) | `IsHarryPotter2()`: without a URL, start `HP2::NewGameURL` (no front end yet, [startup](re/hp2/startup.md)) |
+| `VM/Bytecode.h`, `VM/Bytecode.cpp`, `Packages/Core/UStruct.cpp` | `IsHarryPotter2()`: HP2's bytecode, `HP2::ToStockToken` and DebugInfo records skipped ([scripting](re/engine/scripting.md#how-flipendo-reads-it)); HP1's DynArrayCount token for HP2 too |
+| `Packages/Engine/Resources/USound.cpp`, `USound.h` | `IsHarryPotter2()`: HP2's extra sound fields in Load/Save, XA sounds through `HP2::DecodeXA` ([sound](re/engine/sound.md#hp2s-sound-objects)) |
+| `PropertyOffsets.cpp`, `Package/PackageManager.h` | `IsHarryPotter2()`: no IpDrv offsets (HP2 ships without IpDrv) |
+| `Native/NObject.cpp`, `Native/NActor.cpp` | Object.GetLanguage and Actor's HP1 natives (PlayAnim, LoopAnim, GetWorldCollisionBox, GetRenderExtent) also for HP2 |
+| `Utils/File.cpp/.h`, `Package/PackageManager.cpp`, `UE1GameDatabase.cpp` | `File::find_ignoring_case` for `System/`, the ini files, the `Paths=` folders and `Localize` files (whose name may hold a `\\` folder, HP2's cutscenes) (any game; HP2 ships `system/default.ini`) |

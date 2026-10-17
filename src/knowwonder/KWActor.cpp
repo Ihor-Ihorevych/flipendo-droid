@@ -19,6 +19,7 @@ namespace KW
 			props.AnimBone = cls->GetPropertyDataOffset("AnimBone");
 			props.TweenAlpha = cls->GetPropertyDataOffset("TweenAlpha");
 			props.bAnimTransient = cls->GetPropertyDataOffset("bAnimTransient");
+			props.bAnimNotReplaceable = cls->GetPropertyDataOffset("bAnimNotReplaceable");
 			props.bAnimMove = cls->GetPropertyDataOffset("bAnimMove");
 			props.Wideness = cls->GetPropertyDataOffset("Wideness");
 			props.CollideType = cls->GetPropertyDataOffset("CollideType");

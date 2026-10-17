@@ -14,11 +14,16 @@ Both games run the same system (the HP1 vs HP2 code comparison):
   `GetMovement`, `BoneName`), skinning (`GetFrame`), `SlerpQuat` and `FCoords(FPlace)` in Core.dll, and the latent
   `execPollFinishAnim`.
 - **Offsets only:** `IsAnimating`, `AdjustRootMovement`.
-- **Changed, HP2 code not read yet:** `PlayAnim` (+205 bytes), `AActor::Tick` (+220), `ApplyAnim`, `GetMeshCoords`,
+- **Changed, HP2 code partly read:** `PlayAnim` (+205 bytes; both of its channel-clearing loops skip
+  `bAnimNotReplaceable` channels, the rest not read), `AActor::Tick` (+220), `ApplyAnim`, `GetMeshCoords`,
   `GetBoneCoords`, `GetRootMovement`. The `exec*` wrappers grew by the ~29 bytes of HP2's DebugInfo check
   ([scripting.md](scripting.md)), which isn't a behaviour change.
-- **Signature change:** HP2's `CreateAnimChannel` takes one more bool (`bNotReplaceable` in HP2's `Actor.uc`; export
-  `...VFName@@_N3@Z` instead of HP1's `...VFName@@_N@Z`). Not reversed yet.
+- **Signature change:** HP2's `CreateAnimChannel` [HP2 0x10415ED0] takes one more bool, `bNotReplaceable` (export
+  `...VFName@@_N3@Z` instead of HP1's `...VFName@@_N@Z`). It is stored in the new Actor bool `bAnimNotReplaceable`
+  (bit 9 of the first Actor bitfield, right after `bAnimTransient`); an existing channel on the bone is reused only
+  when both flags match; and when the new channel replaces the ones under its bone, channels with
+  `bAnimNotReplaceable` are left alone. Flipendo: one `KW::CreateAnimChannel` with the extra flag, the HP2 adapter in
+  `src/hp2/HP2Natives.cpp`, and `ClearChannels` skips those channels for HP2.
 - **HP2 only:** `Actor.BoneRot` (native 328, `src/hp2/HP2Natives.cpp`).
 
 ## Data: `UAnimation` (sizeof 156)

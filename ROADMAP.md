@@ -34,11 +34,14 @@ particle effects.
 
 ## 5. Remaining native classes and polish
 - [ ] Bugs of the original to fix, not reproduce: [docs/re/hp1/original_bugs.md](docs/re/hp1/original_bugs.md)
-- [ ] Console.CreateNativeFont for the Asian languages (WinDrv.dll's GDI font rasterizer)
+- [ ] Console.CreateNativeFont glyphs for the Asian languages (only Latin and Cyrillic are rasterized), and system
+      font text drawn at the screen's resolution instead of scaled with the menu canvas
 - [ ] `Actor.Fatness`: not ported; only matters if a map or script changes it from 128
       ([docs/re/engine/animation.md](docs/re/engine/animation.md))
 - [ ] US vs UK HP1: compare `HPBase.u` from both releases for a shifted token table
       ([docs/re/engine/scripting.md](docs/re/engine/scripting.md))
+- [ ] Linux: a debug screenshot (`HP1_SHOTS`) crashes the game in the Radeon Vulkan driver right after the first image is
+      saved (`VulkanRenderDevice::Unlock` -> `vkCmdEndRenderPass`), even on the main menu
 - [ ] Menu song fade-in at its start: MusicFade/transitions or the mp2 itself ([docs/re/engine/music.md](docs/re/engine/music.md))
 - [ ] Next SurrealEngine update: upstream's HP1 boot work (July 2026: exe detection, HP natives and tokens, mp2,
       4:3 `GetRes`) is already in our submodule; drop any of our patches that it now duplicates
@@ -53,6 +56,13 @@ particle effects.
       (`Engine::Run`: tick and render split) and the interpolation in the renderer. An option, the 60 FPS cap stays
       the default until it is tested level by level
 - [ ] More built-in extras: FOV slider, controller support, free camera
+- [ ] HD texture packs (issue #4): load replacement textures from the game folder, so packs made for the community
+      DX11 renderer work, e.g. Akven's ESRGAN Upscale Pack v3 (2,537 `Textures/<Package>/<Group>/<Name>.dds`, DXT1
+      and DXT5 only, 4x upscales; its `System/tessellation.cfg` is for that renderer). SurrealEngine renders BC1/BC3
+      already, so a texture load looks the file up (case-insensitive), reads the DDS mips and swaps `UsedMipmaps` /
+      `UsedFormat` while `USize`/`VSize` stay the original's (BSP and canvas UVs use them). Mesh UVs scale by the
+      first mip's width (`VisibleMesh.cpp`, `KWSkeletal`), so they need the original width too. Check masked and
+      translucent textures (DXT1 alpha vs the game's masking). On when the folder exists, off with `--vanilla`
 - [ ] Twitch chaos mod (opt-in, `--chaos`): stream viewers vote in chat on effects every N seconds (low gravity,
       giant or tiny Harry, a random spell cast, camera upside down, slow motion, Harry runs backwards, beans
       rain). Each effect is a timed `@set` on live actors / `Level.TimeDilation`, undone when it ends; a vote
@@ -67,7 +77,7 @@ particle effects.
 ## Releases
 - [ ] Game folder picker in the launcher remembered between runs, so players never touch the command line
 - [ ] Version number in the window title and the log, for bug reports
-- [ ] Linux / Steam Deck build tested with Flipendo
+- [ ] Linux download (prebuilt) and a Steam Deck build tested with Flipendo
 
 ## Later: the other KnowWonder games
 - [~] HP2 (Chamber of Secrets, UE1 build 433): runs on Android since 0.3.0 (new game, six save slots, story state, duels, shops,
@@ -75,11 +85,15 @@ particle effects.
   - [ ] Play it through and fix what breaks (the later levels, the Basilisk and the final scenes have had little play)
   - [ ] Lumos light: not on the wand's tip (`baseWand.Tick` -> `LumosLight.UpdateLocation(WandEndPoint)`)
   - [ ] Translucent walls come out red in some levels
-  - [ ] `MUTESOUNDS` does not mute; the `Loop` flag of `PlaySound`
+  - [ ] The `Loop` flag of `PlaySound`
   - [ ] Spawned persistent actors (jelly beans) are not carried to the next level; old saves lost their spells
   - [ ] HP1 on a device after the shared changes of 0.3.0 (script VM, travel, canvas, audio, input)
   - [ ] Check the remaining "changed" ports for real behaviour differences (beyond the DebugInfo check)
-  - [ ] HP2 music: fades of `PlayMusic` / `StopMusic` / `StopAllMusic` (ALAudio.dll), `StopSound` fade-out
+  - [ ] HP2 music: check `src/hp2/HP2Music.cpp` (written from the scripts) against ALAudio.dll: crossfades between songs, looping, volumes; `StopSound`'s fade-out
+  - [ ] PrivetDr's intro flyover: the camera doesn't follow the original's path and the shot is darker than the original's (`BaseCam` FollowSpline / FlyTo)
+  - [ ] Dobby's and Filch's eye blink channels fail (`eye_close` anim / `eye_root` bone not found)
+  - [ ] Accessed None in scripts that the original may not hit: `harry.CutCommand`, `HPConsole.Tick`, `harry.PlayerWalking.Landed`, `harry.PlayerTick`, `baseWand.StopChargingSpell`
+  - [ ] XA sounds: check the decoder by ear (stereo XA)
   - [ ] Check the unverified HP2 engine differences in HP2's code ([docs/re/hp2/gameplay.md](docs/re/hp2/gameplay.md)):
         music always loops, XA ADPCM sounds, save loading, lip sync, movers colliding by bounding box
   - [ ] HP2-only engine features ([docs/re/hp2/engine.md](docs/re/hp2/engine.md)): Lumos surfaces, TurnTo's flattened focus,

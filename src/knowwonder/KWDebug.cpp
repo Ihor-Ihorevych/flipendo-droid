@@ -15,6 +15,8 @@
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Packages/Engine/Resources/Level/UPolys.h"
+#include "Packages/Engine/Resources/Textures/UTexture.h"
+#include "Utils/StrTools.h"
 #include "Packages/Core/UClass.h"
 #include "Package/PackageManager.h"
 #include "Collision/TopLevel/CollisionSystem.h"
@@ -60,6 +62,7 @@
 //                              "@travel Lev2_HogFront" changes level as the game's level exits do (carrying Harry's travel properties);
 //                              "@bump GridMover0 harry0" raises Bump(harry0) on the actors whose name starts with GridMover0;
 //                              "@polys Mover17" logs the brush polygons (normal, PolyFlags, texture, vertices) of the matching movers;
+//                              "@surfs cosLogo1" logs the level's BSP surfaces drawn with that texture (flags, center);
 //                              "@sweep x y z x y z ex ey ez" runs KnowWonder's BSP line/point checks and the actor sweep with that box and logs them;
 //                              "@hull Mover0" logs the brush's collision hulls (planes in world space)
 
@@ -204,7 +207,7 @@ namespace KW
 				a->Velocity().x, a->Velocity().y, a->Velocity().z, a->Acceleration().x, a->Acceleration().y, (int)a->Physics(),
 				a->Rotation().Yaw & 0xffff, a->Rotation().Pitch & 0xffff, a->DesiredRotation().Yaw & 0xffff, a->AnimSequence().ToString().c_str(), a->AnimRate(), a->AnimFrame(), TweenAlpha(a));
 			if (a->StateFrame)
-				n += snprintf(buf + n, sizeof(buf) - n, " latent=%d", (int)a->StateFrame->LatentState);
+				n += snprintf(buf + n, sizeof(buf) - n, " latent=%d", (int)a->StateFrame->GetLatentState());
 			if (UPawn* pawn = UObject::TryCast<UPawn>(a))
 				n += snprintf(buf + n, sizeof(buf) - n, " ground=%.0f desired=%.2f rrate=%d walking=%d",
 					pawn->GroundSpeed(), pawn->DesiredSpeed(), pawn->RotationRate().Yaw, (int)pawn->bIsWalking());
@@ -398,6 +401,24 @@ namespace KW
 					}
 					LogMessage(line);
 				}
+			}
+			return;
+		}
+		if (text.rfind("@surfs ", 0) == 0)
+		{
+			// "@surfs <texture name>": log every BSP surface of the level drawn with that texture (PolyFlags, center, the
+			// texture's own flags), to tell how a surface is drawn
+			std::string texName = text.substr(7);
+			const auto& surfaces = engine->Level->Model->Surfaces;
+			for (size_t i = 0; i < surfaces.size(); i++)
+			{
+				const BspSurface& surf = surfaces[i];
+				if (!surf.Material || !StrTools::equals_ignore_case(surf.Material->Name.ToString(), texName))
+					continue;
+				char buf[256];
+				snprintf(buf, sizeof(buf), "HP1 surfs %s %d: flags=0x%08x texflags=0x%08x center=(%.0f,%.0f,%.0f) radius=%.0f",
+					texName.c_str(), (int)i, surf.PolyFlags, surf.Material->PolyFlags(), surf.Center.x, surf.Center.y, surf.Center.z, surf.Radius);
+				LogMessage(buf);
 			}
 			return;
 		}

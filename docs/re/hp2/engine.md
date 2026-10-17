@@ -13,13 +13,30 @@ The biggest engine feature HP1 doesn't have. HP2's Engine.dll has it (`ScreenAct
 - `PlayerPawn.GameStateMasterList` (const string, the list of GameState tokens), `GameStateTokenLen`,
   `TotalGameStateTokens`, `CurrentGameState` (travel string); script helpers `GetGameStateMasterListToken`,
   `SetGameState`.
-- Each actor has GameState tokens and `ExcludeGameStates`; `bInCurrentGameState` (const, "Set by Engine:
+- An actor lists the states it belongs to in its `Group` name (`None,GSTATE000`; case doesn't matter) and the ones it
+  stays out of in `ExcludeGameStates`; `bInCurrentGameState` (const, default true, "Set by Engine:
   ULevelBase::ScreenActorsByGameState()") and `bPersistent` (saved separately).
-- After a map loads, `ScreenActorsByGameState` takes the player's `CurrentGameState` (upper-cased) and walks every actor
-  that has tokens: it is in the current state unless the state is in its `ExcludeGameStates`; each token must have
-  `GameStateTokenLen` characters and be in the master list (else "*** GameState ERROR Actor: %s has an invalid
-  GameState Token: %s!!!"). It sets `bInCurrentGameState` and, outside the editor, raises `OnResolveGameState()`.
-- Flipendo: nothing yet. Needs a hook after LoadMap's BeginPlay calls (and save loading), gated `KW::IsHP2()`.
+- `ULevel::ScreenActorsByGameState` [HP2 0x103B86D0], from `UGameEngine::LoadMap` for every map but Entry, late, once
+  the player is in. The player is the first pawn with `bIsPlayer`; its `CurrentGameState`, upper-cased, is the state.
+  `NONE` (`PlayerPawn`'s default): nothing is screened and no event raised. A `GAMESTATE=` command line option
+  overrides the state when it is in the master list. A state not in the master list: "**** Caution: The player pawn has
+  an Invalid CurrentGameState ..." and nothing else. Then for every actor: a non-empty `ExcludeGameStates` holding the
+  state puts it out; otherwise each `GSTATE` token in its upper-cased `Group` (up to the next comma) is checked: one of
+  `GameStateTokenLen` characters found in the master list and equal to the state puts it in, any other token logs
+  "*** GameState ERROR Actor: %s has an invalid GameState Token: %s". An actor with tokens and no match is out; one with
+  neither tokens nor exclusion keeps its `bInCurrentGameState`. Every actor (outside the editor) then gets
+  `OnResolveGameState()`.
+- The state comes with the map: KnowWonder's maps place Harry, and his saved `CurrentGameState` is the level's start
+  state (PrivetDr's `Harry1`: `gstate000`). `PlayerPawn.SetGameState` only stores a new state "to be applied when we
+  load a level".
+- Without it every CutScene stays enabled: PrivetDr ran its intro (`GSTATE000`) and `00001PrivetIntroPart3`
+  (`GState010`) at once, and Part3 took over Harry and the camera.
+- `CurrentGameState` reaches the next map as a travel property. SurrealEngine wrote travel strings quoted and read the
+  quotes back in, so the state arrived as `"GSTATE010"`, failed the master list check and nothing was screened (PrivetDr
+  after Diagon Alley ran its intro and Part3 together, black screen). `UStrProperty::SetValueFromString` now drops the
+  quotes, as UE1's ImportText does (`0010-engine-fixes.patch`, any game).
+- Flipendo: `HP2::ScreenActorsByGameState` (`src/hp2/HP2GameState.cpp`), called at the end of `Engine::LoginPlayer`
+  for maps other than Entry. The `GAMESTATE=` override isn't ported.
 
 ## Persistent actors across hub travel
 
@@ -70,16 +87,16 @@ read in HP2's Engine.dll.
 
 ## Audio
 
-- Music: ALAudio.dll (OpenAL + Ogg Vorbis) plays the music. The scripts start it by file name: `PlayMusic(string Song,
-  float FadeInTime)` returns a handle, `StopMusic(int Handle, float FadeOutTime)`, `StopAllMusic(float FadeOutTime)`.
-  These three are declared `native` without a number (the package gives them an index of their own), so Flipendo
-  registers them by name (`src/hp2/HP2Natives.cpp`); fades are not honoured yet. `PlayerPawn` has no `Song` machinery
-  the stock audio code could use, so the update of the playing song is skipped for HP2.
+- Music: ALAudio.dll (OpenAL + Ogg Vorbis) plays the music. Scripts pass a file name in `Music/`
+  (`PlayMusic("sm_dia_Ambient02_01.ogg", 0.5)` returns a handle; `StopMusic(handle, fade)`, `StopAllMusic(fade)`;
+  `PlayerPawn.Song` is a string). Flipendo: `src/hp2/HP2Music.cpp`, written from the scripts and NOT yet checked against
+  ALAudio.dll: one song at a time, looping, linear fades. `KW::UpdateMusic` hands over to it for HP2 (HP1's Galaxy
+  music properties don't exist in HP2's PlayerPawn).
 - Sounds: every sound export has a header of its own between the format name and the data, whatever the format:
   int32 0x104 (0 for wav), float duration, int32 sample count, bits, channels, frequency, then the lazy-array skip
   offset, then the size and data. Format `XA` is 4-bit ADPCM in 15-byte frames (1 byte shift/filter, 14 bytes of 28
   samples); `src/hp2/HP2Sound.cpp` decodes it with the CD-XA filters. Not checked against ALAudio.dll.
-- Scripts: `CreateAnimChannel` (265) has a sixth argument `bNotReplaceable` (read and ignored for now).
+- Scripts: `CreateAnimChannel` (265) has a sixth argument `bNotReplaceable` (reversed, [HP2 0x10415ED0]: matched when reusing a channel; `KW::CreateAnimChannel`).
 
 ## Cutscenes and fades
 

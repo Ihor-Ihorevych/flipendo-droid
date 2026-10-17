@@ -11,7 +11,7 @@
 #   0200-0299  free for game-specific additions (HP2)
 # Patches split by file, so a file has exactly one owner.
 
-[0001-game-detection.patch] flipendo: recognise the HP1 retail (SafeDisc) and No-CD HP.exe builds, say why a folder isn't a game
+[0001-game-detection.patch] flipendo: recognise the HP1 retail (SafeDisc) and No-CD HP.exe builds (also under the long exe names some releases use), say why a folder isn't a game
 SurrealEngine/UE1GameDatabase.*
 SurrealEngine/GameFolder.*
 
@@ -21,7 +21,7 @@ SurrealEngine/GameApp.cpp
 [0003-cursor-focus.patch] flipendo: only recenter the mouse cursor, and only act on raw mouse/keyboard input, while the game window is the active (foreground) window; window icons the right way up
 SurrealWidgets/**
 
-[0010-engine-fixes.patch] flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files, packages (Unicode strings), crash reports, music streaming and following the default audio device (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties
+[0010-engine-fixes.patch] flipendo: fixes to SurrealEngine bugs (any game): VM (and HP2's bytecode tokens), properties, ini files (UTF-16 localization files), packages (Unicode strings), UTF-16 strings and file names that differ in case on Linux, GetLanguage, fonts (character remap, text drawn by code point, runtime-made fonts), crash reports, music streaming and following the default audio device (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties
 SurrealEngine/VM/**
 SurrealEngine/Packages/Core/**
 SurrealEngine/Package/IniFile.*
@@ -33,6 +33,9 @@ SurrealEngine/Audio/AudioSource.cpp
 SurrealEngine/UI/**
 SurrealEngine/ObjectTravelInfo.*
 SurrealEngine/Audio/**
+SurrealEngine/Utils/UTF16.cpp
+SurrealEngine/Utils/File.*
+SurrealEngine/Packages/Engine/Resources/UFont.*
 SurrealEngine/Packages/Engine/Resources/Level/UModel.cpp
 
 [0100-knowwonder-core.patch] flipendo: build (src/knowwonder/, src/hp1/), natives, engine loop (input, console, saves, view), missing data messages
@@ -85,8 +88,13 @@ SurrealGPU/src/vulkanswapchain.cpp
 SurrealGPU/src/vulkanbuilders.cpp
 SurrealGPU/src/gpupipeline.cpp
 SurrealGPU/include/surrealgpu/vulkanbuilders.h
+SurrealGPU/include/surrealgpu/vulkanswapchain.h
 SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.*
 SurrealEngine/RenderDevice/Vulkan/RenderPassManager.cpp
 SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.*
 SurrealEngine/RenderDevice/OpenGL/**
 SurrealWidgets/src/window/sdl3/sdl3_display_window.cpp
+
+[0200-hp2.patch] flipendo: Harry Potter 2: its sound objects' extra fields and XA sounds, no IpDrv package
+SurrealEngine/Packages/Engine/Resources/USound.*
+SurrealEngine/PropertyOffsets.cpp
