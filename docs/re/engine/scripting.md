@@ -48,10 +48,17 @@ definitions), with tokens shifted like HP2's. Our disc already has the 1.1 scrip
 either the shift is in the US build only or there is none. Before calling a token table final, compare `HPBase.u` from a
 US and a UK copy.
 
-### What SurrealEngine needs
+### How Flipendo reads it
 
-Its bytecode reader uses the stock values (`ExprToken`, Packages/Core/UStruct.h). For HP2, `BytecodeStream`'s
-ReadToken / PeekToken must skip DebugInfo records and map tokens with `HP2::ToStockToken` (not hooked yet).
+Both of SurrealEngine's bytecode readers handle it, gated by `IsHarryPotter2()` (`0010-engine-fixes.patch`):
+
+- `UStruct::ReadToken` (package load) maps each token with `HP2::ToStockToken` and copies a DebugInfo record into the
+  in-memory bytecode unchanged, then reads the token after it in its place. The record stays, so jump and label
+  offsets (in-memory offsets, counting the record) keep matching.
+- `BytecodeStream::ReadToken` / `PeekToken` (building the expression tree) skip DebugInfo records and map the token.
+  `Bytecode::ReadToken` keys an expression that follows a record under both offsets, the record's and its own, since a
+  jump can land on either.
+- HP2 also uses HP1's DynArrayCount at 0x37 (`DynArrayToInt_HP1`), so that case is open to both games.
 
 ## disable() and GotoState
 

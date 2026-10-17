@@ -1,4 +1,4 @@
-flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files (UTF-16 localization files), packages (Unicode strings), UTF-16 strings and file names that differ in case on Linux, GetLanguage, fonts (character remap, text drawn by code point, runtime-made fonts), crash reports, music streaming and following the default audio device (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties
+flipendo: fixes to SurrealEngine bugs (any game): VM (and HP2's bytecode tokens), properties, ini files (UTF-16 localization files), packages (Unicode strings), UTF-16 strings and file names that differ in case on Linux, GetLanguage, fonts (character remap, text drawn by code point, runtime-made fonts), crash reports, music streaming and following the default audio device (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties
 
 diff --git a/SurrealEngine/Audio/AudioDevice.cpp b/SurrealEngine/Audio/AudioDevice.cpp
 index 03e82566..e921a0a9 100644
@@ -587,6 +587,54 @@ index e0615c50..98d86ac5 100644
 +	UFunction* GetFunction(const NameString& name);
  	std::map<NameString, UFunction*> Functions;
  };
+diff --git a/SurrealEngine/Packages/Core/UStruct.cpp b/SurrealEngine/Packages/Core/UStruct.cpp
+index 535a5549..fd9b5ff5 100644
+--- a/SurrealEngine/Packages/Core/UStruct.cpp
++++ b/SurrealEngine/Packages/Core/UStruct.cpp
+@@ -8,6 +8,7 @@
+ #include "Packages/Core/UTextBuffer.h"
+ #include "Packages/Core/Properties/UBoolProperty.h"
+ #include "Compiler/Frontend/Compiler.h"
++#include "HP2.h"
+ 
+ UStruct::UStruct(NameString name, UClass* cls, ObjectFlags flags) : UField(std::move(name), cls, flags)
+ {
+@@ -286,8 +287,24 @@ ExprToken UStruct::ReadToken(ObjectStream* stream, int depth)
+ 		Exception::Throw("Bytecode parsing error");
+ 	depth++;
+ 
+-	ExprToken token = (ExprToken)stream->ReadUInt8();
+-	PushUInt8((uint8_t)token);
++	uint8_t tokenbyte = stream->ReadUInt8();
++	PushUInt8(tokenbyte);
++	if (engine->LaunchInfo.IsHarryPotter2())
++	{
++		// HP2 has a DebugInfo record (script line numbers) in front of statements and its own token numbers.
++		// The record stays in the bytecode, so jump offsets still match; the token after it is read in its place.
++		while (tokenbyte == HP2::DebugInfoToken)
++		{
++			PushUInt32(stream->ReadUInt32()); // version
++			PushUInt32(stream->ReadUInt32()); // line
++			PushUInt32(stream->ReadUInt32()); // position
++			PushAsciiZ(stream->ReadAsciiZ());
++			tokenbyte = stream->ReadUInt8();
++			PushUInt8(tokenbyte);
++		}
++		tokenbyte = HP2::ToStockToken(tokenbyte);
++	}
++	ExprToken token = (ExprToken)tokenbyte;
+ 
+ #ifdef _DEBUG
+ 	std::string tokendebug;
+@@ -344,7 +361,7 @@ ExprToken UStruct::ReadToken(ObjectStream* stream, int depth)
+ 			ReadToken(stream, depth);
+ 		}
+ 	}
+-	else if (token == ExprToken::DynArrayToInt_HP1 && engine->LaunchInfo.IsHarryPotter1())
++	else if (token == ExprToken::DynArrayToInt_HP1 && (engine->LaunchInfo.IsHarryPotter1() || engine->LaunchInfo.IsHarryPotter2()))
+ 	{
+ 		ReadToken(stream, depth);
+ 	}
 diff --git a/SurrealEngine/Packages/Engine/Resources/UFont.cpp b/SurrealEngine/Packages/Engine/Resources/UFont.cpp
 index 47d655d1..ce7fa024 100644
 --- a/SurrealEngine/Packages/Engine/Resources/UFont.cpp
@@ -891,6 +939,103 @@ index 7f36592b..1b21673f 100644
  }
  
  #endif
+diff --git a/SurrealEngine/VM/Bytecode.cpp b/SurrealEngine/VM/Bytecode.cpp
+index 5ef79b40..e85f2185 100644
+--- a/SurrealEngine/VM/Bytecode.cpp
++++ b/SurrealEngine/VM/Bytecode.cpp
+@@ -11,6 +11,7 @@ MemoryArena Bytecode::arena(1024 * 1024);
+ Bytecode::Bytecode(const Array<uint8_t>& bytecode, Package* package)
+ {
+ 	BytecodeStream stream(bytecode.data(), bytecode.size(), package);
++	stream.SetHP2Tokens(engine->LaunchInfo.IsHarryPotter2());
+ 	while (!stream.IsEnd())
+ 	{
+ 		Statements.push_back(ReadToken(&stream, 0));
+@@ -25,6 +26,13 @@ Expression* Bytecode::ReadToken(BytecodeStream* stream, int depth)
+ 	depth++;
+ 
+ 	uint16_t exproffset = stream->GetOffset();
++	if (stream->SkipDebugInfo())
++	{
++		// A jump can land on the HP2 DebugInfo record or on the token after it
++		Expression* expr = ReadToken(stream, depth);
++		OffsetToExpression[exproffset] = expr;
++		return expr;
++	}
+ 	ExprToken token = stream->ReadToken();
+ 
+ 	if (token >= ExprToken::FirstNative)
+@@ -97,7 +105,7 @@ Expression* Bytecode::ReadToken(BytecodeStream* stream, int depth)
+ 		}
+ 		return expr;
+ 	}
+-	else if (token == ExprToken::DynArrayToInt_HP1 && engine->LaunchInfo.IsHarryPotter1())
++	else if (token == ExprToken::DynArrayToInt_HP1 && (engine->LaunchInfo.IsHarryPotter1() || engine->LaunchInfo.IsHarryPotter2()))
+ 	{
+ 		DynArrayToIntExpression* expr = Create<DynArrayToIntExpression>(exproffset);
+ 		expr->Value = ReadToken(stream, depth);
+diff --git a/SurrealEngine/VM/Bytecode.h b/SurrealEngine/VM/Bytecode.h
+index dfa376d1..52d434b8 100644
+--- a/SurrealEngine/VM/Bytecode.h
++++ b/SurrealEngine/VM/Bytecode.h
+@@ -5,6 +5,7 @@
+ #include "Package/Package.h"
+ #include "Expression.h"
+ #include "Utils/MemoryArena.h"
++#include "HP2.h"
+ 
+ class BytecodeStream;
+ 
+@@ -112,18 +113,40 @@ public:
+ 		return s;
+ 	}
+ 
++	// HP2's bytecode: DebugInfo records are skipped and its token numbers map to the stock ones
++	void SetHP2Tokens(bool enable) { hp2Tokens = enable; }
++
++	bool SkipDebugInfo()
++	{
++		uint32_t start = pos;
++		while (hp2Tokens && pos < size)
++		{
++			size_t recordSize = HP2::DebugInfoSize(data + pos, size - pos);
++			if (recordSize == 0)
++				break;
++			pos += (uint32_t)recordSize;
++		}
++		return pos != start;
++	}
++
+ 	ExprToken ReadToken()
+ 	{
++		SkipDebugInfo();
+ 		if (pos >= size)
+ 			Exception::Throw("BytecodeStream::ReadToken: Unexpected end of file in " + package->GetPackageName().ToString());
+-		return (ExprToken)data[pos++];
++		uint8_t token = data[pos++];
++		return (ExprToken)(hp2Tokens ? HP2::ToStockToken(token) : token);
+ 	}
+ 
+ 	ExprToken PeekToken()
+ 	{
+-		if (pos >= size)
++		uint32_t start = pos;
++		SkipDebugInfo();
++		uint32_t tokenpos = pos;
++		pos = start;
++		if (tokenpos >= size)
+ 			Exception::Throw("BytecodeStream::PeekToken: Unexpected end of file in " + package->GetPackageName().ToString());
+-		return (ExprToken)data[pos];
++		return (ExprToken)(hp2Tokens ? HP2::ToStockToken(data[tokenpos]) : data[tokenpos]);
+ 	}
+ 
+ 	NameString ReadName()
+@@ -150,4 +173,5 @@ private:
+ 	uint32_t size = 0;
+ 	uint32_t pos = 0;
+ 	Package* package = nullptr;
++	bool hp2Tokens = false;
+ };
 diff --git a/SurrealEngine/VM/Frame.cpp b/SurrealEngine/VM/Frame.cpp
 index 1e7b3c96..155201ae 100644
 --- a/SurrealEngine/VM/Frame.cpp
