@@ -21,7 +21,7 @@ SurrealEngine/GameApp.cpp
 [0003-cursor-focus.patch] flipendo: only recenter the mouse cursor, and only act on raw mouse/keyboard input, while the game window is the active (foreground) window; window icons the right way up
 SurrealWidgets/**
 
-[0010-engine-fixes.patch] flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files (UTF-16 localization files), packages (Unicode strings), UTF-16 strings on Linux, GetLanguage, fonts (character remap, text drawn by code point, runtime-made fonts), crash reports, music streaming and following the default audio device (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties
+[0010-engine-fixes.patch] flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files (UTF-16 localization files), packages (Unicode strings), UTF-16 strings and file names that differ in case on Linux, GetLanguage, fonts (character remap, text drawn by code point, runtime-made fonts), crash reports, music streaming and following the default audio device (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties
 SurrealEngine/VM/**
 SurrealEngine/Packages/Core/**
 SurrealEngine/Package/IniFile.*
@@ -32,6 +32,7 @@ SurrealEngine/UI/**
 SurrealEngine/ObjectTravelInfo.*
 SurrealEngine/Audio/**
 SurrealEngine/Utils/UTF16.cpp
+SurrealEngine/Utils/File.*
 SurrealEngine/Packages/Engine/Resources/UFont.*
 SurrealEngine/Packages/Engine/Resources/Level/UModel.cpp
 

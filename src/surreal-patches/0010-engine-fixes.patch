@@ -1,4 +1,4 @@
-flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files (UTF-16 localization files), packages (Unicode strings), UTF-16 strings on Linux, GetLanguage, fonts (character remap, text drawn by code point, runtime-made fonts), crash reports, music streaming and following the default audio device (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties
+flipendo: fixes to SurrealEngine bugs (any game): VM, properties, ini files (UTF-16 localization files), packages (Unicode strings), UTF-16 strings and file names that differ in case on Linux, GetLanguage, fonts (character remap, text drawn by code point, runtime-made fonts), crash reports, music streaming and following the default audio device (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties
 
 diff --git a/SurrealEngine/Audio/AudioDevice.cpp b/SurrealEngine/Audio/AudioDevice.cpp
 index 03e82566..e921a0a9 100644
@@ -745,6 +745,61 @@ index 218f7552..68fcd29f 100644
  			std::list<LogMessageLine> log = Logger::Get()->LoadLog(logFilename);
  
  			LogMessageLine line;
+diff --git a/SurrealEngine/Utils/File.cpp b/SurrealEngine/Utils/File.cpp
+index 3a709765..48030ddb 100644
+--- a/SurrealEngine/Utils/File.cpp
++++ b/SurrealEngine/Utils/File.cpp
+@@ -545,4 +545,33 @@ std::string OS::find_truetype_font(const std::string& font_name_and_extension)
+ 
+ 	// We couldn't find the font in any of the folders, bail out
+ 	return "";
+-}
+\ No newline at end of file
++}
++
++fs::path File::find_ignoring_case(const fs::path& path)
++{
++	std::error_code ec;
++	if (path.empty() || fs::exists(path, ec))
++		return path;
++
++	fs::path result;
++	bool matching = true;
++	for (const fs::path& part : path)
++	{
++		fs::path next = result / part;
++		if (matching && !result.empty() && !fs::exists(next, ec))
++		{
++			matching = false;
++			for (const auto& entry : fs::directory_iterator(result, ec))
++			{
++				if (StrTools::equals_ignore_case(entry.path().filename().string(), part.string()))
++				{
++					next = entry.path();
++					matching = true;
++					break;
++				}
++			}
++		}
++		result = next;
++	}
++	return result;
++}
+diff --git a/SurrealEngine/Utils/File.h b/SurrealEngine/Utils/File.h
+index b2ae131f..772b9317 100644
+--- a/SurrealEngine/Utils/File.h
++++ b/SurrealEngine/Utils/File.h
+@@ -39,6 +39,10 @@ public:
+ 	static std::string read_all_text(const std::string& filename);
+ 	static Array<std::string> read_all_lines(const std::string& filename);
+ 
++	// The path with each part that doesn't exist matched to a file or folder whose name differs only in case (game
++	// folders copied from Windows, such as HP2's system/ and default.ini). Parts with no match are kept as they are.
++	static fs::path find_ignoring_case(const fs::path& path);
++
+ 	static bool try_delete(const std::string& filename);
+ 	static void delete_always(const std::string& filename);
+ 
 diff --git a/SurrealEngine/Utils/UTF16.cpp b/SurrealEngine/Utils/UTF16.cpp
 index 7f36592b..1b21673f 100644
 --- a/SurrealEngine/Utils/UTF16.cpp

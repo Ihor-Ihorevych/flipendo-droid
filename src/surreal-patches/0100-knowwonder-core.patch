@@ -465,7 +465,7 @@ index 287956c1..27898722 100644
  }
  
 diff --git a/SurrealEngine/Package/PackageManager.cpp b/SurrealEngine/Package/PackageManager.cpp
-index 333a3135..9a8cc0a0 100644
+index 333a3135..1f6b0dd6 100644
 --- a/SurrealEngine/Package/PackageManager.cpp
 +++ b/SurrealEngine/Package/PackageManager.cpp
 @@ -6,6 +6,7 @@
@@ -484,6 +484,15 @@ index 333a3135..9a8cc0a0 100644
  #include "Packages/ConSys/Events/UConEventTransferObject.h"
  #include "Packages/ConSys/Events/UConEventTrigger.h"
  #include "Packages/ConSys/History/UConHistory.h"
+@@ -313,7 +315,7 @@
+ PackageManager::PackageManager(const GameLaunchInfo& launchInfo) : launchInfo(launchInfo)
+ {
+ 	gameRootFolderPath = fs::path(launchInfo.gameRootFolder);
+-	gameSystemFolderPath = gameRootFolderPath / "System";
++	gameSystemFolderPath = File::find_ignoring_case(gameRootFolderPath / "System");
+ 
+ 	RegisterNativeClasses();
+ 	CreateTransientPackage();
 @@ -339,7 +341,7 @@ void PackageManager::CreateTransientPackage()
  	packages["Transient"].set(GC::Alloc<Package>(this, "Transient", ""));
  }
@@ -559,18 +568,59 @@ index 333a3135..9a8cc0a0 100644
  					else
  						packageFilenames[fileNameString] = (packageDirPath / dir_entry.path().filename()).string();
  				}
-@@ -538,6 +572,11 @@ void PackageManager::ScanPaths()
- 		// Calculate the final, absolute path
- 		auto finalPath = (gameSystemFolderPath / currentPath).lexically_normal().parent_path();
+@@ -536,7 +570,12 @@ void PackageManager::ScanPaths()
+ 		auto filename = currentPath.filename();
  
+ 		// Calculate the final, absolute path
+-		auto finalPath = (gameSystemFolderPath / currentPath).lexically_normal().parent_path();
++		auto finalPath = File::find_ignoring_case((gameSystemFolderPath / currentPath).lexically_normal().parent_path());
++
 +		// remember the search folders for missing data messages, and report missing ones right away
 +		searchPaths.push_back({ currentPathStr, finalPath.string() });
 +		if (!fs::exists(finalPath))
 +			LogMessage("Game data folder missing: " + finalPath.string() + " (Paths=" + currentPathStr + " in [Core.System])");
-+
+ 
  		// Add map folders in a separate list, so ScanForMaps() can use them
  		if (filename.string() == "*." + GetMapExtension())
- 			mapFolders.push_back(finalPath.string());
+@@ -847,30 +886,30 @@ void PackageManager::LoadEngineIniFiles()
+ 	std::string systemIniFileName = "SE-" + systemIniName + ".ini";
+ 	std::string userIniName = "SE-User.ini";
+ 
+-	if ( !File::try_open_existing((gameSystemFolderPath / systemIniFileName).string()) )
++	if ( !File::try_open_existing(File::find_ignoring_case(gameSystemFolderPath / systemIniFileName).string()) )
+ 	{
+ 		missing_se_system_ini = true;
+ 		systemIniFileName = systemIniFileName.substr(3); // Trim off the "SE-" part
+-		if (!File::try_open_existing((gameSystemFolderPath / systemIniFileName).string()))
++		if (!File::try_open_existing(File::find_ignoring_case(gameSystemFolderPath / systemIniFileName).string()))
+ 			systemIniFileName = "Default.ini"; // use the default ini as a last resort
+ 	}
+ 
+ 	// Also load Default.ini, so that we can reset values.
+-	defaultIniFile = std::make_unique<IniFile>((gameSystemFolderPath / "Default.ini").string());
++	defaultIniFile = std::make_unique<IniFile>(File::find_ignoring_case(gameSystemFolderPath / "Default.ini").string());
+ 
+-	iniFiles[systemIniName] = std::make_unique<IniFile>((gameSystemFolderPath / systemIniFileName).string());
++	iniFiles[systemIniName] = std::make_unique<IniFile>(File::find_ignoring_case(gameSystemFolderPath / systemIniFileName).string());
+ 
+ 	if (launchInfo.ue1Version > 219)
+ 	{
+-		if (!File::try_open_existing((gameSystemFolderPath / userIniName).string()))
++		if (!File::try_open_existing(File::find_ignoring_case(gameSystemFolderPath / userIniName).string()))
+ 		{
+ 			userIniName = userIniName.substr(3); // Trim off the "SE-" part
+-			if (!File::try_open_existing((gameSystemFolderPath / userIniName).string()))
++			if (!File::try_open_existing(File::find_ignoring_case(gameSystemFolderPath / userIniName).string()))
+ 				userIniName = "DefUser.ini";
+ 		}
+ 
+-		iniFiles["User"] = std::make_unique<IniFile>((gameSystemFolderPath / userIniName).string());
+-		defaultUserFile = std::make_unique<IniFile>((gameSystemFolderPath / "DefUser.ini").string());
++		iniFiles["User"] = std::make_unique<IniFile>(File::find_ignoring_case(gameSystemFolderPath / userIniName).string());
++		defaultUserFile = std::make_unique<IniFile>(File::find_ignoring_case(gameSystemFolderPath / "DefUser.ini").string());
+ 	}
+ }
+ 
 @@ -1182,6 +1221,9 @@ void PackageManager::RegisterFunctions()
  	{
  		NRMusicPlayer::RegisterFunctions();
