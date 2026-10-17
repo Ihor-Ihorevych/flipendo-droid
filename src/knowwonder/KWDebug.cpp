@@ -869,8 +869,9 @@ namespace KW
 		float label = times.front();
 		times.erase(times.begin());
 
-		int width = engine->viewport->ViewportWidth();
-		int height = engine->viewport->ViewportHeight();
+		// ReadPixels copies the scene buffer, which is in native pixels (twice the viewport size on a Retina Mac)
+		int width = device->Viewport->GetNativePixelWidth();
+		int height = device->Viewport->GetNativePixelHeight();
 		Array<TextureColor> pixels((size_t)width * height);
 		device->ReadPixels(pixels.data());
 

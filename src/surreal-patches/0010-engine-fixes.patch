@@ -1063,6 +1063,29 @@ index dfa376d1..52d434b8 100644
  	Package* package = nullptr;
 +	bool hp2Tokens = false;
  };
+diff --git a/SurrealEngine/VM/ExpressionValue.h b/SurrealEngine/VM/ExpressionValue.h
+index 908adb98..e11e90db 100644
+--- a/SurrealEngine/VM/ExpressionValue.h
++++ b/SurrealEngine/VM/ExpressionValue.h
+@@ -376,6 +376,7 @@ inline ExpressionValue ExpressionValue::DefaultValue(UProperty* prop)
+ 	{
+ 		ExpressionValue v(prop->ValueType);
+ 		v.GetStructValue()->Init(static_cast<UStructProperty*>(prop)->Struct);
++		v.Ptr = v.GetStructValue()->Ptr; // Init allocated new storage; don't rely on a copy on return to refresh Ptr
+ 		return v;
+ 	}
+ 	case ExpressionValueType::ValueCoords: return CoordsValue({});
+@@ -387,7 +388,10 @@ inline ExpressionValue ExpressionValue::PropertyValue(UProperty* prop)
+ {
+ 	ExpressionValue v(prop->ValueType);
+ 	if (prop->ValueType == ExpressionValueType::ValueStruct)
++	{
+ 		v.GetStructValue()->Init(static_cast<UStructProperty*>(prop)->Struct);
++		v.Ptr = v.GetStructValue()->Ptr;
++	}
+ 	if (v.Type != ExpressionValueType::Nothing)
+ 		return v;
+ 	Exception::Throw("Unsupported expression value property type");
 diff --git a/SurrealEngine/VM/Frame.cpp b/SurrealEngine/VM/Frame.cpp
 index 1e7b3c96..b439a79f 100644
 --- a/SurrealEngine/VM/Frame.cpp

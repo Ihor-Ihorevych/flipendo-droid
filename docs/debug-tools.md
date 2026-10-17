@@ -23,7 +23,7 @@ Times are seconds since the first frame.
 | `HP1_SKIPCUTS` | `1` | press Space whenever a cutscene holds Harry (the CutsceneSkip mod fast-forwards it) |
 | `HP1_GOD` | `1` | refill Harry's health (`lifePotions`) to `MaxLifePotions` every tick (UE1's `God` cheat does nothing in HP1: `baseHarry.TakeDamage` ignores `ReducedDamageType`) |
 | `HP1_FLY` | `1` | F toggles fly mode: UE1's `PlayerPawn.Fly` cheat (state `CheatFlying`, collision on; Jump goes up, Duck down), F again `Walk`s back to `PlayerWalking` |
-| `HP1_BACKGROUND` | `1` | open the window windowed, behind the other windows and without taking focus, so automated runs don't take over the screen |
+| `HP1_BACKGROUND` | `1` | open the window windowed, behind the other windows and without taking focus, so automated runs don't take over the screen (Windows only; elsewhere the window opens as usual) |
 | `HP1_EXEC` | `"3:@console.MenuBook.SlotPage LoadSelectedSlot"` | commands at those times, `;` separated (below) |
 
 ### `HP1_EXEC` commands
