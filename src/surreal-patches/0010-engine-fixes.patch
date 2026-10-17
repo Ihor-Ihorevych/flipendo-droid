@@ -459,6 +459,24 @@ index 78b0a27d..c96a6e5b 100644
  		return obj;
  	}
  	else
+diff --git a/SurrealEngine/Packages/Core/Properties/UStrProperty.cpp b/SurrealEngine/Packages/Core/Properties/UStrProperty.cpp
+index ce5b70fc..efd65370 100644
+--- a/SurrealEngine/Packages/Core/Properties/UStrProperty.cpp
++++ b/SurrealEngine/Packages/Core/Properties/UStrProperty.cpp
+@@ -45,7 +45,12 @@ void UStrProperty::SaveValue(void* data, PackageStreamWriter* stream)
+ 
+ void UStrProperty::SetValueFromString(void* data, const std::string& valueString)
+ {
+-	*(std::string*)data = valueString;
++	// PrintValue quotes the text (as UE1's ExportText does), so a quoted value is read back without its quotes, as UE1's
++	// ImportText does. Travel goes through both: HP2's CurrentGameState came back as "GSTATE010" with the quotes.
++	if (valueString.size() >= 2 && valueString.front() == '"' && valueString.back() == '"')
++		*(std::string*)data = valueString.substr(1, valueString.size() - 2);
++	else
++		*(std::string*)data = valueString;
+ }
+ 
+ std::string UStrProperty::PrintValue(const void* data)
 diff --git a/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp b/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp
 index 2f91f141..e3a86d3f 100644
 --- a/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp

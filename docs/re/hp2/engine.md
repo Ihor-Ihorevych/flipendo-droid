@@ -31,6 +31,10 @@ The biggest engine feature HP1 doesn't have. HP2's Engine.dll has it (`ScreenAct
   load a level".
 - Without it every CutScene stays enabled: PrivetDr ran its intro (`GSTATE000`) and `00001PrivetIntroPart3`
   (`GState010`) at once, and Part3 took over Harry and the camera.
+- `CurrentGameState` reaches the next map as a travel property. SurrealEngine wrote travel strings quoted and read the
+  quotes back in, so the state arrived as `"GSTATE010"`, failed the master list check and nothing was screened (PrivetDr
+  after Diagon Alley ran its intro and Part3 together, black screen). `UStrProperty::SetValueFromString` now drops the
+  quotes, as UE1's ImportText does (`0010-engine-fixes.patch`, any game).
 - Flipendo: `HP2::ScreenActorsByGameState` (`src/hp2/HP2GameState.cpp`), called at the end of `Engine::LoginPlayer`
   for maps other than Entry. The `GAMESTATE=` override isn't ported.
 
