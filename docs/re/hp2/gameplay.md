@@ -36,6 +36,24 @@ that event never comes and every `bLevelLoadStarts` cutscene in the map starts (
 `00001PrivetIntroPart3` at once). Flipendo screens actors since 2026-10-17. `ParseCommand` also relies on `switch`
 ignoring case ([scripting.md](../engine/scripting.md#switch-on-strings-ignores-case)).
 
+## Accessed None from the scripts themselves
+
+These show in every run and come from HP2's own scripts, so the original hits them as well (UE1 logs and goes on):
+
+- `harry.PreBeginPlay`: `HPConsole(Player.Console).menuBook` before the pawn is possessed (Player is None).
+- `FESoundVideoPage.Created`: the volume labels' text reads `MusicVolumeSlider.Value` / `SoundVolumeSlider.Value`
+  before the sliders are created.
+- `baseWand.StopChargingSpell`: `fxChargeParticles.Shutdown()` without a check, through `harry.StopAiming` when
+  nothing is charging.
+- `harry.PlayFootStep`: `HearHarryRecipient.PawnHearHarryNoise()` with no recipient.
+- `StatusGroupWizardCards.RemoveHarryOwnedCardsFromLevel(None)` (from `harry.TravelPostAccept`): reads
+  `wcExceptThisInstance.Name`.
+- `FEInputPage.BeforePaint`: `InQuidditch_KeyButtons[I]` entries that were never created.
+- `GameInfo.ScoreKill`: a pawn without a PlayerReplicationInfo that dies ([engine/scripting.md](../engine/scripting.md#an-out-parameter-through-a-none-context)).
+
+`harry.CutCommand` (`CutScript.Running.Tick`) follows the "previous CutCommand hasnt finished yet" cutscene errors and
+belongs with them.
+
 ## Saving
 
 `PlayerPawn.SaveGame()` only queues a save for the end of the level tick; the slot page reads save number 0 from a

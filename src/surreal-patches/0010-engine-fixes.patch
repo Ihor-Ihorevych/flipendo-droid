@@ -1064,7 +1064,7 @@ index dfa376d1..52d434b8 100644
 +	bool hp2Tokens = false;
  };
 diff --git a/SurrealEngine/VM/Frame.cpp b/SurrealEngine/VM/Frame.cpp
-index 1e7b3c96..20368457 100644
+index 1e7b3c96..b439a79f 100644
 --- a/SurrealEngine/VM/Frame.cpp
 +++ b/SurrealEngine/VM/Frame.cpp
 @@ -1,5 +1,6 @@
@@ -1107,7 +1107,22 @@ index 1e7b3c96..20368457 100644
  		return ExpressionValue::NothingValue();
  	}
  
-@@ -658,8 +670,7 @@ ExpressionEvalResult Frame::Run()
+@@ -377,7 +389,13 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, const Arra
+ 			}
+ 			else if (argindex < args.size())
+ 			{
+-				frameArgs[argindex++] = args[argindex];
++				// An out parameter read through a None context (Other.PlayerReplicationInfo.Score -= 1 with no
++				// PlayerReplicationInfo) is already logged as Accessed None. UE1 gives the native a temporary to
++				// write to instead of a script error.
++				if (args[argindex].GetType() == ExpressionValueType::Nothing && AllFlags(prop->PropFlags, PropertyFlags::OutParm) && !AllFlags(prop->PropFlags, PropertyFlags::OptionalParm))
++					frameArgs[argindex++] = ExpressionValue::DefaultValue(prop);
++				else
++					frameArgs[argindex++] = args[argindex];
+ 			}
+ 			else
+ 			{
+@@ -658,8 +676,7 @@ ExpressionEvalResult Frame::Run()
  			Iterators.pop_back();
  			break;
  		case StatementResult::AccessedNone:
@@ -1117,7 +1132,7 @@ index 1e7b3c96..20368457 100644
  			break;
  		}
  
-@@ -682,7 +693,12 @@ void Frame::ProcessSwitch(const ExpressionValue& condition)
+@@ -682,7 +699,12 @@ void Frame::ProcessSwitch(const ExpressionValue& condition)
  		{
  			//ExpressionValue casevalue = ExpressionEvaluator::Eval(caseexpr->Value, Object, Object, Variables).Value;
  			ExpressionValue casevalue = RunExpr(caseexpr->Value, Object, Object, Variables).Value;

@@ -1,6 +1,6 @@
 #include "Precomp.h"
-#include "HP1.h"
 #include "KW.h"
+#include "KWGame.h"
 #include "Engine.h"
 #include "GameWindow.h"
 #include "RenderDevice/RenderDevice.h"
@@ -15,20 +15,21 @@
 #include <cmath>
 #include <cstdio>
 
-// Widescreen / high resolution 2D for HP1. Not a reimplementation of Engine.dll code: the original only ever ran
-// at 4:3 resolutions up to 1024x768 with a canvas of exactly one unit per pixel.
+// Widescreen / high resolution 2D for HP1 and HP2. Not a reimplementation of Engine.dll code: the originals only ever
+// ran at 4:3 resolutions up to 1024x768 (HP2's debug mode also 1280x1024) with a canvas of exactly one unit per pixel.
 //
 // - UI scale: the canvas is kept 768 units tall (what the game looked like at 1024x768) with a fractional scale,
 //   instead of upstream's whole-number steps (2x at 1440p gave a 720-unit canvas).
 // - HUD (PlayerPawn.PostRender -> HUD): uses the full window width. Every HUD element is anchored to an edge or
 //   centred on SizeX/2, and the cutscene letterbox bars are SizeX wide, so this is what makes them cover the screen.
 // - Console.PostRender (the FEBook menus, story book, message boxes, loading text): drawn in a centred 4:3 area.
-//   HPConsole sets Root.GUIScale = width / 640 and lays the book out at 640x480, so a wider canvas would push the
-//   book off the bottom of the screen.
-// - Resolutions: GetRes lists the common modes up to the desktop size and FEOptionsPage.IsSupportedResolution
-//   (script, allows 512x384..1024x768 only) is replaced with a native that accepts anything from 640x480 up.
+//   HPConsole sets Root.GUIScale = width / 640 and lays the book out at 640x480 (HP1's HPMenu and HP2's hgame alike),
+//   so a wider canvas would push the book off the bottom of the screen.
+// - Resolutions: GetRes lists the common modes up to the desktop size and the options page's IsSupportedResolution
+//   (script: HP1's FEOptionsPage allows 512x384..1024x768, HP2's FESoundVideoPage 640x480..1024x768) is replaced with
+//   a native that accepts anything from 640x480 up.
 
-namespace HP1
+namespace KW
 {
 	namespace
 	{
@@ -86,14 +87,15 @@ namespace HP1
 		ReturnValue = std::sscanf(TempStr.c_str(), "%dx%d", &width, &height) == 2 && width >= 640 && height >= 480;
 	}
 
-	// FEOptionsPage is only loaded once the options page exists, which is also when it first calls GetRes. Turning
+	// The options page class is only loaded once the page exists, which is also when it first calls GetRes. Turning
 	// the script function into a native by name works because Frame::Call checks FUNC_Native on every call.
 	static void InstallResolutionOverride()
 	{
 		if (ResolutionOverrideInstalled)
 			return;
 
-		UClass* cls = engine->packages->FindClass("HPMenu.FEOptionsPage");
+		const char* className = IsHP1() ? "FEOptionsPage" : "FESoundVideoPage";
+		UClass* cls = engine->packages->FindClass(IsHP1() ? "HPMenu.FEOptionsPage" : "HGame.FESoundVideoPage");
 		if (!cls)
 			return;
 
@@ -102,7 +104,7 @@ namespace HP1
 			UFunction* func = UObject::TryCast<UFunction>(field);
 			if (func && func->Name == "IsSupportedResolution")
 			{
-				RegisterVMNativeFunc_2("FEOptionsPage", "IsSupportedResolution", &NIsSupportedResolution, 0);
+				RegisterVMNativeFunc_2(className, "IsSupportedResolution", &NIsSupportedResolution, 0);
 				func->NativeStruct = cls;
 				func->NativeFuncIndex = 0;
 				func->FuncFlags = func->FuncFlags | FunctionFlags::Native;
@@ -112,7 +114,7 @@ namespace HP1
 		}
 	}
 
-	// SurrealEngine only offers the desktop size, in DPI-scaled units, which can leave FEOptionsPage with an empty
+	// SurrealEngine only offers the desktop size, in DPI-scaled units, which can leave the options page with an empty
 	// list (its combo list then divides by zero). List the common modes that fit the desktop, the desktop itself and
 	// the current window size, in pixels like SetRes takes them.
 	std::string AvailableResolutions(GameWindow* window)

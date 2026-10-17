@@ -80,6 +80,17 @@ read in HP2's Engine.dll.
 
 ## Rendering
 
+- Menus: HP2's `HPConsole` lays the book out like HP1's (`Root.SetScale(RealWidth / 640)`, `FEBook` 640x480), so it
+  shares HP1's widescreen canvas (`src/knowwonder/KWCanvas.cpp`): HUD full width, console and menus in a centred 4:3
+  area. Its resolution list comes from `FESoundVideoPage.IsSupportedResolution` (640x480, 800x600, 1024x768; 1280x1024
+  in debug mode), replaced like HP1's. The page also asks `IsFullscreen` (WinDrv's `UWindowsViewport::Exec`, prints
+  True or False) and sends `MLOD <factor>` (Render.dll's `URender::Exec` [HP2 Render 0x10B1EB90]: the global mesh LOD
+  factor, ignored here as meshes are drawn at full detail; HP1's Render.dll has it too).
+- Cutscene text: `HPHud.DrawCutStyleText` draws with `Style = 2` (masked) in `CutSceneManager.colorCutTextBlue`, whose
+  alpha is 0. A masked bitmap font ignores the alpha, so English subtitles show (checked 2026-10-17 at 640x480 and
+  1920x1080). The languages that use system fonts (`CreateNativeFont`) would have drawn additively; native fonts now
+  ignore the alpha as GDI does ([engine/fonts.md](../engine/fonts.md#system-fonts-consolecreatenativefont)).
+
 - Particle colour: HP2 may fade it by `ParticleFX.Opacity * Alpha`; HP1's Render.dll uses `ScaleGlow * Alpha`
   ([engine/particles.md](../engine/particles.md)). Check HP2's Render.dll.
 - Actor shadows, `Actor.Opacity` and the loading screen: expected to be the same as HP1's
@@ -92,6 +103,15 @@ read in HP2's Engine.dll.
   `PlayerPawn.Song` is a string). Flipendo: `src/hp2/HP2Music.cpp`, written from the scripts and NOT yet checked against
   ALAudio.dll: one song at a time, looping, linear fades. `KW::UpdateMusic` hands over to it for HP2 (HP1's Galaxy
   music properties don't exist in HP2's PlayerPawn).
+- Volumes: ALAudio keeps `MusicVolume` / `SoundVolume` as floats 0..1 (`[ALAudio.ALAudioSubsystem]` ships 0.53 and 0.9),
+  and the options page (`FESoundVideoPage`) reads and writes them so (`get ini:Engine.Engine.AudioDevice MusicVolume`
+  times 100, `set ... MusicVolume <slider / 100>`). `SETVOLUMES SOUND=<f> MUSIC=<f>` (`UALAudioSubsystem::Exec`
+  [HP2 ALAudio 0x100067B0]) clamps each to 0..1 and sets every playing source's gain at once: a music stream gets the
+  music volume, a sound its own volume times the sound volume. SurrealEngine's audio device keeps HP1's bytes 0..255
+  and parsed `1.000000` as 1 of 255 (near silence after touching a slider); for HP2 it reads and writes its ini
+  volumes as floats (`HP2::VolumeFromIni`/`VolumeToIni`), `HP2::AudioCommand` handles `SETVOLUMES`, and on the first
+  run it takes its settings from `[ALAudio.ALAudioSubsystem]` and `[D3DDrv.D3DRenderDevice]` instead of HP1's Galaxy
+  and Direct3D sections.
 - HP2 has no IpDrv package; SurrealEngine's IpDrv property offsets are skipped for it (`0200-hp2.patch`).
 - `I3DL2Listener` (Engine.u): EAX / I3DL2 reverb settings per zone, used by ALAudio.
 

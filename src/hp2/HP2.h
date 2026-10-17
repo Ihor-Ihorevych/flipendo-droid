@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include "Utils/Array.h"
 
 class AudioDevice;
@@ -20,10 +21,17 @@ namespace HP2
 	// KW::UpdateMusic hands over to. Returns the music volume (0..1).
 	void RegisterMusicNatives();
 	float UpdateMusic(AudioDevice* device, uint8_t musicVolume);
-	// ALAudio's console commands: MUTESOUNDS / UNMUTESOUNDS (HPConsole sends them while a skipped cutscene fast-forwards).
-	// While muted the sound effects play at volume 0; the music goes on.
+	// ALAudio's console commands: MUTESOUNDS / UNMUTESOUNDS (HPConsole sends them while a skipped cutscene fast-forwards;
+	// while muted the sound effects play at volume 0, the music goes on) and SETVOLUMES SOUND=<f> MUSIC=<f> (the options page).
 	bool AudioCommand(const Array<std::string>& args);
 	bool SoundsMuted();
+	// HP2's MusicVolume / SoundVolume ini values are floats 0..1 (ALAudio), the audio device's bytes 0..255.
+	// USurrealAudioDevice reads and writes its ini volumes through these.
+	uint8_t VolumeFromIni(const std::string& value, uint8_t defaultValue);
+	std::string VolumeToIni(uint8_t volume);
+	// What the engine loads its audio settings from on the first run, before it has its own ini section.
+	constexpr const char* AudioIniSection = "ALAudio.ALAudioSubsystem";
+	constexpr const char* RenderIniSection = "D3DDrv.D3DRenderDevice";
 
 	// After a map loads (not Entry): sets each actor's bInCurrentGameState from the player's CurrentGameState and raises
 	// OnResolveGameState (src/hp2/HP2GameState.cpp)

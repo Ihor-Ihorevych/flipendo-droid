@@ -1,4 +1,4 @@
-flipendo: KnowWonder rendering (FOV, skeletal meshes, particles, translucency, vertex alpha, actor shadows, textures; loading screen; HP1 menu canvas, coronas); BSP surfaces take the zone on the camera's side (any game)
+flipendo: KnowWonder rendering (FOV, skeletal meshes, particles, translucency, vertex alpha, actor shadows, textures; loading screen; menu canvas, coronas); BSP surfaces take the zone on the camera's side (any game)
 
 diff --git a/SurrealEngine/Light/LightSystem.h b/SurrealEngine/Light/LightSystem.h
 index e1e0062e..5fa8f0dd 100644
@@ -230,7 +230,7 @@ index 3b522523..80f6309e 100644
  		FontGlyph glyph = Font->GetGlyph(c);
  		x += glyph.USize;
 diff --git a/SurrealEngine/Render/RenderCanvas.cpp b/SurrealEngine/Render/RenderCanvas.cpp
-index 4b2aa5c5..b1445106 100644
+index 4b2aa5c5..55b1394a 100644
 --- a/SurrealEngine/Render/RenderCanvas.cpp
 +++ b/SurrealEngine/Render/RenderCanvas.cpp
 @@ -8,12 +8,15 @@
@@ -253,8 +253,8 @@ index 4b2aa5c5..b1445106 100644
  	// Assume 1280x960 for UT and newer.
  	int vertResolution = engine->LaunchInfo.ue1Version < 400 ? 768 : 960;
  	Canvas.uiscale = std::max((engine->viewport->ViewportHeight() + vertResolution / 2) / vertResolution, 1);
-+	if (engine->LaunchInfo.IsHarryPotter1()) // fractional UI scale (src/hp1/HP1Canvas.cpp)
-+		Canvas.uiscale = HP1::CanvasUIScale(engine->viewport->ViewportHeight());
++	if (engine->LaunchInfo.IsKnowWonder()) // fractional UI scale (src/knowwonder/KWCanvas.cpp)
++		Canvas.uiscale = KW::CanvasUIScale(engine->viewport->ViewportHeight());
  
  	SceneNode frame;
  	Canvas.Frame.XB = 0;
@@ -267,8 +267,8 @@ index 4b2aa5c5..b1445106 100644
 -		engine->canvas->ClipX() = (float)sizeY * (4.0f / 3.0f);
 -		engine->canvas->SizeX() = (int)std::round(sizeY * (4.0f / 3.0f));
 -	}
-+	if (engine->LaunchInfo.IsHarryPotter1()) // full-width HUD canvas; menus get a 4:3 area in PostRender (src/hp1/HP1Canvas.cpp)
-+		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, false);
++	if (engine->LaunchInfo.IsKnowWonder()) // full-width HUD canvas; menus get a 4:3 area in PostRender (src/knowwonder/KWCanvas.cpp)
++		KW::SetCanvasArea(Canvas.Frame, Canvas.uiscale, false);
  
  	//engine->viewport->bShowWindowsMouse() = true; // bShowWindowsMouse is set to true by WindowConsole if mouse cursor should be visible
  	//engine->viewport->bWindowsMouseAvailable() = true; // if true then RenderUWindow updates mouse pos from (WindowsMouseX,WindowsMouseY), otherwise it uses KeyEvent(IK_MouseX, delta) + KeyEvent(IK_MouseY, delta). Maybe used for windowed mode?
@@ -290,22 +290,23 @@ index 4b2aa5c5..b1445106 100644
  		{
  			CallEvent(engine->viewport->Actor(), EventName::RenderOverlays, { ExpressionValue::ObjectValue(engine->canvas) });
  		}
-@@ -101,13 +112,39 @@ void RenderSubsystem::PostRender()
+@@ -101,13 +112,40 @@ void RenderSubsystem::PostRender()
  	Device->SetSceneNode(&Canvas.Frame);
  	if (engine->viewport->Actor())
  		CallEvent(engine->viewport->Actor(), EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
-+	if (engine->LaunchInfo.IsHarryPotter1()) // console/menus in a centred 4:3 area (src/hp1/HP1Canvas.cpp)
++	if (engine->LaunchInfo.IsKnowWonder()) // console/menus in a centred 4:3 area (src/knowwonder/KWCanvas.cpp)
 +	{
-+		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, true);
++		KW::SetCanvasArea(Canvas.Frame, Canvas.uiscale, true);
 +		Device->SetSceneNode(&Canvas.Frame);
 +	}
  	CallEvent(engine->console, EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
-+	if (engine->LaunchInfo.IsHarryPotter1())
++	if (engine->LaunchInfo.IsKnowWonder())
 +	{
-+		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, false);
++		KW::SetCanvasArea(Canvas.Frame, Canvas.uiscale, false);
 +		Device->SetSceneNode(&Canvas.Frame);
-+		HP1::PostRenderMods(engine->canvas); // src/hp1/mods overlays (skip prompts), on top of HUD and menus
 +	}
++	if (engine->LaunchInfo.IsHarryPotter1())
++		HP1::PostRenderMods(engine->canvas); // src/hp1/mods overlays (skip prompts), on top of HUD and menus
  	DrawTimedemoStats();
  	
  	if (ShowCollisionDebug)
@@ -318,19 +319,19 @@ index 4b2aa5c5..b1445106 100644
 +	Device->Brightness = engine->client->Brightness;
 +	Device->Lock(vec4(0.5f, 0.5f, 0.5f, 1.0f), vec4(0.0f, 0.0f, 0.0f, 1.0f), vec4(0.0f), nullptr, nullptr);
 +	ResetCanvas();
-+	if (engine->LaunchInfo.IsHarryPotter1()) // console/menus in a centred 4:3 area (src/hp1/HP1Canvas.cpp)
-+		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, true);
++	if (engine->LaunchInfo.IsKnowWonder()) // console/menus in a centred 4:3 area (src/knowwonder/KWCanvas.cpp)
++		KW::SetCanvasArea(Canvas.Frame, Canvas.uiscale, true);
 +	Device->SetSceneNode(&Canvas.Frame);
 +	CallEvent(engine->console, "DrawLevelInfo", { ExpressionValue::ObjectValue(engine->canvas), ExpressionValue::StringValue(levelEnterText) });
-+	if (engine->LaunchInfo.IsHarryPotter1())
-+		HP1::SetCanvasArea(Canvas.Frame, Canvas.uiscale, false);
++	if (engine->LaunchInfo.IsKnowWonder())
++		KW::SetCanvasArea(Canvas.Frame, Canvas.uiscale, false);
 +	Device->Unlock(true);
 +}
 +
  void RenderSubsystem::PostRenderFlash()
  {
  	Device->SetSceneNode(&Canvas.Frame);
-@@ -133,10 +170,10 @@ void RenderSubsystem::DrawActor(UActor* actor, bool WireFrame, bool ClearZ)
+@@ -133,10 +171,10 @@ void RenderSubsystem::DrawActor(UActor* actor, bool WireFrame, bool ClearZ)
  void RenderSubsystem::DrawClippedActor(UActor* actor, bool WireFrame, int X, int Y, int XB, int YB, bool ClearZ)
  {
  	SceneNode frame;
@@ -345,7 +346,7 @@ index 4b2aa5c5..b1445106 100644
  	frame.FX = (float)X * Canvas.uiscale;
  	frame.FY = (float)Y * Canvas.uiscale;
  	frame.FX2 = frame.FX * 0.5f;
-@@ -254,7 +291,7 @@ void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<std::stri
+@@ -254,7 +292,7 @@ void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<std::stri
  {
  	for (size_t i = start; i < end; i++)
  	{
@@ -354,27 +355,33 @@ index 4b2aa5c5..b1445106 100644
  		{
  			FontGlyph glyph = font->GetGlyph(c);
  
-@@ -288,6 +325,9 @@ void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<std::stri
+@@ -288,6 +326,12 @@ void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<std::stri
  
  void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY, float& curX, float& curY, float& curXL, float& curYL, bool newlineAtEnd, const std::string& text, uint32_t polyflags, bool center, float spaceX, float spaceY, float clipX, float clipY, bool noDraw)
  {
 +	if (font->IsNative()) // anti-aliased coverage in the draw color, like the GDI text of HP1's Windows viewport
++	{
 +		polyflags = PF_Highlighted;
++		color.a = 1.0f; // GDI ignores DrawColor's alpha; HP2's cutscene text color has A=0, which would make it additive
++	}
 +
  	float totalWidth = 0.0f;
  	float totalHeight = 0.0f;
  
-@@ -381,6 +421,9 @@ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY,
+@@ -381,6 +425,12 @@ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY,
  
  void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float orgY, float curX, float curY, const std::string& text, uint32_t polyflags, bool checkHotKey, float clipX, float clipY, bool center)
  {
 +	if (font->IsNative()) // anti-aliased coverage in the draw color, like the GDI text of HP1's Windows viewport
++	{
 +		polyflags = PF_Highlighted;
++		color.a = 1.0f; // GDI ignores DrawColor's alpha; HP2's cutscene text color has A=0, which would make it additive
++	}
 +
  	FontGlyph uglyph = font->GetGlyph('_');
  	int uwidth = uglyph.USize;
  	int uheight = uglyph.VSize;
-@@ -397,7 +440,7 @@ void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float
+@@ -397,7 +447,7 @@ void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float
  
  	bool foundAmpersand = false;
  	int maxY = 0;
@@ -383,7 +390,7 @@ index 4b2aa5c5..b1445106 100644
  	{
  		if (checkHotKey && c == '&' && !foundAmpersand)
  		{
-@@ -457,7 +500,7 @@ void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float
+@@ -457,7 +507,7 @@ void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float
  
  			Rectf dest = Rectf::xywh(orgX + curX + centerX, orgY + curY, (float)glyph.USize, (float)glyph.VSize);
  			Rectf src = Rectf::xywh((float)glyph.StartU, (float)glyph.StartV, (float)glyph.USize, (float)glyph.VSize);
@@ -392,7 +399,7 @@ index 4b2aa5c5..b1445106 100644
  
  			curX += glyph.USize;
  			maxY = std::max(maxY, glyph.VSize);
-@@ -528,7 +571,7 @@ vec2 RenderSubsystem::GetTextSize(UFont* font, const std::string& text, float sp
+@@ -528,7 +578,7 @@ vec2 RenderSubsystem::GetTextSize(UFont* font, const std::string& text, float sp
  {
  	float x = 0.0f;
  	float y = 0.0f;

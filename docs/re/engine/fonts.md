@@ -50,5 +50,6 @@ Flipendo (`src/knowwonder/KWNativeFont.cpp`) finds the font file (Windows: GDI's
 Microsoft Sans Serif and Arial, since the real MS Sans Serif is a bitmap font; Linux: fontconfig, with the language
 added so the match covers its script), rasterizes Latin, Cyrillic and common punctuation into one BGRA page (cells
 the advance wide and ascent + descent high, the baseline at the ascent), and returns an ordinary UFont whose code
-points map to the cells. The canvas draws such a font premultiplied in the DrawColor, as GDI's anti-aliased text, and
+points map to the cells. The canvas draws such a font premultiplied in the DrawColor with its alpha taken as 1, as GDI's anti-aliased text
+(HP2's cutscene text color has alpha 0, which would make it additive), and
 scales it with the menu canvas like the bitmap fonts. Asian languages need their glyphs added to the set.

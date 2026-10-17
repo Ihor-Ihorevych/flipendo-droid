@@ -118,6 +118,13 @@ frame and ran off the end of the empty state. (HP1's Engine.dll; HP2 not checked
 `(WinHeight-7)/Count`, so an options dropdown with no entries divides by zero. SurrealEngine used plain C++ division
 there and crashed ("Integer divide by zero"). (HP1's Core.dll; HP2 not checked.)
 
+## An out parameter through a None context
+
+`Other.PlayerReplicationInfo.Score -= 1` with no PlayerReplicationInfo (HP2's `GameInfo.ScoreKill`, when a jelly bean
+falls out of the world) is an Accessed None in UE1 and the native writes to a temporary. SurrealEngine handed the
+native an empty value, which threw and logged a "Script error" with a callstack each time. `Frame::CallNative` now
+passes a default-valued temporary for such a (non-optional) out parameter (`0010-engine-fixes.patch`, any game).
+
 ## switch on strings ignores case
 
 `switch` matches its cases with the property's `Identical`, and `UStrProperty::Identical` compares with `appStricmp`
