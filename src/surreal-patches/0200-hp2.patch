@@ -1,10 +1,18 @@
-flipendo: Harry Potter 2: its sound objects' extra fields, no IpDrv package
+flipendo: Harry Potter 2: its sound objects' extra fields and XA sounds, no IpDrv package
 
 diff --git a/SurrealEngine/Packages/Engine/Resources/USound.cpp b/SurrealEngine/Packages/Engine/Resources/USound.cpp
-index 75eb4e30..f7149388 100644
+index 75eb4e30..13d0f85c 100644
 --- a/SurrealEngine/Packages/Engine/Resources/USound.cpp
 +++ b/SurrealEngine/Packages/Engine/Resources/USound.cpp
-@@ -15,11 +15,33 @@ void USound::Load(ObjectStream* stream)
+@@ -2,6 +2,7 @@
+ #include "Precomp.h"
+ #include "USound.h"
+ #include "Engine.h"
++#include "HP2.h"
+ #include "Audio/AudioSource.h"
+ #include "Audio/AudioDevice.h"
+ #include "Packages/Engine/Subsystems/USurrealAudioDevice.h"
+@@ -15,11 +16,33 @@ void USound::Load(ObjectStream* stream)
  	UObject::Load(stream);
  
  	Format = stream->ReadName();
@@ -38,7 +46,7 @@ index 75eb4e30..f7149388 100644
  }
  
  void USound::Save(PackageStreamWriter* stream)
-@@ -27,12 +49,34 @@ void USound::Save(PackageStreamWriter* stream)
+@@ -27,12 +50,34 @@ void USound::Save(PackageStreamWriter* stream)
  	UObject::Save(stream);
  
  	stream->WriteName(Format);
@@ -73,6 +81,18 @@ index 75eb4e30..f7149388 100644
  }
  
  void USound::GetSound()
+@@ -50,6 +95,11 @@ void USound::GetSound()
+ 	{
+ 		source = AudioSource::CreateMp3(Data);
+ 	}
++	else if (Format == "XA" && engine->LaunchInfo.IsHarryPotter2())
++	{
++		// HP2's EA-XA ADPCM; HP2Values hold the sample count, bits, channels and rate
++		source = AudioSource::CreateWav(HP2::DecodeXA(Data, HP2Values[1], HP2Values[3], HP2Values[4]));
++	}
+ 	else
+ 	{
+ 		Exception::Throw("Unsupported sound format: " + Format.ToString());
 diff --git a/SurrealEngine/Packages/Engine/Resources/USound.h b/SurrealEngine/Packages/Engine/Resources/USound.h
 index f4c32aea..decbebf6 100644
 --- a/SurrealEngine/Packages/Engine/Resources/USound.h

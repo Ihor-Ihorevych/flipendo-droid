@@ -110,7 +110,15 @@ For an XA sound they are a float (a duration-like value), the sample count, bits
 a wav sound has 0s. Then the data (a lazy array), and with flag 0x80 a second lazy array. Flag 4 makes ALAudio
 stream the sound instead of loading it into one buffer (`UALAudioSubsystem::RegisterSound`, [HP2 ALAudio 0x10003400]);
 a wav file is read with `FWaveModInfo::ReadWaveInfo` as in HP1. Flipendo reads the fields in `USound::Load`
-(`0200-hp2.patch`). In
+(`0200-hp2.patch`).
+
+Format `XA` (most of HP2's sound effects, ambience and dialogue) is EA-XA ADPCM, EA's own codec; HP2's folder even
+ships EA's `sx.exe`. Engine.dll only has the encoder (`USound::CompressXA`); ALAudio hands the sound to Core.dll's
+`FFileStream`, whose decoder wasn't found (no coefficient table in Core, ALAudio or OpenAL32). The data matches EA-XA
+mono exactly: 15-byte blocks of 28 samples (a sound of 429,638 samples is 15,345 blocks, 230,175 bytes), the header byte
+holding the predictor (high nibble, coefficient pairs 0/0, 240/0, 460/-208, 392/-220 in 1/256) and the shift (low
+nibble). Both nibble orders sound alike in a smoothness test; the high nibble first of the common EA-XA layout is used.
+Flipendo decodes it to a WAV in `src/hp2/HP2Sound.cpp`. Not checked by ear against the original. In
 the HP1 vs HP2 code comparison HP2's `execPlaySound`, `execPlayOwnedSound` and `execClientHearSound` are
 "changed" and `CheckHearSound` isn't exported (inlined or rewritten); none of it, nor ALAudio.dll's mixing, has been
 read yet.

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include "Utils/Array.h"
 
 class AudioDevice;
 
@@ -18,6 +19,9 @@ namespace HP2
 	// KW::UpdateMusic hands over to. Returns the music volume (0..1).
 	void RegisterMusicNatives();
 	float UpdateMusic(AudioDevice* device, uint8_t musicVolume);
+
+	// HP2's "XA" sounds (EA-XA ADPCM, src/hp2/HP2Sound.cpp) decoded into a 16-bit WAV file
+	Array<uint8_t> DecodeXA(const Array<uint8_t>& data, int sampleCount, int channels, int rate);
 
 	// HP2's script bytecode (src/hp2/HP2Bytecode.cpp, docs/re/engine/scripting.md). HP2 inserted a DebugInfo token at 0x38
 	// and moved GlobalFunction..FloatToBool up by one. ToStockToken maps an HP2 token byte to the stock UE1 value
