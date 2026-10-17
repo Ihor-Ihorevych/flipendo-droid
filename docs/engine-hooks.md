@@ -141,6 +141,7 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Engine.cpp` (LoadMap, LoadFromSaveFile), `Render/RenderSubsystem.h`, `RenderCanvas.cpp` | the loading screen: `KW::LoadMapFadeOut` at the start (fade to black over Console.FadeoutTime), `KW::LoadMapLevelInfo` once LevelInfo is loaded; `RenderSubsystem::DrawLevelInfo` draws Console.DrawLevelInfo on a black frame |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `KW::PawnRotateToward` in `TickRotateTo` (100-unit yaw tolerance); `KW::PawnTurnStep` when TurnTo / TurnToward start and in their polls |
 | `GameFolder.h` | `IsKnowWonder()` is HP1 or HP2 |
+| `Render/VisibleFrame.cpp` (ProcessNodeSurface) | a one-sided BSP surface seen from behind is neither drawn nor an occluder, as in UE1 (any game; [rendering](re/engine/rendering.md#one-sided-bsp-surfaces-seen-from-behind)) |
 | `Engine.cpp` (LoginPlayer) | `IsHarryPotter2()`: `HP2::ScreenActorsByGameState` once the player is in, except on Entry ([GameState](re/hp2/engine.md#gamestate-actors-screened-by-the-story-state)) |
 | `Engine.cpp` (Run) | `IsHarryPotter2()`: without a URL, start `HP2::NewGameURL` (no front end yet, [startup](re/hp2/startup.md)) |
 | `VM/Bytecode.h`, `VM/Bytecode.cpp`, `Packages/Core/UStruct.cpp` | `IsHarryPotter2()`: HP2's bytecode, `HP2::ToStockToken` and DebugInfo records skipped ([scripting](re/engine/scripting.md#how-flipendo-reads-it)); HP1's DynArrayCount token for HP2 too |

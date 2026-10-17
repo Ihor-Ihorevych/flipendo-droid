@@ -147,6 +147,16 @@ the original. Not checked in HP1's code: after a reflection `OccludeBsp` marks t
 render device's dword at +0x48 is set (`ShinySurfaces`, +0x5C, decides whether a translucent mirror reflects at all;
 D3DDrv has it on).
 
+## One-sided BSP surfaces seen from behind
+
+UE1's BSP renderer draws a surface only from its front side unless it is `PF_TwoSided`, and a surface it doesn't draw
+doesn't hide what is behind it (stock UE1 behaviour, not reversed in Render.dll). SurrealEngine drew BSP surfaces from
+both sides (Vulkan without culling) and let them occlude. HP2's PrivetDr has a lone editor guide plane (`greenguide`,
+`PF_NotSolid` but not `PF_Invisible` on one face) between the title shot's camera and its sky backdrop
+(`harrymoviewall`, `PF_FakeBackdrop`): seen from behind it took the sky's place as a dark rectangle behind the Harry
+Potter logo. `VisibleFrame::ProcessNodeSurface` now drops a one-sided surface the camera is behind
+(`0130-knowwonder-render.patch`, any game; HP1's Lev_Tut1 looks the same).
+
 ## HP1 and HP2
 
 HP2's DLLs not read yet for these; what to check there:

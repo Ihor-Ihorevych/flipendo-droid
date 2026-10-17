@@ -735,7 +735,7 @@ index 36448a66..3f69fb58 100644
  	bool DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly& poly, int pass, UMover* mover, bool translucentPass);
  };
 diff --git a/SurrealEngine/Render/VisibleFrame.cpp b/SurrealEngine/Render/VisibleFrame.cpp
-index 818aa65d..2011f85f 100644
+index 818aa65d..8aa3f6be 100644
 --- a/SurrealEngine/Render/VisibleFrame.cpp
 +++ b/SurrealEngine/Render/VisibleFrame.cpp
 @@ -2,6 +2,7 @@
@@ -797,7 +797,7 @@ index 818aa65d..2011f85f 100644
  void VisibleFrame::SetupSceneFrame(const mat4& worldToView)
  {
  	Frame.XB = engine->viewport->ViewportX();
-@@ -191,7 +216,10 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -191,9 +216,18 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  
  	VisibleNode info;
  	info.Node = node;
@@ -808,8 +808,16 @@ index 818aa65d..2011f85f 100644
 +	info.Front = dot(ViewLocation, vec4(node->PlaneX, node->PlaneY, node->PlaneZ, -node->PlaneW)) >= 0.0f;
  	info.PolyFlags = PolyFlags;
  
++	// A one-sided surface seen from behind is neither drawn nor an occluder, as in UE1's BSP renderer. HP2's PrivetDr
++	// has a lone editor guide plane (greenguide, not invisible on one side) between the title shot's camera and its sky
++	// backdrop: drawn from behind it hid the sky as a dark rectangle behind the Harry Potter logo.
++	if (!info.Front && !(PolyFlags & PF_TwoSided))
++		return;
++
  	if (PortalDepth < 4)
-@@ -226,12 +254,26 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+ 	{
+ 		if ((PolyFlags & (PF_FakeBackdrop | PF_Invisible)) == PF_FakeBackdrop)
+@@ -226,12 +260,26 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  		}
  		else if (PolyFlags & PF_Portal)
  		{
@@ -838,7 +846,7 @@ index 818aa65d..2011f85f 100644
  					Array<PortalSpan> spans = Clipper.CheckPortal(points, numverts);
  					if (!spans.empty())
  					{
-@@ -256,15 +298,25 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -256,15 +304,25 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  		}
  		else if (PolyFlags & PF_Mirrored)
  		{
@@ -866,7 +874,7 @@ index 818aa65d..2011f85f 100644
  					{
  						p.Nodes.push_back(info);
  						p.Spans.insert(p.Spans.end(), spans.begin(), spans.end());
-@@ -308,6 +360,13 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -308,6 +366,13 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  
  void VisibleFrame::SortTranslucent()
  {
@@ -880,7 +888,7 @@ index 818aa65d..2011f85f 100644
  	std::sort(Translucents.begin(), Translucents.end(), [](const VisibleTranslucent& a, const VisibleTranslucent& b) { return a.DistSqr < b.DistSqr; });
  }
  
-@@ -354,6 +413,12 @@ void VisibleFrame::DrawCoronas()
+@@ -354,6 +419,12 @@ void VisibleFrame::DrawCoronas()
  	frame2d.WorldToView = mat4::identity();
  	Device->SetSceneNode(&frame2d);
  
@@ -893,7 +901,7 @@ index 818aa65d..2011f85f 100644
  	for (VisibleCorona &corona : Coronas)
  		corona.Draw(this);
  }
-@@ -403,14 +468,16 @@ void VisibleFrame::DrawPortals()
+@@ -403,14 +474,16 @@ void VisibleFrame::DrawPortals()
  		else if (portal.WarpZone)
  		{
  			// Warp camera
@@ -912,7 +920,7 @@ index 818aa65d..2011f85f 100644
  			vec3 p = WarpLocationToOtherSide(portal.WarpZone, plane.xyz() * -plane.w);
  			vec3 n = WarpNormalToOtherSide(portal.WarpZone, vec3(node->PlaneX, node->PlaneY, node->PlaneZ));
  			vec4 portalPlane(n, -dot(p,n));
-@@ -425,15 +492,35 @@ void VisibleFrame::DrawPortals()
+@@ -425,15 +498,35 @@ void VisibleFrame::DrawPortals()
  		}
  		else // Mirror
  		{
@@ -953,7 +961,7 @@ index 818aa65d..2011f85f 100644
  			Device->SetSceneNode(&mirrorframe.Frame);
  			mirrorframe.Draw();
  			Device->ClearZ();
-@@ -444,6 +531,8 @@ void VisibleFrame::DrawPortals()
+@@ -444,6 +537,8 @@ void VisibleFrame::DrawPortals()
  	Device->SetSceneNode(&Frame);
  	for (VisiblePortal& portal : Portals)
  	{
