@@ -20,6 +20,10 @@ namespace HP2
 	// KW::UpdateMusic hands over to. Returns the music volume (0..1).
 	void RegisterMusicNatives();
 	float UpdateMusic(AudioDevice* device, uint8_t musicVolume);
+	// ALAudio's console commands: MUTESOUNDS / UNMUTESOUNDS (HPConsole sends them while a skipped cutscene fast-forwards).
+	// While muted the sound effects play at volume 0; the music goes on.
+	bool AudioCommand(const Array<std::string>& args);
+	bool SoundsMuted();
 
 	// After a map loads (not Entry): sets each actor's bInCurrentGameState from the player's CurrentGameState and raises
 	// OnResolveGameState (src/hp2/HP2GameState.cpp)

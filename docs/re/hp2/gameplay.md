@@ -17,6 +17,14 @@ sections) from `System/cutscenes/<FileName>.int` (214 files on the retail disc) 
 (`bBumpStarts`, `bTriggerStarts`, `bLevelLoadStarts`), and has its own skip: state `FastForwarding`, allowed when
 `bSkipAllowed` (default true). HP1 has no skip (Flipendo adds one as a mod).
 
+The skip is Enter (`Enter=button bSkipCutScene` in `DefUser.ini`): `harry.PlayerInput` calls
+`HPConsole.StartFastForward` while the HUD is in cutscene mode, which fast-forwards every playing CutScene. While any
+is still fast-forwarding, `HPConsole.HandleFastForward` sends `MUTESOUNDS` every tick, then `UNMUTESOUNDS`. Those are
+ALAudio.dll's console commands (`UALAudioSubsystem::Exec` [HP2 ALAudio 0x100067B0]): a muted flag and every active
+sound source's gain set to 0, then given back; music isn't touched. Flipendo holds the sound volume at 0 while muted
+(`HP2::AudioCommand`, `src/hp2/HP2Music.cpp`). Checked 2026-10-17: Enter during PrivetDr's intro finishes it and
+`00001PrivetIntroPart2` starts.
+
 The package name `Localize` gets is `"Cutscenes\\" $ FileName`: a Windows path, and the retail folder is lowercase
 `cutscenes`. SurrealEngine looked for a file literally named that on Linux, read every script as empty, and each
 cutscene went to `Finished` the moment it started (PrivetDr's intro did nothing). `PackageManager::Localize` now

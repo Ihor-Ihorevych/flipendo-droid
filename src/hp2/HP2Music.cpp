@@ -6,6 +6,7 @@
 #include "Utils/File.h"
 #include "VM/NativeFunc.h"
 #include "Engine.h"
+#include "Utils/StrTools.h"
 #include <algorithm>
 #include <chrono>
 
@@ -118,5 +119,28 @@ namespace HP2
 		}
 
 		return music.handle != 0 ? music.fade * musicVolume / 255.0f : 0.0f;
+	}
+
+	static bool soundsMuted = false;
+
+	// IDA ALAudio.dll: ?Exec@UALAudioSubsystem@@UAEHPBGAAVFOutputDevice@@@Z [HP2 ALAudio 0x100067B0]
+	// MUTESOUNDS sets a flag and the gain of every active sound source to 0, UNMUTESOUNDS clears it and gives each source
+	// its gain back; the music streams aren't touched. Here the flag holds the sound volume at 0 instead.
+	bool AudioCommand(const Array<std::string>& args)
+	{
+		if (args.empty())
+			return false;
+		if (StrTools::equals_ignore_case(args[0], "MUTESOUNDS"))
+			soundsMuted = true;
+		else if (StrTools::equals_ignore_case(args[0], "UNMUTESOUNDS"))
+			soundsMuted = false;
+		else
+			return false;
+		return true;
+	}
+
+	bool SoundsMuted()
+	{
+		return soundsMuted;
 	}
 }

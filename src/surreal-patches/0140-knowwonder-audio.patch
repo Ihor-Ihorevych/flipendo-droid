@@ -1,18 +1,19 @@
 flipendo: KnowWonder sound and music
 
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
-index a4e1dd8e..8a2c8cc3 100644
+index a4e1dd8e..9b01cff9 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 +++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
-@@ -12,6 +12,7 @@
+@@ -12,6 +12,8 @@
  #include "Packages/Engine/Resources/UMusic.h"
  #include "Packages/Engine/Resources/USound.h"
  #include "Packages/Engine/Resources/Level/ULevel.h"
 +#include "KW.h"
++#include "HP2.h"
  
  static float square(float x) { return x * x; }
  
-@@ -150,6 +151,9 @@ void USurrealAudioDevice::InitDevice()
+@@ -150,6 +152,9 @@ void USurrealAudioDevice::InitDevice()
  	// TODO: Add option for music buffer size
  	// m_Device = AudioDevice::Create(48000, 256, 16, 256);
  	m_Device = AudioDevice::Create(OutputRate.frequency, 256, 16, 256);
@@ -22,13 +23,14 @@ index a4e1dd8e..8a2c8cc3 100644
  	LogMessage("Audio device initialized");
  }
  
-@@ -182,9 +186,18 @@ void USurrealAudioDevice::Update(const mat4& listener)
+@@ -182,10 +187,21 @@ void USurrealAudioDevice::Update(const mat4& listener)
  	StartAmbience();
  	UpdateAmbience();
  	UpdateSounds(listener);
 -	UpdateMusic();
  
 -	m_Device->SetMusicVolume(MusicVolume / 255.0f);
+-	m_Device->SetSoundVolume(SoundVolume / 255.0f * 0.5f);
 +	// HP1's audio driver fades between songs, keeps a song playing when it is set again and scales the music by
 +	// PlayerPawn.PercentMusicVolume. It also plays its mp2 music although HP1 ships UseDigitalMusic=False.
 +	if (engine->LaunchInfo.IsKnowWonder())
@@ -40,10 +42,13 @@ index a4e1dd8e..8a2c8cc3 100644
 +		UpdateMusic();
 +		m_Device->SetMusicVolume(MusicVolume / 255.0f);
 +	}
- 	m_Device->SetSoundVolume(SoundVolume / 255.0f * 0.5f);
++	// HP2 mutes the sound effects while it fast-forwards a skipped cutscene (MUTESOUNDS)
++	bool muted = engine->LaunchInfo.IsHarryPotter2() && HP2::SoundsMuted();
++	m_Device->SetSoundVolume(muted ? 0.0f : SoundVolume / 255.0f * 0.5f);
  	m_Device->Update();
  }
-@@ -380,10 +393,17 @@ void USurrealAudioDevice::UpdateMusic()
+ 
+@@ -380,10 +396,17 @@ void USurrealAudioDevice::UpdateMusic()
  
  bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 Location, float Volume, float Radius, float Pitch, bool isTalk)
  {
@@ -63,7 +68,7 @@ index a4e1dd8e..8a2c8cc3 100644
  	{
  		// Should this still be directional?
  		Volume *= 2.0f;
-@@ -475,6 +495,39 @@ void USurrealAudioDevice::StopSound(UActor* Actor, int Id)
+@@ -475,6 +498,39 @@ void USurrealAudioDevice::StopSound(UActor* Actor, int Id)
  	}
  }
  
@@ -103,7 +108,7 @@ index a4e1dd8e..8a2c8cc3 100644
  void USurrealAudioDevice::StopSound(size_t index)
  {
  	PlayingSound& Playing = PlayingSounds[index];
-@@ -494,6 +547,11 @@ void USurrealAudioDevice::StopSounds()
+@@ -494,6 +550,11 @@ void USurrealAudioDevice::StopSounds()
  	for (size_t i = 0; i < PlayingSounds.size(); i++)
  		StopSound(i);
  

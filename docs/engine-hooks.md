@@ -94,6 +94,7 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Packages/Engine/Actors/UActor_PhysWalking.cpp`, `UActor_PhysRolling.cpp` | `HP1::PawnWalkOffLedge` / `HP1::StartFalling` (MayFall, ledge rule, auto-jump, Falling) |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `HP1::PawnPollMoveToward`, `PawnPollStrafeFacing`, `PawnPollWaitForLanding`; WaitForLanding sets LatentFloat |
 | `Engine.cpp` | save games ([re/engine/savegames.md](re/engine/savegames.md)): `SaveGame` → `KW::SaveGame` at once (not at the end of the frame): LevelAction saving, the blue progress frame (`PaintProgress`), the save; `open saveN.usa` → `HP1::SaveGameLoadURL` (`?load=N`); `KW::SaveGameLoaded` after LoadFromSaveFile (BSP leaves found again); `HP1::LevelInfoLoaded` in LoadMap (empty LevelEnterText = URL map); `KW::ViewportCommand` before the exec functions (`Snap`) |
+| `Engine.cpp` (ConsoleCommand), `Packages/Engine/Subsystems/USurrealAudioDevice.cpp` (Update) | `IsHarryPotter2()`: ALAudio's `MUTESOUNDS` / `UNMUTESOUNDS` (`HP2::AudioCommand`) hold the sound volume at 0 while a skipped cutscene fast-forwards |
 | `Engine.cpp` (LoginPlayer) | `HP1::LevelStartPlayer` before Possess: `--level` sets `HPConsole.bInHubFlow` and Harry's travel state (`src/hp1/HP1LevelStart.cpp`) |
 | `Engine.cpp` (LoadMap) | `KW::SetStartupZones` after BeginPlay: every loaded actor's zone and BSP leaf, as HP1's LoadMap does (a map saves movers with leaf -1, which left bDynamicLightMover movers unlit) |
 | `Native/NPlayerPawn.cpp` | ClientTravel raises PreClientTravel |

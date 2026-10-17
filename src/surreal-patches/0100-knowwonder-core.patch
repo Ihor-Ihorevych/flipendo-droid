@@ -15,7 +15,7 @@ index 799eca23..799b7b61 100644
  set_target_properties(SurrealCommon PROPERTIES CXX_STANDARD 20)
  target_precompile_headers(SurrealCommon PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/SurrealEngine/Precomp.h>)
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 1e6022fb..78afccb6 100644
+index 1e6022fb..da5516d9 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,9 @@
@@ -314,16 +314,18 @@ index 1e6022fb..78afccb6 100644
  		if (LaunchInfo.IsDeusEx() && className == "inputext")
  		{
  			// DeusEx version of input handling. How does this differ from the other one?
-@@ -1444,6 +1531,8 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1444,6 +1531,10 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  	}
  	else
  	{
 +		if (LaunchInfo.IsKnowWonder() && KW::ViewportCommand(args)) // KnowWonder's UViewport::Exec commands (src/knowwonder/KWSave.cpp)
 +			return {};
++		if (LaunchInfo.IsHarryPotter2() && HP2::AudioCommand(args)) // ALAudio.dll's Exec commands (src/hp2/HP2Music.cpp)
++			return {};
  		if (!ExecCommand(args))
  		{
  			LogMessage("Unknown command: " + commandline);
-@@ -1453,6 +1542,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1453,6 +1544,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  	return {};
  }
  
@@ -338,7 +340,7 @@ index 1e6022fb..78afccb6 100644
  Array<std::string> Engine::GetArgs(const std::string& commandline)
  {
  	Array<std::string> args;
-@@ -1484,6 +1581,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
+@@ -1484,6 +1583,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
  			endpos = command.size();
  
  		std::string subcommand = command.substr(pos, endpos - pos);
@@ -349,7 +351,7 @@ index 1e6022fb..78afccb6 100644
  		if (!subcommand.empty())
  			subcommands.push_back(subcommand);
  		pos = endpos + 1;
-@@ -1540,7 +1641,7 @@ void Engine::LoadKeybindings()
+@@ -1540,7 +1643,7 @@ void Engine::LoadKeybindings()
  					std::string aliasCommand = alias.substr(commandStart.size(), pos - commandStart.size());
  					std::string aliasName = alias.substr(pos + commandSplit.size(), pos2 - pos - commandSplit.size());
  					if (!aliasName.empty() && aliasName != "None")
@@ -358,7 +360,7 @@ index 1e6022fb..78afccb6 100644
  				}
  			}
  		}
-@@ -1577,7 +1678,15 @@ void Engine::UpdateInput(float timeElapsed)
+@@ -1577,7 +1680,15 @@ void Engine::UpdateInput(float timeElapsed)
  void Engine::OpenWindow()
  {
  	if (!window)
@@ -374,7 +376,7 @@ index 1e6022fb..78afccb6 100644
  
  	int width = client->StartupFullscreen ? client->FullscreenViewportX : client->WindowedViewportX;
  	int height = client->StartupFullscreen ? client->FullscreenViewportY : client->WindowedViewportY;
-@@ -1586,9 +1695,19 @@ void Engine::OpenWindow()
+@@ -1586,9 +1697,19 @@ void Engine::OpenWindow()
  	std::string versionString = !LaunchInfo.gameVersionString.empty() ? " (v" + LaunchInfo.gameVersionString + ")" : "";
  
  	window->SetWindowTitle(LaunchInfo.gameName + versionString + " - Surreal Engine");
@@ -395,7 +397,7 @@ index 1e6022fb..78afccb6 100644
  	if (fullscreen)
  		window->ShowFullscreen();
  	else
-@@ -1646,6 +1765,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
+@@ -1646,6 +1767,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
  	{
  		viewport->WindowsMouseX() = (float)(pos.x * window->GetDpiScale());
  		viewport->WindowsMouseY() = (float)(pos.y * window->GetDpiScale());
@@ -404,7 +406,7 @@ index 1e6022fb..78afccb6 100644
  	}
  }
  
-@@ -1719,6 +1840,9 @@ void Engine::OnWindowKeyChar(std::string chars)
+@@ -1719,6 +1842,9 @@ void Engine::OnWindowKeyChar(std::string chars)
  
  void Engine::OnWindowKeyDown(EInputKey key)
  {
@@ -414,7 +416,7 @@ index 1e6022fb..78afccb6 100644
  	if (playingAvi)
  	{
  		if (key == EInputKey::IK_Escape)
-@@ -1813,7 +1937,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
+@@ -1813,7 +1939,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
  
  			for (const std::string& command : GetSubcommands(keybindings[keynames[key]]))
  			{
