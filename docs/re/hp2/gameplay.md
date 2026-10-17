@@ -67,6 +67,11 @@ ParticleFX that shows the spell's `GestureSprite`), teaches with `SpellLessonTri
 `spellDuelMimblewimble`, `spellDuelRictusempra`) and `SpellChallengeTrigger`. None of them calls the Gesture natives
 ([gestures.md](../engine/gestures.md)). Not studied yet.
 
+The spell symbol on a target (a chest's keyhole for Alohomora) is `SpellCursor.SpellGesture`, a `GestureSprite`: a plain
+translucent sprite (`Sprite`, DT_Sprite) whose Texture is the spell's WetTexture (`SpellShapes.SpellFX.AlohomoraWet1`,
+`FlipendoWet1`, ...), shown by `TurnOnSpellGestureFX`. The symbols aren't symmetric top to bottom, so they showed that
+SurrealEngine drew every sprite upside down ([rendering.md](../engine/rendering.md#sprites)).
+
 ## Collision
 
 Two new collide types, `CT_AlignedOvalCylinder` and `CT_OrientedOvalCylinder` ([collision.md](../engine/collision.md#hp1-and-hp2)).

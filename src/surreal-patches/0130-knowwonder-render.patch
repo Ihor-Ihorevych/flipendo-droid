@@ -1,4 +1,4 @@
-flipendo: KnowWonder rendering (FOV, skeletal meshes, particles, translucency, vertex alpha, actor shadows, textures; loading screen; menu canvas, coronas); BSP surfaces take the zone on the camera's side (any game)
+flipendo: KnowWonder rendering (FOV, skeletal meshes, particles, translucency, vertex alpha, actor shadows, textures; loading screen; menu canvas, coronas); BSP surfaces take the zone on the camera's side and sprites are drawn right side up (any game)
 
 diff --git a/SurrealEngine/Light/LightSystem.h b/SurrealEngine/Light/LightSystem.h
 index e1e0062e..5fa8f0dd 100644
@@ -1118,6 +1118,37 @@ index 70dc72e3..1ec0d278 100644
 +	vec3 MirrorBase = vec3(0.0f);
 +	vec3 MirrorNormal = vec3(0.0f);
  };
+diff --git a/SurrealEngine/Render/VisibleSprite.cpp b/SurrealEngine/Render/VisibleSprite.cpp
+index 9a053a7f..ad240c46 100644
+--- a/SurrealEngine/Render/VisibleSprite.cpp
++++ b/SurrealEngine/Render/VisibleSprite.cpp
+@@ -74,21 +74,22 @@ void VisibleSprite::Draw(VisibleFrame* frame, UActor* actor)
+ 
+ 	vec3 color = clamp(actor->ScaleGlow(), 0.0f, 1.0f);
+ 
++	// The texture's first row is its top: V runs down the screen
+ 	GouraudVertex vertices[4];
+ 	vertices[0].Point = location - sideAxis - upAxis;
+-	vertices[0].UV = { 0.0f, 0.0f };
++	vertices[0].UV = { 0.0f, texheight };
+ 	vertices[0].Light = color;
+ 	vertices[0].Fog = { 0.0f };
+ 	vertices[1].Point = location + sideAxis - upAxis;
+-	vertices[1].UV = { texwidth, 0.0f };
++	vertices[1].UV = { texwidth, texheight };
+ 	vertices[1].Light = color;
+ 	vertices[1].Fog = { 0.0f };
+ 	vertices[2].Point = location + sideAxis + upAxis;
+-	vertices[2].UV = { texwidth, texheight };
++	vertices[2].UV = { texwidth, 0.0f };
+ 	vertices[2].Light = color;
+ 	vertices[2].Fog = { 0.0f };
+ 	vertices[3].Point = location - sideAxis + upAxis;
+-	vertices[3].UV = { 0.0f, texheight };
++	vertices[3].UV = { 0.0f, 0.0f };
+ 	vertices[3].Light = color;
+ 	vertices[3].Fog = { 0.0f };
+ 
 diff --git a/SurrealEngine/RenderDevice/D3D11/D3D11FileResource.cpp b/SurrealEngine/RenderDevice/D3D11/D3D11FileResource.cpp
 index a2940705..c8f614e1 100644
 --- a/SurrealEngine/RenderDevice/D3D11/D3D11FileResource.cpp
