@@ -20,6 +20,10 @@ namespace HP2
 	void RegisterMusicNatives();
 	float UpdateMusic(AudioDevice* device, uint8_t musicVolume);
 
+	// What HP2's Game.exe starts the engine with after New Game in its own Windows front end (docs/re/hp2/startup.md).
+	// Flipendo has no front end yet, so a run without a URL starts a new game here instead of in the Startup test map.
+	constexpr const char* NewGameURL = "PrivetDr.unr";
+
 	// HP2's "XA" sounds (EA-XA ADPCM, src/hp2/HP2Sound.cpp) decoded into a 16-bit WAV file
 	Array<uint8_t> DecodeXA(const Array<uint8_t>& data, int sampleCount, int channels, int rate);
 

@@ -49,6 +49,7 @@ A note that says "HP2 not checked" means exactly that: don't assume HP2 is the s
 | Note | Topic |
 |---|---|
 | [gameplay.md](hp2/gameplay.md) | HP2's `hgame` scripts against HP1's: cutscenes from files, queued saves, the new spell system, HP2-only natives; engine differences not checked yet |
+| [startup.md](hp2/startup.md) | how HP2 starts: Game.exe's Windows front end (splash, New/Load/Options), its command lines, the Startup map |
 | [engine.md](hp2/engine.md) | HP2 engine work for later: GameState screening, Lumos surfaces, TurnTo, particle Opacity, ALAudio music and reverb |
 
 ## Adding a note
