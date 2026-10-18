@@ -443,7 +443,7 @@ public class FlipendoActivity extends SDLActivity {
     /** The HP2 debug menu: go to a level (the level Harry is in is left like any exit: persistent actors travel), set the story
      *  state of the next level load, or fill the spell book. Opened from the settings panel's Debug row. */
     void openHp2Debug() {
-        final String[] actions = { "Go to level…", "Set story state…", "Give all spells" };
+        final String[] actions = { "Go to level…", "Set story state…", "Give all spells", "God mode (on / off)", "Fly", "Ghost (fly through walls)", "Walk again" };
         runOnUiThread(new Runnable() {
             public void run() {
                 new android.app.AlertDialog.Builder(FlipendoActivity.this)
@@ -469,8 +469,16 @@ public class FlipendoActivity extends SDLActivity {
                                                     debugCommand("state " + HP2_STATES[i]);
                                                 }
                                             }).show();
-                                } else {
+                                } else if (which == 2) {
                                     debugCommand("spells");
+                                } else if (which == 3) {
+                                    debugCommand("god");
+                                } else if (which == 4) {
+                                    debugCommand("fly");
+                                } else if (which == 5) {
+                                    debugCommand("ghost");
+                                } else {
+                                    debugCommand("walk");
                                 }
                             }
                         }).show();
@@ -1830,6 +1838,7 @@ public class FlipendoActivity extends SDLActivity {
             promptNo.set(w / 2f + gap, promptYes.top, promptPanel.right - 0.05f * ppw, promptYes.bottom);
 
             helpBtn.set(colL0 + 0.34f * u, headerY - 0.052f * h, colL0 + 0.56f * u, headerY + 0.008f * h);
+            versionRect.set(colR1 - 0.5f * u, headerY - 0.07f * h, colR1 + 0.01f * u, headerY + 0.03f * h); // the "Flipendo for Android x.y.z" text
             layoutEditRects(w, h);
 
             titlePaint.setTextSize(0.055f * u);
@@ -2170,6 +2179,68 @@ public class FlipendoActivity extends SDLActivity {
             if (dirDown[i] != down) {
                 dirDown[i] = down;
                 key(DIR_KEYS[i], down);
+                if (down) eggInput(i);
+            }
+        }
+
+        // Two easter eggs: a code on the directions (the stick, the arrows or the pad's d-pad, one press after another, at most 2.5 s
+        // apart) opens a link. Up, up, down, down, left, right, left, right in Chamber of Secrets; down, down, up, up, right, left,
+        // right, left in Philosopher's Stone. Directions: 0 up, 1 down, 2 left, 3 right (DIR_KEYS).
+        static final int[] EGG_HP2 = { 0, 0, 1, 1, 2, 3, 2, 3 };
+        static final int[] EGG_HP1 = { 1, 1, 0, 0, 3, 2, 3, 2 };
+        static final String EGG_HP2_URL = "https://www.youtube.com/watch?v=VlTIbCgpIKE";
+        static final String EGG_HP1_URL = "https://www.youtube.com/watch?v=Ud9I7yAmZ4o";
+        final int[] eggBuffer = new int[8];
+        int eggCount;
+        long eggLast, eggOpened;
+
+        // The simple way in: five taps in a row on the version text in the settings header (like Android's build number).
+        final android.graphics.RectF versionRect = new android.graphics.RectF();
+        int versionTaps;
+        long versionTapTime;
+
+        void versionTap() {
+            long now = android.os.SystemClock.uptimeMillis();
+            if (now - versionTapTime > 1500) versionTaps = 0;
+            versionTapTime = now;
+            versionTaps++;
+            if (versionTaps >= 5) {
+                versionTaps = 0;
+                openEgg();
+            }
+        }
+
+        void openEgg() {
+            eggOpened = android.os.SystemClock.uptimeMillis();
+            try {
+                getContext().startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(isHp2Game() ? EGG_HP2_URL : EGG_HP1_URL)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            } catch (RuntimeException ignored) {
+            }
+        }
+
+        void eggInput(int dir) {
+            if (menuShown || settingsOpen || promptOpen || layoutEdit || cutsceneShown) {
+                eggCount = 0;
+                return;
+            }
+            long now = android.os.SystemClock.uptimeMillis();
+            if (now - eggLast > 2500) eggCount = 0;
+            eggLast = now;
+            if (eggCount == eggBuffer.length) {
+                System.arraycopy(eggBuffer, 1, eggBuffer, 0, eggBuffer.length - 1);
+                eggCount--;
+            }
+            eggBuffer[eggCount++] = dir;
+            if (eggCount < eggBuffer.length || now - eggOpened < 30000) return;
+            int[] code = isHp2Game() ? EGG_HP2 : EGG_HP1;
+            for (int k = 0; k < code.length; k++) {
+                if (eggBuffer[k] != code[k]) return;
+            }
+            eggOpened = now;
+            eggCount = 0;
+            try {
+                getContext().startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(isHp2Game() ? EGG_HP2_URL : EGG_HP1_URL)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            } catch (RuntimeException ignored) {
             }
         }
 
@@ -2278,6 +2349,10 @@ public class FlipendoActivity extends SDLActivity {
                         // the panel takes every touch
                         if (helpBtn.contains(x, y)) {
                             helpOpen = true;
+                            break;
+                        }
+                        if (versionRect.contains(x, y)) {
+                            versionTap();
                             break;
                         }
                         if (hitSlider(x, y) >= 0) {

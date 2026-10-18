@@ -1202,10 +1202,10 @@ index 00000000..72bc5ec3
 +	return false;
 +}
 diff --git a/SurrealEngine/RenderDevice/OpenGL/GLFileResource.cpp b/SurrealEngine/RenderDevice/OpenGL/GLFileResource.cpp
-index 593b4239..59ba1c9e 100644
+index 593b4239..68f60033 100644
 --- a/SurrealEngine/RenderDevice/OpenGL/GLFileResource.cpp
 +++ b/SurrealEngine/RenderDevice/OpenGL/GLFileResource.cpp
-@@ -82,42 +82,43 @@ std::string GLFileResource::readAllText(const std::string& filename)
+@@ -82,42 +82,51 @@ std::string GLFileResource::readAllText(const std::string& filename)
  
  			void main()
  			{
@@ -1220,19 +1220,27 @@ index 593b4239..59ba1c9e 100644
  				outColor.rgb *= actorXBlending;
  
 -				if ((flags & 2) != 0) // Macro texture
++				#if !defined(NOEXTRA)
 +				if ((flags & 2u) != 0u) // Macro texture
  				{
  					outColor *= darkClamp(textureMacro(texCoord3));
  				}
++				#endif
  
 -				if ((flags & 1) != 0) // Lightmap
++				#if !defined(NOLIGHTMAP)
 +				if ((flags & 1u) != 0u) // Lightmap
  				{
  					outColor.rgb *= clamp(textureLightmap(texCoord2).rgb, 0.0, 1.0) * oneXBlending;
  				}
++				#endif
  
 -				if ((flags & 4) != 0) // Detail texture
++				#if defined(NOEXTRA)
++				if (false)
++				#else
 +				if ((flags & 4u) != 0u) // Detail texture
++				#endif
  				{
  					float fadedistance = 380.0f;
  					float a = clamp(2.0f - (1.0f / gl_FragCoord.w) / fadedistance, 0.0f, 1.0f);
@@ -1258,7 +1266,7 @@ index 593b4239..59ba1c9e 100644
  				#endif
  
  				outColor = clamp(outColor, 0.0, 1.0);
-@@ -230,7 +231,7 @@ std::string GLFileResource::readAllText(const std::string& filename)
+@@ -230,7 +239,7 @@ std::string GLFileResource::readAllText(const std::string& filename)
  			vec3 colorCorrect(vec3 c)
  			{
  				float v = c.r + c.g + c.b;
@@ -1283,10 +1291,18 @@ index 3268fcbf..323fecc6 100644
  #include <memory>
  
 diff --git a/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp b/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp
-index 00a0aab8..362d62d1 100644
+index 00a0aab8..1176eee5 100644
 --- a/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp
 +++ b/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp
-@@ -10,6 +10,25 @@
+@@ -1,4 +1,7 @@
+ 
++#ifdef __ANDROID__
++#include <unistd.h>
++#endif
+ #include "Precomp.h"
+ #include "GLRenderDevice.h"
+ #include "GLCachedTexture.h"
+@@ -10,6 +13,25 @@
  #include <surrealwidgets/core/widget.h>
  #include <cmath>
  
@@ -1312,7 +1328,7 @@ index 00a0aab8..362d62d1 100644
  static Widget* InitGLWidget = nullptr;
  extern "C"
  {
-@@ -33,6 +52,9 @@ GLRenderDevice::~GLRenderDevice()
+@@ -33,6 +55,9 @@ GLRenderDevice::~GLRenderDevice()
  
  int GLRenderDevice::GetSettingsMultisample()
  {
@@ -1322,7 +1338,7 @@ index 00a0aab8..362d62d1 100644
  	switch (AntialiasMode)
  	{
  	default:
-@@ -58,6 +80,30 @@ bool GLRenderDevice::Init(int NewX, int NewY, bool Fullscreen)
+@@ -58,6 +83,30 @@ bool GLRenderDevice::Init(int NewX, int NewY, bool Fullscreen)
  		if (result == ogl_LOAD_FAILED)
  			throw std::runtime_error("ogl_LoadFunctions failed");
  
@@ -1353,7 +1369,7 @@ index 00a0aab8..362d62d1 100644
  		CreateScenePass();
  		CreatePresentPass();
  		CreateBloomPass();
-@@ -97,14 +143,33 @@ void GLRenderDevice::Exit()
+@@ -97,14 +146,33 @@ void GLRenderDevice::Exit()
  {
  	LogMessage("GLDrv: exit called");
  
@@ -1394,7 +1410,7 @@ index 00a0aab8..362d62d1 100644
  }
  
  void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
-@@ -145,7 +210,7 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
+@@ -145,7 +213,7 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
  	{
  		glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, SceneBuffers.ColorBuffer->Handle);
  		SetDebugName(SceneBuffers.ColorBuffer, "SceneBuffers.ColorBuffer");
@@ -1403,7 +1419,7 @@ index 00a0aab8..362d62d1 100644
  		glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAX_LEVEL, 0);
  		ThrowIfGLError("glTexStorage2DMultisample(SceneBuffers.ColorBuffer) failed");
  	}
-@@ -153,7 +218,7 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
+@@ -153,7 +221,7 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
  	{
  		glBindTexture(GL_TEXTURE_2D, SceneBuffers.ColorBuffer->Handle);
  		SetDebugName(SceneBuffers.ColorBuffer, "SceneBuffers.ColorBuffer");
@@ -1412,7 +1428,7 @@ index 00a0aab8..362d62d1 100644
  		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
  		ThrowIfGLError("glTexImage2D(SceneBuffers.ColorBuffer) failed");
  	}
-@@ -214,7 +279,7 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
+@@ -214,7 +282,7 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
  		SceneBuffers.PPImage[i] = std::make_shared<GLTexture2D>();
  		glBindTexture(GL_TEXTURE_2D, SceneBuffers.PPImage[i]->Handle);
  		SetDebugName(SceneBuffers.PPImage[i], "SceneBuffers.PPImage");
@@ -1421,7 +1437,7 @@ index 00a0aab8..362d62d1 100644
  		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
  		ThrowIfGLError("glTexImage2D(SceneBuffers.PPImage) failed");
  	}
-@@ -227,6 +292,14 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
+@@ -227,6 +295,14 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
  	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, SceneBuffers.DepthBuffer->Handle, 0);
  	ThrowIfGLError("Creating SceneBuffers.Framebuffer failed");
  
@@ -1436,7 +1452,7 @@ index 00a0aab8..362d62d1 100644
  	SceneBuffers.HitFramebuffer = std::make_shared<GLFramebuffer>();
  	glBindFramebuffer(GL_FRAMEBUFFER, SceneBuffers.HitFramebuffer->Handle);
  	SetDebugName(SceneBuffers.HitFramebuffer, "SceneBuffers.HitFramebuffer");
-@@ -258,14 +331,14 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
+@@ -258,14 +334,14 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
  		level.VTexture = std::make_shared<GLTexture2D>();
  		glBindTexture(GL_TEXTURE_2D, level.VTexture->Handle);
  		SetDebugName(level.VTexture, "SceneBuffers.BlurLevels.VTexture");
@@ -1453,7 +1469,35 @@ index 00a0aab8..362d62d1 100644
  		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
  		ThrowIfGLError("glTexImage2D(SceneBuffers.BlurLevels.HTexture) failed");
  
-@@ -486,7 +559,11 @@ void GLRenderDevice::CreateSceneSamplers()
+@@ -289,8 +365,25 @@ void GLRenderDevice::ResizeSceneBuffers(int width, int height, int multisample)
+ void GLRenderDevice::CreateScenePass()
+ {
+ 	ScenePass.VertexShader = CreateVertexShader("ScenePass.VertexShader", "shaders/Scene.vert");
+-	ScenePass.FragmentShader = CreateFragmentShader("ScenePass.PixelShader", "shaders/Scene.frag");
+-	ScenePass.FragmentShaderAlphaTest = CreateFragmentShader("ScenePass.PixelShaderAlphaTest", "shaders/Scene.frag", { "ALPHATEST" });
++	// test aids for a GPU whose level surfaces come out black (the actors, which have no lightmap, are fine): a file in the game folder
++	// leaves the lightmap (gl_nolightmap.txt) or the macro, detail and fog layers (gl_noextra.txt) out of the scene shader
++	std::vector<std::string> sceneDefines, sceneDefinesAlphaTest = { "ALPHATEST" };
++#ifdef __ANDROID__
++	if (access("/sdcard/FlipendoHP/gl_nolightmap.txt", F_OK) == 0)
++	{
++		sceneDefines.push_back("NOLIGHTMAP");
++		sceneDefinesAlphaTest.push_back("NOLIGHTMAP");
++		LogMessage("GL: the lightmap is left out of the scene shader (gl_nolightmap.txt)");
++	}
++	if (access("/sdcard/FlipendoHP/gl_noextra.txt", F_OK) == 0)
++	{
++		sceneDefines.push_back("NOEXTRA");
++		sceneDefinesAlphaTest.push_back("NOEXTRA");
++		LogMessage("GL: the macro, detail and fog layers are left out of the scene shader (gl_noextra.txt)");
++	}
++#endif
++	ScenePass.FragmentShader = CreateFragmentShader("ScenePass.PixelShader", "shaders/Scene.frag", sceneDefines);
++	ScenePass.FragmentShaderAlphaTest = CreateFragmentShader("ScenePass.PixelShaderAlphaTest", "shaders/Scene.frag", sceneDefinesAlphaTest);
+ 	ScenePass.ShaderProgram = CreateProgram("ScenePass.ShaderProgram", ScenePass.VertexShader, ScenePass.FragmentShader);
+ 	ScenePass.ShaderProgramAlphaTest = CreateProgram("ScenePass.ShaderProgramAlphaTest", ScenePass.VertexShader, ScenePass.FragmentShaderAlphaTest);
+ 
+@@ -486,7 +579,11 @@ void GLRenderDevice::CreateSceneSamplers()
  		GLuint sampler = ScenePass.Samplers[i]->Handle;
  
  		int dummyMipmapCount = (i >> 2) & 3;
@@ -1465,7 +1509,7 @@ index 00a0aab8..362d62d1 100644
  
  #if 0
  		glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, (i & 1) ? GL_NEAREST : GL_LINEAR);
-@@ -494,14 +571,20 @@ void GLRenderDevice::CreateSceneSamplers()
+@@ -494,14 +591,20 @@ void GLRenderDevice::CreateSceneSamplers()
  #else
  		glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, (i & 1) ? GL_NEAREST_MIPMAP_NEAREST : GL_LINEAR_MIPMAP_LINEAR);
  		glSamplerParameteri(sampler, GL_TEXTURE_MAG_FILTER, (i & 1) ? GL_NEAREST : GL_LINEAR);
@@ -1486,7 +1530,7 @@ index 00a0aab8..362d62d1 100644
  
  		ThrowIfGLError("Could not create sampler");
  	}
-@@ -866,7 +949,11 @@ void GLRenderDevice::CreatePresentPass()
+@@ -866,7 +969,11 @@ void GLRenderDevice::CreatePresentPass()
  	PresentPass.DitherTexture = std::make_shared<GLTexture>();
  	glBindTexture(GL_TEXTURE_2D, PresentPass.DitherTexture->Handle);
  	SetDebugName(PresentPass.DitherTexture, "PresentPass.DitherTexture");
@@ -1498,7 +1542,7 @@ index 00a0aab8..362d62d1 100644
  	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
  	ThrowIfGLError("CreateTexture2D(DitherTexture) failed");
  
-@@ -892,8 +979,18 @@ void GLRenderDevice::Flush(bool AllowPrecache)
+@@ -892,8 +999,18 @@ void GLRenderDevice::Flush(bool AllowPrecache)
  		PrecacheOnFlip = 1;
  }
  
@@ -1517,7 +1561,7 @@ index 00a0aab8..362d62d1 100644
  	if (nextBuffer)
  	{
  		GLSceneVertexPos = 0;
-@@ -901,15 +998,42 @@ void GLRenderDevice::MapVertices(bool nextBuffer)
+@@ -901,15 +1018,42 @@ void GLRenderDevice::MapVertices(bool nextBuffer)
  		Stats.BuffersUsed++;
  	}
  
@@ -1564,7 +1608,7 @@ index 00a0aab8..362d62d1 100644
  	}
  
  	if (!SceneIndexes)
-@@ -917,27 +1041,89 @@ void GLRenderDevice::MapVertices(bool nextBuffer)
+@@ -917,27 +1061,89 @@ void GLRenderDevice::MapVertices(bool nextBuffer)
  		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ScenePass.IndexBuffer->Handle);
  		if (nextBuffer)
  			glBufferData(GL_ELEMENT_ARRAY_BUFFER, SceneIndexBufferSize * sizeof(uint32_t), nullptr, GL_STREAM_DRAW); // Should we use GL_MAP_INVALIDATE_BUFFER_BIT here instead? OpenGL truly sucked.
@@ -1661,7 +1705,7 @@ index 00a0aab8..362d62d1 100644
  		ThrowIfGLError("Could not unmap ScenePass.IndexBuffer");
  		SceneIndexes = nullptr;
  	}
-@@ -1469,7 +1655,7 @@ void GLRenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info, con
+@@ -1469,7 +1675,7 @@ void GLRenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info, con
  				vertex->Color.r = P->Light.x;
  				vertex->Color.g = P->Light.y;
  				vertex->Color.b = P->Light.z;
@@ -1670,7 +1714,7 @@ index 00a0aab8..362d62d1 100644
  				vertex++;
  			}
  		}
-@@ -1953,7 +2139,14 @@ void GLRenderDevice::SetBufferData(GLenum target, GLenum usage, GLBuffer* buffer
+@@ -1953,7 +2159,14 @@ void GLRenderDevice::SetBufferData(GLenum target, GLenum usage, GLBuffer* buffer
  
  void GLRenderDevice::SetBlendState(GLBlendState* blendState, const float* blendConstants)
  {
@@ -1686,7 +1730,7 @@ index 00a0aab8..362d62d1 100644
  	{
  		// To do: this might require OpenGL 4.0 - glBlendFuncSeparatei does, not sure about glEnablei(GL_BLEND)
  		for (int i = 0; i < 2; i++)
-@@ -2014,6 +2207,10 @@ void GLRenderDevice::SetRasterizerState(GLRasterizerState* rasterizerState)
+@@ -2014,6 +2227,10 @@ void GLRenderDevice::SetRasterizerState(GLRasterizerState* rasterizerState)
  
  	glFrontFace(rasterizerState->desc.FrontCounterClockwise ? GL_CCW : GL_CW);
  
@@ -1697,7 +1741,7 @@ index 00a0aab8..362d62d1 100644
  	if (rasterizerState->desc.DepthClipEnable)
  		glEnable(GL_DEPTH_CLAMP);
  	else
-@@ -2200,6 +2397,9 @@ std::shared_ptr<GLProgram> GLRenderDevice::CreateProgram(const std::string& prog
+@@ -2200,6 +2417,9 @@ std::shared_ptr<GLProgram> GLRenderDevice::CreateProgram(const std::string& prog
  		log.resize(length);
  		throw std::runtime_error("Could not link program'" + programName + "':" + log);
  	}
@@ -1707,7 +1751,7 @@ index 00a0aab8..362d62d1 100644
  	return program;
  }
  
-@@ -2219,9 +2419,71 @@ std::shared_ptr<GLFragmentShader> GLRenderDevice::CreateFragmentShader(const std
+@@ -2219,9 +2439,71 @@ std::shared_ptr<GLFragmentShader> GLRenderDevice::CreateFragmentShader(const std
  	return shader;
  }
  
@@ -1779,7 +1823,7 @@ index 00a0aab8..362d62d1 100644
  	for (const std::string& define : defines)
  	{
  		code += "#define ";
-@@ -2229,7 +2491,13 @@ void GLRenderDevice::CompileGlsl(GLShader* shader, const std::string& filename,
+@@ -2229,7 +2511,13 @@ void GLRenderDevice::CompileGlsl(GLShader* shader, const std::string& filename,
  		code += "\r\n";
  	}
  	code += "#line 1\r\n";
