@@ -1291,7 +1291,7 @@ index 3268fcbf..323fecc6 100644
  #include <memory>
  
 diff --git a/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp b/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp
-index 00a0aab8..858b0ce6 100644
+index 00a0aab8..6748ae32 100644
 --- a/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp
 +++ b/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp
 @@ -1,4 +1,8 @@
@@ -1518,7 +1518,7 @@ index 00a0aab8..858b0ce6 100644
  
  #if 0
  		glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, (i & 1) ? GL_NEAREST : GL_LINEAR);
-@@ -494,14 +600,20 @@ void GLRenderDevice::CreateSceneSamplers()
+@@ -494,18 +600,47 @@ void GLRenderDevice::CreateSceneSamplers()
  #else
  		glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, (i & 1) ? GL_NEAREST_MIPMAP_NEAREST : GL_LINEAR_MIPMAP_LINEAR);
  		glSamplerParameteri(sampler, GL_TEXTURE_MAG_FILTER, (i & 1) ? GL_NEAREST : GL_LINEAR);
@@ -1539,7 +1539,42 @@ index 00a0aab8..858b0ce6 100644
  
  		ThrowIfGLError("Could not create sampler");
  	}
-@@ -866,7 +978,11 @@ void GLRenderDevice::CreatePresentPass()
+ 
++#ifdef __ANDROID__
++	// Settings > Graphics fix, "lmsampler": the lightmap is read with a plain bilinear sampler, no mip filtering (it has one level)
++	{
++		std::string choice;
++		std::ifstream file("/sdcard/FlipendoHP/.flipendo-gltest");
++		std::getline(file, choice);
++		while (!choice.empty() && (choice.back() == 13 || choice.back() == 32))
++			choice.pop_back();
++		if (choice == "lmsampler")
++		{
++			ScenePass.LightmapSampler = std::make_shared<GLSampler>();
++			GLuint sampler = ScenePass.LightmapSampler->Handle;
++			glBindSampler(0, sampler);
++			glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
++			glSamplerParameteri(sampler, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
++			glSamplerParameteri(sampler, GL_TEXTURE_WRAP_S, GL_REPEAT);
++			glSamplerParameteri(sampler, GL_TEXTURE_WRAP_T, GL_REPEAT);
++			ThrowIfGLError("Could not create the lightmap sampler");
++			LogMessage("GL: the lightmap has a bilinear sampler without mip levels (Graphics fix)");
++		}
++	}
++#endif
++
+ 	ScenePass.LODBias = LODBias;
+ }
+ 
+@@ -515,6 +650,7 @@ void GLRenderDevice::ReleaseSceneSamplers()
+ 	{
+ 		sampler.reset();
+ 	}
++	ScenePass.LightmapSampler.reset();
+ 	ScenePass.LODBias = 0.0f;
+ }
+ 
+@@ -866,7 +1002,11 @@ void GLRenderDevice::CreatePresentPass()
  	PresentPass.DitherTexture = std::make_shared<GLTexture>();
  	glBindTexture(GL_TEXTURE_2D, PresentPass.DitherTexture->Handle);
  	SetDebugName(PresentPass.DitherTexture, "PresentPass.DitherTexture");
@@ -1551,7 +1586,7 @@ index 00a0aab8..858b0ce6 100644
  	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
  	ThrowIfGLError("CreateTexture2D(DitherTexture) failed");
  
-@@ -892,8 +1008,18 @@ void GLRenderDevice::Flush(bool AllowPrecache)
+@@ -892,8 +1032,18 @@ void GLRenderDevice::Flush(bool AllowPrecache)
  		PrecacheOnFlip = 1;
  }
  
@@ -1570,7 +1605,7 @@ index 00a0aab8..858b0ce6 100644
  	if (nextBuffer)
  	{
  		GLSceneVertexPos = 0;
-@@ -901,15 +1027,42 @@ void GLRenderDevice::MapVertices(bool nextBuffer)
+@@ -901,15 +1051,42 @@ void GLRenderDevice::MapVertices(bool nextBuffer)
  		Stats.BuffersUsed++;
  	}
  
@@ -1617,7 +1652,7 @@ index 00a0aab8..858b0ce6 100644
  	}
  
  	if (!SceneIndexes)
-@@ -917,27 +1070,89 @@ void GLRenderDevice::MapVertices(bool nextBuffer)
+@@ -917,27 +1094,89 @@ void GLRenderDevice::MapVertices(bool nextBuffer)
  		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ScenePass.IndexBuffer->Handle);
  		if (nextBuffer)
  			glBufferData(GL_ELEMENT_ARRAY_BUFFER, SceneIndexBufferSize * sizeof(uint32_t), nullptr, GL_STREAM_DRAW); // Should we use GL_MAP_INVALIDATE_BUFFER_BIT here instead? OpenGL truly sucked.
@@ -1714,7 +1749,7 @@ index 00a0aab8..858b0ce6 100644
  		ThrowIfGLError("Could not unmap ScenePass.IndexBuffer");
  		SceneIndexes = nullptr;
  	}
-@@ -1469,7 +1684,7 @@ void GLRenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info, con
+@@ -1469,7 +1708,7 @@ void GLRenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info, con
  				vertex->Color.r = P->Light.x;
  				vertex->Color.g = P->Light.y;
  				vertex->Color.b = P->Light.z;
@@ -1723,7 +1758,7 @@ index 00a0aab8..858b0ce6 100644
  				vertex++;
  			}
  		}
-@@ -1953,7 +2168,14 @@ void GLRenderDevice::SetBufferData(GLenum target, GLenum usage, GLBuffer* buffer
+@@ -1953,7 +2192,14 @@ void GLRenderDevice::SetBufferData(GLenum target, GLenum usage, GLBuffer* buffer
  
  void GLRenderDevice::SetBlendState(GLBlendState* blendState, const float* blendConstants)
  {
@@ -1739,7 +1774,7 @@ index 00a0aab8..858b0ce6 100644
  	{
  		// To do: this might require OpenGL 4.0 - glBlendFuncSeparatei does, not sure about glEnablei(GL_BLEND)
  		for (int i = 0; i < 2; i++)
-@@ -2014,6 +2236,10 @@ void GLRenderDevice::SetRasterizerState(GLRasterizerState* rasterizerState)
+@@ -2014,6 +2260,10 @@ void GLRenderDevice::SetRasterizerState(GLRasterizerState* rasterizerState)
  
  	glFrontFace(rasterizerState->desc.FrontCounterClockwise ? GL_CCW : GL_CW);
  
@@ -1750,7 +1785,16 @@ index 00a0aab8..858b0ce6 100644
  	if (rasterizerState->desc.DepthClipEnable)
  		glEnable(GL_DEPTH_CLAMP);
  	else
-@@ -2200,6 +2426,9 @@ std::shared_ptr<GLProgram> GLRenderDevice::CreateProgram(const std::string& prog
+@@ -2122,7 +2372,7 @@ void GLRenderDevice::DrawEntry(const DrawBatchEntry& entry)
+ 	GLSampler* samplers[4] =
+ 	{
+ 		ScenePass.Samplers[entry.TexSamplerMode].get(),
+-		ScenePass.Samplers[0].get(),
++		ScenePass.LightmapSampler ? ScenePass.LightmapSampler.get() : ScenePass.Samplers[0].get(),
+ 		ScenePass.Samplers[entry.MacrotexSamplerMode].get(),
+ 		ScenePass.Samplers[entry.DetailtexSamplerMode].get()
+ 	};
+@@ -2200,6 +2450,9 @@ std::shared_ptr<GLProgram> GLRenderDevice::CreateProgram(const std::string& prog
  		log.resize(length);
  		throw std::runtime_error("Could not link program'" + programName + "':" + log);
  	}
@@ -1760,7 +1804,7 @@ index 00a0aab8..858b0ce6 100644
  	return program;
  }
  
-@@ -2219,9 +2448,71 @@ std::shared_ptr<GLFragmentShader> GLRenderDevice::CreateFragmentShader(const std
+@@ -2219,9 +2472,71 @@ std::shared_ptr<GLFragmentShader> GLRenderDevice::CreateFragmentShader(const std
  	return shader;
  }
  
@@ -1832,7 +1876,7 @@ index 00a0aab8..858b0ce6 100644
  	for (const std::string& define : defines)
  	{
  		code += "#define ";
-@@ -2229,7 +2520,13 @@ void GLRenderDevice::CompileGlsl(GLShader* shader, const std::string& filename,
+@@ -2229,7 +2544,13 @@ void GLRenderDevice::CompileGlsl(GLShader* shader, const std::string& filename,
  		code += "\r\n";
  	}
  	code += "#line 1\r\n";
@@ -1847,10 +1891,18 @@ index 00a0aab8..858b0ce6 100644
  	GLchar* source = (GLchar*)code.data();
  	GLint length = (GLint)code.size();
 diff --git a/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.h b/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.h
-index 4b0cb7f5..cf48b614 100644
+index 4b0cb7f5..8e7cb176 100644
 --- a/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.h
 +++ b/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.h
-@@ -179,6 +179,13 @@ public:
+@@ -153,6 +153,7 @@ public:
+ 		std::shared_ptr<GLProgram> ShaderProgram;
+ 		std::shared_ptr<GLProgram> ShaderProgramAlphaTest;
+ 		std::shared_ptr<GLSampler> Samplers[16];
++		std::shared_ptr<GLSampler> LightmapSampler; // Settings > Graphics fix > lightmap filter: bilinear, no mip levels (null: the usual sampler 0)
+ 		ScenePipelineState Pipelines[33];
+ 		ScenePipelineState LinePipeline[2];
+ 		ScenePipelineState PointPipeline[2];
+@@ -179,6 +180,13 @@ public:
  	std::vector<DrawBatchEntry> QueuedBatches;
  	GLCachedTexture* nulltex = nullptr;
  
@@ -1864,7 +1916,7 @@ index 4b0cb7f5..cf48b614 100644
  	GLSceneVertex* SceneVertices = nullptr;
  	size_t GLSceneVertexPos = 0;
  
-@@ -439,5 +446,5 @@ inline void ThrowIfGLError(const char* msg)
+@@ -439,5 +447,5 @@ inline void ThrowIfGLError(const char* msg)
  {
  	GLenum error = glGetError();
  	if (error != GL_NO_ERROR)

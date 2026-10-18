@@ -104,8 +104,9 @@ public class FlipendoActivity extends SDLActivity {
      * file the OpenGL renderer reads when it starts, so the game restarts to apply it.
      */
     void openGraphicsFix() {
-        final String[] names = { "Off (the normal picture)", "Without the lightmap (try this if the walls are black)", "Without macro, detail and fog layers" };
-        final String[] values = { "none", "lightmap", "extra" };
+        final String[] names = { "Off (the normal picture)", "Without the lightmap (the walls are visible, but not lit)", "Without macro, detail and fog layers",
+                "Lightmap with a plain bilinear filter (try this first if the walls are black)" };
+        final String[] values = { "none", "lightmap", "extra", "lmsampler" };
         String current = SetupActivity.readSmallFile(new File(GRAPHICS_FIX_FILE));
         int selected = 0;
         for (int i = 0; i < values.length; i++) {
