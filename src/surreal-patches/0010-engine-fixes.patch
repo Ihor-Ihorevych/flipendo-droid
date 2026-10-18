@@ -1,7 +1,7 @@
 flipendo: fixes to SurrealEngine bugs (any game): VM (and HP2's bytecode tokens), properties, ini files (UTF-16 localization files), packages (Unicode strings), UTF-16 strings and file names that differ in case on Linux, GetLanguage, fonts (character remap, text drawn by code point, runtime-made fonts), crash reports, music streaming and following the default audio device (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties
 
 diff --git a/SurrealEngine/Audio/AudioDevice.cpp b/SurrealEngine/Audio/AudioDevice.cpp
-index 03e82566..e921a0a9 100644
+index 03e82566..b853159a 100644
 --- a/SurrealEngine/Audio/AudioDevice.cpp
 +++ b/SurrealEngine/Audio/AudioDevice.cpp
 @@ -13,6 +13,7 @@
@@ -44,7 +44,19 @@ index 03e82566..e921a0a9 100644
  		}
  	}
  
-@@ -173,6 +188,7 @@ private:
+@@ -140,8 +155,11 @@ public:
+ 		globalVolume = newGlobalVolume;
+ 	}
+ 
++	// OpenAL rejects a negative pitch (AL_INVALID_VALUE, which the next checked call then reported as its own
++	// failure): HP1's BroomHarry.UpdateBroomSound fades the broom loop's pitch below 0 along with its volume.
+ 	void SetPitch(float newPitch)
+ 	{
++		newPitch = std::max(newPitch, 0.0f);
+ 		if (pitch != newPitch)
+ 		{
+ 			pitch = newPitch;
+@@ -173,6 +191,7 @@ private:
  	float pitch = 0.0f;
  	float dopplerFactor = 0.0f;
  	bool bIs3d = false;
@@ -52,7 +64,7 @@ index 03e82566..e921a0a9 100644
  };
  
  // TODO list:
-@@ -222,6 +238,9 @@ public:
+@@ -222,6 +241,9 @@ public:
  		if (alcMakeContextCurrent(alContext) == ALC_FALSE)
  			Exception::Throw("Failed to make OpenAL context current");
  
@@ -62,41 +74,256 @@ index 03e82566..e921a0a9 100644
  		// init listener state
  		ALfloat listenerOri[] = { 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, -1.0f };
  		alListener3f(AL_POSITION, 0, 0, 0.0f);
-@@ -451,6 +470,12 @@ public:
+@@ -280,6 +302,7 @@ public:
+ 
+ 	void AddSound(USound* sound) override
+ 	{
++		std::lock_guard alLock(alMutex);
+ 		sounds.push_back(sound);
+ 
+ 		ALenum format = AL_FORMAT_MONO_FLOAT32;
+@@ -298,6 +321,7 @@ public:
+ 
+ 	void RemoveSound(USound* sound) override
+ 	{
++		std::lock_guard alLock(alMutex);
+ 		auto it = sounds.begin();
+ 		while (it != sounds.end())
+ 		{
+@@ -313,6 +337,7 @@ public:
+ 
+ 	bool IsPlaying(int channel) override
+ 	{
++		std::lock_guard alLock(alMutex);
+ 		ALSoundSource& source = sources[channel];
+ 		return source.IsPlaying();
+ 	}
+@@ -326,6 +351,7 @@ public:
+ 
+ 	void PlaySound(int channel, USound* sound, vec3& location, float volume, float radius, float pitch) override
+ 	{
++		std::lock_guard alLock(alMutex);
+ 		if (!std::isfinite(volume) || volume < 0.0f || !std::isfinite(pitch) || channel >= sources.size())
+ 			Exception::Throw("Invalid PlaySound arguments");
+ 
+@@ -348,6 +374,7 @@ public:
+ 
+ 	void UpdateSound(int channel, USound* sound, vec3& location, float volume, float radius, float pitch) override
+ 	{
++		std::lock_guard alLock(alMutex);
+ 		if (!std::isfinite(volume) || volume < 0.0f || !std::isfinite(pitch) || channel >= sources.size())
+ 			Exception::Throw("Invalid PlaySound arguments");
+ 
+@@ -364,15 +391,16 @@ public:
+ 
+ 	void StopSound(int channel) override
+ 	{
++		std::lock_guard alLock(alMutex);
+ 		if (channel >= sources.size())
+ 			Exception::Throw("Invalid StopSound arguments");
+ 
+ 		sources[channel].Stop();
+ 	}
+ 
+-	std::string getALErrorString()
++	std::string getALErrorString(ALenum error)
+ 	{
+-		switch (alGetError())
++		switch (error)
+ 		{
+ 		case AL_NO_ERROR:
+ 			return "AL_NO_ERROR";
+@@ -401,20 +429,21 @@ public:
+ 		{
+ 			alBufferData(alMusicBuffers[i], format, musicQueue.Pop(), musicBufferSize*4, freq);
+ 			if ((error = alGetError()) != AL_NO_ERROR)
+-				Exception::Throw("alBufferData failed in PlayMusicBuffer: " + getALErrorString());
++				Exception::Throw("alBufferData failed in PlayMusicBuffer: " + getALErrorString(error));
+ 
+ 			alSourceQueueBuffers(alMusicSource, 1, &alMusicBuffers[i]);
+-			if (alGetError() != AL_NO_ERROR)
+-				Exception::Throw("alSourceQueueBuffers failed in PlayMusicBuffer: " + getALErrorString());
++			if ((error = alGetError()) != AL_NO_ERROR)
++				Exception::Throw("alSourceQueueBuffers failed in PlayMusicBuffer: " + getALErrorString(error));
+ 		}
+ 
+ 		alSourcePlay(alMusicSource);
+-		if (alGetError() != AL_NO_ERROR)
+-			Exception::Throw("alSourcePlay failed in PlayMusicBuffer: " + getALErrorString());
++		if ((error = alGetError()) != AL_NO_ERROR)
++			Exception::Throw("alSourcePlay failed in PlayMusicBuffer: " + getALErrorString(error));
+ 	}
+ 
+ 	void UpdateMusicBuffer(AudioSource* music)
+ 	{
++		ALenum error;
+ 		ALint status;
+ 		alGetSourcei(alMusicSource, AL_BUFFERS_PROCESSED, &status);
+ 
+@@ -427,12 +456,12 @@ public:
+ 			int freq = music->GetFrequency();
+ 
+ 			alBufferData(buffer, format, musicQueue.Pop(), musicBufferSize*4, freq);
+-			if (alGetError() != AL_NO_ERROR)
+-				Exception::Throw("alBufferData failed in UpdateMusicBuffer: " + getALErrorString());
++			if ((error = alGetError()) != AL_NO_ERROR)
++				Exception::Throw("alBufferData failed in UpdateMusicBuffer: " + getALErrorString(error));
+ 
+ 			alSourceQueueBuffers(alMusicSource, 1, &buffer);
+-			if (alGetError() != AL_NO_ERROR)
+-				Exception::Throw("alSourceQueueBuffers failed in UpdateMusicBuffer: " + getALErrorString());
++			if ((error = alGetError()) != AL_NO_ERROR)
++				Exception::Throw("alSourceQueueBuffers failed in UpdateMusicBuffer: " + getALErrorString(error));
+ 
+ 			status--;
+ 		}
+@@ -441,18 +470,27 @@ public:
+ 		if (status == AL_STOPPED)
+ 		{
+ 			alSourcePlay(alMusicSource);
+-			if (alGetError() != AL_NO_ERROR)
+-				Exception::Throw("alSourcePlay failed in PlayMusicBuffer: " + getALErrorString());
++			if ((error = alGetError()) != AL_NO_ERROR)
++				Exception::Throw("alSourcePlay failed in PlayMusicBuffer: " + getALErrorString(error));
+ 		}
+ 	}
+ 
+ 	void SetMusicVolume(float volume) override
+ 	{
++		std::lock_guard alLock(alMutex);
  		alSourcef(alMusicSource, AL_GAIN, volume);
  	}
  
 +	void SetLinearFalloff(bool enable) override
 +	{
++		std::lock_guard alLock(alMutex);
 +		for (auto& soundSource : sources)
 +			soundSource.SetLinearFalloff(enable);
 +	}
 +
  	void SetSoundVolume(float volume) override
  	{
++		std::lock_guard alLock(alMutex);
  		globalSoundVolume = volume;
-@@ -508,8 +533,11 @@ public:
- 				while (musicQueue.Size() < musicBufferCount)
+ 
+ 		for (auto& soundSource : sources)
+@@ -461,6 +499,7 @@ public:
+ 
+ 	void Update() override
+ 	{
++		std::lock_guard alLock(alMutex);
+ 		UActor* listener = engine->CameraActor;
+ 		if (listener)
+ 		{
+@@ -482,6 +521,7 @@ public:
+ 	{
+ 		std::unique_ptr<AudioSource> currentMusic;
+ 		bool musicPlaying = false;
++		int musicFailures = 0;
+ 
+ 		while (true)
+ 		{
+@@ -493,47 +533,134 @@ public:
+ 			{
+ 				if (musicPlaying)
  				{
- 					// render a chunk of music
++					std::lock_guard alLock(alMutex);
+ 					alSourceStop(alMusicSource);
+ 					alSourceUnqueueBuffers(alMusicSource, (ALsizei)alMusicBuffers.size(), &alMusicBuffers[0]);
++					alGetError();
+ 					musicPlaying = false;
+ 				}
+ 				currentMusic = std::move(musicThreadData.music);
+ 				musicThreadData.musicUpdate = false;
++				musicFailures = 0;
+ 			}
+ 			lock.unlock();
+ 			// Never touch anything from musicThreadData after this point.
+ 
++			using namespace std::chrono_literals;
+ 			if (currentMusic)
+ 			{
+-				while (musicQueue.Size() < musicBufferCount)
+-				{
+-					// render a chunk of music
 -					currentMusic->ReadSamples(musicQueue.GetNextFree(), musicBufferSize);
 -					musicQueue.Push(musicQueue.GetNextFree());
-+					// silence after the end of the stream (the buffer still holds an older chunk)
-+					float* chunk = musicQueue.GetNextFree();
-+					size_t samplesRead = currentMusic->ReadSamples(chunk, musicBufferSize);
-+					std::fill(chunk + samplesRead, chunk + musicBufferSize, 0.0f);
-+					musicQueue.Push(chunk);
+-				}
+-
+-				if (!musicPlaying)
++				// An exception leaving this thread ends the game (std::terminate), so a music error only stops the
++				// music: the source is reset and the track restarted once a second; a track that keeps failing is
++				// dropped.
++				try
+ 				{
+-					PlayMusicBuffer(currentMusic.get());
+-					musicPlaying = true;
++					while (musicQueue.Size() < musicBufferCount)
++					{
++						// render a chunk of music
++						// silence after the end of the stream (the buffer still holds an older chunk)
++						float* chunk = musicQueue.GetNextFree();
++						size_t samplesRead = currentMusic->ReadSamples(chunk, musicBufferSize);
++						std::fill(chunk + samplesRead, chunk + musicBufferSize, 0.0f);
++						musicQueue.Push(chunk);
++					}
++
++					std::lock_guard alLock(alMutex);
++					alGetError(); // an error left by a main thread call isn't ours
++					if (!musicPlaying)
++					{
++						PlayMusicBuffer(currentMusic.get());
++						musicPlaying = true;
++					}
++					else if (musicQueue.Size() > 0)
++					{
++						UpdateMusicBuffer(currentMusic.get());
++						musicFailures = 0;
++					}
++
++					// TODO: music fade in/out
  				}
- 
- 				if (!musicPlaying)
-@@ -528,12 +556,56 @@ public:
+-				else if (musicQueue.Size() > 0)
++				catch (const std::exception& e)
+ 				{
+-					UpdateMusicBuffer(currentMusic.get());
++					std::string message = e.what();
++					message = message.substr(0, message.find('\n'));
++					{
++						std::lock_guard alLock(alMutex);
++						alSourceStop(alMusicSource);
++						alSourcei(alMusicSource, AL_BUFFER, 0);
++						alGetError();
++					}
++					musicPlaying = false;
++					if (++musicFailures >= 5)
++					{
++						LogMessage("Music stopped, the track keeps failing: " + message);
++						currentMusic.reset();
++						musicFailures = 0;
++					}
++					else
++					{
++						if (musicFailures == 1)
++							LogMessage("Music error, restarting the stream: " + message);
++						std::this_thread::sleep_for(1s);
++					}
+ 				}
+-
+-				// TODO: music fade in/out
+ 			}
+ 			else
  			{
  				musicPlaying = false;
  			}
+-			using namespace std::chrono_literals;
 +
-+			FollowDefaultDevice();
++			{
++				std::lock_guard alLock(alMutex);
++				FollowDefaultDevice();
++				alGetError();
++			}
 +
- 			using namespace std::chrono_literals;
  			std::this_thread::sleep_for(5ms);
  		}
  	}
@@ -146,6 +373,19 @@ index 03e82566..e921a0a9 100644
  	ALCcontext* alContext = nullptr;
  	ALenum alError = 0;
  	ALuint alMusicSource = 0;
+@@ -664,6 +791,12 @@ public:
+ 	int frequency = 48000;
+ 	Array<USound*> sounds;
+ 
++	// OpenAL keeps one error state per context (alGetError), shared by the game and music threads: without this
++	// lock each thread read the other's errors as its own and aborted the game, "alBufferData failed in
++	// UpdateMusicBuffer: AL_NO_ERROR" on the music thread or "Failed to play AL source" in PlaySound (HP1's
++	// Quidditch match, 2026-10-18). Every OpenAL call holds it; the music thread clears the error state each time.
++	std::mutex alMutex;
++
+ 	// Note: variables changed in musicThreadData *must* be done within a mutex lock to be thread safe
+ 	struct
+ 	{
 diff --git a/SurrealEngine/Audio/AudioDevice.h b/SurrealEngine/Audio/AudioDevice.h
 index d201523d..1b395a9d 100644
 --- a/SurrealEngine/Audio/AudioDevice.h
