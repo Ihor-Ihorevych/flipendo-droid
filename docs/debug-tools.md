@@ -34,7 +34,7 @@ Times are seconds since the first frame.
 | `@console[.Prop] Fn [arg]` | call a script function on the console or an object it references, e.g. `@console.MenuBook OpenBook Slot`; a number is passed as an int (`@console.MenuBook.SlotPage SetSelectedSlot 0` before `LoadSelectedSlot` loads slot 0 and keeps later saves there) |
 | `@console.MenuBook.SlotPage LoadSelectedSlot` | load a save from the main menu (slot 99 when none is selected); a bare `open saveN.usa` leaves the menu book open over the game and `HPConsole.bInHubFlow` false (a Quidditch match then runs in league mode), so for a playtest copy the save to `Save99.usa` and use this |
 | `@console SaveSelectedSlot` | save (slot 99 without a selected slot) |
-| `@set <actor prefix> <prop> <value>` | set a property on live actors, e.g. `@set CutScene3 bDebugScript True` |
+| `@set <actor prefix> <prop>[[i]] <value>` | set a property on live actors, e.g. `@set CutScene3 bDebugScript True`; `[i]` sets one element of a fixed array, in `@get`'s format (`@set Harry1 WizardCards[3] (ID=10, bHasCard=True)`). With `@get` this copies Harry's state from one save into another: read it with the scripts the save was made with, set it on a fresh `--level` start, then `@console SaveSelectedSlot` |
 | `@get <actor prefix> <prop>` | log a property, e.g. `@get harry numBeans`. Some properties hang the game (seen 2026-10-10 with `harry0 FlashScale` and a name that isn't a property; not looked into) |
 | `@teleport x y z` | move the player there (touches what is there, so it starts touch cutscenes); the game camera comes along |
 | `@trigger <tag>` | trigger every actor with that Tag |

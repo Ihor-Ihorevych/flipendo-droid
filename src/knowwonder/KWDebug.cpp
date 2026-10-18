@@ -56,7 +56,7 @@
 //   HP1_EXEC="40:open save0.usa;90:SaveGame 3"  run a console command at <sec> (';' separates entries);
 //                              "@console Fn" calls the console's script function Fn() instead (e.g. SaveSelectedSlot);
 //                              "@console.MenuBook OpenBook Slot" follows object properties and passes one argument (a number as an int);
-//                              "@set CutScene bDebugScript True" sets a property on every actor whose name starts so; "@get harry numBeans" logs one
+//                              "@set CutScene bDebugScript True" sets a property on every actor whose name starts so (Prop[i]: one array element); "@get harry numBeans" logs one
 //                              "@teleport x y z" moves the player; "@trigger <tag>" triggers every actor with that Tag;
 //                              "@state tut3peeves2 dieing" sends the matching actors to that script state;
 //                              "@travel Lev2_HogFront" changes level as the game's level exits do (carrying Harry's travel properties);
@@ -249,6 +249,18 @@ namespace KW
 				a->Location().x, a->Location().y, a->Location().z, a->Tag().ToString().c_str(), a->Event().ToString().c_str());
 			LogMessage(buf);
 		}
+	}
+
+	// A property of the actor's class, or null: a name prefix also matches other actors (Harry → HarryShadow), and
+	// GetMemberProperty throws for a property they don't have.
+	static UProperty* FindActorProperty(UActor* actor, const std::string& name)
+	{
+		for (UProperty* prop : actor->PropertyData.Class->Properties)
+		{
+			if (prop->Name == NameString(name))
+				return prop;
+		}
+		return nullptr;
 	}
 
 	static void TickDebugExec(float now)
@@ -513,8 +525,10 @@ namespace KW
 			{
 				if (!a || a->Name.ToString().compare(0, prefix.size(), prefix) != 0)
 					continue;
-				UProperty* p = a->GetMemberProperty(NameString(prop));
-				if (p && p->ArrayDimension > 1)
+				UProperty* p = FindActorProperty(a, prop);
+				if (!p)
+					continue;
+				if (p->ArrayDimension > 1)
 				{
 					const uint8_t* data = static_cast<const uint8_t*>(a->GetProperty(p));
 					for (int i = 0; i < p->ArrayDimension; i++)
@@ -529,17 +543,36 @@ namespace KW
 		}
 		if (text.rfind("@set ", 0) == 0)
 		{
-			// "@set <actor name prefix> <property> <value>": set a property on every matching actor.
+			// "@set <actor name prefix> <property>[[index]] <value>": set a property (or one element of a fixed array, in
+			// @get's format, e.g. "@set Harry0 WizardCards[3] (ID=10, bHasCard=True)") on every matching actor.
 			std::stringstream parts(text.substr(5));
 			std::string prefix, prop, value;
 			parts >> prefix >> prop;
 			std::getline(parts >> std::ws, value);
+			int index = -1;
+			size_t bracket = prop.find('[');
+			if (bracket != std::string::npos)
+			{
+				index = std::atoi(prop.c_str() + bracket + 1);
+				prop.resize(bracket);
+			}
 			int count = 0;
 			for (UActor* a : engine->Level->Actors)
 			{
 				if (a && a->Name.ToString().compare(0, prefix.size(), prefix) == 0)
 				{
-					a->SetPropertyFromString(NameString(prop), value);
+					UProperty* p = FindActorProperty(a, prop);
+					if (!p)
+						continue;
+					if (index >= p->ArrayDimension || (index >= 0 && p->ArrayDimension == 1))
+					{
+						LogMessage("HP1 exec: " + a->Name.ToString() + "." + prop + " has no element " + std::to_string(index));
+						continue;
+					}
+					if (index >= 0)
+						p->SetValueFromString(static_cast<uint8_t*>(a->GetProperty(p)) + index * p->ElementPitch(), value);
+					else
+						a->SetPropertyFromString(NameString(prop), value);
 					count++;
 				}
 			}
