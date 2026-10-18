@@ -97,6 +97,42 @@ public class FlipendoActivity extends SDLActivity {
         restartWith(SetupActivity.LANG_WANT, code);
     }
 
+    static final String GRAPHICS_FIX_FILE = "/sdcard/FlipendoHP/.flipendo-gltest"; // read by the OpenGL scene shader (GLRenderDevice.cpp)
+
+    /**
+     * Settings > Graphics fix: for a GPU whose level walls and floors come out black while the characters are fine. The choice is a
+     * file the OpenGL renderer reads when it starts, so the game restarts to apply it.
+     */
+    void openGraphicsFix() {
+        final String[] names = { "Off (the normal picture)", "Without the lightmap (try this if the walls are black)", "Without macro, detail and fog layers" };
+        final String[] values = { "none", "lightmap", "extra" };
+        String current = SetupActivity.readSmallFile(new File(GRAPHICS_FIX_FILE));
+        int selected = 0;
+        for (int i = 0; i < values.length; i++) {
+            if (values[i].equals(current)) selected = i;
+        }
+        final int was = selected;
+        runOnUiThread(new Runnable() {
+            public void run() {
+                new android.app.AlertDialog.Builder(FlipendoActivity.this)
+                        .setTitle("Graphics fix (the game restarts)")
+                        .setSingleChoiceItems(names, was, new android.content.DialogInterface.OnClickListener() {
+                            public void onClick(android.content.DialogInterface d, int which) {
+                                d.dismiss();
+                                if (which == was) return;
+                                try {
+                                    SetupActivity.writeSmallFile(new File(GRAPHICS_FIX_FILE), values[which]);
+                                } catch (IOException e) {
+                                    android.util.Log.e("flipendo", "could not keep the graphics fix: " + e);
+                                    return;
+                                }
+                                restartWith(null, null);
+                            }
+                        }).show();
+            }
+        });
+    }
+
     /** Switches a mod on or off ("none" for the originals), the same way: wish file, launcher, fresh process. */
     void switchMod(String id) {
         restartWith(SetupActivity.MOD_WANT, id);
@@ -1671,7 +1707,7 @@ public class FlipendoActivity extends SDLActivity {
         boolean helpOpen;        // the controls help card over the settings panel
         final android.graphics.RectF panel = new android.graphics.RectF();
         final android.graphics.RectF segStick = new android.graphics.RectF(), segDpad = new android.graphics.RectF();
-        final android.graphics.RectF helpBtn = new android.graphics.RectF(), layoutBtn = new android.graphics.RectF(), closeBtn = new android.graphics.RectF(), debugBtn = new android.graphics.RectF(), autoJumpBtn = new android.graphics.RectF(), telegramBtn = new android.graphics.RectF(), languageBtn = new android.graphics.RectF(), modBtn = new android.graphics.RectF(), fpsBtn = new android.graphics.RectF();
+        final android.graphics.RectF fixBtn = new android.graphics.RectF(), helpBtn = new android.graphics.RectF(), layoutBtn = new android.graphics.RectF(), closeBtn = new android.graphics.RectF(), debugBtn = new android.graphics.RectF(), autoJumpBtn = new android.graphics.RectF(), telegramBtn = new android.graphics.RectF(), languageBtn = new android.graphics.RectF(), modBtn = new android.graphics.RectF(), fpsBtn = new android.graphics.RectF();
 
         final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
         final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -1838,6 +1874,7 @@ public class FlipendoActivity extends SDLActivity {
             promptNo.set(w / 2f + gap, promptYes.top, promptPanel.right - 0.05f * ppw, promptYes.bottom);
 
             helpBtn.set(colL0 + 0.34f * u, headerY - 0.052f * h, colL0 + 0.56f * u, headerY + 0.008f * h);
+            fixBtn.set(helpBtn.right + 0.02f * u, helpBtn.top, helpBtn.right + 0.30f * u, helpBtn.bottom);
             versionRect.set(colR1 - 0.5f * u, headerY - 0.07f * h, colR1 + 0.01f * u, headerY + 0.03f * h); // the "Flipendo for Android x.y.z" text
             layoutEditRects(w, h);
 
@@ -1987,6 +2024,11 @@ public class FlipendoActivity extends SDLActivity {
             rowPaint.setTextAlign(Paint.Align.CENTER);
             rowPaint.setColor(GOLD);
             c.drawText("? How to play", helpBtn.centerX(), helpBtn.centerY() + rowPaint.getTextSize() * 0.35f, rowPaint);
+            fill.setColor(0x22FFFFFF);
+            c.drawRoundRect(fixBtn, fixBtn.height() / 2f, fixBtn.height() / 2f, fill);
+            rowPaint.setColor(0xFFFFFFFF);
+            c.drawText("Graphics fix", fixBtn.centerX(), fixBtn.centerY() + rowPaint.getTextSize() * 0.35f, rowPaint);
+            rowPaint.setColor(GOLD);
             rowPaint.setColor(0xFFFFFFFF);
             rowPaint.setTextAlign(Paint.Align.LEFT);
             if (padActive && settingsFocus >= 0 && !langListOpen) {
@@ -2349,6 +2391,11 @@ public class FlipendoActivity extends SDLActivity {
                         // the panel takes every touch
                         if (helpBtn.contains(x, y)) {
                             helpOpen = true;
+                            break;
+                        }
+                        if (fixBtn.contains(x, y)) {
+                            settingsOpen = false;
+                            ((FlipendoActivity) getContext()).openGraphicsFix();
                             break;
                         }
                         if (versionRect.contains(x, y)) {
