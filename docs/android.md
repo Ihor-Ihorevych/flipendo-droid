@@ -406,3 +406,14 @@ button charges and casts, the jump button (right mouse) cycles the three spells,
   HP2's Harry has `AirSpeed = 0`, which capped the flying speed at 0. `/sdcard/FlipendoHP/hp2_debug.txt` (one command per line: `level <map>`,
   `state GSTATE...`, `spells`, `god`, `fly`, `ghost`, `walk`) is taken once by the game, for testing without the dialogs.
 - **Easter eggs:** five quick taps on the version text in the settings header, or a direction code, open a link (per game).
+
+## 0.3.5
+
+- **HP2 editions (Russian voices and texts):** the language row of HP2 lists English, the Russian text (a `harry2` folder of `.rus` files) and every
+  edition found in `<HP2>/editions/<code>/` (the files that differ from the base game: `Sounds/AllDialog.uax`, `System/*.rus`,
+  `Textures/MenuArt.Rus_utx`, and `edition.txt` with its name). The choice is kept per game (`.flipendo-language` in the HP2 folder, the in-game
+  wish is `.selfpack-want` there). `SetupActivity.applyHp2Edition` puts the edition's files over the game, keeping what they replace and the
+  base `AllDialog.*_uax` in `.hp2-edition-backup`, and sets `Language=` in the ini files (`rus`; `usa` for English). A self pack carries editions
+  (`build-apk.sh --hp2-edition "ru=C:/Games/HP2Rus|Name"`); a light install gets one from a cache zip unpacked into the storage root
+  (`FlipendoHP2/editions/ru/...`).
+- **`.nomedia`:** the launcher puts an empty `.nomedia` in the game folder, so the game's pictures stay out of the phone's gallery; the cache zips carry it too.
