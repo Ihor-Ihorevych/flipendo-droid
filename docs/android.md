@@ -394,3 +394,15 @@ button charges and casts, the jump button (right mouse) cycles the three spells,
   its bounds, through the transform the wand is drawn with; 19.9 long): Lumos and the spell particles sit on the tip.
 - **Adreno 735:** when the driver won't map the scene vertex or index buffer (`glMapBufferRange` returns null without a GL error), the frame is
   built in memory and copied in with `glBufferSubData` (`GLRenderDevice::MapVertices` / `UnmapVertices`).
+
+## 0.3.4
+
+- **Settings > Graphics fix** (OpenGL only; the choice is `/sdcard/FlipendoHP/.flipendo-gltest`, read by `GLRenderDevice.cpp` when the renderer
+  starts, so the game restarts): for a GPU whose level walls and floors come out black while the characters are fine (a PowerVR Rogue GE8300 box;
+  the lightmap is the layer only level surfaces have). Options: *without the lightmap* (`NOLIGHTMAP` in `Scene.frag`: unlit but visible),
+  *without macro, detail and fog layers* (`NOEXTRA`), *lightmap with a plain bilinear filter* (a dedicated sampler without mip filtering).
+  The first helped the PowerVR box; the cause is still being narrowed.
+- **HP2 debug menu:** God mode (health topped up every frame), Fly, Ghost, Walk again. Fly and Ghost set `AirSpeed` and `AccelRate` first:
+  HP2's Harry has `AirSpeed = 0`, which capped the flying speed at 0. `/sdcard/FlipendoHP/hp2_debug.txt` (one command per line: `level <map>`,
+  `state GSTATE...`, `spells`, `god`, `fly`, `ghost`, `walk`) is taken once by the game, for testing without the dialogs.
+- **Easter eggs:** five quick taps on the version text in the settings header, or a direction code, open a link (per game).
