@@ -397,6 +397,31 @@ index d201523d..1b395a9d 100644
 +	virtual void SetLinearFalloff(bool enable) { } // see ALSoundSource::SetLinearFalloff
  	virtual void Update() = 0;
  };
+diff --git a/SurrealEngine/Audio/AudioSource.cpp b/SurrealEngine/Audio/AudioSource.cpp
+index 241acddf..4083604c 100644
+--- a/SurrealEngine/Audio/AudioSource.cpp
++++ b/SurrealEngine/Audio/AudioSource.cpp
+@@ -367,6 +367,10 @@ public:
+ 
+ 		stream_info = stb_vorbis_get_info(handle);
+ 		stream_eof = false;
++		// pcm pointed into the closed decoder's buffers; reading what was left of its last frame was a use-after-free
++		pcm = nullptr;
++		pcm_position = 0;
++		pcm_samples = 0;
+ 	}
+ 
+ 	size_t ReadSamples(float* output, size_t requestedsamples) override
+@@ -392,6 +396,9 @@ public:
+ 			int samples = pcm_samples - pcm_position;
+ 			if (samples > data_left) samples = data_left;
+ 
++			if (samples <= 0) // the stream ended without another frame (pcm may be null)
++				continue;
++
+ 			int buffer_pos = (data_requested - data_left) * stream_info.channels;
+ 			int c = stream_info.channels;
+ 			for (int j = 0; j < c; j++)
 diff --git a/SurrealEngine/Native/NObject.cpp b/SurrealEngine/Native/NObject.cpp
 index 1081c358..eac79ad4 100644
 --- a/SurrealEngine/Native/NObject.cpp
