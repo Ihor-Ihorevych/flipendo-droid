@@ -73,13 +73,7 @@ Legend: [~] partly done / in progress · [ ] not started
       (`Engine::Run`: tick and render split) and the interpolation in the renderer. An option, the 60 FPS cap stays
       the default until it is tested level by level
 - [ ] More built-in extras: FOV slider, controller support, free camera
-- [ ] HD texture packs (issue #4): load replacement textures from the game folder, so packs made for the community
-      DX11 renderer work, e.g. Akven's ESRGAN Upscale Pack v3 (2,537 `Textures/<Package>/<Group>/<Name>.dds`, DXT1
-      and DXT5 only, 4x upscales; its `System/tessellation.cfg` is for that renderer). SurrealEngine renders BC1/BC3
-      already, so a texture load looks the file up (case-insensitive), reads the DDS mips and swaps `UsedMipmaps` /
-      `UsedFormat` while `USize`/`VSize` stay the original's (BSP and canvas UVs use them). Mesh UVs scale by the
-      first mip's width (`VisibleMesh.cpp`, `KWSkeletal`), so they need the original width too. Check masked and
-      translucent textures (DXT1 alpha vs the game's masking). On when the folder exists, off with `--vanilla`
+- [ ] Texture packs: check masked and translucent overrides (a DXT1 file's 1-bit alpha against the game's masking)
 - [ ] Twitch chaos mod (opt-in, `--chaos`): stream viewers vote in chat on effects every N seconds (low gravity,
       giant or tiny Harry, a random spell cast, camera upside down, slow motion, Harry runs backwards, beans
       rain). Each effect is a timed `@set` on live actors / `Level.TimeDilation`, undone when it ends; a vote

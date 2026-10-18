@@ -89,6 +89,7 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Engine.cpp` | `HP1::DebugCamera` after PlayerCalcView (`HP1_CAMERA`); `KW::ShowWindowInBackground` in OpenWindow (`HP1_BACKGROUND`); `HP1::TickMods` after the console tick; `HP1::ModsKeyDown` in OnWindowKeyDown |
 | `Engine.cpp` (Run) | `HP1::ModsTimeScale` multiplies the frame's level time (`src/hp1/mods/FastForward.cpp`: Shift held = 2.5x) |
 | `Render/RenderCanvas.cpp` (PostRender) | `HP1::PostRenderMods` after the HUD and console/menus |
+| `RenderDevice/Vulkan/UploadManager.cpp` (UploadTexture) | `HP1::LoadTextureOverride`: a `Textures/<package>/<group>/<name>.dds` replacement image is uploaded instead of the texture's mipmaps (`src/hp1/mods/TextureOverrides.cpp`); UVs keep the texture's own USize/VSize. Vulkan only |
 | `Native/NObject.cpp` | DynamicLoadObject resolves "Package.Group.Name" |
 | `Packages/Engine/Actors/UActor.cpp` (Tick end) | `HP1::TickRootMotion` (bAnimMove root motion) |
 | `Packages/Engine/Actors/UActor_PhysWalking.cpp`, `UActor_PhysRolling.cpp` | `HP1::PawnWalkOffLedge` / `HP1::StartFalling` (MayFall, ledge rule, auto-jump, Falling) |

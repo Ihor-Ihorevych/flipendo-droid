@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 
 // Harry Potter 1 only: the optional extras (src/hp1/mods/) and --level. Called from flipendo: hooks gated by
@@ -7,6 +8,10 @@
 
 class UCanvas;
 class UPlayerPawn;
+class UTexture;
+class UnrealMipmap;
+enum class TextureFormat : uint32_t;
+template<typename T> class Array;
 
 namespace HP1
 {
@@ -18,6 +23,9 @@ namespace HP1
 	float ModsTimeScale();
 	// RenderSubsystem::PostRender, after the HUD and the console/menus.
 	void PostRenderMods(UCanvas* canvas);
+	// Vulkan UploadManager::UploadTexture: a replacement image for the texture (Textures/<package>/<group>/<name>.dds,
+	// src/hp1/mods/TextureOverrides.cpp). False uploads the texture's own mipmaps.
+	bool LoadTextureOverride(UTexture* texture, TextureFormat& format, Array<UnrealMipmap>& mips);
 
 	// --level=<map> (src/hp1/HP1LevelStart.cpp). Engine::LoginPlayer, before Possess: the first level started with
 	// --level gets the story flow and the state a player carries in.

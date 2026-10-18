@@ -173,6 +173,7 @@ switched on, and `--vanilla` switches all of them off.
 | Discord status | on | friends on Discord see which level you're in and Gryffindor's house points; `--no-discord` turns it off |
 | 60 FPS cap | on | the game runs at most 60 frames a second, as the original was played (some of its movement goes wrong at high frame rates); `--fps=<n>` for another limit, `--fps=0` for none |
 | Map fixes | on | fixes broken paths in the original maps (Peeves now flies off after the Lev_Tut3b duel instead of drifting through the walls) |
+| Texture packs | on | `.dds` files in `Textures/<package>/<group>/<name>.dds` replace the game's textures: the layout of the DirectX 11 renderer's texture packs, such as the ESRGAN Upscale Pack (unpack it into the game folder) |
 | Launch skips | off | `--skip-splash`, `--skip-intro` |
 
 More is coming (an in-game page to switch these, more extras): see the [roadmap](ROADMAP.md#extras-for-hp1-srchp1mods),
