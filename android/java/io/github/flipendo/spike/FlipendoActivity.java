@@ -105,8 +105,8 @@ public class FlipendoActivity extends SDLActivity {
      */
     void openGraphicsFix() {
         final String[] names = { "Off (the normal picture)", "Without the lightmap (the walls are visible, but not lit)", "Without macro, detail and fog layers",
-                "Lightmap with a plain bilinear filter (try this first if the walls are black)" };
-        final String[] values = { "none", "lightmap", "extra", "lmsampler" };
+                "Lightmap with a plain bilinear filter", "Textures without mip levels", "Plain bilinear filter for every texture" };
+        final String[] values = { "none", "lightmap", "extra", "lmsampler", "nomip", "plainsamplers" };
         String current = SetupActivity.readSmallFile(new File(GRAPHICS_FIX_FILE));
         int selected = 0;
         for (int i = 0; i < values.length; i++) {
