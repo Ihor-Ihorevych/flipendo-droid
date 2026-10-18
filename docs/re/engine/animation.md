@@ -199,7 +199,8 @@ Origin, X, Y, Z), the weapon coords cache @636.
   in. The original runs it in camera space, a reflection of world space (d = -1 there for a frame that is proper in
   world space), so its world frame is proper: OrthoRotation returns it exactly. Done in world space, the same steps give
   a mirrored frame (Y the other way). OrthoRotation of a mirrored frame is neither candidate: Harry's
-  wand in Ch1Rictusempra came out 41 degrees off.
+  wand in Ch1Rictusempra came out 41 degrees off. `KW::SkeletalWeaponFrame` therefore leaves out the Y negation (the
+  world-space equivalent), which also draws the weapon in the original's frame (not its Y mirror).
 - HP1 never reads WeaponRot for the wand (only BathroomTroll's thrown objects); HP2 does: `baseWand.GetWandEndPoint` =
   WeaponLoc + (0,0,20) >> WeaponRot (charge particles, Lumos, the spell's start), the sword glow at (0,0,55*t).
   `HPModels.WandMesh` (the same mesh in HP1's HPBase) is a cone along -Z: radius 0.6 at z = 0 (the grip), 0.28 at

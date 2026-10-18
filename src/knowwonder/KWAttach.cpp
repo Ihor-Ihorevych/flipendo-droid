@@ -110,7 +110,7 @@ namespace KW
 		}
 	}
 
-	// IDA Render.dll: ?DrawActorSprite@URender@@QAEXPAUFSceneNode@@PAUFDynamicSprite@@@Z [HP1 Render 0x10B32850] (the pawn weapon block)
+	// IDA Render.dll: ?DrawActorSprite@URender@@QAEXPAUFSceneNode@@PAUFDynamicSprite@@@Z [HP1 Render 0x10B32850] [HP2 Render 0x10B32EE0] (the pawn weapon block)
 	// IDA Render.dll: ?DrawLodMesh@URender@@QAEXPAUFSceneNode@@PAUFDynamicSprite@@PAVAActor@@ABVFCoords@@K@Z [HP1 Render 0x10B0FF00] (takes the mesh's weapon coords when WeaponBoneIndex > -1)
 	// After drawing a pawn: WeaponLoc/WeaponRot from the weapon frame, then the weapon's ThirdPersonMesh is drawn in that
 	// frame (its Rotation is zeroed for the draw, so only the frame orients it).
