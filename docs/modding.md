@@ -6,7 +6,7 @@ Flipendo keeps a strict line between the **faithful port** and **additions**:
   Every function carries an `// IDA` tag saying which original function it reimplements.
 - `src/hp1/mods/` holds features the original never had: quality-of-life changes, developer shortcuts, anything a player
   of the 2001 release never saw. They never change vanilla behaviour unless switched on, and `--vanilla` switches off
-  all the ones that are on by default. Mods are HP1's for now; HP2 gets the same once it runs.
+  all the ones that are on by default. Mods are HP1's for now (texture overrides also run for HP2); HP2 gets the rest once it runs.
 
 ## Built-in mods
 
@@ -24,7 +24,8 @@ Flipendo keeps a strict line between the **faithful port** and **additions**:
 ## Writing a mod
 
 A mod is a C++ file in `src/hp1/mods/`. The build picks up new files automatically (`src/hp1/hp1.cmake` globs `src/hp1/`). Mods are HP1's: they
-read HP1's script classes (`HPBase`, `HPMenu`).
+read HP1's script classes (`HPBase`, `HPMenu`). The exception is `TextureOverrides.cpp`, which reads no scripts and runs
+for HP2 too (its hook is gated `IsKnowWonder()`).
 Mods hook in only through these calls (the first four in `src/hp1/mods/HP1Mods.cpp`):
 
 | Hook | Called | Use it for |
