@@ -192,6 +192,21 @@ Origin, X, Y, Z), the weapon coords cache @636.
   pawn, sets WeaponLoc/WeaponRot from it and draws Weapon.ThirdPersonMesh there (Mesh/DrawScale swapped with
   ThirdPersonMesh/ThirdPersonScale, Rotation zeroed, Location added to the coords origin) unless the weapon is bHidden.
   HP1 meshes have no weapon triangles (skharryMesh: WeaponBoneIndex 48, skronMesh 40).
+- The weapon frame's handedness (HP1 and HP2 checked, 2026-10-18): the weapon block of `GetFrame` is the same code in
+  both games (HP2 0x1042C980), and so is Render.dll's (HP2 `DrawActorSprite` 0x10B32EE0: WeaponRot = OrthoRotation of
+  `Inverse(cache) /= Frame->Coords`, WeaponLoc its origin; nothing else in Engine.dll writes either). For an orthonormal
+  W of determinant d, the steps give (X, d*Y, -Z): Z always flips, and Y's sign depends on the space the arithmetic runs
+  in. The original runs it in camera space, a reflection of world space (d = -1 there for a frame that is proper in
+  world space), so its world frame is proper: OrthoRotation returns it exactly. Done in world space, the same steps give
+  a mirrored frame (Y the other way). OrthoRotation of a mirrored frame is neither candidate: Harry's
+  wand in Ch1Rictusempra came out 41 degrees off.
+- HP1 never reads WeaponRot for the wand (only BathroomTroll's thrown objects); HP2 does: `baseWand.GetWandEndPoint` =
+  WeaponLoc + (0,0,20) >> WeaponRot (charge particles, Lumos, the spell's start), the sword glow at (0,0,55*t).
+  `HPModels.WandMesh` (the same mesh in HP1's HPBase) is a cone along -Z: radius 0.6 at z = 0 (the grip), 0.28 at
+  z = -19.9, one bone `Cone01` at identity (its `All` sequence too). `skGryf_SwordMesh`'s blade also runs to z = -55.8
+  (hilt to +10; its bone's 180-degree turn about (1,1,0) is already in Points). The scripts' 20 and 55 match the
+  meshes' lengths, but by the native code above WeaponRot's +Z is the frame's Z, while the meshes are drawn toward -Z.
+  Not settled: check the original HP2 (where the charge particles sit while the cast button is held) before porting.
 
 ## Still to reverse
 - Who destroys finished transient channels.
