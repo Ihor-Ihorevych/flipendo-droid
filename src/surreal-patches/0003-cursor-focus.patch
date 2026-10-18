@@ -1,10 +1,67 @@
-flipendo: only recenter the mouse cursor, and only act on raw mouse/keyboard input, while the game window is the active (foreground) window; window icons the right way up; macOS: a window started in fullscreen goes fullscreen reliably
+flipendo: only recenter the mouse cursor, and only act on raw mouse/keyboard input, while the game window is the active (foreground) window; window icons the right way up; macOS: a window started in fullscreen goes fullscreen reliably, and held mouse buttons count as held keys
 
 diff --git a/SurrealWidgets/src/window/cocoa/cocoa_display_window.mm b/SurrealWidgets/src/window/cocoa/cocoa_display_window.mm
-index 5f7ee013..62dac8dc 100644
+index 5f7ee013..d4666fdd 100644
 --- a/SurrealWidgets/src/window/cocoa/cocoa_display_window.mm
 +++ b/SurrealWidgets/src/window/cocoa/cocoa_display_window.mm
-@@ -942,7 +942,12 @@ void CocoaDisplayWindow::ShowFullscreen()
+@@ -472,6 +472,7 @@ void CocoaDisplayWindowImpl::stopDisplayLink()
+ 
+         if (mouseKey != InputKey::None)
+         {
++            impl->keyState[mouseKey] = true;
+             impl->windowHost->OnWindowMouseDown(Point(p.x, flippedY), mouseKey);
+         }
+     }
+@@ -491,6 +492,7 @@ void CocoaDisplayWindowImpl::stopDisplayLink()
+ 
+         if (mouseKey != InputKey::None)
+         {
++            impl->keyState[mouseKey] = false;
+             impl->windowHost->OnWindowMouseUp(Point(p.x, flippedY), mouseKey);
+         }
+     }
+@@ -501,6 +503,7 @@ void CocoaDisplayWindowImpl::stopDisplayLink()
+     if (impl && impl->windowHost)
+     {
+         NSPoint p = [theEvent locationInWindow];
++        impl->keyState[InputKey::RightMouse] = true;
+         impl->windowHost->OnWindowMouseDown(Point(p.x, [self frame].size.height - p.y), InputKey::RightMouse);
+     }
+ }
+@@ -510,10 +513,32 @@ void CocoaDisplayWindowImpl::stopDisplayLink()
+     if (impl && impl->windowHost)
+     {
+         NSPoint p = [theEvent locationInWindow];
++        impl->keyState[InputKey::RightMouse] = false;
+         impl->windowHost->OnWindowMouseUp(Point(p.x, [self frame].size.height - p.y), InputKey::RightMouse);
+     }
+ }
+ 
++// The middle button (and any other) arrives here, not in mouseDown:.
++- (void)otherMouseDown:(NSEvent *)theEvent
++{
++    if (impl && impl->windowHost && [theEvent buttonNumber] == 2)
++    {
++        NSPoint p = [theEvent locationInWindow];
++        impl->keyState[InputKey::MiddleMouse] = true;
++        impl->windowHost->OnWindowMouseDown(Point(p.x, [self frame].size.height - p.y), InputKey::MiddleMouse);
++    }
++}
++
++- (void)otherMouseUp:(NSEvent *)theEvent
++{
++    if (impl && impl->windowHost && [theEvent buttonNumber] == 2)
++    {
++        NSPoint p = [theEvent locationInWindow];
++        impl->keyState[InputKey::MiddleMouse] = false;
++        impl->windowHost->OnWindowMouseUp(Point(p.x, [self frame].size.height - p.y), InputKey::MiddleMouse);
++    }
++}
++
+ - (void)mouseDragged:(NSEvent *)theEvent
+ {
+     [self dispatchMouseMove:theEvent];
+@@ -942,7 +967,12 @@ void CocoaDisplayWindow::ShowFullscreen()
  {
      if (impl->window)
      {
