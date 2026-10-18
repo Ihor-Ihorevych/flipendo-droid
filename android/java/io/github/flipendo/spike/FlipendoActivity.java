@@ -94,6 +94,10 @@ public class FlipendoActivity extends SDLActivity {
      * process) is started, and this process, with the engine in it, is killed so the game starts again from nothing.
      */
     void switchLanguage(String code) {
+        if (SetupActivity.isHp2Folder(gameDir())) {
+            restartWithIn(new File(gameDir()), SetupActivity.LANG_WANT, code); // HP2 keeps its own choice, in its folder
+            return;
+        }
         restartWith(SetupActivity.LANG_WANT, code);
     }
 
@@ -241,10 +245,15 @@ public class FlipendoActivity extends SDLActivity {
     }
 
     void restartWith(String wishFile, String value) {
-        new File(GAME_DIR).mkdirs(); // the wish files live there even when the game was picked elsewhere
+        restartWithIn(new File(GAME_DIR), wishFile, value);
+    }
+
+    /** restartWith with the wish file in a given folder (HP2's language wish lives in its own game folder). */
+    void restartWithIn(File wishDir, String wishFile, String value) {
+        wishDir.mkdirs(); // the wish files live there even when the game was picked elsewhere
         if (wishFile != null) {
             try {
-                SetupActivity.writeSmallFile(new File(GAME_DIR, wishFile), value);
+                SetupActivity.writeSmallFile(new File(wishDir, wishFile), value);
             } catch (IOException e) {
                 android.util.Log.e("flipendo", "could not write the wish " + wishFile + ": " + e);
                 return;
@@ -813,7 +822,9 @@ public class FlipendoActivity extends SDLActivity {
         // Languages carried by this APK ({code, label}) and the Language button, which opens them as a list; its last row
         // adds a dubbing from a folder (ADD_VOICE, not a language)
         static final String ADD_VOICE = "+voice";
-        final java.util.List<String[]> languages = withAddVoice(SetupActivity.readLanguages(getContext()));
+        final java.util.List<String[]> languages = isHp2Game()
+                ? SetupActivity.readHp2Languages(new File(((FlipendoActivity) getContext()).gameDir()))
+                : withAddVoice(SetupActivity.readLanguages(getContext()));
 
         java.util.List<String[]> withAddVoice(java.util.List<String[]> list) {
             // the dubbing import is HP1's (its Sounds folder); HP2 takes its texts from its own harry2 folder
@@ -837,6 +848,7 @@ public class FlipendoActivity extends SDLActivity {
         float langTitleY, langHintY;
 
         String currentLanguage() {
+            if (isHp2Game()) return SetupActivity.chosenHp2Language(new File(((FlipendoActivity) getContext()).gameDir()));
             return SetupActivity.chosenLanguage(getContext());
         }
 

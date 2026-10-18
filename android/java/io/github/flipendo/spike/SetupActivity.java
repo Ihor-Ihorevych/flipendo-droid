@@ -772,8 +772,18 @@ public class SetupActivity extends Activity {
                 if (found == null && picked != null) {
                     found = findGameFor(hp2, new File(picked), 2);
                 }
-                // HP2: its own Russian text files from the harry2 folder
+                // HP2: the language the in-game switch wished for becomes the choice, then the language's files go in
                 if (found != null && hp2) {
+                    File wish2 = new File(found, LANG_WANT);
+                    String wished2 = readSmallFile(wish2);
+                    if (wished2 != null && !wished2.isEmpty()) {
+                        try {
+                            writeSmallFile(new File(found, CHOSEN_LANG), wished2);
+                        } catch (IOException e) {
+                            android.util.Log.e("flipendo", "could not keep the HP2 language choice: " + e);
+                        }
+                    }
+                    wish2.delete();
                     try {
                         applyHp2Language(found);
                     } catch (IOException e) {
@@ -813,6 +823,17 @@ public class SetupActivity extends Activity {
                         }
                     }
                     modWish.delete();
+                }
+                // the game's pictures (thumbnails, save snaps, textures) stay out of the phone's gallery
+                if (found != null) {
+                    try {
+                        File nomedia = new File(found, ".nomedia");
+                        if (!nomedia.exists()) {
+                            nomedia.createNewFile();
+                        }
+                    } catch (IOException e) {
+                        android.util.Log.e("flipendo", "could not make .nomedia: " + e);
+                    }
                 }
                 final File game = found;
                 ui.post(new Runnable() {
@@ -947,8 +968,11 @@ public class SetupActivity extends Activity {
     private void applyHp2Language(File game) throws IOException {
         File pack = findIgnoringCase(game, "harry2");
         File system = systemDir(game);
-        String code = chosenLanguage(this);
-        boolean russian = code != null && code.toLowerCase(java.util.Locale.ROOT).startsWith("ru");
+        String code = chosenHp2Language(game);
+        boolean edition = new File(new File(game, HP2_EDITIONS), code).isDirectory();
+        boolean russian = edition || "rutext".equals(code);
+        // an edition of the game (its own voices and texts): installed over the base game, the previous one taken out first
+        applyHp2Edition(game, edition ? code : null);
         // the Russian texts (the .int files of that edition are UTF-16, the harry2 .rus Windows-1251) need the Cyrillic glyphs
         File textMarker = new File(game, TEXT_MARKER);
         if (russian) {
@@ -959,7 +983,7 @@ public class SetupActivity extends Activity {
         if (system != null) {
             setHp2IniLanguage(system, russian);
         }
-        if (pack == null || !pack.isDirectory() || system == null) {
+        if (edition || pack == null || !pack.isDirectory() || system == null) {
             return;
         }
         File[] files = pack.listFiles();
@@ -992,6 +1016,141 @@ public class SetupActivity extends Activity {
                 target.delete();
             }
         }
+    }
+
+    // ---- HP2 editions: a Russian release's voices and texts, next to the base game ----
+    // An edition is a folder <HP2>/editions/<code>/ holding the files that differ from the base game (Sounds/AllDialog.uax,
+    // System/*.rus ...) and edition.txt (its name). A self pack carries them (build-apk.sh --hp2-edition), a light install gets
+    // them from a cache zip. Choosing one puts its files over the game, keeping what they replace in .hp2-edition-backup;
+    // choosing English or the Russian text only gives the originals back.
+    static final String HP2_EDITIONS = "editions";
+    static final String HP2_EDITION_MARKER = ".hp2-edition";
+    static final String HP2_EDITION_BACKUP = ".hp2-edition-backup";
+
+    /** The languages an HP2 folder offers: English, the Russian text (harry2 folder), and each edition. */
+    static List<String[]> readHp2Languages(File game) {
+        List<String[]> out = new ArrayList<>();
+        out.add(new String[] { "en", "English" });
+        File pack = findIgnoringCase(game, "harry2");
+        File[] packFiles = pack.isDirectory() ? pack.listFiles() : null;
+        if (packFiles != null) {
+            for (File f : packFiles) {
+                if (f.isFile() && f.getName().toLowerCase(java.util.Locale.ROOT).endsWith(".rus")) {
+                    out.add(new String[] { "rutext", "Русский (текст)" });
+                    break;
+                }
+            }
+        }
+        File[] editions = new File(game, HP2_EDITIONS).listFiles();
+        if (editions != null) {
+            java.util.Arrays.sort(editions);
+            for (File e : editions) {
+                if (e.isDirectory()) {
+                    String label = readSmallFile(new File(e, "edition.txt"));
+                    out.add(new String[] { e.getName(), label != null && !label.isEmpty() ? label : e.getName() });
+                }
+            }
+        }
+        return out;
+    }
+
+    /** The language chosen for an HP2 folder (CHOSEN_LANG in it); the first time the Russian text when HP1 is set to a Russian one. */
+    static String chosenHp2Language(File game) {
+        String chosen = readSmallFile(new File(game, CHOSEN_LANG));
+        List<String[]> languages = readHp2Languages(game);
+        for (String[] l : languages) {
+            if (l[0].equals(chosen)) {
+                return chosen;
+            }
+        }
+        String hp1 = readSmallFile(new File(FlipendoActivity.GAME_DIR, CHOSEN_LANG));
+        if (hp1 != null && hp1.toLowerCase(java.util.Locale.ROOT).startsWith("ru")) {
+            for (String[] l : languages) {
+                if (l[0].equals("rutext")) {
+                    return "rutext";
+                }
+            }
+        }
+        return "en";
+    }
+
+    /** Puts the edition's files over the game (null: none, the originals back). */
+    private void applyHp2Edition(File game, String code) throws IOException {
+        File marker = new File(game, HP2_EDITION_MARKER);
+        File backup = new File(game, HP2_EDITION_BACKUP);
+        String installed = readSmallFile(marker);
+        byte[] buffer = new byte[1 << 20];
+        List<String> files = new ArrayList<>();
+        if (code != null) {
+            listFiles(new File(new File(game, HP2_EDITIONS), code), "", files);
+            files.remove("edition.txt");
+        }
+        // what is installed is checked against the edition's files: a changed or missing one means a fresh install
+        boolean current = code != null && code.equals(installed);
+        if (current) {
+            File source = new File(new File(game, HP2_EDITIONS), code);
+            for (String relative : files) {
+                if (findSound(game, relative).length() != new File(source, relative).length()) {
+                    current = false;
+                }
+            }
+        }
+        if (current) {
+            return;
+        }
+        if (installed != null && !installed.isEmpty()) {
+            // take the installed edition out: its files go, the originals come back
+            List<String> mine = new ArrayList<>();
+            listFiles(new File(new File(game, HP2_EDITIONS), installed), "", mine);
+            mine.remove("edition.txt");
+            for (String relative : mine) {
+                findSound(game, relative).delete();
+            }
+            List<String> originals = new ArrayList<>();
+            listFiles(backup, "", originals);
+            for (String relative : originals) {
+                File target = findSound(game, relative);
+                target.getParentFile().mkdirs();
+                target.delete();
+                new File(backup, relative).renameTo(target);
+            }
+            deleteTree(backup);
+            marker.delete();
+        }
+        if (code == null) {
+            return;
+        }
+        File source = new File(new File(game, HP2_EDITIONS), code);
+        int done = 0;
+        for (String relative : files) {
+            File target = findSound(game, relative);
+            File saved = new File(backup, relative);
+            say("Installing the edition " + (done + 1) + " / " + files.size() + "\n" + relative, done, files.size());
+            if (target.exists() && !saved.exists()) {
+                saved.getParentFile().mkdirs();
+                target.renameTo(saved);
+            }
+            if (relative.toLowerCase(java.util.Locale.ROOT).startsWith("sounds/alldialog.")) {
+                // the base game's spoken dialogue (AllDialog.USA_uax, .RUS_uax ...) is put aside: the edition's own is the one to load
+                File sounds = soundsDir(game);
+                File[] others = sounds.listFiles();
+                if (others != null) {
+                    for (File other : others) {
+                        String n = other.getName().toLowerCase(java.util.Locale.ROOT);
+                        if (n.startsWith("alldialog.") && n.endsWith("_uax")) {
+                            File moved = new File(backup, "Sounds/" + other.getName());
+                            moved.getParentFile().mkdirs();
+                            if (!moved.exists()) {
+                                other.renameTo(moved);
+                            }
+                        }
+                    }
+                }
+            }
+            copyFile(new File(source, relative), findSound(game, relative), buffer);
+            done++;
+        }
+        writeSmallFile(marker, code);
     }
 
     /** Whether the folder is HP2's (System/Game.exe, no System/HP.exe). */
