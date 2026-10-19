@@ -102,7 +102,11 @@ read in HP2's Engine.dll.
   (`PlayMusic("sm_dia_Ambient02_01.ogg", 0.5)` returns a handle; `StopMusic(handle, fade)`, `StopAllMusic(fade)`;
   `PlayerPawn.Song` is a string). Flipendo: `src/hp2/HP2Music.cpp`, written from the scripts and NOT yet checked against
   ALAudio.dll: one song at a time, looping, linear fades. `KW::UpdateMusic` hands over to it for HP2 (HP1's Galaxy
-  music properties don't exist in HP2's PlayerPawn).
+  music properties don't exist in HP2's PlayerPawn). Some scripts leave the extension off (FEBook's
+  `Intro_Movie_Music_Edit`, `PrivetDrive2_late2school`, `sm_wwa_willowLevel1p_01_part2`); Flipendo then tries `.ogg`.
+  Every song loops, so SurrealEngine's Ogg stream restarts at the end (`OggAudioSource::SeekToSample`); that closed
+  the Vorbis decoder while the rest of its last frame was still to be copied, and the next read used the freed buffer
+  (a crash about two minutes into the Whomping Willow, at once with a 2.5 s song). Fixed in `0010-engine-fixes`.
 - Volumes: ALAudio keeps `MusicVolume` / `SoundVolume` as floats 0..1 (`[ALAudio.ALAudioSubsystem]` ships 0.53 and 0.9),
   and the options page (`FESoundVideoPage`) reads and writes them so (`get ini:Engine.Engine.AudioDevice MusicVolume`
   times 100, `set ... MusicVolume <slider / 100>`). `SETVOLUMES SOUND=<f> MUSIC=<f>` (`UALAudioSubsystem::Exec`

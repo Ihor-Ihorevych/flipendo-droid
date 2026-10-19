@@ -72,6 +72,24 @@ translucent sprite (`Sprite`, DT_Sprite) whose Texture is the spell's WetTexture
 `FlipendoWet1`, ...), shown by `TurnOnSpellGestureFX`. The symbols aren't symmetric top to bottom, so they showed that
 SurrealEngine drew every sprite upside down ([rendering.md](../engine/rendering.md#sprites)).
 
+## Moving and looking while casting
+
+`PlayerPawn.PlayerInput` (KnowWonder's `Engine.u`): while `PlayerIsAiming()`, forward/back (`aBaseY`) aim the spell up and
+down instead of moving Harry (`aForward = 0`) when `bKeyAltFire` is set or `MoveWhileCasting()` is false.
+`harry.MoveWhileCasting()` is true when AltFire isn't held and `bMoveWhileCasting` otherwise, and `harry.PlayerInput`
+overwrites `bMoveWhileCasting` every frame AltFire is held: true if a mouse button is down (`GetCurrentKeyState` of
+LeftMouse, RightMouse or MiddleMouse), false if not. So casting with the mouse lets Harry walk, and casting with a key
+(`Alt=AltFire`) makes forward/back aim. The menu's Move While Casting checkbox (`FEInputPage.MoveWhileCastingChanged`) sets
+the same variable, so it has no lasting effect; `SaveConfig` writes whatever the last frame left in `[HGame.Harry]`. On macOS
+the window didn't report mouse buttons as held, so every cast counted as a keyboard cast (fixed in `0003-cursor-focus`).
+
+Looking up and down while walking: `PlayerWalking.PlayerMove` zeroes `aLookUp`; the camera (`BaseCam.ApplyMouseYToDestPitch`)
+pitches from `SmoothMouseY` instead. While Harry walks forward and isn't aiming, `PlayerMove` calls `Cam.SetPitch(-1500)`
+every frame if `bAutoCenterCamera` is set (Options > Input, "Auto Centre Camera", on in `DefUser.ini`), so the mouse can't
+change the pitch then. `FEInputPage.HideWindow` saves it with `SaveConfig`. Its `set ini:HGame.Harry <prop> <value>`
+console commands (and the Difficulty one) fail in Flipendo ("Could not find class 'None'": `ini:` resolves a class name
+from the ini); the settings are saved by the `SaveConfig` anyway. What the original engine does with them isn't checked.
+
 ## Collision
 
 Two new collide types, `CT_AlignedOvalCylinder` and `CT_OrientedOvalCylinder` ([collision.md](../engine/collision.md#hp1-and-hp2)).

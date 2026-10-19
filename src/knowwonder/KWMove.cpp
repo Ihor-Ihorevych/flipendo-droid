@@ -13,6 +13,7 @@
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Math/coords.h"
+#include <algorithm>
 #include <cmath>
 
 // HP1's ULevel::MoveActor and friends: how an actor moves through the world (sweep, block, bump, touch, carry what
@@ -34,6 +35,24 @@ namespace KW
 	static bool IsTiny(const vec3& v)
 	{
 		return std::abs(v.x) < 0.000099999997f && std::abs(v.y) < 0.000099999997f && std::abs(v.z) < 0.000099999997f;
+	}
+
+	// Actors whose MoveActor is still running further up the stack. A mover that is based on what it pushes (HP2's
+	// Entryhall_hub: Mover33, the plinth that slides StatueGregorySmarmy0 aside, has the statue as its Base in the map)
+	// would otherwise be carried by the statue it is pushing, before the statue has moved: it encroaches the statue
+	// again, pushes it again, and so on until the stack overflows. An actor already being moved isn't carried again.
+	// NOT yet verified against HP1's or HP2's Engine.dll (how the original avoids the loop isn't known).
+	static Array<UActor*> movingActors;
+
+	struct MovingActorScope
+	{
+		explicit MovingActorScope(UActor* actor) { movingActors.push_back(actor); }
+		~MovingActorScope() { movingActors.pop_back(); }
+	};
+
+	static bool IsBeingMoved(UActor* actor)
+	{
+		return std::find(movingActors.begin(), movingActors.end(), actor) != movingActors.end();
 	}
 
 	static vec3 SafeNormal(const vec3& v)
@@ -162,6 +181,7 @@ namespace KW
 			}
 		}
 
+		MovingActorScope moving(actor);
 		hit = CheckResult();
 		hit.Time = 1.0f;
 
@@ -225,7 +245,7 @@ namespace KW
 			Array<UActor*> based;
 			for (UActor* other : engine->Level->Actors)
 			{
-				if (other && other->ActorBase() == actor)
+				if (other && other->ActorBase() == actor && !IsBeingMoved(other))
 					based.push_back(other);
 			}
 			for (UActor* other : based)

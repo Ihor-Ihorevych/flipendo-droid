@@ -1256,6 +1256,45 @@ index 681fb558..1caf4fa1 100644
  				#endif
  
  				outColor = clamp(outColor, 0.0, 1.0);
+diff --git a/SurrealEngine/RenderDevice/Vulkan/UploadManager.cpp b/SurrealEngine/RenderDevice/Vulkan/UploadManager.cpp
+index 4d7dcaff..4450fac8 100644
+--- a/SurrealEngine/RenderDevice/Vulkan/UploadManager.cpp
++++ b/SurrealEngine/RenderDevice/Vulkan/UploadManager.cpp
+@@ -3,6 +3,9 @@
+ #include "UploadManager.h"
+ #include "VulkanRenderDevice.h"
+ #include "CachedTexture.h"
++#include "Engine.h"
++#include "HP1.h"
++#include "Packages/Engine/Resources/Textures/UTexture.h"
+ #include <surrealgpu/vulkanbuilders.h>
+ 
+ UploadManager::UploadManager(VulkanRenderDevice* renderer) : renderer(renderer)
+@@ -23,8 +26,23 @@ bool UploadManager::SupportsTextureFormat(TextureFormat Format) const
+ 	return TextureUploader::GetUploader(Format);
+ }
+ 
+-void UploadManager::UploadTexture(CachedTexture* tex, const TextureInfo& Info, bool masked)
++void UploadManager::UploadTexture(CachedTexture* tex, const TextureInfo& texinfo, bool masked)
+ {
++	// Texture overrides (src/hp1/mods/TextureOverrides.cpp, HP1 and HP2): upload a replacement image instead of the
++	// package's. The scene keeps using texinfo (USize/VSize) for UVs, so a larger image maps the same way.
++	TextureInfo overrideInfo;
++	Array<UnrealMipmap> overrideMips;
++	if (engine->LaunchInfo.IsKnowWonder() && HP1::LoadTextureOverride(texinfo.Texture, overrideInfo.Format, overrideMips))
++	{
++		overrideInfo.Texture = texinfo.Texture;
++		overrideInfo.CacheID = texinfo.CacheID;
++		overrideInfo.Mips = overrideMips.data();
++		overrideInfo.NumMips = (int)overrideMips.size();
++		overrideInfo.USize = overrideMips[0].Width;
++		overrideInfo.VSize = overrideMips[0].Height;
++	}
++	const TextureInfo& Info = overrideMips.empty() ? texinfo : overrideInfo;
++
+ 	int width = Info.USize;
+ 	int height = Info.VSize;
+ 	int mipcount = Info.NumMips;
 diff --git a/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp b/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp
 index 0c7b3bb7..a2a627f3 100644
 --- a/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp

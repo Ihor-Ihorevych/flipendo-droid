@@ -11,7 +11,7 @@ them, kept as patch files so a newer SurrealEngine rarely conflicts.
 |---|---|
 | `src/surreal-patches/0001-game-detection.patch` | HP1 `System/HP.exe` hashes (UK 1.1, EN retail SafeDisc, community No-CD, Russian retail and No-CD), also under the long exe names some releases use; why a folder isn't a game |
 | `src/surreal-patches/0002-launcher-flags.patch` | `--autolaunch`, `--logfile`, the flags the HP1 code reads |
-| `src/surreal-patches/0003-cursor-focus.patch` | cursor recentering and raw input only while the game window has focus; window icons the right way up |
+| `src/surreal-patches/0003-cursor-focus.patch` | cursor recentering and raw input only while the game window has focus; window icons the right way up; macOS: `ShowFullscreen` shows the window first and only toggles when it isn't fullscreen yet, and mouse buttons go into the key state `GetKeyState` reads (HP2's `GetCurrentKeyState`; the middle button gets its own handlers) |
 | `src/surreal-patches/0010-engine-fixes.patch` | fixes to SurrealEngine bugs that aren't specific to one game (VM, properties, ini (UTF-16 files), packages, GetLanguage, fonts, crash reports, audio device) |
 | `src/surreal-patches/0100-knowwonder-core.patch` | build (`src/flipendo.cmake`), natives registration, engine loop (input, console, saves, view), missing data messages |
 | `src/surreal-patches/0110-knowwonder-physics.patch` | KnowWonder physics, pawn movement, collision |
@@ -89,6 +89,7 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Engine.cpp` | `HP1::DebugCamera` after PlayerCalcView (`HP1_CAMERA`); `KW::ShowWindowInBackground` in OpenWindow (`HP1_BACKGROUND`); `HP1::TickMods` after the console tick; `HP1::ModsKeyDown` in OnWindowKeyDown |
 | `Engine.cpp` (Run) | `HP1::ModsTimeScale` multiplies the frame's level time (`src/hp1/mods/FastForward.cpp`: Shift held = 2.5x) |
 | `Render/RenderCanvas.cpp` (PostRender) | `HP1::PostRenderMods` after the HUD and console/menus |
+| `RenderDevice/Vulkan/UploadManager.cpp` (UploadTexture) | `HP1::LoadTextureOverride` (HP1 and HP2, gated `IsKnowWonder()`): a `Textures/<package>/<group>/<name>.dds` replacement image is uploaded instead of the texture's mipmaps (`src/hp1/mods/TextureOverrides.cpp`); UVs keep the texture's own USize/VSize. Vulkan only |
 | `Native/NObject.cpp` | DynamicLoadObject resolves "Package.Group.Name" |
 | `Packages/Engine/Actors/UActor.cpp` (Tick end) | `HP1::TickRootMotion` (bAnimMove root motion) |
 | `Packages/Engine/Actors/UActor_PhysWalking.cpp`, `UActor_PhysRolling.cpp` | `HP1::PawnWalkOffLedge` / `HP1::StartFalling` (MayFall, ledge rule, auto-jump, Falling) |

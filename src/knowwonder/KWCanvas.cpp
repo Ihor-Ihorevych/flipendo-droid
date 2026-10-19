@@ -108,6 +108,12 @@ namespace KW
 				func->NativeStruct = cls;
 				func->NativeFuncIndex = 0;
 				func->FuncFlags = func->FuncFlags | FunctionFlags::Native;
+				// Frame::CallNative uses a native's frame as one ExpressionValue per property (UFunction::Load sets
+				// this up for natives loaded from a package). Keeping the script layout leaves the argument slots
+				// unconstructed and too small, so they read stale variable-stack bytes and overrun the frame.
+				func->IsNativeFunc = true;
+				func->StructAlignment = alignof(ExpressionValue);
+				func->StructSize = func->Properties.size() * sizeof(ExpressionValue);
 				ResolutionOverrideInstalled = true;
 				return;
 			}

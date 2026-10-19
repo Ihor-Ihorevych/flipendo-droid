@@ -6,7 +6,7 @@ Flipendo keeps a strict line between the **faithful port** and **additions**:
   Every function carries an `// IDA` tag saying which original function it reimplements.
 - `src/hp1/mods/` holds features the original never had: quality-of-life changes, developer shortcuts, anything a player
   of the 2001 release never saw. They never change vanilla behaviour unless switched on, and `--vanilla` switches off
-  all the ones that are on by default. Mods are HP1's for now; HP2 gets the same once it runs.
+  all the ones that are on by default. Mods are HP1's for now (texture overrides also run for HP2); HP2 gets the rest once it runs.
 
 ## Built-in mods
 
@@ -18,13 +18,15 @@ Flipendo keeps a strict line between the **faithful port** and **additions**:
 | `FastForward.cpp` | on (`--vanilla` disables) | hold Shift to run the game 2.5 times as fast (Shift is unbound in HP1) |
 | `FrameLimit.cpp` | on at 60 fps (`--fps=<n>`; `--fps=0` or `--vanilla` disables) | waits at the end of each frame's tick so the game runs at most n frames a second: HP1's per-frame movement breaks at high frame rates ([original_bugs.md](re/hp1/original_bugs.md)) |
 | `PathFixes.cpp` | on (`--vanilla` disables) | adds reach specs the original maps are missing, so `Pawn.FindPath` finds the route the designers meant: Lev_Tut3b's HPath_F3 → baseStation1, Peeves' exit after the duel ([original_bugs.md](re/hp1/original_bugs.md)) |
+| `TextureOverrides.cpp` | on (`--vanilla` disables) | draws a texture from `Textures/<package>/<group>/<name>.dds` in the game folder when that file exists (DXT1/3/5, the layout D3D11Drv texture packs such as the ESRGAN Upscale Pack use); realtime and procedural textures are left alone. Vulkan only |
 | `LaunchSkips.cpp` | off (`--skip-splash`, `--skip-intro`) | skip the logo/title splash screens; skip the New Game storybook |
 
 ## Writing a mod
 
 A mod is a C++ file in `src/hp1/mods/`. The build picks up new files automatically (`src/hp1/hp1.cmake` globs `src/hp1/`). Mods are HP1's: they
-read HP1's script classes (`HPBase`, `HPMenu`).
-Mods hook in only through four calls in `src/hp1/mods/HP1Mods.cpp`:
+read HP1's script classes (`HPBase`, `HPMenu`). The exception is `TextureOverrides.cpp`, which reads no scripts and runs
+for HP2 too (its hook is gated `IsKnowWonder()`).
+Mods hook in only through these calls (the first four in `src/hp1/mods/HP1Mods.cpp`):
 
 | Hook | Called | Use it for |
 |---|---|---|
@@ -32,6 +34,7 @@ Mods hook in only through four calls in `src/hp1/mods/HP1Mods.cpp`:
 | `HP1::ModsKeyDown` | on every key press in the game window | key handling, also in menus |
 | `HP1::PostRenderMods` | after the HUD and menus are drawn | drawing on top of everything |
 | `HP1::ModsTimeScale` | every frame, when the frame's game time is worked out | running the game faster or slower (multiplies the frame time; leaves `LevelInfo.TimeDilation`, which save games store, alone) |
+| `HP1::LoadTextureOverride` | when the render device uploads a texture (Vulkan) | replacing a texture's image (the only mod hook below the scene code) |
 
 Steps:
 
@@ -43,7 +46,7 @@ Steps:
 
 Rules:
 
-- Mods hook in only through the four calls above, never through engine hooks of their own.
+- Mods hook in only through the calls above, never through engine hooks of their own.
 - No `// IDA` tags in a mod (nothing is reversed); say in a comment which script code it relies on.
 
 Helpers in `HP1Mods.h`: `ObjectProperty` / `BoolProperty` read script properties by name, `SpacePressed` reports a

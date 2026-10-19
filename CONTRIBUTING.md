@@ -59,8 +59,16 @@ from Windows may have it as `save/`; rename it, or saves made there won't show u
 
 ### macOS
 
-See SurrealEngine's [`src/engine/Docs/Building.md`](src/engine/Docs/Building.md). Not tested with Flipendo yet; reports
-are welcome.
+Tested on Apple Silicon (macOS 26, Xcode's command-line tools and Ninja; CMake fetches MoltenVK, OpenAL is bundled):
+
+```sh
+bash tools/apply_patches.sh
+cmake -S src/engine -B build-mac -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build-mac --target SurrealEngine
+build-mac/SurrealEngine.app/Contents/MacOS/SurrealEngine --autolaunch --logfile=hp1.log ~/Games/HarryPotter
+```
+
+The game renders at the display's native (Retina) resolution.
 
 ### Developer flags
 

@@ -101,7 +101,11 @@ namespace HP2
 		{
 			std::string song = music.pendingSong;
 			music.pendingSong.clear();
-			std::filesystem::path path = KW::FindIgnoringCase(KW::FindIgnoringCase(engine->LaunchInfo.gameRootFolder, "Music"), song);
+			// Scripts name the song with or without the extension (FEBook's "Intro_Movie_Music_Edit")
+			std::filesystem::path folder = KW::FindIgnoringCase(engine->LaunchInfo.gameRootFolder, "Music");
+			std::filesystem::path path = KW::FindIgnoringCase(folder, song);
+			if (path.empty())
+				path = KW::FindIgnoringCase(folder, song + ".ogg");
 			std::unique_ptr<AudioSource> source;
 			if (!path.empty())
 				source = AudioSource::CreateOgg(File::read_all_bytes(path.string()), true);
