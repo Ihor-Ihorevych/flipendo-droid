@@ -7,6 +7,9 @@
 #include "Utils/File.h"
 #include "Utils/UTF16.h"
 #include "Engine.h"
+#ifdef _WIN32
+#undef GetTextMetrics // windows.h (in the precompiled header) would rename TrueTypeFont::GetTextMetrics
+#endif
 #include "core/truetypefont.h"
 #include <cctype>
 #include <cmath>
