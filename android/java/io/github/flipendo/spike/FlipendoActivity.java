@@ -71,6 +71,9 @@ public class FlipendoActivity extends SDLActivity {
 
     static native void nativeSetAutoJump(boolean on);
 
+    /** Settings > Invert wand: the wand button's up/down aim (while the spell is held) goes the other way. */
+    static boolean invertWand = false;
+
     void applyAutoJump(boolean on, boolean save) {
         autoJump = on;
         try {
@@ -282,7 +285,7 @@ public class FlipendoActivity extends SDLActivity {
     private void saveScales() {
         getSharedPreferences("flipendo", MODE_PRIVATE).edit()
                 .putFloat("renderScale", surfaceScale).putFloat("uiScale", uiScale)
-                .putFloat("fovOffset", fovOffset).putBoolean("debugMode", debugMode).putBoolean("showFps", showFps).putBoolean("autoJump", autoJump).putInt("fpsLimit", fpsLimit).apply();
+                .putFloat("fovOffset", fovOffset).putBoolean("debugMode", debugMode).putBoolean("showFps", showFps).putBoolean("autoJump", autoJump).putBoolean("invertWand", invertWand).putInt("fpsLimit", fpsLimit).apply();
     }
 
     /** Resizes the render surface (the engine rebuilds its scene textures and swapchain for the new size). */
@@ -623,6 +626,7 @@ public class FlipendoActivity extends SDLActivity {
         applyDebugMode(prefs.getBoolean("debugMode", false), false);
         showFps = prefs.getBoolean("showFps", false);
         applyAutoJump(prefs.getBoolean("autoJump", true), false);
+        invertWand = prefs.getBoolean("invertWand", false);
         applyFpsLimit(prefs.getInt("fpsLimit", 60), false);
         if (mSurface != null) {
             applyRenderScale(prefs.getFloat("renderScale", 0.5f));
@@ -747,7 +751,6 @@ public class FlipendoActivity extends SDLActivity {
         /** Gameplay buttons are hidden while a menu is open; MENU stays as the way back. */
         boolean visible(Btn b) {
             if (layoutEdit) return b != skip; // the layout editor shows every control
-            if (b == save && isHp2Game()) return false; // HP2 has no saving here
             if (b == menu || b == gear) return true;
             if (b == skip) return cutsceneShown; // the skip button exists only in cutscenes
             if (cutsceneShown) return false;       // and they leave only the skip, settings and menu buttons
@@ -1024,7 +1027,7 @@ public class FlipendoActivity extends SDLActivity {
                 if (mag > AIM_DEADZONE) {
                     float scaled = (Math.min(mag, 1f) - AIM_DEADZONE) / (1f - AIM_DEADZONE);
                     float length = (float) Math.hypot(aimDx, aimDy); // the knob offset, at most aimR
-                    float yFlip = isHp2Game() ? -1f : 1f; // HP2: the stick looks the other way up and down than in HP1
+                    float yFlip = (isHp2Game() ? -1f : 1f) * (invertWand ? -1f : 1f); // HP2: the stick looks the other way up and down than in HP1; Invert wand flips it
                     SDLActivity.onNativeMouse(0, MotionEvent.ACTION_MOVE,
                             aimDx / length * scaled * AIM_GAIN, yFlip * aimDy / length * scaled * AIM_GAIN, true);
                 }
@@ -1059,7 +1062,7 @@ public class FlipendoActivity extends SDLActivity {
 
         // An Xbox-style gamepad, mapped onto what the touch controls send:
         //   left stick / d-pad: walk (arrow keys)        right stick: camera (relative mouse); the cursor in menus; the wand in lessons
-        //   A, LB or LT: jump (A: click in menus); skip a cutscene    X, RB or RT: the wand (held)    Y: save    B or Start: Esc
+        //   A, LB or LT: jump (A: click in menus)    X, RB or RT: the wand (held)    Y: save (hold it in a cutscene: skip)    B or Start: Esc
         // While a pad is in use the on-screen arrows, wand and jump are hidden; a touch brings them back.
         boolean padActive;
         float padLx, padLy, padRx, padRy, padHatX, padHatY;
@@ -1143,7 +1146,11 @@ public class FlipendoActivity extends SDLActivity {
                     updatePadCast();
                     return true;
                 case KeyEvent.KEYCODE_BUTTON_Y:
-                    if (down && !menuShown && !lessonShown && !cutsceneShown && !isHp2Game()) nativeRequestSave();
+                    if (cutsceneShown) {
+                        padSkipHold(down); // a cutscene is skipped by holding Y, so a touch on a stick or button skips nothing
+                    } else if (down && !menuShown && !lessonShown) {
+                        nativeRequestSave();
+                    }
                     return true;
                 case KeyEvent.KEYCODE_BUTTON_B:
                 case KeyEvent.KEYCODE_BACK:
@@ -1238,21 +1245,32 @@ public class FlipendoActivity extends SDLActivity {
             updatePadJump();
         }
 
-        /** A, LB or LT held: Space in cutscenes (skip), the jump in the game. */
+        /** A, LB or LT held: the jump in the game (nothing in a cutscene: that is skipped by holding Y). */
         void updatePadJump() {
-            boolean want = ((padA && !menuShown) || padJumpBumper || padJumpTrigger) && !settingsOpen && !promptOpen;
+            boolean want = ((padA && !menuShown) || padJumpBumper || padJumpTrigger) && !settingsOpen && !promptOpen && !cutsceneShown;
             if (menuShown && !padJumping) want = false;
             if (want == padJumping) return;
             padJumping = want;
-            if (want) padJumpIsSkip = cutsceneShown; // released the way it was pressed, even when the cutscene ended meanwhile
-            if (padJumpIsSkip) {
-                key(KeyEvent.KEYCODE_SPACE, want);
-            } else {
-                setButton(jump, want);
-            }
+            setButton(jump, want);
         }
 
-        boolean padJumpIsSkip;
+        static final int PAD_SKIP_HOLD_MS = 700;
+        boolean padSkipHeld;
+
+        final Runnable padSkipFire = new Runnable() {
+            public void run() {
+                if (!padSkipHeld || !cutsceneShown) return;
+                key(KeyEvent.KEYCODE_SPACE, true);
+                postDelayed(new Runnable() { public void run() { key(KeyEvent.KEYCODE_SPACE, false); } }, 120);
+            }
+        };
+
+        /** Y in a cutscene: Space (the skip) only once it has been held for a moment. */
+        void padSkipHold(boolean down) {
+            padSkipHeld = down;
+            removeCallbacks(padSkipFire);
+            if (down) postDelayed(padSkipFire, PAD_SKIP_HOLD_MS);
+        }
 
         /** The menu cursor while a pad drives it: the game's menus draw none on a touch screen. */
         void drawPadCursor(Canvas c) {
@@ -1495,7 +1513,7 @@ public class FlipendoActivity extends SDLActivity {
 
         // The port's settings panel: the entry the pad is on
         static final int SET_RENDER = 0, SET_UI = 1, SET_FOV = 2, SET_FPS = 3, SET_SEG = 4, SET_JUMP = 5, SET_LANG = 6, SET_MOD = 7,
-                SET_DEBUG = 8, SET_TELEGRAM = 9, SET_DONE = 10, SET_RENDERER = 11, SET_FPS_LIMIT = 12, SET_LAYOUT = 13, SET_HELP = 14;
+                SET_DEBUG = 8, SET_TELEGRAM = 9, SET_DONE = 10, SET_RENDERER = 11, SET_FPS_LIMIT = 12, SET_LAYOUT = 13, SET_HELP = 14, SET_INVERT = 15;
         int settingsFocus = -1;
         final java.util.List<android.graphics.RectF> setRects = new java.util.ArrayList<>();
         final java.util.List<Integer> setIds = new java.util.ArrayList<>();
@@ -1511,6 +1529,7 @@ public class FlipendoActivity extends SDLActivity {
             setRects.add(new android.graphics.RectF(fpsBtn)); setIds.add(SET_FPS);
             setRects.add(new android.graphics.RectF(segStick.left, segStick.top, segDpad.right, segDpad.bottom)); setIds.add(SET_SEG);
             setRects.add(new android.graphics.RectF(autoJumpBtn)); setIds.add(SET_JUMP);
+            if (aimStick() || isHp2Game()) { setRects.add(new android.graphics.RectF(invertBtn)); setIds.add(SET_INVERT); }
             setRects.add(new android.graphics.RectF(layoutBtn)); setIds.add(SET_LAYOUT);
             if (languages.size() > 1) { setRects.add(new android.graphics.RectF(languageBtn)); setIds.add(SET_LANG); }
             if (!isHp2Game()) { setRects.add(new android.graphics.RectF(modBtn)); setIds.add(SET_MOD); }
@@ -1565,6 +1584,7 @@ public class FlipendoActivity extends SDLActivity {
                 case SET_FPS: showFps = !showFps; fpsFrames = -1; activity.saveScales(); break;
                 case SET_SEG: setDpadMode(!dpadMode); break;
                 case SET_JUMP: activity.applyAutoJump(!autoJump, true); break;
+                case SET_INVERT: invertWand = !invertWand; activity.saveScales(); break;
                 case SET_LAYOUT: startLayoutEdit(); break;
                 case SET_HELP: helpOpen = true; break;
                 case SET_LANG: languageTap(); break;
@@ -1721,7 +1741,7 @@ public class FlipendoActivity extends SDLActivity {
         boolean helpOpen;        // the controls help card over the settings panel
         final android.graphics.RectF panel = new android.graphics.RectF();
         final android.graphics.RectF segStick = new android.graphics.RectF(), segDpad = new android.graphics.RectF();
-        final android.graphics.RectF fixBtn = new android.graphics.RectF(), helpBtn = new android.graphics.RectF(), layoutBtn = new android.graphics.RectF(), closeBtn = new android.graphics.RectF(), debugBtn = new android.graphics.RectF(), autoJumpBtn = new android.graphics.RectF(), telegramBtn = new android.graphics.RectF(), languageBtn = new android.graphics.RectF(), modBtn = new android.graphics.RectF(), fpsBtn = new android.graphics.RectF();
+        final android.graphics.RectF fixBtn = new android.graphics.RectF(), helpBtn = new android.graphics.RectF(), layoutBtn = new android.graphics.RectF(), closeBtn = new android.graphics.RectF(), debugBtn = new android.graphics.RectF(), autoJumpBtn = new android.graphics.RectF(), invertBtn = new android.graphics.RectF(), telegramBtn = new android.graphics.RectF(), languageBtn = new android.graphics.RectF(), modBtn = new android.graphics.RectF(), fpsBtn = new android.graphics.RectF();
 
         final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
         final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -1849,13 +1869,15 @@ public class FlipendoActivity extends SDLActivity {
             }
 
             // right: Controls (movement segments, Auto jump) and Game (Language, Movement mod, Debug mode)
-            float rowH = 0.066f * h, rowGap = 0.008f * h;
+            float rowH = 0.06f * h, rowGap = 0.008f * h;
             secControlsY = contentTop + 0.03f * h;
             float y = secControlsY + 0.025f * h;
             segStick.set(colR0, y, (colR0 + colR1) / 2f, y + rowH);
             segDpad.set((colR0 + colR1) / 2f, y, colR1, y + rowH);
             y += rowH + rowGap;
             autoJumpBtn.set(colR0, y, colR1, y + rowH);
+            y += rowH + rowGap;
+            invertBtn.set(colR0, y, colR1, y + rowH);
             y += rowH + rowGap;
             layoutBtn.set(colR0, y, colR1, y + rowH);
             y += rowH + 0.012f * h;
@@ -1995,6 +2017,7 @@ public class FlipendoActivity extends SDLActivity {
             drawSection(c, "CONTROLS", colR0, secControlsY);
             drawSegments(c);
             drawSwitchRow(c, autoJumpBtn, "Auto jump", "Harry jumps by himself at ledges", autoJump, false);
+            drawSwitchRow(c, invertBtn, "Invert wand", "Flip the up/down aim of the wand button while the spell is held", invertWand, false);
             drawValueRow(c, layoutBtn, "Control layout", "Move and resize the buttons", "Edit", false);
             drawSection(c, "GAME", colR0, secGameY);
             if (languages.size() > 1) {
@@ -2074,7 +2097,7 @@ public class FlipendoActivity extends SDLActivity {
                 { "Toolbar", "Settings, save anywhere (the book) and the pause menu (Esc). Hold Esc to send the logs" },
                 { "Control layout", "Settings > Control layout: drag the buttons where you want them, and resize them" },
                 hp2 ? new String[] { "Two-finger tap", "Tap the screen with two fingers: drink a Wiggenweld potion" } : null,
-                { "Gamepad", hp2 ? "A jump, X wand, Y save, B menu, a stick click drinks the potion" : "A jump, X wand, Y save, B menu" },
+                { "Gamepad", hp2 ? "A jump, X wand, Y save, B menu, a stick click drinks the potion. Hold Y to skip a cutscene" : "A jump, X wand, Y save, B menu. Hold Y to skip a cutscene" },
             };
             float y = dividerY + 0.07f * h;
             float step = (panel.bottom - 0.12f * h - y) / (hp2 ? 8 : 7);
@@ -2427,6 +2450,9 @@ public class FlipendoActivity extends SDLActivity {
                             setDpadMode(true);
                         } else if (autoJumpBtn.contains(x, y)) {
                             ((FlipendoActivity) getContext()).applyAutoJump(!autoJump, true);
+                        } else if (invertBtn.contains(x, y)) {
+                            invertWand = !invertWand;
+                            ((FlipendoActivity) getContext()).saveScales();
                         } else if (layoutBtn.contains(x, y)) {
                             startLayoutEdit();
                         } else if (fpsBtn.contains(x, y)) {
@@ -3023,7 +3049,7 @@ public class FlipendoActivity extends SDLActivity {
                 } else if (b == skip) {
                     sectionPaint.setTextAlign(Paint.Align.CENTER);
                     sectionPaint.setColor(b.down ? DARK : GOLD);
-                    c.drawText("SKIP ›", b.cx, b.cy + sectionPaint.getTextSize() * 0.35f, sectionPaint);
+                    c.drawText(padActive ? "Hold Y" : "SKIP ›", b.cx, b.cy + sectionPaint.getTextSize() * 0.35f, sectionPaint);
                     sectionPaint.setColor(GOLD);
                     sectionPaint.setTextAlign(Paint.Align.LEFT);
                 } else if (b.icon != null) {

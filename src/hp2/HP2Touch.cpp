@@ -9,6 +9,7 @@
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Package/PackageManager.h"
 #include "Packages/Core/UClass.h"
+#include "Packages/Core/UState.h"
 #include "Packages/Engine/UConsole.h"
 #include "Packages/Engine/UViewport.h"
 #include "Packages/Engine/Actors/UHUD.h"
@@ -42,6 +43,8 @@ namespace HP1 { void InitCyrillic(); }
 namespace HP2
 {
 	static bool g_godMode = false; // the debug menu's God mode: the health is topped up every frame
+	static UActor* g_watchedStar = nullptr; // development: the star the pick command picked, followed in the log
+	static int g_watchedTicks = 0;
 
 	static bool CutsceneMode()
 	{
@@ -114,6 +117,14 @@ namespace HP2
 			}
 		}
 
+		// development: what the picked star does next (the pick command)
+		if (g_watchedStar && ++g_watchedTicks % 20 == 0)
+		{
+			LogMessage("HP2 debug: star state " + g_watchedStar->GetStateName().ToString() + (g_watchedStar->bDeleteMe() ? " (deleted)" : "") + " hidden " + std::to_string((int)g_watchedStar->bHidden()));
+			if (g_watchedStar->bDeleteMe() || g_watchedTicks > 600)
+				g_watchedStar = nullptr;
+		}
+
 		// The debug menu (FlipendoActivity.openHp2Debug): "level <map>", "state GSTATE020", "spells"
 		std::vector<std::string> commands = AndroidTakeDebugCommands();
 		{
@@ -165,6 +176,24 @@ namespace HP2
 				}
 				CallEvent(harry, NameString(verb == "fly" ? "Fly" : verb == "ghost" ? "Ghost" : "Walk"));
 				LogMessage("HP2 debug: " + verb + " -> state " + harry->GetStateName().ToString() + ", physics " + std::to_string((int)harry->Physics()) + ", cheats " + (KW::BoolProperty(harry, "bCheatsEnabled") ? "on" : "off"));
+			}
+			else if (verb == "pick")
+			{
+				// development: picks up the first challenge star in the level the way a touch does (ChallengeStar / FinalStar)
+				for (size_t i = 0; i < engine->Level->Actors.size(); i++)
+				{
+					UActor* star = engine->Level->Actors[i];
+					const std::string className = star ? star->Class->Name.ToString() : std::string();
+					if (className == "ChallengeStar" || className == "FinalStar")
+					{
+						LogMessage("HP2 debug: pick " + className + " in state " + star->GetStateName().ToString());
+						CallEvent(star, NameString("DoPickupProp"));
+						g_watchedStar = star;
+						g_watchedTicks = 0;
+						LogMessage("HP2 debug: after DoPickupProp state " + star->GetStateName().ToString() + ", EndState enabled " + std::to_string((int)star->IsEventEnabled(EventName::EndState)) + ", stateFrame " + std::to_string(star->StateFrame != nullptr) + ", func " + std::to_string(star->StateFrame && star->StateFrame->Func) + " probe " + std::to_string(star->StateFrame ? static_cast<UState*>(star->StateFrame->Func)->ProbeMask : 0) + " ignore " + std::to_string(star->StateFrame ? static_cast<UState*>(star->StateFrame->Func)->IgnoreMask : 0) + " classProbe " + std::to_string(star->Class->ProbeMask));
+						break;
+					}
+				}
 			}
 			else if (verb == "god")
 			{

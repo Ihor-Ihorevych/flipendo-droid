@@ -655,7 +655,7 @@ index 2f91f141..e3a86d3f 100644
  			}
  		}
 diff --git a/SurrealEngine/Packages/Core/UObject.cpp b/SurrealEngine/Packages/Core/UObject.cpp
-index 2b855f33..39ed63e0 100644
+index 2b855f33..d74d80fe 100644
 --- a/SurrealEngine/Packages/Core/UObject.cpp
 +++ b/SurrealEngine/Packages/Core/UObject.cpp
 @@ -30,7 +30,16 @@ void UObject::LoadNow()
@@ -706,7 +706,21 @@ index 2b855f33..39ed63e0 100644
  			{
  				probeMask |= 1ULL << (uint64_t)i;
  			}
-@@ -526,12 +541,39 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
+@@ -411,6 +426,13 @@ bool UObject::IsEventEnabled(EventName name) const
+ 			foundProbe = true;
+ 		}
+ 
++		// HP2 compiles some states' probe masks without EndState (ChallengeStar.PickupProp defines it, its mask has only the
++		// inherited bits), yet the original calls it: the star's EndState adds the time and ends the lesson. A state that has
++		// the function and does not ignore the event gets it.
++		if (!foundProbe && name == EventName::EndState && engine->LaunchInfo.IsHarryPotter2() && StateFrame && StateFrame->Func
++			&& FindEventFunction(const_cast<UObject*>(this), ToNameString(name)))
++			foundProbe = true;
++
+ 		if (!foundProbe)
+ 			return false;
+ 	}
+@@ -526,12 +548,39 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
  
  	UState* oldState = (UState*)StateFrame->Func;
  
@@ -747,7 +761,7 @@ index 2b855f33..39ed63e0 100644
  	if (newState)
  	{
  		// HasStack is otherwise only ever inherited from the original package's export table at
-@@ -758,7 +800,9 @@ ScriptArray::ScriptArray(UProperty* type) : Type(type)
+@@ -758,7 +807,9 @@ ScriptArray::ScriptArray(UProperty* type) : Type(type)
  {
  }
  
@@ -758,7 +772,7 @@ index 2b855f33..39ed63e0 100644
  {
  	Reserve(other.Size);
  	try
-@@ -778,7 +822,7 @@ ScriptArray::ScriptArray(const ScriptArray& other)
+@@ -778,7 +829,7 @@ ScriptArray::ScriptArray(const ScriptArray& other)
  	}
  }
  

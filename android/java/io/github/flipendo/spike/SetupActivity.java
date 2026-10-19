@@ -124,6 +124,22 @@ public class SetupActivity extends Activity {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.topMargin = dp(14);
         col.addView(link, lp);
+        TextView folders = new TextView(this);
+        folders.setTextColor(GOLD);
+        folders.setTextSize(14);
+        folders.setGravity(Gravity.CENTER);
+        folders.setPadding(dp(16), dp(8), dp(16), dp(8));
+        folders.setBackground(rounded(0x1AE8C15A, 20, 0x40E8C15A));
+        folders.setText("Game folders");
+        folders.setFocusable(true);
+        folders.setOnClickListener(new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) {
+                showFolderSettings();
+            }
+        });
+        LinearLayout.LayoutParams fp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        fp.topMargin = dp(10);
+        col.addView(folders, fp);
         return col;
     }
 
@@ -342,12 +358,17 @@ public class SetupActivity extends Activity {
 
     // ---- HP2's saved games: six slots with a picture, or a new game --------------------------------------------------
 
-    /** The chosen game's folder, or null (looked for the way the launcher does: the default place, then the picked folder). */
+    /** The HP2 folder, or null (looked for the way the launcher does). */
     private File hp2Folder() {
-        File found = findGameFor(true, new File(HP2_DIR), 2);
-        String picked = getSharedPreferences("setup", MODE_PRIVATE).getString(PREF_GAME_DIR_HP2, null);
-        if (found == null && picked != null) {
-            found = findGameFor(true, new File(picked), 2);
+        return locateGame(true);
+    }
+
+    /** A game's folder: the one the player picked (Game folders), else the default place (a self pack unpacks there); null if neither has the game. */
+    private File locateGame(boolean hp2) {
+        String picked = getSharedPreferences("setup", MODE_PRIVATE).getString(hp2 ? PREF_GAME_DIR_HP2 : PREF_GAME_DIR, null);
+        File found = picked != null ? findGameFor(hp2, new File(picked), 2) : null;
+        if (found == null) {
+            found = findGameFor(hp2, new File(hp2 ? HP2_DIR : FlipendoActivity.GAME_DIR), 2);
         }
         return found;
     }
@@ -743,35 +764,39 @@ public class SetupActivity extends Activity {
                         p.edit().putString(PREF_GAME_DIR_HP2, old).remove(PREF_GAME_DIR).apply();
                     }
                 }
-                // the in-game language switch's wish becomes the choice
-                File wish = new File(FlipendoActivity.GAME_DIR, LANG_WANT);
-                String wished = readSmallFile(wish);
-                if (wished != null && !wished.isEmpty()) {
-                    try {
-                        writeSmallFile(new File(FlipendoActivity.GAME_DIR, CHOSEN_LANG), wished);
-                    } catch (IOException e) {
-                        android.util.Log.e("flipendo", "could not keep the language choice: " + e);
-                    }
-                }
-                wish.delete();
-                boolean text = languageHasText(SetupActivity.this, chosenLanguage(SetupActivity.this));
-                if (!text) {
-                    // before a self pack puts its editions' files in: the originals the translation replaced go back first
-                    try {
-                        removeTextTranslation(new File(FlipendoActivity.GAME_DIR));
-                    } catch (IOException e) {
-                        android.util.Log.e("flipendo", "removing the text translation failed: " + e);
-                    }
-                }
-                installGameData();
-                installHp2Data();
-                // the default place first (a self pack unpacks there), else the folder the player picked
+                // The two games are independent: only the chosen one's files are touched, and the other may be missing altogether.
+                // /sdcard/FlipendoHP also holds the port's own files (log, renderer choice) for both, so it has to exist.
+                new File(FlipendoActivity.GAME_DIR).mkdirs();
                 final boolean hp2 = isHp2();
-                File found = findGameFor(hp2, new File(defaultGameDir()), 2);
-                final String picked = getSharedPreferences("setup", MODE_PRIVATE).getString(gameDirKey(), null);
-                if (found == null && picked != null) {
-                    found = findGameFor(hp2, new File(picked), 2);
+                boolean text = false;
+                if (!hp2) {
+                    // the in-game language switch's wish becomes the choice
+                    File wish = new File(FlipendoActivity.GAME_DIR, LANG_WANT);
+                    String wished = readSmallFile(wish);
+                    if (wished != null && !wished.isEmpty()) {
+                        try {
+                            writeSmallFile(new File(FlipendoActivity.GAME_DIR, CHOSEN_LANG), wished);
+                        } catch (IOException e) {
+                            android.util.Log.e("flipendo", "could not keep the language choice: " + e);
+                        }
+                    }
+                    wish.delete();
+                    text = languageHasText(SetupActivity.this, chosenLanguage(SetupActivity.this));
+                    if (!text) {
+                        // before a self pack puts its editions' files in: the originals the translation replaced go back first
+                        try {
+                            removeTextTranslation(new File(FlipendoActivity.GAME_DIR));
+                        } catch (IOException e) {
+                            android.util.Log.e("flipendo", "removing the text translation failed: " + e);
+                        }
+                    }
+                    installGameData();
+                } else {
+                    installHp2Data();
                 }
+                // the folder the player picked, else the default place (a self pack unpacks there)
+                File found = locateGame(hp2);
+                final String picked = getSharedPreferences("setup", MODE_PRIVATE).getString(gameDirKey(), null);
                 // HP2: the language the in-game switch wished for becomes the choice, then the language's files go in
                 if (found != null && hp2) {
                     File wish2 = new File(found, LANG_WANT);
@@ -905,11 +930,6 @@ public class SetupActivity extends Activity {
     /** The pref that holds the folder the player picked for the chosen game. */
     private String gameDirKey() {
         return isHp2() ? PREF_GAME_DIR_HP2 : PREF_GAME_DIR;
-    }
-
-    /** The default place for the chosen game's data (a self pack unpacks there). */
-    private String defaultGameDir() {
-        return isHp2() ? HP2_DIR : FlipendoActivity.GAME_DIR;
     }
 
     /** A folder with the chosen game: System/Game.exe for HP2, System/HP.exe for HP1. */
@@ -1213,20 +1233,8 @@ public class SetupActivity extends Activity {
         return b;
     }
 
-    /** Puts a card on the screen: title, message (scrolls), the main action in gold and a second one. */
-    private void showCard(String title, String message, String primaryLabel, android.view.View.OnClickListener primary,
-                          String secondaryLabel, android.view.View.OnClickListener secondary) {
-        showCard(title, message, primaryLabel, primary, secondaryLabel, secondary, null, null);
-    }
-
-    /** The same with a third action (left of the other two). */
-    private void showCard(String title, String message, String primaryLabel, android.view.View.OnClickListener primary,
-                          String secondaryLabel, android.view.View.OnClickListener secondary,
-                          String thirdLabel, android.view.View.OnClickListener third) {
-        android.widget.FrameLayout screen = new android.widget.FrameLayout(this);
-        screen.setBackgroundColor(0xFF000000);
-        screen.setPadding(dp(16), dp(16), dp(16), dp(16));
-
+    /** The card of the problem and settings screens, with its header (gold accent, title, the app's name) and a divider. */
+    private LinearLayout cardWithHeader(android.widget.FrameLayout screen, String title) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setBackground(rounded(CARD, 20, 0x33FFFFFF));
@@ -1259,6 +1267,24 @@ public class SetupActivity extends Activity {
         dl.topMargin = dp(14);
         dl.bottomMargin = dp(12);
         card.addView(divider, dl);
+        return card;
+    }
+
+    /** Puts a card on the screen: title, message (scrolls), the main action in gold and a second one. */
+    private void showCard(String title, String message, String primaryLabel, android.view.View.OnClickListener primary,
+                          String secondaryLabel, android.view.View.OnClickListener secondary) {
+        showCard(title, message, primaryLabel, primary, secondaryLabel, secondary, null, null);
+    }
+
+    /** The same with a third action (left of the other two). */
+    private void showCard(String title, String message, String primaryLabel, android.view.View.OnClickListener primary,
+                          String secondaryLabel, android.view.View.OnClickListener secondary,
+                          String thirdLabel, android.view.View.OnClickListener third) {
+        android.widget.FrameLayout screen = new android.widget.FrameLayout(this);
+        screen.setBackgroundColor(0xFF000000);
+        screen.setPadding(dp(16), dp(16), dp(16), dp(16));
+
+        LinearLayout card = cardWithHeader(screen, title);
 
         // the message: takes what is left of the screen and scrolls
         android.widget.ScrollView scroll = new android.widget.ScrollView(this);
@@ -1334,6 +1360,153 @@ public class SetupActivity extends Activity {
     private static final int REQUEST_PICK_FOLDER = 7;
     private String gameDir;
 
+    // ---- Game folders: where each game is, picked separately ----
+    private static final int REQUEST_PICK_HP1 = 11, REQUEST_PICK_HP2 = 12;
+    private boolean foldersChanged; // a folder was picked or reset: the game is looked for again when the screen closes
+
+    private void pickFolderFor(boolean hp2) {
+        try {
+            startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), hp2 ? REQUEST_PICK_HP2 : REQUEST_PICK_HP1);
+        } catch (RuntimeException e) {
+            android.widget.Toast.makeText(this, "No folder picker on this phone: copy the game to "
+                    + (hp2 ? HP2_DIR : FlipendoActivity.GAME_DIR) + " instead", android.widget.Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /** One game's folder in the settings: its name, where it is (or why not), Choose folder and Use default. */
+    private android.view.View folderRow(final boolean hp2) {
+        String key = hp2 ? PREF_GAME_DIR_HP2 : PREF_GAME_DIR;
+        final String picked = getSharedPreferences("setup", MODE_PRIVATE).getString(key, null);
+        String fallback = hp2 ? HP2_DIR : FlipendoActivity.GAME_DIR;
+        File found = hasStorageAccess(this) ? locateGame(hp2) : null;
+
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.setPadding(dp(14), dp(12), dp(14), dp(12));
+        row.setBackground(rounded(0x14FFFFFF, 14, 0x22FFFFFF));
+
+        TextView name = new TextView(this);
+        name.setTextColor(GOLD);
+        name.setTextSize(12);
+        name.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        name.setLetterSpacing(0.12f);
+        name.setText(hp2 ? "HARRY POTTER 2: CHAMBER OF SECRETS" : "HARRY POTTER 1: PHILOSOPHER'S STONE");
+        row.addView(name);
+
+        TextView where = new TextView(this);
+        where.setTextSize(14);
+        where.setTextIsSelectable(true);
+        where.setLineSpacing(0, 1.1f);
+        if (found != null) {
+            where.setTextColor(0xFF9BE39B);
+            where.setText(found.getPath() + (picked == null || !new File(picked).equals(found) ? "  (default place)" : ""));
+        } else if (picked != null) {
+            where.setTextColor(0xFFFF8A80);
+            where.setText("No game in " + picked + " (looked for System/" + (hp2 ? "Game.exe" : "HP.exe") + " there and one or two folders deeper)");
+        } else {
+            where.setTextColor(MUTED);
+            where.setText("Not found yet. Looked in " + fallback + ".");
+        }
+        LinearLayout.LayoutParams wp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        wp.topMargin = dp(6);
+        row.addView(where, wp);
+
+        LinearLayout buttons = new LinearLayout(this);
+        buttons.setOrientation(LinearLayout.HORIZONTAL);
+        TextView choose = pill("Choose folder", false, new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) {
+                pickFolderFor(hp2);
+            }
+        });
+        choose.setTextSize(14);
+        choose.setPadding(dp(16), dp(8), dp(16), dp(8));
+        buttons.addView(choose);
+        if (picked != null) {
+            TextView reset = pill("Use default", false, new android.view.View.OnClickListener() {
+                public void onClick(android.view.View v) {
+                    getSharedPreferences("setup", MODE_PRIVATE).edit().remove(hp2 ? PREF_GAME_DIR_HP2 : PREF_GAME_DIR).apply();
+                    foldersChanged = true;
+                    showFolderSettings();
+                }
+            });
+            reset.setTextSize(14);
+            reset.setPadding(dp(16), dp(8), dp(16), dp(8));
+            LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            rp.leftMargin = dp(10);
+            buttons.addView(reset, rp);
+        }
+        LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        bp.topMargin = dp(10);
+        row.addView(buttons, bp);
+        return row;
+    }
+
+    private boolean inFolderSettings;
+
+    /** The launcher's settings page: the folder of each game (the two are independent; either may be missing). */
+    private void showFolderSettings() {
+        inFolderSettings = true;
+        android.widget.FrameLayout screen = new android.widget.FrameLayout(this);
+        screen.setBackgroundColor(0xFF000000);
+        screen.setPadding(dp(16), dp(16), dp(16), dp(16));
+        LinearLayout card = cardWithHeader(screen, "Game folders");
+
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.VERTICAL);
+        TextView intro = new TextView(this);
+        intro.setTextColor(0xDDFFFFFF);
+        intro.setTextSize(14);
+        intro.setLineSpacing(0, 1.15f);
+        intro.setText("Where each game is on this phone. Pick the folder you copied from the PC (the one with System, Maps, "
+                + "Textures and Sounds); a folder one or two levels above it works too. The games are independent: "
+                + "either one starts without the other's files.");
+        body.addView(intro);
+        for (int i = 0; i < 2; i++) {
+            LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            rp.topMargin = dp(12);
+            body.addView(folderRow(i == 1), rp);
+        }
+        scroll.addView(body);
+        card.addView(scroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        LinearLayout footer = new LinearLayout(this);
+        footer.setOrientation(LinearLayout.HORIZONTAL);
+        footer.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+        footer.addView(pill("Done", true, new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) {
+                closeFolderSettings();
+            }
+        }));
+        LinearLayout.LayoutParams fl = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        fl.topMargin = dp(16);
+        card.addView(footer, fl);
+
+        int width = Math.min(getResources().getDisplayMetrics().widthPixels - dp(32), dp(760));
+        screen.addView(card, new android.widget.FrameLayout.LayoutParams(width, android.widget.FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
+        setContentView(screen);
+    }
+
+    private void closeFolderSettings() {
+        inFolderSettings = false;
+        if (foldersChanged && started) {
+            foldersChanged = false;
+            backToStart(); // the game is looked for again in its folder
+        } else {
+            setContentView(startScreen);
+        }
+        refreshSlots();
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (inFolderSettings) {
+            closeFolderSettings();
+            return;
+        }
+        super.onBackPressed();
+    }
+
     private final android.view.View.OnClickListener checkAgain = new android.view.View.OnClickListener() {
         public void onClick(android.view.View v) {
             backToStart();
@@ -1374,6 +1547,23 @@ public class SetupActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_PICK_HP1 || requestCode == REQUEST_PICK_HP2) {
+            boolean two = requestCode == REQUEST_PICK_HP2;
+            if (resultCode == RESULT_OK && data != null) {
+                String picked = treeUriToPath(data.getData());
+                if (picked == null) {
+                    android.widget.Toast.makeText(this, "That place can't be read as a folder: pick one on the phone or an SD card", android.widget.Toast.LENGTH_LONG).show();
+                } else if (findGameFor(two, new File(picked), 2) == null) {
+                    android.widget.Toast.makeText(this, "No " + (two ? "Harry Potter 2" : "Harry Potter 1") + " in " + picked
+                            + " (System/" + (two ? "Game.exe" : "HP.exe") + " not found)", android.widget.Toast.LENGTH_LONG).show();
+                } else {
+                    getSharedPreferences("setup", MODE_PRIVATE).edit().putString(two ? PREF_GAME_DIR_HP2 : PREF_GAME_DIR, picked).apply();
+                    foldersChanged = true;
+                }
+            }
+            showFolderSettings();
+            return;
+        }
         if (requestCode != REQUEST_PICK_FOLDER || resultCode != RESULT_OK || data == null) {
             return;
         }
