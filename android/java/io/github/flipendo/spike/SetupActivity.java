@@ -911,7 +911,8 @@ public class SetupActivity extends Activity {
             ui.postDelayed(launch, left);
             return;
         }
-        if (!getIntent().getBooleanExtra("restart", false)) {
+        // a restart from inside the game keeps the start choice, except a switch to the other game: HP2 needs its own (load a slot or begin)
+        if (!getIntent().getBooleanExtra("restart", false) || getIntent().hasExtra("game")) {
             writeStartFile();
         }
         gameReady = false;
