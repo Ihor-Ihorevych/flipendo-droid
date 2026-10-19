@@ -47,6 +47,11 @@ public class SetupActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // the in-game "Play the other game" button names the game here (this process keeps its own copy of the preferences)
+        String requested = getIntent().getStringExtra("game");
+        if ("hp1".equals(requested) || "hp2".equals(requested)) {
+            getSharedPreferences("setup", MODE_PRIVATE).edit().putString(PREF_GAME, requested).commit();
+        }
         splashUntil = android.os.SystemClock.uptimeMillis() + 2500;
 
         // The start screen: the name on one side, the launch panel (renderer, "Remember my choice", progress, Play) on the

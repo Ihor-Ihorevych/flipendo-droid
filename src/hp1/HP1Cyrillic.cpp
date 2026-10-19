@@ -445,6 +445,10 @@ namespace HP1
 		if (done)
 			return;
 		done = true;
+#ifdef __ANDROID__
+		// the texts are 8-bit here (IniFile narrows the UTF-16 ones): a code point is a byte, drawn from the font page of that byte
+		UFont::ByteText = true;
+#endif
 		if (commandline && commandline->HasArg("", "--cyrillic"))
 		{
 			UFont::ExtraGlyph = &CyrillicGlyph;

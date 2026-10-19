@@ -725,7 +725,7 @@ index 7f6fe2b7..9fee4d16 100644
  		}
  	}
 diff --git a/SurrealEngine/Package/IniFile.cpp b/SurrealEngine/Package/IniFile.cpp
-index 6aab46e1..5f187436 100644
+index 6aab46e1..4737e497 100644
 --- a/SurrealEngine/Package/IniFile.cpp
 +++ b/SurrealEngine/Package/IniFile.cpp
 @@ -3,6 +3,8 @@
@@ -737,7 +737,7 @@ index 6aab46e1..5f187436 100644
  #include "MurmurHash3/MurmurHash3.h"
  #include <algorithm>
  
-@@ -18,9 +20,63 @@ static uint32_t HashIniString(const std::string& str)
+@@ -18,9 +20,65 @@ static uint32_t HashIniString(const std::string& str)
  	return hash;
  }
  
@@ -781,9 +781,11 @@ index 6aab46e1..5f187436 100644
 +{
 +	if (text.size() >= 2 && (uint8_t)text[0] == 0xff && (uint8_t)text[1] == 0xfe)
 +	{
-+		// HP2's texts stay 8-bit (Windows-1251): its Cyrillic is drawn per byte on Android (src/hp1/HP1Cyrillic.cpp)
-+		if (engine && engine->LaunchInfo.IsHarryPotter2())
++#ifdef __ANDROID__
++		// On Android the texts of both games stay 8-bit (Windows-1251): their Cyrillic is drawn per byte (src/hp1/HP1Cyrillic.cpp)
++		if (engine && engine->LaunchInfo.IsKnowWonder())
 +			return NarrowUtf16(text);
++#endif
 +		std::wstring wtext;
 +		wtext.reserve(text.size() / 2);
 +		for (size_t i = 2; i + 1 < text.size(); i += 2)
@@ -802,7 +804,7 @@ index 6aab46e1..5f187436 100644
  	size_t pos = 0;
  	std::string line;
  	std::string sectionName;
-@@ -303,18 +359,11 @@ void IniFile::UpdateFile(const std::string& filename)
+@@ -303,18 +361,11 @@ void IniFile::UpdateFile(const std::string& filename)
  				std::string key_without_brackets = key; // Will differ from key if the said key contains brackets
  				std::string value_from_file = line.substr(equal_pos + 1);
  
