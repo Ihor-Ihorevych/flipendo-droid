@@ -24,6 +24,7 @@ jobs:
           - platform: macos
             os: macos-15
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     defaults:
       run:
         shell: bash
@@ -63,7 +64,7 @@ jobs:
         if: matrix.platform == 'macos'
         run: |
           cmake -S src/engine -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64
-          cmake --build build --target SurrealEngine --parallel
+          cmake --build build --target SurrealEngine --parallel $(sysctl -n hw.ncpu)
 
       - name: Package
         run: bash tools/release/package.sh ${{ matrix.platform }} build dist "$TAG"
