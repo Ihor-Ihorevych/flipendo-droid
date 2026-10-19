@@ -55,7 +55,7 @@ The 2001 release is getting hard to run. SafeDisc copy protection doesn't work o
 - **The same game.** Nothing is remade or altered. Optional extras (skippable cutscenes and storybooks, fast forward) can all
   be switched off with `--vanilla`.
 - **Fixable.** Bugs in the original engine get fixed in source ([list](docs/re/hp1/original_bugs.md)).
-- **Windows and Linux.**
+- **Windows, Linux and macOS.**
 
 ## Screenshots
 
@@ -84,12 +84,13 @@ All taken in Flipendo at 1920x1080 from the original game files.
 ### Philosopher's Stone: finished
 
 > **The whole story has been played through, start to finish, in Flipendo** (October 2026). [Download it for
-> Windows](https://github.com/kroplabeskidu/flipendo/releases/latest). Follow progress in [`ROADMAP.md`](ROADMAP.md).
+> Windows, Linux or macOS](https://github.com/kroplabeskidu/flipendo/releases/latest). Follow progress in [`ROADMAP.md`](ROADMAP.md).
 
 | | |
 |---|---|
 | ✅ Works | The whole story, every level from the first lesson to the final encounter with Voldemort, tested by playing it through. Menus and options (incl. key rebinding), widescreen at any resolution, music, cutscenes, characters and their animations, spells and particle effects, doors, NPCs, Peeves, jelly beans, wizard cards, saving and loading |
-| 🐧 Linux | Builds and plays from source (tested on Fedora) |
+| 🐧 Linux | Plays (tested on Fedora) |
+| 🍎 macOS | Plays on Apple Silicon (tested on macOS 26) |
 | ⚪ Not tested | The Quidditch League |
 
 Playtesters are welcome: anything that looks or behaves differently from the original is a useful bug report.
@@ -117,12 +118,13 @@ If you try it, build from source (below) and point it at your Chamber of Secrets
   Russian (EA Hit-Parade) and its No-CD. If yours isn't
   recognised, the error shows a code (SHA-1); please [report it](CONTRIBUTING.md#other-game-versions).
 - Or **Chamber of Secrets for PC (2002)**, to try the [work in progress](#chamber-of-secrets-work-in-progress).
-- **Windows 10/11**, or **Linux** if you build it yourself (below).
+- **Windows 10/11**, **Linux** (a distribution from 2024 or later), or a **Mac** with Apple Silicon.
 
 ### Get it running
 
-Download the zip from the [releases page](https://github.com/kroplabeskidu/flipendo/releases/latest), unzip it
-anywhere and drag your game folder onto `SurrealEngine.exe`. `README-first.txt` in the zip has the details.
+Download the zip for your system from the [releases page](https://github.com/kroplabeskidu/flipendo/releases/latest)
+and unzip it anywhere. On Windows, drag your game folder onto `SurrealEngine.exe`; on Linux and macOS, copy the game
+folder from a Windows install (or the disc) and start it as `README-first.txt` in the zip says.
 
 To build it yourself instead (a few minutes), you need
 [Visual Studio 2026](https://visualstudio.microsoft.com/) with the *Desktop development with C++* workload, and

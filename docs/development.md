@@ -49,3 +49,11 @@ set times, plus crash reports and the script debugger: [debug-tools.md](debug-to
 
 The images in `images/screenshots/` (and `social-preview.jpg`) are taken in a 1920x1080 window. To retake or add one,
 film the level with `HP1_SHOTS` every second or two and pick the frame.
+
+## Releases
+
+`.github/workflows/release.yml` builds Windows (x64), Linux (x86-64, Ubuntu 24.04) and macOS (Apple Silicon) on
+GitHub's runners and zips each with `tools/release/package.sh` (the binaries, licenses and the platform's
+`tools/release/README-first-<platform>.txt`). Run it by hand from the Actions tab to get the zips as build artifacts;
+pushing a tag (`hp*` or `v*`, e.g. `hp1-stable-hp2-beta1`) also makes a draft release with the three zips, to check
+and publish on GitHub. The macOS app is ad-hoc signed, not notarised (the README-first says how to open it).

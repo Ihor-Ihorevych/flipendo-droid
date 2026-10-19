@@ -1,0 +1,93 @@
+# Builds Flipendo for Windows, Linux and macOS on GitHub's runners and zips each (tools/release/package.sh).
+# Run it by hand (Actions > Release > Run workflow) to get the zips as build artifacts; push a tag
+# (e.g. hp1-stable-hp2-beta1) to also get a draft release with the three zips attached, to check and publish.
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['hp*', 'v*']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows
+            os: windows-2025
+          - platform: linux
+            os: ubuntu-24.04
+          - platform: macos
+            os: macos-15
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Release name
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then echo "TAG=$GITHUB_REF_NAME" >> "$GITHUB_ENV"; else echo "TAG=build-${GITHUB_SHA::7}" >> "$GITHUB_ENV"; fi
+
+      - name: Apply the engine patches
+        run: bash tools/apply_patches.sh
+
+      - name: Linux packages
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build g++-14 libx11-dev libxi-dev libxkbcommon-dev libasound2-dev \
+            libopenal-dev libfontconfig-dev libgl-dev libegl-dev libglib2.0-dev
+
+      - name: Build (Windows)
+        if: matrix.platform == 'windows'
+        run: |
+          cmake -S src/engine -B build -A x64
+          cmake --build build --config Release --target SurrealEngine --parallel
+
+      - name: Build (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          cmake -S src/engine -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-14 \
+            -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_BUILD_RPATH_USE_ORIGIN=ON
+          cmake --build build --target SurrealEngine
+
+      - name: Build (macOS)
+        if: matrix.platform == 'macos'
+        run: |
+          cmake -S src/engine -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64
+          cmake --build build --target SurrealEngine --parallel
+
+      - name: Package
+        run: bash tools/release/package.sh ${{ matrix.platform }} build dist "$TAG"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flipendo-${{ matrix.platform }}
+          path: dist/*.zip
+          if-no-files-found: error
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          name: "Flipendo: Philosopher's Stone stable, Chamber of Secrets beta"
+          files: dist/*.zip
