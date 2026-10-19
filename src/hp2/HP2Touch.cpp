@@ -190,7 +190,7 @@ namespace HP2
 						CallEvent(star, NameString("DoPickupProp"));
 						g_watchedStar = star;
 						g_watchedTicks = 0;
-						LogMessage("HP2 debug: after DoPickupProp state " + star->GetStateName().ToString() + ", EndState enabled " + std::to_string((int)star->IsEventEnabled(EventName::EndState)) + ", stateFrame " + std::to_string(star->StateFrame != nullptr) + ", func " + std::to_string(star->StateFrame && star->StateFrame->Func) + " probe " + std::to_string(star->StateFrame ? static_cast<UState*>(star->StateFrame->Func)->ProbeMask : 0) + " ignore " + std::to_string(star->StateFrame ? static_cast<UState*>(star->StateFrame->Func)->IgnoreMask : 0) + " classProbe " + std::to_string(star->Class->ProbeMask));
+						LogMessage("HP2 debug: after DoPickupProp state " + star->GetStateName().ToString());
 						break;
 					}
 				}

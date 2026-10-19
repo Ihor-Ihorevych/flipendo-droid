@@ -730,7 +730,7 @@ index 2f91f141..e3a86d3f 100644
  			}
  		}
 diff --git a/SurrealEngine/Packages/Core/UObject.cpp b/SurrealEngine/Packages/Core/UObject.cpp
-index 8c485d04..5c8eaaa3 100644
+index 8c485d04..43bbca12 100644
 --- a/SurrealEngine/Packages/Core/UObject.cpp
 +++ b/SurrealEngine/Packages/Core/UObject.cpp
 @@ -30,7 +30,16 @@ void UObject::LoadNow()
@@ -788,7 +788,7 @@ index 8c485d04..5c8eaaa3 100644
 +		// HP2 compiles some states' probe masks without EndState (ChallengeStar.PickupProp defines it, its mask has only the
 +		// inherited bits), yet the original calls it: the star's EndState adds the time and ends the lesson. A state that has
 +		// the function and does not ignore the event gets it.
-+		if (!foundProbe && name == EventName::EndState && engine->LaunchInfo.IsHarryPotter2() && StateFrame && StateFrame->Func
++		if (!foundProbe && name == EventName::EndState && engine->LaunchInfo.IsHarryPotter2() && StateFrame && StateFrame->GetFunc()
 +			&& FindEventFunction(const_cast<UObject*>(this), ToNameString(name)))
 +			foundProbe = true;
 +
