@@ -194,3 +194,15 @@ Not reversed (no HP2 IDA database here); what the scripts and the runs show.
 - HP2 turns with the arrow keys (`RotLeft` / `RotRight`) and strafes with A / D. The phone's stick, arrows and pad send
   the arrow keys, so on Android `Left` / `Right` are rebound to `StrafeLeft` / `StrafeRight` (`HP2::TweakKeybindings`);
   the camera turns by dragging the screen.
+
+## Probe masks without EndState, and challenge stars (2026-10-19, run on a phone)
+
+- `ChallengeStar` and `FinalStar` (hgame) credit the score from `state PickupProp { function EndState() }`: `ChallengeScoreManager.PickedUpStar` adds 200
+  to the time, `PickedUpFinalStar` ends the challenge. The state code (the fly to the HUD, `Destroy`) is HProp's `PickupProp`, inherited by the state of
+  the same name in the subclass. HP2's compiled `UState.ProbeMask` of the subclass state holds only the inherited bits (BeginState 16, Tick 36), not
+  EndState (17), although the state defines it, so SurrealEngine's `IsEventEnabled(EndState)` was false and neither `GotoState` nor `Destroy` ran it:
+  no time, no end of the lesson. Fixed in `UObject::IsEventEnabled`: for HP2 a state that has an EndState function and does not ignore the event gets it.
+  Not checked how the original decides (no HP2 IDA database here). Test: `pick` in `hp2_debug.txt` picks the first star of the level.
+- `Engine::CalcView` hands `PlayerCalcView` three variables; the script's `out` values come back through `Frame::Call` (`args[i].Store(frame variable)`).
+  A guard in `ExpressionValue::Store` that skipped struct values of another `ExpressionValueType` dropped the Vector and Rotator and left the camera at Harry's
+  location (`BaseCam` was in the right place, `CameraActor` came back right).

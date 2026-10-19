@@ -417,3 +417,23 @@ button charges and casts, the jump button (right mouse) cycles the three spells,
   (`build-apk.sh --hp2-edition "ru=C:/Games/HP2Rus|Name"`); a light install gets one from a cache zip unpacked into the storage root
   (`FlipendoHP2/editions/ru/...`).
 - **`.nomedia`:** the launcher puts an empty `.nomedia` in the game folder, so the game's pictures stay out of the phone's gallery; the cache zips carry it too.
+
+## 0.3.6
+
+- **Merged with Flipendo** (upstream 62e5e27, SurrealEngine 8d61ae5): texture packs, HP2 music, sound and audio fixes, the widescreen canvas shared by both
+  games (`src/knowwonder/KWCanvas.cpp`), a safer mover push. Where both sides fixed the same thing, the upstream's was kept (movers that push what they stand
+  on), except the sprite orientation: ours stays HP2-only (the GL renderer draws HP1's sprites right side up). On Android the texts stay 8-bit
+  (`IniFile` narrows the UTF-16 ones, `UFont::ByteText`) because the Cyrillic is drawn per byte.
+- **Settings > Game folders** (start screen): the folder of each game, picked separately; the picked one wins over the default place
+  (`/sdcard/FlipendoHP`, `/sdcard/FlipendoHP2`). Each game starts without the other's files and only unpacks its own self-pack data.
+- **Play the other game from inside a game** (Settings header, tap twice): the launcher starts the other game by itself; it sits in its own process with its
+  own copy of the preferences, so the choice travels in the intent (`game`), and HP2 gets its start choice written (a slot to load, or a new game).
+- **Invert wand:** flips the up/down aim of the wand button while the spell is held.
+- **Gamepad:** a cutscene is skipped by holding Y (0.7 s), not by A, LB or LT.
+- **HP2:** the SAVE button and Y save are back (`HP2::TickSave`). Challenge stars (Ch1Rictusempra...) add their time and the last one ends the lesson:
+  the star's `EndState` does it, and HP2 compiles some states' probe masks without EndState (`UObject::IsEventEnabled`).
+- **First person (Settings):** the camera sits in Harry's head while he walks about (`KW::FirstPersonView`, state `PlayerWalking`, no cutscene); cutscenes,
+  lessons, duels, the broom and shops keep the game's camera. Eye height is `BaseEyeHeight`, 18 units in front of the head so its mesh stays out of the picture.
+- Script VM: struct out-parameters reach the caller again after the VM rework (the camera of HP2 stayed in Harry's torso: `ExpressionValue::Store` dropped
+  Vector and Rotator values).
+- `build-apk.sh` gives d8 the class list in a file (the command line had grown past what Windows allows).

@@ -75,7 +75,7 @@ The first-time help is in the game: Settings, then **? How to play**.
 | **Jump** | the jump button. In an HP2 duel it also switches the spell |
 | **Menus, shops** | tap what you want, your finger is the mouse |
 | **Top right** | settings, save anywhere, menu (Esc) |
-| **Cutscenes** | the controls hide; tap SKIP (top right) to skip |
+| **Cutscenes** | the controls hide; tap SKIP (top right) to skip (on a gamepad hold Y) |
 | **Potion (HP2)** | tap the screen with two fingers at once: drinks a Wiggenweld potion |
 
 You can move and resize the buttons: Settings, **Control layout**.
@@ -111,12 +111,15 @@ Open them with the gear (top right) or the View button on a gamepad. Everything 
 | **FPS counter** | shows frames per second next to the buttons |
 | **Movement** | floating stick or arrow buttons |
 | **Auto jump** | Harry jumps across gaps by himself (on by default) |
+| **Invert wand** | flips the up/down aim of the wand button while the spell is held |
+| **First person** | the camera in Harry's head while he walks about (cutscenes, lessons, duels and shops keep the normal camera) |
 | **Control layout** | drag the wand, jump, arrow pad and toolbar where you want them and resize them (60-180%); Reset puts them back |
 | **Debug mode / Debug menu** | HP1: adds Level Select to the main menu. HP2: a menu to go to any level, set the story state or get all spells |
 | **Renderer** | OpenGL ES (the default) or Vulkan, also on the start screen before the game loads. Try the other one if the game is slow or looks wrong; from Vulkan it switches to OpenGL ES by itself if Vulkan does not start |
 | **FPS limit** | 25 to 60 frames a second: lower saves battery and keeps the phone cooler |
 | **Language** | HP1: English or Russian text; *Добавить озвучку из папки…* adds a dubbing from its Sounds folder (such as the Russian voices) |
 | **Movement mod** | HP1: AdamJD's mod for better movement, camera and climbing: tap *Choose file* and pick its zip (download it from the mod's page), then switch it on or off here |
+| **Play HP1 / Play HP2** | in the header: restarts straight into the other game (tap twice; unsaved progress is lost) |
 | **Telegram** | opens the group |
 
 ## Tips

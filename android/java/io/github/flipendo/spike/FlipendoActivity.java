@@ -71,6 +71,20 @@ public class FlipendoActivity extends SDLActivity {
 
     static native void nativeSetAutoJump(boolean on);
 
+    /** Settings > First person: the camera in Harry's head while he walks about (KW::FirstPersonView). */
+    static boolean firstPerson = false;
+
+    static native void nativeSetFirstPerson(boolean on);
+
+    void applyFirstPerson(boolean on, boolean save) {
+        firstPerson = on;
+        try {
+            nativeSetFirstPerson(on);
+        } catch (UnsatisfiedLinkError ignored) {
+        }
+        if (save) saveScales();
+    }
+
     /** Settings > Invert wand: the wand button's up/down aim (while the spell is held) goes the other way. */
     static boolean invertWand = false;
 
@@ -292,7 +306,7 @@ public class FlipendoActivity extends SDLActivity {
     private void saveScales() {
         getSharedPreferences("flipendo", MODE_PRIVATE).edit()
                 .putFloat("renderScale", surfaceScale).putFloat("uiScale", uiScale)
-                .putFloat("fovOffset", fovOffset).putBoolean("debugMode", debugMode).putBoolean("showFps", showFps).putBoolean("autoJump", autoJump).putBoolean("invertWand", invertWand).putInt("fpsLimit", fpsLimit).apply();
+                .putFloat("fovOffset", fovOffset).putBoolean("debugMode", debugMode).putBoolean("showFps", showFps).putBoolean("autoJump", autoJump).putBoolean("invertWand", invertWand).putBoolean("firstPerson", firstPerson).putInt("fpsLimit", fpsLimit).apply();
     }
 
     /** Resizes the render surface (the engine rebuilds its scene textures and swapchain for the new size). */
@@ -634,6 +648,7 @@ public class FlipendoActivity extends SDLActivity {
         showFps = prefs.getBoolean("showFps", false);
         applyAutoJump(prefs.getBoolean("autoJump", true), false);
         invertWand = prefs.getBoolean("invertWand", false);
+        applyFirstPerson(prefs.getBoolean("firstPerson", false), false);
         applyFpsLimit(prefs.getInt("fpsLimit", 60), false);
         if (mSurface != null) {
             applyRenderScale(prefs.getFloat("renderScale", 0.5f));
@@ -1542,7 +1557,7 @@ public class FlipendoActivity extends SDLActivity {
 
         // The port's settings panel: the entry the pad is on
         static final int SET_RENDER = 0, SET_UI = 1, SET_FOV = 2, SET_FPS = 3, SET_SEG = 4, SET_JUMP = 5, SET_LANG = 6, SET_MOD = 7,
-                SET_DEBUG = 8, SET_TELEGRAM = 9, SET_DONE = 10, SET_RENDERER = 11, SET_FPS_LIMIT = 12, SET_LAYOUT = 13, SET_HELP = 14, SET_INVERT = 15, SET_SWITCH = 16;
+                SET_DEBUG = 8, SET_TELEGRAM = 9, SET_DONE = 10, SET_RENDERER = 11, SET_FPS_LIMIT = 12, SET_LAYOUT = 13, SET_HELP = 14, SET_INVERT = 15, SET_SWITCH = 16, SET_FIRST = 17;
         int settingsFocus = -1;
         final java.util.List<android.graphics.RectF> setRects = new java.util.ArrayList<>();
         final java.util.List<Integer> setIds = new java.util.ArrayList<>();
@@ -1555,6 +1570,7 @@ public class FlipendoActivity extends SDLActivity {
                 setRects.add(new android.graphics.RectF(colL0 - 0.01f * h, sliderLabelY[i] - 0.045f * h, colL1 + 0.01f * h, sliderY[i] + 0.03f * h));
                 setIds.add(sliderId(i));
             }
+            setRects.add(new android.graphics.RectF(fpBtn)); setIds.add(SET_FIRST);
             setRects.add(new android.graphics.RectF(fpsBtn)); setIds.add(SET_FPS);
             setRects.add(new android.graphics.RectF(segStick.left, segStick.top, segDpad.right, segDpad.bottom)); setIds.add(SET_SEG);
             setRects.add(new android.graphics.RectF(autoJumpBtn)); setIds.add(SET_JUMP);
@@ -1611,6 +1627,7 @@ public class FlipendoActivity extends SDLActivity {
             buildSettingsEntries();
             FlipendoActivity activity = (FlipendoActivity) getContext();
             switch (focusedSetting()) {
+                case SET_FIRST: activity.applyFirstPerson(!firstPerson, true); break;
                 case SET_FPS: showFps = !showFps; fpsFrames = -1; activity.saveScales(); break;
                 case SET_SEG: setDpadMode(!dpadMode); break;
                 case SET_JUMP: activity.applyAutoJump(!autoJump, true); break;
@@ -1772,7 +1789,7 @@ public class FlipendoActivity extends SDLActivity {
         boolean helpOpen;        // the controls help card over the settings panel
         final android.graphics.RectF panel = new android.graphics.RectF();
         final android.graphics.RectF segStick = new android.graphics.RectF(), segDpad = new android.graphics.RectF();
-        final android.graphics.RectF fixBtn = new android.graphics.RectF(), switchBtn = new android.graphics.RectF(), helpBtn = new android.graphics.RectF(), layoutBtn = new android.graphics.RectF(), closeBtn = new android.graphics.RectF(), debugBtn = new android.graphics.RectF(), autoJumpBtn = new android.graphics.RectF(), invertBtn = new android.graphics.RectF(), telegramBtn = new android.graphics.RectF(), languageBtn = new android.graphics.RectF(), modBtn = new android.graphics.RectF(), fpsBtn = new android.graphics.RectF();
+        final android.graphics.RectF fixBtn = new android.graphics.RectF(), switchBtn = new android.graphics.RectF(), helpBtn = new android.graphics.RectF(), layoutBtn = new android.graphics.RectF(), closeBtn = new android.graphics.RectF(), debugBtn = new android.graphics.RectF(), autoJumpBtn = new android.graphics.RectF(), invertBtn = new android.graphics.RectF(), telegramBtn = new android.graphics.RectF(), languageBtn = new android.graphics.RectF(), modBtn = new android.graphics.RectF(), fpsBtn = new android.graphics.RectF(), fpBtn = new android.graphics.RectF();
 
         final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
         final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -1892,8 +1909,10 @@ public class FlipendoActivity extends SDLActivity {
             sliderX0 = colL0 + knobR;
             sliderX1 = colL1 - knobR;
             // the FPS counter switch at the bottom of the column, the sliders share what is above it
-            fpsBtn.set(colL0, footerTop - 0.035f * h - 0.078f * h, colL1, footerTop - 0.035f * h);
-            float slot = (fpsBtn.top - 0.015f * h - (secDisplayY + 0.015f * h)) / SLIDERS;
+            // two switches at the bottom of the column, the sliders share what is above them
+            fpsBtn.set(colL0, footerTop - 0.035f * h - 0.062f * h, colL1, footerTop - 0.035f * h);
+            fpBtn.set(colL0, fpsBtn.top - 0.008f * h - 0.062f * h, colL1, fpsBtn.top - 0.008f * h);
+            float slot = (fpBtn.top - 0.015f * h - (secDisplayY + 0.015f * h)) / SLIDERS;
             for (int s = 0; s < SLIDERS; s++) {
                 sliderLabelY[s] = secDisplayY + 0.015f * h + s * slot + 0.047f * h;
                 sliderY[s] = sliderLabelY[s] + 0.043f * h;
@@ -2043,6 +2062,7 @@ public class FlipendoActivity extends SDLActivity {
             // left column
             drawSection(c, "DISPLAY", colL0, secDisplayY);
             drawSliders(c);
+            drawSwitchRow(c, fpBtn, "First person", "Camera in Harry's head while walking", firstPerson, false);
             drawSwitchRow(c, fpsBtn, "FPS counter", "Frames per second next to the toolbar", showFps, false);
 
             // right column
@@ -2495,6 +2515,8 @@ public class FlipendoActivity extends SDLActivity {
                             ((FlipendoActivity) getContext()).saveScales();
                         } else if (layoutBtn.contains(x, y)) {
                             startLayoutEdit();
+                        } else if (fpBtn.contains(x, y)) {
+                            ((FlipendoActivity) getContext()).applyFirstPerson(!firstPerson, true);
                         } else if (fpsBtn.contains(x, y)) {
                             showFps = !showFps;
                             fpsFrames = -1;

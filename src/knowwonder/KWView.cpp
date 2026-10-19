@@ -6,11 +6,13 @@
 #include "Packages/Engine/UConsole.h"
 #include "Render/RenderSubsystem.h"
 #include "Engine.h"
+#include "Utils/StrTools.h"
 #include <cmath>
 #include <chrono>
 #ifdef __ANDROID__
 #include <atomic>
 extern std::atomic<float> g_fovOffset; // android/jni/android_main.cpp
+extern std::atomic<bool> g_firstPerson; // android/jni/android_main.cpp: Settings > First person
 #endif
 
 namespace KW
@@ -32,6 +34,39 @@ namespace KW
 			return fovAngle;
 		float halfTan = std::tan(fovAngle * (3.14159265f / 360.0f)) * widen;
 		return std::atan(halfTan) * (360.0f / 3.14159265f);
+	}
+
+	// A mod of ours, not in the original: the view from Harry's eyes. The game's own camera (a BaseCam actor behind him) is
+	// replaced only while he is walking about; cutscenes, spell lessons, duels, the broom, shops and menus keep it. The
+	// renderer hides the viewport player when the camera actor is the player himself (VisibleActor: as if bOwnerNoSee).
+	void FirstPersonView(UActor*& cameraActor, vec3& location, Rotator& rotation)
+	{
+#ifdef __ANDROID__
+		if (!g_firstPerson.load())
+			return;
+		UPlayerPawn* player = engine->viewport ? engine->viewport->Actor() : nullptr;
+		if (!player || !StrTools::equals_ignore_case(player->GetStateName().ToString(), "PlayerWalking"))
+			return;
+		UObject* hud = ObjectProperty(player, "myHUD");
+		if (hud && BoolProperty(hud, "bCutSceneMode"))
+			return;
+
+		const Rotator view = player->ViewRotation();
+		float eye = player->BaseEyeHeight();
+		if (eye <= 1.0f)
+			eye = player->CollisionHeight() * 0.8f;
+		static bool logged = false;
+		if (!logged)
+		{
+			logged = true;
+			LogMessage("First person: eye height " + std::to_string(eye) + " (base " + std::to_string(player->BaseEyeHeight()) + ", collision " + std::to_string(player->CollisionHeight()) + ")");
+		}
+		// in front of the head, so that its own mesh stays out of the picture
+		const float yaw = view.Yaw * (6.2831853f / 65536.0f);
+		cameraActor = player;
+		location = player->Location() + vec3(std::cos(yaw) * 18.0f, std::sin(yaw) * 18.0f, eye);
+		rotation = view;
+#endif
 	}
 
 	// KnowWonder dropped PlayerPawn.FlashScale: FlashFog is a plane whose W is the scene brightness (1 = normal,

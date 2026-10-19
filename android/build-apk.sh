@@ -133,7 +133,8 @@ for f in android/lang/ru-text/*.rus; do
 done
 javac -Xlint:-options -source 8 -target 8 -cp "$AJ" -d "$A/classes" \
 	android/deps/SDL/android-project/app/src/main/java/org/libsdl/app/*.java android/java/io/github/flipendo/spike/*.java
-"$BT/d8.bat" --lib "$AJ" --output "$A" $(find "$A/classes" -name "*.class")
+# the class list goes in a file: with the touch overlay's inner classes the command line got longer than Windows allows
+(cd "$A" && find classes -name "*.class" > classes.list && "$BT/d8.bat" --lib "$AJ" --output . @classes.list)
 [ -f android/debug.keystore ] || keytool -genkeypair -keystore android/debug.keystore -storepass android -keypass android \
 	-alias debug -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Flipendo Debug"
 

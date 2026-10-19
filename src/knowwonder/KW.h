@@ -115,6 +115,8 @@ namespace KW
 
 	// Engine::Tick, after PlayerCalcView: the camera's horizontal FOV for the window's aspect ratio.
 	float ViewFovAngle(float fovAngle, int width, int height);
+	// Engine::CalcView: Settings > First person (Android) moves the camera into Harry's head while he walks about
+	void FirstPersonView(UActor*& cameraActor, vec3& location, Rotator& rotation);
 	// Widescreen 2D (src/knowwonder/KWCanvas.cpp). RenderSubsystem::ResetCanvas: UI scale for the viewport height.
 	float CanvasUIScale(int viewportHeight);
 	// RenderSubsystem::ResetCanvas / PostRender: full-width canvas (HUD), or the centred 4:3 area (console/menus).
