@@ -7,6 +7,9 @@
 #include "Utils/File.h"
 #include "Utils/UTF16.h"
 #include "Engine.h"
+#ifdef _WIN32
+#undef GetTextMetrics // windows.h (in the precompiled header) would rename TrueTypeFont::GetTextMetrics
+#endif
 #include "core/truetypefont.h"
 #include <cctype>
 #include <cmath>
@@ -16,7 +19,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
-#elif !defined(__ANDROID__)
+#elif !defined(__ANDROID__) && !defined(__APPLE__)
 #include <fontconfig/fontconfig.h>
 #endif
 
@@ -95,6 +98,36 @@ namespace KW
 			}
 		}
 		return false;
+	}
+#elif defined(__APPLE__)
+	bool FindAppleFontFile(const std::string& name, bool exactFamily, std::string& path, int& index); // KWNativeFontApple.cpp
+
+	static bool LoadSystemFontFile(const std::string& name, const std::string& language, NativeFontFile& file)
+	{
+		// MS Sans Serif's TrueType successor is Microsoft Sans Serif, which macOS ships, then Arial; failing those,
+		// whatever CoreText substitutes for the name (its UI font). CoreText's cascade covers the Asian scripts, so
+		// the language isn't needed to pick the face.
+		std::string filename;
+		bool found = false;
+		for (const std::string& candidate : { name, std::string("Microsoft Sans Serif"), std::string("Arial") })
+		{
+			if ((found = FindAppleFontFile(candidate, true, filename, file.index)))
+				break;
+		}
+		if (!found && !FindAppleFontFile(name, false, filename, file.index))
+			return false;
+
+		try
+		{
+			Array<uint8_t> bytes = File::read_all_bytes(filename);
+			file.data.assign(bytes.begin(), bytes.end());
+		}
+		catch (const std::exception&)
+		{
+			return false;
+		}
+		LogMessage("CreateNativeFont: " + name + " is " + filename);
+		return true;
 	}
 #else
 	// fontconfig language tag for HP1's language codes, so the match covers the language's script

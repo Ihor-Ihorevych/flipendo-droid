@@ -177,6 +177,18 @@ namespace HP2
 				CallEvent(harry, NameString(verb == "fly" ? "Fly" : verb == "ghost" ? "Ghost" : "Walk"));
 				LogMessage("HP2 debug: " + verb + " -> state " + harry->GetStateName().ToString() + ", physics " + std::to_string((int)harry->Physics()) + ", cheats " + (KW::BoolProperty(harry, "bCheatsEnabled") ? "on" : "off"));
 			}
+			else if (verb == "view")
+			{
+				// development: who the camera follows
+				engine->CalcView();
+				UObject* target = KW::ObjectProperty(harry, "ViewTarget");
+				UObject* cam = KW::ObjectProperty(harry, "cam");
+				const vec3 hl = harry->Location(), cl = engine->CameraLocation;
+				UActor* camActor = UObject::TryCast<UActor>(cam);
+				const vec3 bl = camActor ? camActor->Location() : vec3(0.0f);
+				LogMessage("HP2 debug: view: cam actor at " + std::to_string(bl.x) + "," + std::to_string(bl.y) + "," + std::to_string(bl.z));
+				LogMessage("HP2 debug: view: harry state " + harry->GetStateName().ToString() + ", ViewTarget " + (target ? target->Name.ToString() + " (" + target->GetStateName().ToString() + ")" : std::string("none")) + ", cam " + (cam ? cam->Name.ToString() + " (" + cam->GetStateName().ToString() + ")" : std::string("none")) + ", harry at " + std::to_string(hl.x) + "," + std::to_string(hl.y) + "," + std::to_string(hl.z) + ", camera actor " + (engine->CameraActor ? engine->CameraActor->Name.ToString() : std::string("none")) +  + ", camera at " + std::to_string(cl.x) + "," + std::to_string(cl.y) + "," + std::to_string(cl.z));
+			}
 			else if (verb == "pick")
 			{
 				// development: picks up the first challenge star in the level the way a touch does (ChallengeStar / FinalStar)

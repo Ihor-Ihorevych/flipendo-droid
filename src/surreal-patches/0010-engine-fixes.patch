@@ -1,7 +1,7 @@
 flipendo: fixes to SurrealEngine bugs (any game): VM (and HP2's bytecode tokens), properties, ini files (UTF-16 localization files), packages (Unicode strings), UTF-16 strings and file names that differ in case on Linux, GetLanguage, fonts (character remap, text drawn by code point, runtime-made fonts), crash reports, music streaming and following the default audio device (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties
 
 diff --git a/SurrealEngine/Audio/AudioDevice.cpp b/SurrealEngine/Audio/AudioDevice.cpp
-index 03e82566..a891e550 100644
+index 03e82566..b492a6bd 100644
 --- a/SurrealEngine/Audio/AudioDevice.cpp
 +++ b/SurrealEngine/Audio/AudioDevice.cpp
 @@ -13,6 +13,7 @@
@@ -21,7 +21,7 @@ index 03e82566..a891e550 100644
  		}
  	}
  
-@@ -131,13 +132,37 @@ public:
+@@ -131,17 +132,44 @@ public:
  		{
  			volume = newVolume;
  			alSourcef(id, AL_GAIN, volume * globalVolume);
@@ -60,8 +60,15 @@ index 03e82566..a891e550 100644
 +		}
  	}
  
++	// OpenAL rejects a negative pitch (AL_INVALID_VALUE, which the next checked call then reported as its own
++	// failure): HP1's BroomHarry.UpdateBroomSound fades the broom loop's pitch below 0 along with its volume.
  	void SetPitch(float newPitch)
-@@ -173,6 +198,7 @@ private:
+ 	{
++		newPitch = std::max(newPitch, 0.0f);
+ 		if (pitch != newPitch)
+ 		{
+ 			pitch = newPitch;
+@@ -173,6 +201,7 @@ private:
  	float pitch = 0.0f;
  	float dopplerFactor = 0.0f;
  	bool bIs3d = false;
@@ -69,7 +76,7 @@ index 03e82566..a891e550 100644
  };
  
  // TODO list:
-@@ -222,6 +248,9 @@ public:
+@@ -222,6 +251,9 @@ public:
  		if (alcMakeContextCurrent(alContext) == ALC_FALSE)
  			Exception::Throw("Failed to make OpenAL context current");
  
@@ -79,7 +86,39 @@ index 03e82566..a891e550 100644
  		// init listener state
  		ALfloat listenerOri[] = { 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, -1.0f };
  		alListener3f(AL_POSITION, 0, 0, 0.0f);
-@@ -344,6 +373,7 @@ public:
+@@ -280,6 +312,7 @@ public:
+ 
+ 	void AddSound(USound* sound) override
+ 	{
++		std::lock_guard alLock(alMutex);
+ 		sounds.push_back(sound);
+ 
+ 		ALenum format = AL_FORMAT_MONO_FLOAT32;
+@@ -298,6 +331,7 @@ public:
+ 
+ 	void RemoveSound(USound* sound) override
+ 	{
++		std::lock_guard alLock(alMutex);
+ 		auto it = sounds.begin();
+ 		while (it != sounds.end())
+ 		{
+@@ -313,6 +347,7 @@ public:
+ 
+ 	bool IsPlaying(int channel) override
+ 	{
++		std::lock_guard alLock(alMutex);
+ 		ALSoundSource& source = sources[channel];
+ 		return source.IsPlaying();
+ 	}
+@@ -326,6 +361,7 @@ public:
+ 
+ 	void PlaySound(int channel, USound* sound, vec3& location, float volume, float radius, float pitch) override
+ 	{
++		std::lock_guard alLock(alMutex);
+ 		if (!std::isfinite(volume) || volume < 0.0f || !std::isfinite(pitch) || channel >= sources.size())
+ 			Exception::Throw("Invalid PlaySound arguments");
+ 
+@@ -344,10 +380,12 @@ public:
  		source.SetPitch(pitch);
  		source.SetSpatial(true);
  		source.Play();
@@ -87,20 +126,109 @@ index 03e82566..a891e550 100644
  	}
  
  	void UpdateSound(int channel, USound* sound, vec3& location, float volume, float radius, float pitch) override
-@@ -451,6 +481,12 @@ public:
+ 	{
++		std::lock_guard alLock(alMutex);
+ 		if (!std::isfinite(volume) || volume < 0.0f || !std::isfinite(pitch) || channel >= sources.size())
+ 			Exception::Throw("Invalid PlaySound arguments");
+ 
+@@ -364,15 +402,16 @@ public:
+ 
+ 	void StopSound(int channel) override
+ 	{
++		std::lock_guard alLock(alMutex);
+ 		if (channel >= sources.size())
+ 			Exception::Throw("Invalid StopSound arguments");
+ 
+ 		sources[channel].Stop();
+ 	}
+ 
+-	std::string getALErrorString()
++	std::string getALErrorString(ALenum error)
+ 	{
+-		switch (alGetError())
++		switch (error)
+ 		{
+ 		case AL_NO_ERROR:
+ 			return "AL_NO_ERROR";
+@@ -401,20 +440,21 @@ public:
+ 		{
+ 			alBufferData(alMusicBuffers[i], format, musicQueue.Pop(), musicBufferSize*4, freq);
+ 			if ((error = alGetError()) != AL_NO_ERROR)
+-				Exception::Throw("alBufferData failed in PlayMusicBuffer: " + getALErrorString());
++				Exception::Throw("alBufferData failed in PlayMusicBuffer: " + getALErrorString(error));
+ 
+ 			alSourceQueueBuffers(alMusicSource, 1, &alMusicBuffers[i]);
+-			if (alGetError() != AL_NO_ERROR)
+-				Exception::Throw("alSourceQueueBuffers failed in PlayMusicBuffer: " + getALErrorString());
++			if ((error = alGetError()) != AL_NO_ERROR)
++				Exception::Throw("alSourceQueueBuffers failed in PlayMusicBuffer: " + getALErrorString(error));
+ 		}
+ 
+ 		alSourcePlay(alMusicSource);
+-		if (alGetError() != AL_NO_ERROR)
+-			Exception::Throw("alSourcePlay failed in PlayMusicBuffer: " + getALErrorString());
++		if ((error = alGetError()) != AL_NO_ERROR)
++			Exception::Throw("alSourcePlay failed in PlayMusicBuffer: " + getALErrorString(error));
+ 	}
+ 
+ 	void UpdateMusicBuffer(AudioSource* music)
+ 	{
++		ALenum error;
+ 		ALint status;
+ 		alGetSourcei(alMusicSource, AL_BUFFERS_PROCESSED, &status);
+ 
+@@ -427,12 +467,12 @@ public:
+ 			int freq = music->GetFrequency();
+ 
+ 			alBufferData(buffer, format, musicQueue.Pop(), musicBufferSize*4, freq);
+-			if (alGetError() != AL_NO_ERROR)
+-				Exception::Throw("alBufferData failed in UpdateMusicBuffer: " + getALErrorString());
++			if ((error = alGetError()) != AL_NO_ERROR)
++				Exception::Throw("alBufferData failed in UpdateMusicBuffer: " + getALErrorString(error));
+ 
+ 			alSourceQueueBuffers(alMusicSource, 1, &buffer);
+-			if (alGetError() != AL_NO_ERROR)
+-				Exception::Throw("alSourceQueueBuffers failed in UpdateMusicBuffer: " + getALErrorString());
++			if ((error = alGetError()) != AL_NO_ERROR)
++				Exception::Throw("alSourceQueueBuffers failed in UpdateMusicBuffer: " + getALErrorString(error));
+ 
+ 			status--;
+ 		}
+@@ -441,18 +481,27 @@ public:
+ 		if (status == AL_STOPPED)
+ 		{
+ 			alSourcePlay(alMusicSource);
+-			if (alGetError() != AL_NO_ERROR)
+-				Exception::Throw("alSourcePlay failed in PlayMusicBuffer: " + getALErrorString());
++			if ((error = alGetError()) != AL_NO_ERROR)
++				Exception::Throw("alSourcePlay failed in PlayMusicBuffer: " + getALErrorString(error));
+ 		}
+ 	}
+ 
+ 	void SetMusicVolume(float volume) override
+ 	{
++		std::lock_guard alLock(alMutex);
  		alSourcef(alMusicSource, AL_GAIN, volume);
  	}
  
 +	void SetLinearFalloff(bool enable) override
 +	{
++		std::lock_guard alLock(alMutex);
 +		for (auto& soundSource : sources)
 +			soundSource.SetLinearFalloff(enable);
 +	}
 +
  	void SetSoundVolume(float volume) override
  	{
++		std::lock_guard alLock(alMutex);
  		globalSoundVolume = volume;
-@@ -464,12 +500,14 @@ public:
+ 
+ 		for (auto& soundSource : sources)
+@@ -461,15 +510,18 @@ public:
+ 
+ 	void Update() override
+ 	{
++		std::lock_guard alLock(alMutex);
  		UActor* listener = engine->CameraActor;
  		if (listener)
  		{
@@ -118,28 +246,115 @@ index 03e82566..a891e550 100644
  
  			ALfloat listenerOri[6] = { up.x, up.y, -up.z, -at.x, -at.y, at.z };
  			alListener3f(AL_POSITION, location.x, location.y, -location.z);
-@@ -508,8 +546,11 @@ public:
- 				while (musicQueue.Size() < musicBufferCount)
+@@ -482,6 +534,7 @@ public:
+ 	{
+ 		std::unique_ptr<AudioSource> currentMusic;
+ 		bool musicPlaying = false;
++		int musicFailures = 0;
+ 
+ 		while (true)
+ 		{
+@@ -493,47 +546,134 @@ public:
+ 			{
+ 				if (musicPlaying)
  				{
- 					// render a chunk of music
++					std::lock_guard alLock(alMutex);
+ 					alSourceStop(alMusicSource);
+ 					alSourceUnqueueBuffers(alMusicSource, (ALsizei)alMusicBuffers.size(), &alMusicBuffers[0]);
++					alGetError();
+ 					musicPlaying = false;
+ 				}
+ 				currentMusic = std::move(musicThreadData.music);
+ 				musicThreadData.musicUpdate = false;
++				musicFailures = 0;
+ 			}
+ 			lock.unlock();
+ 			// Never touch anything from musicThreadData after this point.
+ 
++			using namespace std::chrono_literals;
+ 			if (currentMusic)
+ 			{
+-				while (musicQueue.Size() < musicBufferCount)
++				// An exception leaving this thread ends the game (std::terminate), so a music error only stops the
++				// music: the source is reset and the track restarted once a second; a track that keeps failing is
++				// dropped.
++				try
+ 				{
+-					// render a chunk of music
 -					currentMusic->ReadSamples(musicQueue.GetNextFree(), musicBufferSize);
 -					musicQueue.Push(musicQueue.GetNextFree());
-+					// silence after the end of the stream (the buffer still holds an older chunk)
-+					float* chunk = musicQueue.GetNextFree();
-+					size_t samplesRead = currentMusic->ReadSamples(chunk, musicBufferSize);
-+					std::fill(chunk + samplesRead, chunk + musicBufferSize, 0.0f);
-+					musicQueue.Push(chunk);
++					while (musicQueue.Size() < musicBufferCount)
++					{
++						// render a chunk of music
++						// silence after the end of the stream (the buffer still holds an older chunk)
++						float* chunk = musicQueue.GetNextFree();
++						size_t samplesRead = currentMusic->ReadSamples(chunk, musicBufferSize);
++						std::fill(chunk + samplesRead, chunk + musicBufferSize, 0.0f);
++						musicQueue.Push(chunk);
++					}
++
++					std::lock_guard alLock(alMutex);
++					alGetError(); // an error left by a main thread call isn't ours
++					if (!musicPlaying)
++					{
++						PlayMusicBuffer(currentMusic.get());
++						musicPlaying = true;
++					}
++					else if (musicQueue.Size() > 0)
++					{
++						UpdateMusicBuffer(currentMusic.get());
++						musicFailures = 0;
++					}
++
++					// TODO: music fade in/out
  				}
- 
- 				if (!musicPlaying)
-@@ -528,12 +569,56 @@ public:
+-
+-				if (!musicPlaying)
+-				{
+-					PlayMusicBuffer(currentMusic.get());
+-					musicPlaying = true;
+-				}
+-				else if (musicQueue.Size() > 0)
++				catch (const std::exception& e)
+ 				{
+-					UpdateMusicBuffer(currentMusic.get());
++					std::string message = e.what();
++					message = message.substr(0, message.find('\n'));
++					{
++						std::lock_guard alLock(alMutex);
++						alSourceStop(alMusicSource);
++						alSourcei(alMusicSource, AL_BUFFER, 0);
++						alGetError();
++					}
++					musicPlaying = false;
++					if (++musicFailures >= 5)
++					{
++						LogMessage("Music stopped, the track keeps failing: " + message);
++						currentMusic.reset();
++						musicFailures = 0;
++					}
++					else
++					{
++						if (musicFailures == 1)
++							LogMessage("Music error, restarting the stream: " + message);
++						std::this_thread::sleep_for(1s);
++					}
+ 				}
+-
+-				// TODO: music fade in/out
+ 			}
+ 			else
  			{
  				musicPlaying = false;
  			}
+-			using namespace std::chrono_literals;
 +
-+			FollowDefaultDevice();
++			{
++				std::lock_guard alLock(alMutex);
++				FollowDefaultDevice();
++				alGetError();
++			}
 +
- 			using namespace std::chrono_literals;
  			std::this_thread::sleep_for(5ms);
  		}
  	}
@@ -189,6 +404,19 @@ index 03e82566..a891e550 100644
  	ALCcontext* alContext = nullptr;
  	ALenum alError = 0;
  	ALuint alMusicSource = 0;
+@@ -664,6 +804,12 @@ public:
+ 	int frequency = 48000;
+ 	Array<USound*> sounds;
+ 
++	// OpenAL keeps one error state per context (alGetError), shared by the game and music threads: without this
++	// lock each thread read the other's errors as its own and aborted the game, "alBufferData failed in
++	// UpdateMusicBuffer: AL_NO_ERROR" on the music thread or "Failed to play AL source" in PlaySound (HP1's
++	// Quidditch match, 2026-10-18). Every OpenAL call holds it; the music thread clears the error state each time.
++	std::mutex alMutex;
++
+ 	// Note: variables changed in musicThreadData *must* be done within a mutex lock to be thread safe
+ 	struct
+ 	{
 diff --git a/SurrealEngine/Audio/AudioDevice.h b/SurrealEngine/Audio/AudioDevice.h
 index d201523d..1b395a9d 100644
 --- a/SurrealEngine/Audio/AudioDevice.h
@@ -222,10 +450,10 @@ index f1bb061f..418bf582 100644
  
  #include <alsa/asoundlib.h>
 diff --git a/SurrealEngine/Audio/AudioSource.cpp b/SurrealEngine/Audio/AudioSource.cpp
-index 241acddf..e1275d63 100644
+index 241acddf..3d45348f 100644
 --- a/SurrealEngine/Audio/AudioSource.cpp
 +++ b/SurrealEngine/Audio/AudioSource.cpp
-@@ -365,6 +365,9 @@ public:
+@@ -365,8 +365,15 @@ public:
  		if (handle == nullptr)
  			Exception::Throw("Unable to read ogg file");
  
@@ -234,8 +462,14 @@ index 241acddf..e1275d63 100644
 +		pcm_samples = 0;
  		stream_info = stb_vorbis_get_info(handle);
  		stream_eof = false;
++		// pcm pointed into the closed decoder's buffers; reading what was left of its last frame was a use-after-free
++		pcm = nullptr;
++		pcm_position = 0;
++		pcm_samples = 0;
  	}
-@@ -389,6 +392,10 @@ public:
+ 
+ 	size_t ReadSamples(float* output, size_t requestedsamples) override
+@@ -389,9 +396,16 @@ public:
  				}
  			}
  
@@ -246,6 +480,12 @@ index 241acddf..e1275d63 100644
  			int samples = pcm_samples - pcm_position;
  			if (samples > data_left) samples = data_left;
  
++			if (samples <= 0) // the stream ended without another frame (pcm may be null)
++				continue;
++
+ 			int buffer_pos = (data_requested - data_left) * stream_info.channels;
+ 			int c = stream_info.channels;
+ 			for (int j = 0; j < c; j++)
 diff --git a/SurrealEngine/Native/NObject.cpp b/SurrealEngine/Native/NObject.cpp
 index 1081c358..eac79ad4 100644
 --- a/SurrealEngine/Native/NObject.cpp
@@ -1393,7 +1633,7 @@ index ff500427..4a95be24 100644
  }
  
 diff --git a/SurrealEngine/VM/ExpressionValue.h b/SurrealEngine/VM/ExpressionValue.h
-index 908adb98..a1c36683 100644
+index 908adb98..c32ef3f2 100644
 --- a/SurrealEngine/VM/ExpressionValue.h
 +++ b/SurrealEngine/VM/ExpressionValue.h
 @@ -161,6 +161,7 @@ public:
@@ -1404,15 +1644,34 @@ index 908adb98..a1c36683 100644
  
  	ExpressionValue ItemAt(int index)
  	{
-@@ -417,6 +418,7 @@ inline void ExpressionValue::Store(const ExpressionValue& rvalue)
+@@ -376,6 +377,7 @@ inline ExpressionValue ExpressionValue::DefaultValue(UProperty* prop)
+ 	{
+ 		ExpressionValue v(prop->ValueType);
+ 		v.GetStructValue()->Init(static_cast<UStructProperty*>(prop)->Struct);
++		v.Ptr = v.GetStructValue()->Ptr; // Init allocated new storage; don't rely on a copy on return to refresh Ptr
+ 		return v;
+ 	}
+ 	case ExpressionValueType::ValueCoords: return CoordsValue({});
+@@ -387,7 +389,10 @@ inline ExpressionValue ExpressionValue::PropertyValue(UProperty* prop)
+ {
+ 	ExpressionValue v(prop->ValueType);
+ 	if (prop->ValueType == ExpressionValueType::ValueStruct)
++	{
+ 		v.GetStructValue()->Init(static_cast<UStructProperty*>(prop)->Struct);
++		v.Ptr = v.GetStructValue()->Ptr;
++	}
+ 	if (v.Type != ExpressionValueType::Nothing)
+ 		return v;
+ 	Exception::Throw("Unsupported expression value property type");
+@@ -417,6 +422,7 @@ inline void ExpressionValue::Store(const ExpressionValue& rvalue)
  	case ExpressionValueType::ValueName: *PtrName = rvalue.ToName(); break;
  	case ExpressionValueType::ValueColor: *PtrColor = rvalue.ToColor(); break;
  	case ExpressionValueType::ValueStruct:
-+		if (rvalue.Type != ExpressionValueType::ValueStruct || !rvalue.Ptr || !Ptr) break; // an Accessed None (or mismatched) value: the struct keeps its value
++		if (rvalue.Type == ExpressionValueType::Nothing || !rvalue.Ptr || !Ptr) break; // an Accessed None value: the struct keeps its value
  		if (UStruct* Struct = VariableProperty ? static_cast<UStructProperty*>(VariableProperty)->Struct : GetStructValue()->Struct)
  		{
  			for (UProperty* prop : Struct->Properties)
-@@ -426,6 +428,7 @@ inline void ExpressionValue::Store(const ExpressionValue& rvalue)
+@@ -426,6 +432,7 @@ inline void ExpressionValue::Store(const ExpressionValue& rvalue)
  		}
  		break;
  	case ExpressionValueType::ValueArray:
@@ -1421,7 +1680,7 @@ index 908adb98..a1c36683 100644
  		{
  			Array->CopyArray(Ptr, rvalue.Ptr);
 diff --git a/SurrealEngine/VM/Frame.cpp b/SurrealEngine/VM/Frame.cpp
-index 1e7b3c96..b094781b 100644
+index 1e7b3c96..929db6f4 100644
 --- a/SurrealEngine/VM/Frame.cpp
 +++ b/SurrealEngine/VM/Frame.cpp
 @@ -1,5 +1,6 @@
@@ -1504,7 +1763,22 @@ index 1e7b3c96..b094781b 100644
  				}
  
  				argindex++;
-@@ -387,11 +409,16 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, const Arra
+@@ -377,7 +399,13 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, const Arra
+ 			}
+ 			else if (argindex < args.size())
+ 			{
+-				frameArgs[argindex++] = args[argindex];
++				// An out parameter read through a None context (Other.PlayerReplicationInfo.Score -= 1 with no
++				// PlayerReplicationInfo) is already logged as Accessed None. UE1 gives the native a temporary to
++				// write to instead of a script error.
++				if (args[argindex].GetType() == ExpressionValueType::Nothing && AllFlags(prop->PropFlags, PropertyFlags::OutParm) && !AllFlags(prop->PropFlags, PropertyFlags::OptionalParm))
++					frameArgs[argindex++] = ExpressionValue::DefaultValue(prop);
++				else
++					frameArgs[argindex++] = args[argindex];
+ 			}
+ 			else
+ 			{
+@@ -387,11 +415,16 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, const Arra
  		}
  	}
  
@@ -1523,7 +1797,7 @@ index 1e7b3c96..b094781b 100644
  
  	if (callback)
  	{
-@@ -497,6 +524,25 @@ void Frame::GotoLabel(const NameString& label)
+@@ -497,6 +530,25 @@ void Frame::GotoLabel(const NameString& label)
  			if (labelIndex != -1)
  			{
  				Func = state;
@@ -1549,7 +1823,7 @@ index 1e7b3c96..b094781b 100644
  				StatementIndex = labelIndex;
  				LatentState = LatentRunState::Continue;
  				return;
-@@ -519,8 +565,8 @@ ExpressionEvalResult Frame::Run()
+@@ -519,8 +571,8 @@ ExpressionEvalResult Frame::Run()
  
  	ActiveCallStackFrame activeFrame(this);
  
@@ -1560,7 +1834,7 @@ index 1e7b3c96..b094781b 100644
  
  	if (RunState == FrameRunState::StepInto)
  	{
-@@ -532,14 +578,22 @@ ExpressionEvalResult Frame::Run()
+@@ -532,14 +584,22 @@ ExpressionEvalResult Frame::Run()
  	int instructionsRetired = 0;
  	while (true)
  	{
@@ -1585,7 +1859,7 @@ index 1e7b3c96..b094781b 100644
  
  		if (instructionsRetired >= maxInstructions)
  		{
-@@ -557,7 +611,7 @@ ExpressionEvalResult Frame::Run()
+@@ -557,7 +617,7 @@ ExpressionEvalResult Frame::Run()
  			Break();
  		}
  
@@ -1594,7 +1868,7 @@ index 1e7b3c96..b094781b 100644
  		//ExpressionEvalResult result = ExpressionEvaluator::Eval(statement, Object, Object, Variables);
  		ExpressionEvalResult result = RunExpr(statement, Object, Object, Variables);
  		if (!Func)
-@@ -567,14 +621,21 @@ ExpressionEvalResult Frame::Run()
+@@ -567,14 +627,21 @@ ExpressionEvalResult Frame::Run()
  		case StatementResult::Next:
  			break;
  		case StatementResult::Jump:
@@ -1618,7 +1892,7 @@ index 1e7b3c96..b094781b 100644
  				if (index != -1)
  				{
  					StatementIndex = index;
-@@ -592,10 +653,24 @@ ExpressionEvalResult Frame::Run()
+@@ -592,10 +659,24 @@ ExpressionEvalResult Frame::Run()
  							if (labelIndex != -1)
  							{
  								Func = state;
@@ -1643,7 +1917,7 @@ index 1e7b3c96..b094781b 100644
  						}
  					}
  					if (!found)
-@@ -638,7 +713,7 @@ ExpressionEvalResult Frame::Run()
+@@ -638,7 +719,7 @@ ExpressionEvalResult Frame::Run()
  				ThrowException("Iterator statement without an iterator in " + Object->Name.ToString() + "." + Func->Name.ToString());
  			Iterators.push_back(std::move(result.Iter));
  			Iterators.back()->StartStatementIndex = curStatementIndex + 1;
@@ -1652,7 +1926,7 @@ index 1e7b3c96..b094781b 100644
  			if (Iterators.back()->Next())
  				StatementIndex = Iterators.back()->StartStatementIndex;
  			else
-@@ -658,8 +733,7 @@ ExpressionEvalResult Frame::Run()
+@@ -658,8 +739,7 @@ ExpressionEvalResult Frame::Run()
  			Iterators.pop_back();
  			break;
  		case StatementResult::AccessedNone:
@@ -1662,7 +1936,7 @@ index 1e7b3c96..b094781b 100644
  			break;
  		}
  
-@@ -674,18 +748,23 @@ ExpressionEvalResult Frame::Run()
+@@ -674,18 +754,23 @@ ExpressionEvalResult Frame::Run()
  
  void Frame::ProcessSwitch(const ExpressionValue& condition)
  {
@@ -1690,7 +1964,7 @@ index 1e7b3c96..b094781b 100644
  		}
  		else
  		{
-@@ -1020,7 +1099,8 @@ ExpressionEvalResult Frame::RunExpr(Expression* statementExpr, UObject* self, UO
+@@ -1020,7 +1105,8 @@ ExpressionEvalResult Frame::RunExpr(Expression* statementExpr, UObject* self, UO
  					}
  					else
  					{

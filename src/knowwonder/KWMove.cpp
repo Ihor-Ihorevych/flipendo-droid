@@ -18,6 +18,7 @@
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
 #include "Math/coords.h"
+#include <algorithm>
 #include <cmath>
 
 // HP1's ULevel::MoveActor and friends: how an actor moves through the world (sweep, block, bump, touch, carry what
@@ -39,6 +40,24 @@ namespace KW
 	static bool IsTiny(const vec3& v)
 	{
 		return std::abs(v.x) < 0.000099999997f && std::abs(v.y) < 0.000099999997f && std::abs(v.z) < 0.000099999997f;
+	}
+
+	// Actors whose MoveActor is still running further up the stack. A mover that is based on what it pushes (HP2's
+	// Entryhall_hub: Mover33, the plinth that slides StatueGregorySmarmy0 aside, has the statue as its Base in the map)
+	// would otherwise be carried by the statue it is pushing, before the statue has moved: it encroaches the statue
+	// again, pushes it again, and so on until the stack overflows. An actor already being moved isn't carried again.
+	// NOT yet verified against HP1's or HP2's Engine.dll (how the original avoids the loop isn't known).
+	static Array<UActor*> movingActors;
+
+	struct MovingActorScope
+	{
+		explicit MovingActorScope(UActor* actor) { movingActors.push_back(actor); }
+		~MovingActorScope() { movingActors.pop_back(); }
+	};
+
+	static bool IsBeingMoved(UActor* actor)
+	{
+		return std::find(movingActors.begin(), movingActors.end(), actor) != movingActors.end();
 	}
 
 	static vec3 SafeNormal(const vec3& v)
@@ -151,63 +170,10 @@ namespace KW
 	}
 
 	// IDA Engine.dll: ?MoveActor@ULevel@@UAEHPAVAActor@@VFVector@@VFRotator@@AAUFCheckResult@@HHHH@Z [HP1 0x103AA3A0]
-	// The actors being moved in this call chain. A move carries what stands on the actor and pushes what a mover encroaches on, each
-	// through MoveActor again; two actors standing on each other, or a mover and a thing it pushes back into itself (HP2: a spell
-	// hit a statue, the pieces it threw out ended up based on each other), went round forever until the stack gave out.
-	struct MovingScope
-	{
-		static std::vector<UActor*>& Chain() { static std::vector<UActor*> chain; return chain; }
-		bool Entered = false;
-		explicit MovingScope(UActor* actor)
-		{
-			auto& chain = Chain();
-			if (chain.size() >= 32 || std::find(chain.begin(), chain.end(), actor) != chain.end())
-			{
-				static bool reported = false;
-				if (!reported)
-				{
-					reported = true;
-					std::string who;
-					for (UActor* c : chain)
-						who += c->Name.ToString() + " (" + c->Class->Name.ToString() + ", base " + (c->ActorBase() ? c->ActorBase()->Name.ToString() : std::string("none")) + ", standing " + std::to_string((int)c->StandingCount()) + ") > ";
-					LogMessage("MoveActor: " + actor->Name.ToString() + " (" + actor->Class->Name.ToString() + ", base " + (actor->ActorBase() ? actor->ActorBase()->Name.ToString() : std::string("none")) + ") is moved again while it is being moved, chain: " + who + "refused");
-				}
-				return;
-			}
-			chain.push_back(actor);
-			Entered = true;
-		}
-		~MovingScope()
-		{
-			if (Entered)
-				Chain().pop_back();
-		}
-	};
-
 	bool MoveActor(UActor* actor, const vec3& delta, const Rotator& newRotation, CheckResult& hit, bool test, bool ignorePawns, bool ignoreBases, bool noFail)
 	{
 		if (actor->bStatic() || !actor->bMovable())
 			return false;
-		MovingScope moving(actor);
-		if (!moving.Entered)
-			return false;
-
-		// Diagnostics (temporary): what a moving mover carries
-		if (IsMover(actor) && !IsTiny(delta) && !test)
-		{
-			static int reported = 0;
-			if (reported++ < 60)
-			{
-				std::string who;
-				for (UActor* other : engine->Level->Actors)
-				{
-					if (other && other->ActorBase() == actor)
-						who += other->Name.ToString() + " ";
-				}
-				LogMessage("Mover " + actor->Name.ToString() + " moves by " + std::to_string(delta.x) + "," + std::to_string(delta.y) + "," + std::to_string(delta.z) + " standing=" + std::to_string((int)actor->StandingCount()) + " carries: " + who);
-			}
-		}
-
 		if (IsTiny(delta))
 		{
 			if (newRotation == actor->Rotation())
@@ -219,6 +185,7 @@ namespace KW
 			}
 		}
 
+		MovingActorScope moving(actor);
 		hit = CheckResult();
 		hit.Time = 1.0f;
 
@@ -282,7 +249,7 @@ namespace KW
 			Array<UActor*> based;
 			for (UActor* other : engine->Level->Actors)
 			{
-				if (other && other->ActorBase() == actor)
+				if (other && other->ActorBase() == actor && !IsBeingMoved(other))
 					based.push_back(other);
 			}
 			for (UActor* other : based)

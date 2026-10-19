@@ -36,7 +36,7 @@ index 799eca23..bdce0120 100644
  set_target_properties(SurrealCommon PROPERTIES CXX_STANDARD 20)
  target_precompile_headers(SurrealCommon PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/SurrealEngine/Precomp.h>)
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 1e6022fb..1b710d50 100644
+index 1e6022fb..37c357bb 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,13 @@
@@ -294,12 +294,23 @@ index 1e6022fb..1b710d50 100644
  	{
 -		if (LaunchInfo.IsHarryPotter1()) // FEOptionsPage.IsSupportedResolution is so sad :)
 -			return "1024x768";
-+		if (LaunchInfo.IsHarryPotter1()) // real modes, FEOptionsPage cap lifted (src/hp1/HP1Canvas.cpp)
-+			return HP1::AvailableResolutions(window.get());
++		if (LaunchInfo.IsKnowWonder()) // real modes, the options page's cap lifted (src/knowwonder/KWCanvas.cpp)
++			return KW::AvailableResolutions(window.get());
  		return window->GetAvailableResolutions();
  	}
  	else if (command == "getcolordepths")
-@@ -1221,7 +1296,17 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1185,6 +1260,10 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+ 
+ 		return std::to_string(width) + "x" + std::to_string(height);
+ 	}
++	else if (command == "isfullscreen")
++	{
++		return window->IsFullscreen() ? "True" : "False";
++	}
+ 	else if (command == "getcurrentcolordepth")
+ 	{
+ 		return "32";
+@@ -1221,7 +1300,17 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  			{
  				ClientTravel(url.ToString(), ETravelType::TRAVEL_Absolute, false);
  				return {};
@@ -318,7 +329,7 @@ index 1e6022fb..1b710d50 100644
  		}
  
  		LogMessage("Couldn't find map " + maparg);
-@@ -1275,6 +1360,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1275,6 +1364,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  			return {};
  		}
  
@@ -333,7 +344,7 @@ index 1e6022fb..1b710d50 100644
  		SaveGameInfo.SaveGameSlot = slotNum;
  
  		if (args.size() == 3)
-@@ -1326,20 +1419,40 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1326,20 +1423,40 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  			}
  		}
  	}
@@ -382,7 +393,7 @@ index 1e6022fb..1b710d50 100644
  		if (LaunchInfo.IsDeusEx() && className == "inputext")
  		{
  			// DeusEx version of input handling. How does this differ from the other one?
-@@ -1444,6 +1557,10 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1444,6 +1561,10 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  	}
  	else
  	{
@@ -393,7 +404,7 @@ index 1e6022fb..1b710d50 100644
  		if (!ExecCommand(args))
  		{
  			LogMessage("Unknown command: " + commandline);
-@@ -1453,6 +1570,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1453,6 +1574,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  	return {};
  }
  
@@ -408,7 +419,7 @@ index 1e6022fb..1b710d50 100644
  Array<std::string> Engine::GetArgs(const std::string& commandline)
  {
  	Array<std::string> args;
-@@ -1484,6 +1609,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
+@@ -1484,6 +1613,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
  			endpos = command.size();
  
  		std::string subcommand = command.substr(pos, endpos - pos);
@@ -419,7 +430,26 @@ index 1e6022fb..1b710d50 100644
  		if (!subcommand.empty())
  			subcommands.push_back(subcommand);
  		pos = endpos + 1;
-@@ -1511,6 +1640,8 @@ void Engine::LoadEngineSettings()
+@@ -1496,8 +1629,16 @@ void Engine::LoadEngineSettings()
+ 	if (packages->MissingSESystemIni())
+ 	{
+ 		client->LoadProperties("WinDrv.WindowsClient");
+-		audiodev->LoadProperties("Galaxy.GalaxyAudioSubsystem");
+-		renderdev->LoadProperties("D3DDrv.Direct3DRenderDevice");
++		if (LaunchInfo.IsHarryPotter2()) // HP2 plays through OpenAL (src/hp2/HP2.h)
++		{
++			audiodev->LoadProperties(HP2::AudioIniSection);
++			renderdev->LoadProperties(HP2::RenderIniSection);
++		}
++		else
++		{
++			audiodev->LoadProperties("Galaxy.GalaxyAudioSubsystem");
++			renderdev->LoadProperties("D3DDrv.Direct3DRenderDevice");
++		}
+ 	}
+ 	else
+ 	{
+@@ -1511,6 +1652,8 @@ void Engine::LoadEngineSettings()
  #else
  	windowingSystemName = packages->GetIniValue("System", "Engine.SurrealWindowSystem", "WindowSystem", "SDL2");
  #endif
@@ -428,7 +458,7 @@ index 1e6022fb..1b710d50 100644
  }
  
  void Engine::LoadKeybindings()
-@@ -1540,11 +1671,13 @@ void Engine::LoadKeybindings()
+@@ -1540,11 +1683,13 @@ void Engine::LoadKeybindings()
  					std::string aliasCommand = alias.substr(commandStart.size(), pos - commandStart.size());
  					std::string aliasName = alias.substr(pos + commandSplit.size(), pos2 - pos - commandSplit.size());
  					if (!aliasName.empty() && aliasName != "None")
@@ -443,7 +473,7 @@ index 1e6022fb..1b710d50 100644
  }
  
  void Engine::UpdateInput(float timeElapsed)
-@@ -1577,7 +1710,15 @@ void Engine::UpdateInput(float timeElapsed)
+@@ -1577,7 +1722,15 @@ void Engine::UpdateInput(float timeElapsed)
  void Engine::OpenWindow()
  {
  	if (!window)
@@ -459,7 +489,7 @@ index 1e6022fb..1b710d50 100644
  
  	int width = client->StartupFullscreen ? client->FullscreenViewportX : client->WindowedViewportX;
  	int height = client->StartupFullscreen ? client->FullscreenViewportY : client->WindowedViewportY;
-@@ -1586,9 +1727,19 @@ void Engine::OpenWindow()
+@@ -1586,9 +1739,19 @@ void Engine::OpenWindow()
  	std::string versionString = !LaunchInfo.gameVersionString.empty() ? " (v" + LaunchInfo.gameVersionString + ")" : "";
  
  	window->SetWindowTitle(LaunchInfo.gameName + versionString + " - Surreal Engine");
@@ -480,7 +510,7 @@ index 1e6022fb..1b710d50 100644
  	if (fullscreen)
  		window->ShowFullscreen();
  	else
-@@ -1604,6 +1755,9 @@ void Engine::TickWindow()
+@@ -1604,6 +1767,9 @@ void Engine::TickWindow()
  {
  	if (window && engine->LaunchInfo.ue1Version > 219)
  	{
@@ -490,16 +520,16 @@ index 1e6022fb..1b710d50 100644
  		if (viewport->bShowWindowsMouse() && viewport->bWindowsMouseAvailable())
  			window->UnlockCursor();
  		else
-@@ -1646,6 +1800,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
+@@ -1646,6 +1812,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
  	{
  		viewport->WindowsMouseX() = (float)(pos.x * window->GetDpiScale());
  		viewport->WindowsMouseY() = (float)(pos.y * window->GetDpiScale());
-+		if (LaunchInfo.IsKnowWonder()) // into the menu canvas (src/hp1/HP1Canvas.cpp)
-+			HP1::MenuMousePosition(viewport->WindowsMouseX(), viewport->WindowsMouseY());
++		if (LaunchInfo.IsKnowWonder()) // into the menu canvas (src/knowwonder/KWCanvas.cpp)
++			KW::MenuMousePosition(viewport->WindowsMouseX(), viewport->WindowsMouseY());
  	}
  }
  
-@@ -1719,6 +1875,11 @@ void Engine::OnWindowKeyChar(std::string chars)
+@@ -1719,6 +1887,11 @@ void Engine::OnWindowKeyChar(std::string chars)
  
  void Engine::OnWindowKeyDown(EInputKey key)
  {
@@ -511,7 +541,7 @@ index 1e6022fb..1b710d50 100644
  	if (playingAvi)
  	{
  		if (key == EInputKey::IK_Escape)
-@@ -1813,7 +1974,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
+@@ -1813,7 +1986,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
  
  			for (const std::string& command : GetSubcommands(keybindings[keynames[key]]))
  			{

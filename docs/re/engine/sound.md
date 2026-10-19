@@ -53,7 +53,16 @@ Engine.dll's `WorldSoundRadius` is `(SoundRadius + 1) * 25`.
 `ModifySound` [HP1 Galaxy 0x10607AE0]: first channel whose Id matches ignoring bit 0 and whose sound is the given one
 (any sound when None). Parameter 0/1/2 sets Volume/Radius/Pitch, stored as given. A negative volume is kept and plays
 silent (Update clamps the integer volume at 0): `BroomHarry.UpdateBroomSound` fades the broom loop slightly below 0
-at the end of Lev_Tut2's intro, which SurrealEngine's OpenAL device rejected with a fatal error.
+at the end of Lev_Tut2's intro, which SurrealEngine's OpenAL device rejected with a fatal error. It fades the pitch
+the same way: in Lev3_Quid2 (Quidditch) the broom loop's pitch goes below 0 (down to -0.41, at volume 0) when Harry
+slows down. What Galaxy does with the negative frequency that gives (`sample rate × Pitch`) is NOT yet verified in
+IDA; it is inaudible at volume 0, and the OpenAL device clamps the pitch at 0 (OpenAL rejects a negative one).
+
+OpenAL keeps one error state (`alGetError`) per context, shared by the game thread and SurrealEngine's music
+thread. The unchecked `AL_PITCH` error above was read by whichever thread checked next and aborted the game, as
+"alBufferData failed in UpdateMusicBuffer: AL_NO_ERROR" (an uncaught exception on the music thread) or "Failed to
+play AL source" in PlaySound. The device now serialises its OpenAL calls with one mutex, and a music error only
+restarts (or after five failures in a row, drops) the track.
 
 `Update` [HP1 Galaxy 0x106081F0], for every playing channel (music channel aside):
 

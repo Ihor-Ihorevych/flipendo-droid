@@ -157,6 +157,14 @@ both sides (Vulkan without culling) and let them occlude. HP2's PrivetDr has a l
 Potter logo. `VisibleFrame::ProcessNodeSurface` now drops a one-sided surface the camera is behind
 (`0130-knowwonder-render.patch`, any game; HP1's Lev_Tut1 looks the same).
 
+## Sprites
+
+A DT_Sprite actor is a camera-facing quad with its texture's first row at the top, as for any UE1 game. SurrealEngine's
+`VisibleSprite::Draw` gave V = 0 to the bottom corners, so every sprite was drawn upside down; most are symmetric
+(sparks, glows, coronas) and look the same either way, but HP2's spell symbols ([hp2/gameplay.md](../hp2/gameplay.md#spells))
+showed it: the Alohomora keyhole stood on its round end. Fixed for every game (0130-knowwonder-render.patch); checked
+in HP2's PrivetDr with the keyhole WetTexture on a GestureSprite in front of a fixed camera.
+
 ## HP1 and HP2
 
 HP2's DLLs not read yet for these; what to check there:

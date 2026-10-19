@@ -270,8 +270,8 @@ namespace HP1
 			if (kind >= 0 && width > 2.0f && height > 2.0f)
 			{
 				float x0 = left * scale, y0 = top * scale, x1 = (left + width) * scale, y1 = (top + height) * scale;
-				MenuToPixels(x0, y0);
-				MenuToPixels(x1, y1);
+				KW::MenuToPixels(x0, y0);
+				KW::MenuToPixels(x1, y1);
 				out.push_back({ window, x0, y0, x1, y1, kind });
 			}
 			if (kind == 1)

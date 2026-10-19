@@ -85,6 +85,13 @@ the move's acceleration still set (fixed 2026-10-05).
   actors' cylinders point checked against this actor's primitive, other movers skipped) and that it blocks; a mover
   first pushes each along (`moveSmooth`), and only what is still in the way afterwards gets EncroachingOn (true refuses
   the move; the pushed actor is put back). Then EncroachedBy for blocked actors, touch for the rest.
+  **A mover based on what it pushes** loops: HP2's Entryhall_hub has `Mover33` (Tag `StatueBase01`, the plinth beside
+  Gregory the Smarmy's statue that slides aside to open a hole) with `Base=StatueGregorySmarmy0` in the map. Opening,
+  it encroaches the statue and pushes it; the statue's MoveActor carries what stands on it, `Mover33`, before the statue
+  itself has moved, so `Mover33` encroaches it again: MoveActor, CheckEncroachment, moveSmooth, MoveActor ... until the
+  stack overflows (`@trigger StatueBase01` crashes every time). Flipendo doesn't carry an actor whose MoveActor is
+  still running further up the stack; the statue then stays where it is and the plinth opens (it looks right). How
+  the original avoids the loop isn't checked in IDA (neither game).
 - `ULevel::FarMoveActor` (0x103A9DE0): FindSpot (bCollideWorld, or bCollideWhenPlacing off clients), encroachment with
   touch, unbases what stood on it, bJustTeleported, OldLocation = Location.
 - `ULevel::FindSpot` (0x103A9690): its last argument decides whether a spot that is already free is kept (SpawnActor

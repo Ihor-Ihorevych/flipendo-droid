@@ -6,9 +6,11 @@
 #include "Utils/File.h"
 #include "VM/NativeFunc.h"
 #include "Engine.h"
+#include "Packages/Engine/Subsystems/USurrealAudioDevice.h"
 #include "Utils/StrTools.h"
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 
 // HP2's music: no Galaxy songs in .umx packages but Ogg Vorbis files in Music/, which scripts start and stop by name
 // (PlayerPawn.ClientSetMusic, MusicTrigger, FEBook). The natives only record the request; UpdateMusic, called every
@@ -99,7 +101,11 @@ namespace HP2
 		{
 			std::string song = music.pendingSong;
 			music.pendingSong.clear();
-			std::filesystem::path path = KW::FindIgnoringCase(KW::FindIgnoringCase(engine->LaunchInfo.gameRootFolder, "Music"), song);
+			// Scripts name the song with or without the extension (FEBook's "Intro_Movie_Music_Edit")
+			std::filesystem::path folder = KW::FindIgnoringCase(engine->LaunchInfo.gameRootFolder, "Music");
+			std::filesystem::path path = KW::FindIgnoringCase(folder, song);
+			if (path.empty())
+				path = KW::FindIgnoringCase(folder, song + ".ogg");
 			std::unique_ptr<AudioSource> source;
 			if (!path.empty())
 				source = AudioSource::CreateOgg(File::read_all_bytes(path.string()), true);
@@ -123,19 +129,61 @@ namespace HP2
 
 	static bool soundsMuted = false;
 
+	// ALAudio keeps MusicVolume and SoundVolume as floats 0..1 (the ini holds MusicVolume=0.53); the audio device keeps
+	// HP1's bytes 0..255.
+	uint8_t VolumeFromIni(const std::string& value, uint8_t defaultValue)
+	{
+		try
+		{
+			return (uint8_t)std::lround(std::clamp(std::stof(value), 0.0f, 1.0f) * 255.0f);
+		}
+		catch (...)
+		{
+			return defaultValue;
+		}
+	}
+
+	std::string VolumeToIni(uint8_t volume)
+	{
+		return std::to_string(volume / 255.0f);
+	}
+
 	// IDA ALAudio.dll: ?Exec@UALAudioSubsystem@@UAEHPBGAAVFOutputDevice@@@Z [HP2 ALAudio 0x100067B0]
 	// MUTESOUNDS sets a flag and the gain of every active sound source to 0, UNMUTESOUNDS clears it and gives each source
 	// its gain back; the music streams aren't touched. Here the flag holds the sound volume at 0 instead.
+	// SETVOLUMES SOUND=<f> MUSIC=<f> (either or both, FESoundVideoPage's sliders / 100) clamps each to 0..1, stores it and
+	// sets the gain of every playing source at once: a music stream gets the music volume, a sound its own volume times
+	// the sound volume. The audio device here applies its volumes every frame.
 	bool AudioCommand(const Array<std::string>& args)
 	{
 		if (args.empty())
 			return false;
 		if (StrTools::equals_ignore_case(args[0], "MUTESOUNDS"))
+		{
 			soundsMuted = true;
+		}
 		else if (StrTools::equals_ignore_case(args[0], "UNMUTESOUNDS"))
+		{
 			soundsMuted = false;
+		}
+		else if (StrTools::equals_ignore_case(args[0], "SETVOLUMES"))
+		{
+			for (size_t i = 1; i < args.size(); i++)
+			{
+				size_t eq = args[i].find('=');
+				if (eq == std::string::npos || !engine->audiodev)
+					continue;
+				std::string key = args[i].substr(0, eq);
+				if (StrTools::equals_ignore_case(key, "SOUND"))
+					engine->audiodev->SoundVolume = VolumeFromIni(args[i].substr(eq + 1), engine->audiodev->SoundVolume);
+				else if (StrTools::equals_ignore_case(key, "MUSIC"))
+					engine->audiodev->MusicVolume = VolumeFromIni(args[i].substr(eq + 1), engine->audiodev->MusicVolume);
+			}
+		}
 		else
+		{
 			return false;
+		}
 		return true;
 	}
 

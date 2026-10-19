@@ -11,7 +11,7 @@ them, kept as patch files so a newer SurrealEngine rarely conflicts.
 |---|---|
 | `src/surreal-patches/0001-game-detection.patch` | HP1 `System/HP.exe` hashes (UK 1.1, EN retail SafeDisc, community No-CD, Russian retail and No-CD), also under the long exe names some releases use; why a folder isn't a game |
 | `src/surreal-patches/0002-launcher-flags.patch` | `--autolaunch`, `--logfile`, the flags the HP1 code reads |
-| `src/surreal-patches/0003-cursor-focus.patch` | cursor recentering and raw input only while the game window has focus; window icons the right way up |
+| `src/surreal-patches/0003-cursor-focus.patch` | cursor recentering and raw input only while the game window has focus; window icons the right way up; macOS: `ShowFullscreen` shows the window first and only toggles when it isn't fullscreen yet, and mouse buttons go into the key state `GetKeyState` reads (HP2's `GetCurrentKeyState`; the middle button gets its own handlers) |
 | `src/surreal-patches/0010-engine-fixes.patch` | fixes to SurrealEngine bugs that aren't specific to one game (VM, properties, ini (UTF-16 files), packages, GetLanguage, fonts, crash reports, audio device) |
 | `src/surreal-patches/0100-knowwonder-core.patch` | build (`src/flipendo.cmake`), natives registration, engine loop (input, console, saves, view), missing data messages |
 | `src/surreal-patches/0110-knowwonder-physics.patch` | KnowWonder physics, pawn movement, collision |
@@ -70,9 +70,9 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Packages/Engine/Actors/UActor.cpp`, `UActor.h` (Tick), `Pawn/UPawn_Tick.cpp`, `Pawn/UPawn.h` | KnowWonder polls a pawn's latent action (`UPawn::PollLatentAction`, split out of `UPawn::Tick`) after the script Tick event, as HP1's ProcessState does |
 | `Collision/TopLevel/CollisionSystem.cpp/.h` | the hash files KnowWonder actors by `KW::ActorWorldCollisionBox` (CollisionWidth offset, CT_Box); `ActorsInBox` for KnowWonder's actor checks |
 | `Render/RenderSubsystem.cpp` | `HP1::OnFrameRendered` (`HP1_SHOTS` debug screenshots) |
-| `Render/RenderCanvas.cpp`, `RenderSubsystem.h` | `HP1::CanvasUIScale` (float `uiscale`), `HP1::SetCanvasArea` (full-width HUD, 4:3 console/menus); `DrawClippedActor` relative to the canvas area |
-| `Render/RenderCanvas.cpp` (DrawText, DrawTextClipped), `Packages/Engine/Resources/UFont.*` | fonts made by `KW::CreateNativeFont` (`UFont::SetNativeGlyphs`, `IsNative`, `src/knowwonder/KWNativeFont.cpp`) draw premultiplied in the DrawColor whatever the style, like HP1's GDI text |
-| `Engine.cpp` | `HP1::ViewFovAngle` after PlayerCalcView (Hor+ FOV); trim `\|` input subcommands; `SET Input` takes the rest of the line (multi-word aliases; no alias unbinds); `getres` → `HP1::AvailableResolutions`; `HP1::MenuMousePosition` in `OnWindowMouseMove` |
+| `Render/RenderCanvas.cpp`, `RenderSubsystem.h` | `KW::CanvasUIScale` (float `uiscale`), `KW::SetCanvasArea` (full-width HUD, 4:3 console/menus; HP1 and HP2); `DrawClippedActor` relative to the canvas area |
+| `Render/RenderCanvas.cpp` (DrawText, DrawTextClipped), `Packages/Engine/Resources/UFont.*` | fonts made by `KW::CreateNativeFont` (`UFont::SetNativeGlyphs`, `IsNative`, `src/knowwonder/KWNativeFont.cpp`) draw premultiplied in the DrawColor whatever the style, its alpha taken as 1, like HP1's GDI text |
+| `Engine.cpp` | `HP1::ViewFovAngle` after PlayerCalcView (Hor+ FOV); trim `\|` input subcommands; `SET Input` takes the rest of the line (multi-word aliases; no alias unbinds); `getres` → `KW::AvailableResolutions`; `isfullscreen` (WinDrv's viewport command, any game: True / False); `KW::MenuMousePosition` in `OnWindowMouseMove` |
 | `Collision/TopLevel/TraceTest.cpp`, `OverlapTest.cpp`, `CollisionSystem.cpp` | CT_Box trace/overlap/hash extents |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `HP1::PawnMoveToward`, `HP1::PawnPhysicsTime`, `HP1::PawnPhysicsRotation` |
 | `Packages/Engine/Actors/Pawn/UPlayerPawn.cpp` | `HP1::PawnPhysicsRotation` |
@@ -89,12 +89,14 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Engine.cpp` | `HP1::DebugCamera` after PlayerCalcView (`HP1_CAMERA`); `KW::ShowWindowInBackground` in OpenWindow (`HP1_BACKGROUND`); `HP1::TickMods` after the console tick; `HP1::ModsKeyDown` in OnWindowKeyDown |
 | `Engine.cpp` (Run) | `HP1::ModsTimeScale` multiplies the frame's level time (`src/hp1/mods/FastForward.cpp`: Shift held = 2.5x) |
 | `Render/RenderCanvas.cpp` (PostRender) | `HP1::PostRenderMods` after the HUD and console/menus |
+| `RenderDevice/Vulkan/UploadManager.cpp` (UploadTexture) | `HP1::LoadTextureOverride` (HP1 and HP2, gated `IsKnowWonder()`): a `Textures/<package>/<group>/<name>.dds` replacement image is uploaded instead of the texture's mipmaps (`src/hp1/mods/TextureOverrides.cpp`); UVs keep the texture's own USize/VSize. Vulkan only |
 | `Native/NObject.cpp` | DynamicLoadObject resolves "Package.Group.Name" |
 | `Packages/Engine/Actors/UActor.cpp` (Tick end) | `HP1::TickRootMotion` (bAnimMove root motion) |
 | `Packages/Engine/Actors/UActor_PhysWalking.cpp`, `UActor_PhysRolling.cpp` | `HP1::PawnWalkOffLedge` / `HP1::StartFalling` (MayFall, ledge rule, auto-jump, Falling) |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `HP1::PawnPollMoveToward`, `PawnPollStrafeFacing`, `PawnPollWaitForLanding`; WaitForLanding sets LatentFloat |
 | `Engine.cpp` | save games ([re/engine/savegames.md](re/engine/savegames.md)): `SaveGame` → `KW::SaveGame` at once (not at the end of the frame): LevelAction saving, the blue progress frame (`PaintProgress`), the save; `open saveN.usa` → `HP1::SaveGameLoadURL` (`?load=N`); `KW::SaveGameLoaded` after LoadFromSaveFile (BSP leaves found again); `HP1::LevelInfoLoaded` in LoadMap (empty LevelEnterText = URL map); `KW::ViewportCommand` before the exec functions (`Snap`) |
-| `Engine.cpp` (ConsoleCommand), `Packages/Engine/Subsystems/USurrealAudioDevice.cpp` (Update) | `IsHarryPotter2()`: ALAudio's `MUTESOUNDS` / `UNMUTESOUNDS` (`HP2::AudioCommand`) hold the sound volume at 0 while a skipped cutscene fast-forwards |
+| `Engine.cpp` (ConsoleCommand), `Packages/Engine/Subsystems/USurrealAudioDevice.cpp` (Update) | `IsHarryPotter2()`: ALAudio's `MUTESOUNDS` / `UNMUTESOUNDS` (`HP2::AudioCommand`) hold the sound volume at 0 while a skipped cutscene fast-forwards; `SETVOLUMES SOUND=` / `MUSIC=` set the volumes |
+| `Packages/Engine/Subsystems/USurrealAudioDevice.cpp/.h` (`VolumeToString`, `VolumeFromString`), `Engine.cpp` (LoadEngineSettings) | `IsHarryPotter2()`: ini volumes as ALAudio's floats 0..1 (`HP2::VolumeFromIni` / `VolumeToIni`); the first run reads `HP2::AudioIniSection` / `RenderIniSection` |
 | `Engine.cpp` (LoginPlayer) | `HP1::LevelStartPlayer` before Possess: `--level` sets `HPConsole.bInHubFlow` and Harry's travel state (`src/hp1/HP1LevelStart.cpp`) |
 | `Engine.cpp` (LoadMap) | `KW::SetStartupZones` after BeginPlay: every loaded actor's zone and BSP leaf, as HP1's LoadMap does (a map saves movers with leaf -1, which left bDynamicLightMover movers unlit) |
 | `Native/NPlayerPawn.cpp` | ClientTravel raises PreClientTravel |

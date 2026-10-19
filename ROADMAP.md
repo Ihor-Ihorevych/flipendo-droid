@@ -5,48 +5,64 @@ was done is in the git history, how it works in `docs/`, [docs/README.md](docs/R
 
 Legend: [~] partly done / in progress · [ ] not started
 
-## Next up (in order)
-1. **Dark levels**: compare Lev5_FlyKeys' lighting with the original ([docs/debug-tools.md](docs/debug-tools.md#comparing-with-the-original)).
+## HP2: Chamber of Secrets
+- [~] HP2 (UE1 build 433), on the same engine as HP1 (groundwork: [docs/one-engine.md](docs/one-engine.md)).
+  Estimate (2026-10-17): about 3 weeks at HP1's pace (10-19 working days). The engine side is ~85-90% reused (180 of
+  ~183 natives covered; of 205 IDA-tagged ports 64 carry over as is, 56 are exec wrappers that differ only by the
+  DebugInfo check, 66 need reading in HP2); the 43-map playthrough is new work.
+  Status (2026-10-17): boots on Linux straight into a new game; the intro and its cutscenes play (with Enter to skip)
+  through the flying car to the Whomping Willow, with subtitles; the in-game book and the options page work at any
+  resolution. Not tried past that; no saves, no start menu, no voices. In order:
+  1. Start and save (2-4 days)
+  - [ ] Recreate HP2's front end: `Game.exe`'s own Windows menu, which the engine doesn't have
+        ([docs/re/hp2/startup.md](docs/re/hp2/startup.md)). The EA splash (`EALogo1.bmp`), then Main Menu (New Game,
+        Load Game, Options), the save slot pages, and Options (video, sound, joystick), drawn with HP2's `Help/*.bmp`
+        art and `Startup.int` text. New Game starts `PrivetDr.unr`, Load Game `-LOADGAME=<slot>`. Until then a run
+        without a URL starts a new game.
+  - [ ] `-LOADGAME=<slot>` (HP2's Engine.dll reads it) and HP2's save flow: queued saves, a directory per slot, `LoadGame 0`
+        after death ([docs/re/engine/savegames.md](docs/re/engine/savegames.md))
+  - [ ] Persistent actors across hub travel ([docs/re/hp2/engine.md](docs/re/hp2/engine.md)): `bPersistent` actors keep
+        their state when Harry leaves a hub map and comes back (the `SavePActors` console command, logged as unknown on
+        every level change, and the persistent actor cache)
+  2. The intro and first levels as the original (2-3 days)
+  - [ ] Voices: every dialogue line fails with "could not load 'AllDialog.PC_...': Could not find package 'AllDialog'".
+        The package is `Sounds/AllDialog.USA_uax`: HP2 names language-specific packages `<name>.<language>_<ext>`;
+        find how its Core.dll looks them up and do the same
+  - [ ] Adv1Willow: SpottedJellyBean3/6/7 fall out of the world as the map starts (at Z -482): check where they
+        start and what they should land on
+  - [ ] Cutscene commands that start before the previous one finished ("Trying to issue command to: ... when previous
+        CutCommand hasnt finished yet": Dobby and Harry in PrivetDr, `FordFlying0`, Harry in Adv1Willow): a move or
+        animation that doesn't report done. Compare with the original before calling it a bug
+  - [ ] Skipping: "SKIP ERROR ... failed to advance after 16 loops" when fast-forwarding PrivetDr's intro
+  - [ ] PrivetDr's intro flyover: the camera doesn't follow the original's path and shows the map's edges (playtest
+        2026-10-17); the shot is also much darker. Check BaseCam's `FollowSpline ... EaseBetween` and FlyTo against HP2's
+        code, and the sky through the backdrop surfaces
+  - [ ] Dobby's and Filch's eye blink channels fail (`eye_close` anim / `eye_root` bone not found): check HP2's mesh
+        and animation data against `CreateEyeBlinkAnimChannel`
+  - [ ] HP2 music: check `src/hp2/HP2Music.cpp` (written from the scripts) against ALAudio.dll: crossfades between
+        songs, looping, volumes; `StopSound`'s fade-out, `PlaySound`'s Disable3D and Loop
+  - [ ] XA sounds: check the decoder by ear (nibble order), and the stereo XA case
+  - [ ] Lumos: after casting it the light beam on the wand stays for good (playtest 2026-10-17); check how HP2's
+        scripts turn the wand's Lumos effect off
+  - [ ] Check the remaining "changed" ports for real behaviour differences (beyond the DebugInfo check)
+  - [ ] Engine behaviour HP2's scripts may need, worth checking: state labels inherited from a parent state, class
+        references in travel data, dialogue with `Disable3D` playing at full volume wherever the camera is
+  3. Menus and options (1 day)
+  - [ ] The in-game book's pages, rollover sounds, the folio, the map
+  - [ ] `get ini:` / `set ini:` with a class and a key fails with "Could not find class 'None'": `set ini:HGame.Harry
+        Difficulty ...` and `ObjectDetail` (the options page's difficulty and detail aren't kept), `get ini:Engine.Engine
+        GameRenderDevice`
+  4. Play the 43 maps through, incl. the 10 duels and Quidditch (4-8 days)
+  5. Polish (1-2 days)
+  - [ ] Check the unverified HP2 engine differences in HP2's code ([docs/re/hp2/gameplay.md](docs/re/hp2/gameplay.md)):
+        music always loops, save loading, lip sync, movers colliding by bounding box
+  - [ ] HP2-only engine features ([docs/re/hp2/engine.md](docs/re/hp2/engine.md)): the `GAMESTATE=` command line
+        override, Lumos surfaces, TurnTo's flattened focus, particle Opacity, I3DL2 reverb, oval collision cylinders
+  - [ ] Linux: `HP1_SHOTS` screenshots crash the game after the first one (also HP2), which limits automated testing
+        (segfault in radv's `vkCmdEndRenderPass`, called from `VulkanRenderDevice::Unlock` in `RenderSubsystem::DrawGame`
+        right after the shot is saved)
 
-Visual parity checks against the original, side by side, wait until the end (after gameplay works): mesh lighting
-(brightness, specular highlights, light fades), animations (walk/run/breathe, tween blends, aux channels) and
-particle effects.
-
-## 1. Characters move (skeletal animation)
-- [~] Channel blending in the pose (AuxAnims per bone subtree) — implemented, not yet verified in game
-- [ ] Verify animations visually against the original (walk/run/breathe, tween blends)
-
-## 2. Engine gaps found in the first levels
-- [ ] Windowed mode: menu mouse mapping (`WindowsMouseX/Y` into the 4:3 area) not yet tested in game
-- [ ] TraceTexture: decals not traced yet
-- [ ] `Actor.Opacity`: back-to-front face sort inside a translucent mesh not ported
-
-## 3. Spells
-- [ ] Verify particle effects against the original side by side (spell trails, fires). Checked in ours only: Lev_Tut1 torch
-      fires, the Lev2_HogFront fountain (liquid streaks), Lev2_fire1 water drips (hanging drops), a spell cast's puff
-
-## 4. Save games and front end
-- [ ] Play the whole New Game → save point → quit → Load Game loop by hand through the menus (only driven with
-      `HP1_EXEC` so far), and a save made after a level change (autosave on the first tick)
-- [~] After loading, the camera sits a little further back than when saved: not reproduced with a standstill save in
-      Lev_Tut1 (camera and screenshots identical, [docs/re/engine/savegames.md](docs/re/engine/savegames.md)); try a save taken
-      while the camera moves
-
-## 5. Remaining native classes and polish
-- [ ] Bugs of the original to fix, not reproduce: [docs/re/hp1/original_bugs.md](docs/re/hp1/original_bugs.md)
-- [ ] Console.CreateNativeFont glyphs for the Asian languages (only Latin and Cyrillic are rasterized), and system
-      font text drawn at the screen's resolution instead of scaled with the menu canvas
-- [ ] `Actor.Fatness`: not ported; only matters if a map or script changes it from 128
-      ([docs/re/engine/animation.md](docs/re/engine/animation.md))
-- [ ] US vs UK HP1: compare `HPBase.u` from both releases for a shifted token table
-      ([docs/re/engine/scripting.md](docs/re/engine/scripting.md))
-- [ ] Linux: a debug screenshot (`HP1_SHOTS`) crashes the game in the Radeon Vulkan driver right after the first image is
-      saved (`VulkanRenderDevice::Unlock` -> `vkCmdEndRenderPass`), even on the main menu
-- [ ] Menu song fade-in at its start: MusicFade/transitions or the mp2 itself ([docs/re/engine/music.md](docs/re/engine/music.md))
-- [ ] Next SurrealEngine update: upstream's HP1 boot work (July 2026: exe detection, HP natives and tokens, mp2,
-      4:3 `GetRes`) is already in our submodule; drop any of our patches that it now duplicates
-
-## 6. Extras (`src/hp1/mods/`)
+## Extras for HP1 (`src/hp1/mods/`)
 - [ ] Per-mod on/off and settings in an ini section (`[Flipendo.Mods]`), not only command-line flags; an *Extras*
       page in the options book (FEBook) to toggle them in game
 - [ ] Fixed 60 Hz game logic, drawing at any frame rate: the game ticks (scripts, physics, cutscenes) at a fixed
@@ -56,13 +72,7 @@ particle effects.
       (`Engine::Run`: tick and render split) and the interpolation in the renderer. An option, the 60 FPS cap stays
       the default until it is tested level by level
 - [ ] More built-in extras: FOV slider, controller support, free camera
-- [ ] HD texture packs (issue #4): load replacement textures from the game folder, so packs made for the community
-      DX11 renderer work, e.g. Akven's ESRGAN Upscale Pack v3 (2,537 `Textures/<Package>/<Group>/<Name>.dds`, DXT1
-      and DXT5 only, 4x upscales; its `System/tessellation.cfg` is for that renderer). SurrealEngine renders BC1/BC3
-      already, so a texture load looks the file up (case-insensitive), reads the DDS mips and swaps `UsedMipmaps` /
-      `UsedFormat` while `USize`/`VSize` stay the original's (BSP and canvas UVs use them). Mesh UVs scale by the
-      first mip's width (`VisibleMesh.cpp`, `KWSkeletal`), so they need the original width too. Check masked and
-      translucent textures (DXT1 alpha vs the game's masking). On when the folder exists, off with `--vanilla`
+- [ ] Texture packs: check masked and translucent overrides (a DXT1 file's 1-bit alpha against the game's masking)
 - [ ] Twitch chaos mod (opt-in, `--chaos`): stream viewers vote in chat on effects every N seconds (low gravity,
       giant or tiny Harry, a random spell cast, camera upside down, slow motion, Harry runs backwards, beans
       rain). Each effect is a timed `@set` on live actors / `Level.TimeDilation`, undone when it ends; a vote

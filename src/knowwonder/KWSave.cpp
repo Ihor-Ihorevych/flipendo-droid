@@ -430,11 +430,14 @@ namespace KW
 	// commented out, no script calls CreateTextureFromScreenShot; the slot thumbnails are the pre-made SGS BMPs), so
 	// the command is accepted and does nothing.
 	// IDA Engine.dll: ?Exec@UViewport@@UAEHPBGAAVFOutputDevice@@@Z [HP1 0x10384560] (the "SNAP" branch)
+	// IDA Render.dll: ?Exec@URender@@UAEHPBGAAVFOutputDevice@@@Z [HP2 Render 0x10B1EB90]
+	// MLOD <factor> (HP2's object detail option) sets URender's global mesh LOD factor when it is above 0 and logs it.
+	// Meshes here are always drawn at full detail, so it is accepted and ignored.
 	bool ViewportCommand(const Array<std::string>& args)
 	{
 		if (args.empty())
 			return false;
-		return StrTools::equals_ignore_case(args[0], "snap");
+		return StrTools::equals_ignore_case(args[0], "snap") || StrTools::equals_ignore_case(args[0], "mlod");
 	}
 
 	// A save stores each actor's Region, BSP leaf included, and the original game trusts it. Saves made by Flipendo before

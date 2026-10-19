@@ -11,7 +11,7 @@
 // KnowWonder's engine (src/knowwonder/): what Flipendo reimplements of the modified Engine.dll / Fire.dll that the Harry Potter
 // games share. These are the entry points called from our hooks inside src/engine/, each gated by
 // engine->LaunchInfo.IsKnowWonder() (HP1 and HP2).
-// Game-specific code (HP1's mods and menu canvas) is in src/hp1/HP1.h.
+// Game-specific code is in src/hp1/HP1.h (HP1's mods) and src/hp2/HP2.h.
 
 class UObject;
 class UActor;
@@ -88,8 +88,8 @@ namespace KW
 	// Engine::ConsoleCommand "SaveGame N": UGameEngine::SaveGame (LevelAction, the progress frame, then the save).
 	void SaveGame(int slot, const std::string& description);
 	std::string SaveGameLoadURL(const std::string& map);
-	// Engine::ConsoleCommand, before the exec functions: console commands of KnowWonder's UViewport::Exec that
-	// SurrealEngine doesn't know ("Snap"). Returns true when handled.
+	// Engine::ConsoleCommand, before the exec functions: console commands of KnowWonder's UViewport::Exec and
+	// URender::Exec that SurrealEngine doesn't know ("Snap", "MLOD"). Returns true when handled.
 	bool ViewportCommand(const Array<std::string>& args);
 	// Engine, right after a save is loaded: every actor's BSP leaf found again from its location.
 	void SaveGameLoaded();
@@ -115,6 +115,15 @@ namespace KW
 
 	// Engine::Tick, after PlayerCalcView: the camera's horizontal FOV for the window's aspect ratio.
 	float ViewFovAngle(float fovAngle, int width, int height);
+	// Widescreen 2D (src/knowwonder/KWCanvas.cpp). RenderSubsystem::ResetCanvas: UI scale for the viewport height.
+	float CanvasUIScale(int viewportHeight);
+	// RenderSubsystem::ResetCanvas / PostRender: full-width canvas (HUD), or the centred 4:3 area (console/menus).
+	void SetCanvasArea(SceneNode& frame, float uiscale, bool menuArea);
+	// Engine::OnWindowMouseMove: OS mouse position (pixels) to menu canvas units, for HPConsole's WindowsMouseX/Y.
+	void MenuMousePosition(float& x, float& y);
+	void MenuToPixels(float& x, float& y); // the inverse: a point of the menu canvas to viewport pixels
+	// Engine::ConsoleCommand "getres": common modes up to the desktop size, with the options page's 1024x768 cap lifted.
+	std::string AvailableResolutions(GameWindow* window);
 	// RenderSubsystem::DrawGame: the screen flash from HP1's FlashFog (its W replaces FlashScale).
 	void ViewFlashParams(UPlayerPawn* player, vec3& flashScale, vec3& flashFog);
 	// Engine::LoadMap / LoadFromSaveFile: HP1's loading screen. LoadMapFadeOut at the start (fade to black over

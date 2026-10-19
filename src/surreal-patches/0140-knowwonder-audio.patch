@@ -46,10 +46,10 @@ index 75eb4e30..efd8e1d2 100644
  		stream->ReadUInt32(); // lazy array skip offset
  	uint32_t size = stream->ReadIndex();
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
-index a4e1dd8e..4f49ab81 100644
+index a4e1dd8e..6e587db8 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 +++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
-@@ -12,6 +12,8 @@
+@@ -12,9 +12,26 @@
  #include "Packages/Engine/Resources/UMusic.h"
  #include "Packages/Engine/Resources/USound.h"
  #include "Packages/Engine/Resources/Level/ULevel.h"
@@ -58,7 +58,71 @@ index a4e1dd8e..4f49ab81 100644
  
  static float square(float x) { return x * x; }
  
-@@ -149,7 +151,12 @@ void USurrealAudioDevice::InitDevice()
++// HP2's scripts read and write the volumes as floats 0..1, as its ALAudio driver keeps them (src/hp2/HP2Music.cpp)
++std::string USurrealAudioDevice::VolumeToString(uint8_t volume)
++{
++	if (engine->LaunchInfo.IsHarryPotter2())
++		return HP2::VolumeToIni(volume);
++	return IniPropertyConverter<uint8_t>::ToString(volume);
++}
++
++uint8_t USurrealAudioDevice::VolumeFromString(const std::string& value, uint8_t defaultValue)
++{
++	if (engine->LaunchInfo.IsHarryPotter2())
++		return HP2::VolumeFromIni(value, defaultValue);
++	return IniPropertyConverter<uint8_t>::FromString(value);
++}
++
+ std::string USurrealAudioDevice::GetPropertyAsString(const NameString& propertyName) const
+ {
+ 	if (propertyName == "Class")
+@@ -46,9 +63,9 @@ std::string USurrealAudioDevice::GetPropertyAsString(const NameString& propertyN
+ 	else if (propertyName == "Channels")
+ 		return IniPropertyConverter<int>::ToString(Channels);
+ 	else if (propertyName == "MusicVolume")
+-		return IniPropertyConverter<uint8_t>::ToString(MusicVolume);
++		return VolumeToString(MusicVolume);
+ 	else if (propertyName == "SoundVolume")
+-		return IniPropertyConverter<uint8_t>::ToString(SoundVolume);
++		return VolumeToString(SoundVolume);
+ 	else if (propertyName == "AmbientFactor")
+ 		return IniPropertyConverter<float>::ToString(AmbientFactor);
+ 
+@@ -85,9 +102,9 @@ void USurrealAudioDevice::SetPropertyFromString(const NameString& propertyName,
+ 	else if (propertyName == "Channels")
+ 		Channels = IniPropertyConverter<int>::FromString(value);
+ 	else if (propertyName == "MusicVolume")
+-		MusicVolume = IniPropertyConverter<uint8_t>::FromString(value);
++		MusicVolume = VolumeFromString(value, MusicVolume);
+ 	else if (propertyName == "SoundVolume")
+-		SoundVolume = IniPropertyConverter<uint8_t>::FromString(value);
++		SoundVolume = VolumeFromString(value, SoundVolume);
+ 	else if (propertyName == "AmbientFactor")
+ 		AmbientFactor = IniPropertyConverter<float>::FromString(value);
+ 	else
+@@ -116,8 +133,8 @@ void USurrealAudioDevice::LoadProperties(const NameString& from)
+ 	Latency = IniPropertyConverter<int>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "Latency", Latency);
+ 	OutputRate = IniPropertyConverter<AudioFrequency>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "OutputRate", OutputRate);
+ 	Channels = IniPropertyConverter<int>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "Channels", Channels);
+-	MusicVolume = IniPropertyConverter<uint8_t>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "MusicVolume", MusicVolume);
+-	SoundVolume = IniPropertyConverter<uint8_t>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "SoundVolume", SoundVolume);
++	MusicVolume = VolumeFromString(engine->packages->GetIniFile("System")->GetValue(name_from, "MusicVolume", VolumeToString(MusicVolume)), MusicVolume);
++	SoundVolume = VolumeFromString(engine->packages->GetIniFile("System")->GetValue(name_from, "SoundVolume", VolumeToString(SoundVolume)), SoundVolume);
+ 	AmbientFactor = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "AmbientFactor", AmbientFactor);
+ }
+ 
+@@ -136,8 +153,8 @@ void USurrealAudioDevice::SaveConfig()
+ 	engine->packages->SetIniValue("System", Class, "Latency", IniPropertyConverter<int>::ToString(Latency));
+ 	engine->packages->SetIniValue("System", Class, "OutputRate", IniPropertyConverter<AudioFrequency>::ToString(OutputRate));
+ 	engine->packages->SetIniValue("System", Class, "Channels", IniPropertyConverter<int>::ToString(Channels));
+-	engine->packages->SetIniValue("System", Class, "MusicVolume", IniPropertyConverter<uint8_t>::ToString(MusicVolume));
+-	engine->packages->SetIniValue("System", Class, "SoundVolume", IniPropertyConverter<uint8_t>::ToString(SoundVolume));
++	engine->packages->SetIniValue("System", Class, "MusicVolume", VolumeToString(MusicVolume));
++	engine->packages->SetIniValue("System", Class, "SoundVolume", VolumeToString(SoundVolume));
+ 	engine->packages->SetIniValue("System", Class, "AmbientFactor", IniPropertyConverter<float>::ToString(AmbientFactor));
+ }
+ 
+@@ -149,7 +166,12 @@ void USurrealAudioDevice::InitDevice()
  	// TODO: Add option for music buffer count
  	// TODO: Add option for music buffer size
  	// m_Device = AudioDevice::Create(48000, 256, 16, 256);
@@ -72,7 +136,7 @@ index a4e1dd8e..4f49ab81 100644
  	LogMessage("Audio device initialized");
  }
  
-@@ -182,10 +189,24 @@ void USurrealAudioDevice::Update(const mat4& listener)
+@@ -182,10 +204,24 @@ void USurrealAudioDevice::Update(const mat4& listener)
  	StartAmbience();
  	UpdateAmbience();
  	UpdateSounds(listener);
@@ -100,7 +164,7 @@ index a4e1dd8e..4f49ab81 100644
  	m_Device->Update();
  }
  
-@@ -380,10 +401,17 @@ void USurrealAudioDevice::UpdateMusic()
+@@ -380,10 +416,17 @@ void USurrealAudioDevice::UpdateMusic()
  
  bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 Location, float Volume, float Radius, float Pitch, bool isTalk)
  {
@@ -120,7 +184,7 @@ index a4e1dd8e..4f49ab81 100644
  	{
  		// Should this still be directional?
  		Volume *= 2.0f;
-@@ -400,6 +428,17 @@ bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 L
+@@ -400,6 +443,17 @@ bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 L
  	if (!m_Viewport || !Sound)
  		return false;
  
@@ -138,7 +202,7 @@ index a4e1dd8e..4f49ab81 100644
  	// Allocate a new slot if requested
  	if ((Id & 14) == 2 * SLOT_None)
  		Id = 16 * --FreeSlot;
-@@ -431,7 +470,11 @@ bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 L
+@@ -431,7 +485,11 @@ bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 L
  
  	// If no sound, or its priority is overruled, stop it
  	if (Index == PlayingSounds.size())
@@ -150,7 +214,7 @@ index a4e1dd8e..4f49ab81 100644
  
  	Sound->GetSound();
  
-@@ -475,6 +518,39 @@ void USurrealAudioDevice::StopSound(UActor* Actor, int Id)
+@@ -475,6 +533,39 @@ void USurrealAudioDevice::StopSound(UActor* Actor, int Id)
  	}
  }
  
@@ -190,7 +254,7 @@ index a4e1dd8e..4f49ab81 100644
  void USurrealAudioDevice::StopSound(size_t index)
  {
  	PlayingSound& Playing = PlayingSounds[index];
-@@ -494,6 +570,11 @@ void USurrealAudioDevice::StopSounds()
+@@ -494,6 +585,11 @@ void USurrealAudioDevice::StopSounds()
  	for (size_t i = 0; i < PlayingSounds.size(); i++)
  		StopSound(i);
  
@@ -203,7 +267,7 @@ index a4e1dd8e..4f49ab81 100644
  	m_Viewport = nullptr;
  }
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h
-index 81534ba9..0f506047 100644
+index 81534ba9..56264fa0 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h
 +++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h
 @@ -64,6 +64,9 @@ public:
@@ -216,3 +280,12 @@ index 81534ba9..0f506047 100644
  	void ActorDestroyed(UActor* Actor);
  	void StopSounds();
  
+@@ -82,6 +85,8 @@ private:
+ 	void UpdateMusic();
+ 	void StopSound(size_t index);
+ 
++	static std::string VolumeToString(uint8_t volume);
++	static uint8_t VolumeFromString(const std::string& value, uint8_t defaultValue);
+ 	static float SoundPriority(UViewport* Viewport, vec3 Location, float Volume, float Radius);
+ 
+ 	UViewport* m_Viewport = nullptr;

@@ -703,9 +703,10 @@ namespace KW
 	}
 
 	// The weapon frame GetFrame leaves on the mesh for Render.dll (mesh->WeaponBoneIndex >= 0): WeaponAdjust in the
-	// weapon bone's space, orthonormalized, Y negated (undoes GetMeshCoords' mirror). World space here; the original
-	// works in camera space, which is the same rigid transform away.
-	// IDA Engine.dll: ?GetFrame@USkeletalMesh@@UAEXPAVFVector@@HVFCoords@@PAVAActor@@AAH@Z [HP1 0x1041DF50] (the WeaponBoneIndex block at its end)
+	// weapon bone's space, orthonormalized. The original runs X, Y = X ^ Z, Z = X ^ Y, Y = -Y in camera space, a
+	// reflection of world space, where cross products change sign: in world space that is Y = X ^ Z, Z = X ^ Y with
+	// no negation, a proper frame (OrthoRotation gives Render's WeaponRot exactly; negating Y made it a mirror).
+	// IDA Engine.dll: ?GetFrame@USkeletalMesh@@UAEXPAVFVector@@HVFCoords@@PAVAActor@@AAH@Z [HP1 0x1041DF50] [HP2 0x1042C980] (the WeaponBoneIndex block at its end)
 	bool SkeletalWeaponFrame(UActor* actor, USkeletalMesh* mesh, vec3& origin, vec3& x, vec3& y, vec3& z)
 	{
 		int weaponBone = (int)mesh->WeaponBoneIndex;
@@ -731,7 +732,6 @@ namespace KW
 		x = safeNormal(w.XAxis);
 		y = safeNormal(cross(x, w.ZAxis));
 		z = cross(x, y);
-		y = -y;
 		origin = w.Origin;
 		return true;
 	}

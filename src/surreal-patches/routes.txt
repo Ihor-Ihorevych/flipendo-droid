@@ -18,7 +18,7 @@ SurrealEngine/GameFolder.*
 [0002-launcher-flags.patch] flipendo: --autolaunch, --logfile, --level and --renderer command line flags
 SurrealEngine/GameApp.cpp
 
-[0003-cursor-focus.patch] flipendo: only recenter the mouse cursor, and only act on raw mouse/keyboard input, while the game window is the active (foreground) window; window icons the right way up
+[0003-cursor-focus.patch] flipendo: only recenter the mouse cursor, and only act on raw mouse/keyboard input, while the game window is the active (foreground) window; window icons the right way up; macOS: a window started in fullscreen goes fullscreen reliably, and held mouse buttons count as held keys
 SurrealWidgets/**
 
 [0010-engine-fixes.patch] flipendo: fixes to SurrealEngine bugs (any game): VM (and HP2's bytecode tokens), properties, ini files (UTF-16 localization files), packages (Unicode strings), UTF-16 strings and file names that differ in case on Linux, GetLanguage, fonts (character remap, text drawn by code point, runtime-made fonts), crash reports, music streaming and following the default audio device (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties
@@ -58,7 +58,7 @@ SurrealEngine/Packages/Engine/Actors/UActor.h
 SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
 SurrealEngine/Packages/Engine/Resources/Mesh/**
 
-[0130-knowwonder-render.patch] flipendo: KnowWonder rendering (FOV, skeletal meshes, particles, translucency, vertex alpha, actor shadows, textures; loading screen; HP1 menu canvas, coronas); BSP surfaces take the zone on the camera's side (any game)
+[0130-knowwonder-render.patch] flipendo: KnowWonder rendering (FOV, skeletal meshes, particles, translucency, vertex alpha, actor shadows, textures; loading screen; menu canvas, coronas); BSP surfaces take the zone on the camera's side and sprites are drawn right side up (any game)
 SurrealEngine/Render/**
 SurrealEngine/Light/**
 SurrealEngine/RenderDevice/**
