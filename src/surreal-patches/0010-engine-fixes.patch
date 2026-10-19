@@ -730,7 +730,7 @@ index 2f91f141..e3a86d3f 100644
  			}
  		}
 diff --git a/SurrealEngine/Packages/Core/UObject.cpp b/SurrealEngine/Packages/Core/UObject.cpp
-index 8c485d04..78563d03 100644
+index 8c485d04..5c8eaaa3 100644
 --- a/SurrealEngine/Packages/Core/UObject.cpp
 +++ b/SurrealEngine/Packages/Core/UObject.cpp
 @@ -30,7 +30,16 @@ void UObject::LoadNow()
@@ -781,7 +781,21 @@ index 8c485d04..78563d03 100644
  			{
  				probeMask |= 1ULL << (uint64_t)i;
  			}
-@@ -523,8 +538,16 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
+@@ -408,6 +423,13 @@ bool UObject::IsEventEnabled(EventName name) const
+ 			foundProbe = true;
+ 		}
+ 
++		// HP2 compiles some states' probe masks without EndState (ChallengeStar.PickupProp defines it, its mask has only the
++		// inherited bits), yet the original calls it: the star's EndState adds the time and ends the lesson. A state that has
++		// the function and does not ignore the event gets it.
++		if (!foundProbe && name == EventName::EndState && engine->LaunchInfo.IsHarryPotter2() && StateFrame && StateFrame->Func
++			&& FindEventFunction(const_cast<UObject*>(this), ToNameString(name)))
++			foundProbe = true;
++
+ 		if (!foundProbe)
+ 			return false;
+ 	}
+@@ -523,8 +545,16 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
  
  	UState* oldState = (UState*)StateFrame->GetFunc();
  
@@ -799,7 +813,7 @@ index 8c485d04..78563d03 100644
  
  	if (oldState != newState)
  		StateFrame->SetState(newState);
-@@ -537,7 +560,7 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
+@@ -537,7 +567,7 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
  		// load time. An actor that starts a level with no baked-in stack but enters a real state
  		// during play would otherwise never have that state written by Save() at all, silently
  		// losing it on the next save regardless of what state it's actually in.

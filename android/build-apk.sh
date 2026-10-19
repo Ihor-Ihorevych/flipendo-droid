@@ -23,6 +23,7 @@ INSTALL=0
 SELFPACKS=() # "game folder|apk name"
 HP2DIR=""      # --hp2: an HP2 install (System/Game.exe) that goes into the self pack too (assets/hp2data)
 HP2TEXTS=""    # --hp2-texts: HP2's Russian text files (the harry2 folder of the Russian edition)
+HP2EDITIONS=() # "code=folder|name": an HP2 release whose voices and texts are an edition the player can choose (--hp2-edition)
 LANGS=()     # "code=game folder": more languages for --selfpack (the in-game language switch)
 MODS=()      # "id=zip": script mods the app can switch on and off (Settings > Movement mod)
 VOICES=()    # "code=Sounds folder": a dubbing for --selfpack, an edition that is the base install with its Sounds replaced
@@ -30,6 +31,7 @@ while [ $# -gt 0 ]; do
 	case "$1" in
 		--install) INSTALL=1 ;;
 		--hp2) shift; HP2DIR="$(cygpath -u "${1:?--hp2 needs the HP2 folder}")" ;;
+		--hp2-edition) shift; HP2EDITIONS+=("$1") ;; # code=folder|name, e.g. ru=C:/Games/HP2Rus|Russian
 		--hp2-texts) shift; HP2TEXTS="$(cygpath -u "${1:?--hp2-texts needs the harry2 folder}")" ;;
 		--selfpack) shift; SELFPACKS+=("$(cygpath -u "${1:?--selfpack needs the game folder}")|flipendo-droid-selfpack.apk") ;;
 		--selfpack-ru) shift; SELFPACKS+=("$(cygpath -u "${1:?--selfpack-ru needs the game folder}")|flipendo-droid-selfpack-ru.apk") ;;
@@ -283,6 +285,23 @@ for entry in "${SELFPACKS[@]}"; do
 			mkdir -p "$HP2STAGE/harry2"
 			cp "$HP2TEXTS"/*.rus "$HP2STAGE/harry2/"
 		fi
+		# HP2 editions (voices and texts of a release): the files that make it one, in editions/<code>/ (SetupActivity.applyHp2Edition)
+		for edition in "${HP2EDITIONS[@]}"; do
+			code="${edition%%=*}"
+			rest="${edition#*=}"
+			dir="$(cygpath -u "${rest%%|*}")"
+			name="${rest#*|}"
+			[ "$name" = "$rest" ] && name=""
+			target="$HP2STAGE/editions/$code"
+			mkdir -p "$target/Sounds" "$target/System" "$target/Textures"
+			cp "$dir"/Sounds/*uax "$target/Sounds/" 2>/dev/null || true
+			for f in "$dir"/System/*.rus; do
+				[ -f "$f" ] && [ "$(basename "$f" | tr A-Z a-z)" != "sapfont.rus" ] && cp "$f" "$target/System/"
+			done
+			cp "$dir"/Textures/MenuArt.Rus_utx "$target/Textures/" 2>/dev/null || true
+			printf '%s\n' "${name:-$code}" > "$target/edition.txt"
+			echo "HP2 edition $code: $(find "$target" -type f | wc -l) files, $(du -sm "$target" | cut -f1) MB"
+		done
 		(cd "$HP2STAGE" && find . -type f ! -name .stamp -print0 | sort -z | xargs -0 sha1sum | sha1sum | cut -d' ' -f1) > "$HP2STAGE/.stamp"
 		echo "HP2 data: $(find "$HP2STAGE" -type f | wc -l) files, $(du -sm "$HP2STAGE" | cut -f1) MB"
 	fi

@@ -9,11 +9,14 @@
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Package/PackageManager.h"
 #include "Packages/Core/UClass.h"
+#include "Packages/Core/UState.h"
 #include "Packages/Engine/UConsole.h"
 #include "Packages/Engine/UViewport.h"
 #include "Packages/Engine/Actors/UHUD.h"
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
 #include <atomic>
+#include <fstream>
+#include <cstdio>
 #include <string>
 #include <vector>
 
@@ -39,6 +42,10 @@ namespace HP1 { void InitCyrillic(); }
 
 namespace HP2
 {
+	static bool g_godMode = false; // the debug menu's God mode: the health is topped up every frame
+	static UActor* g_watchedStar = nullptr; // development: the star the pick command picked, followed in the log
+	static int g_watchedTicks = 0;
+
 	static bool CutsceneMode()
 	{
 		UPlayerPawn* player = engine->viewport ? engine->viewport->Actor() : nullptr;
@@ -84,8 +91,65 @@ namespace HP2
 			pawn->SetPropertyFromString(NameString("bAutoJump"), autoJumpWanted ? "True" : "False");
 		}
 
+		// diagnostics (temporary): the flying cheat's inputs and result, twice a second
+		{
+			UPlayerPawn* harry = engine->viewport->Actor();
+			static float lastFly = 0.0f;
+			if (harry && harry->GetStateName() == NameString("CheatFlying") && engine->LevelInfo->TimeSeconds() - lastFly > 0.5f)
+			{
+				lastFly = engine->LevelInfo->TimeSeconds();
+				auto f = [&](const char* name) { const PropertyDataOffset o = harry->Class->GetPropertyDataOffset(NameString(name)); return o.DataOffset == (size_t)-1 ? -999.0f : harry->Value<float>(o); };
+				const vec3 a = harry->Acceleration(), v = harry->Velocity(), l = harry->Location();
+				LogMessage("FLY aForward " + std::to_string(f("aForward")) + " aStrafe " + std::to_string(f("aStrafe")) + " aUp " + std::to_string(f("aUp")) + " accel " + std::to_string(a.x) + "," + std::to_string(a.y) + "," + std::to_string(a.z) + " vel " + std::to_string(v.x) + "," + std::to_string(v.y) + "," + std::to_string(v.z) + " loc " + std::to_string(l.x) + "," + std::to_string(l.y) + "," + std::to_string(l.z) + " phys " + std::to_string((int)harry->Physics()));
+			}
+		}
+
+		// God mode: the health is kept full (HP2's health is the status manager's count of potion hearts)
+		if (g_godMode)
+		{
+			UPlayerPawn* harry = engine->viewport->Actor();
+			UObject* status = harry ? KW::ObjectProperty(harry, "managerStatus") : nullptr;
+			if (status)
+			{
+				const int maxHealth = CallEvent(status, NameString("GetHealthPotentialCount")).ToInt();
+				if (maxHealth > 0 && CallEvent(status, NameString("GetHealthCount")).ToInt() < maxHealth)
+					CallEvent(status, NameString("SetHealthCount"), { ExpressionValue::IntValue(maxHealth) });
+			}
+		}
+
+		// development: what the picked star does next (the pick command)
+		if (g_watchedStar && ++g_watchedTicks % 20 == 0)
+		{
+			LogMessage("HP2 debug: star state " + g_watchedStar->GetStateName().ToString() + (g_watchedStar->bDeleteMe() ? " (deleted)" : "") + " hidden " + std::to_string((int)g_watchedStar->bHidden()));
+			if (g_watchedStar->bDeleteMe() || g_watchedTicks > 600)
+				g_watchedStar = nullptr;
+		}
+
 		// The debug menu (FlipendoActivity.openHp2Debug): "level <map>", "state GSTATE020", "spells"
-		for (const std::string& command : AndroidTakeDebugCommands())
+		std::vector<std::string> commands = AndroidTakeDebugCommands();
+		{
+			// development: the same commands from a file (adb push hp2_debug.txt /sdcard/FlipendoHP/), one per line, taken once
+			static int fileTicks = 0;
+			if (++fileTicks % 30 == 0)
+			{
+				const char* path = "/sdcard/FlipendoHP/hp2_debug.txt";
+				std::ifstream file(path);
+				std::string line;
+				bool any = false;
+				while (std::getline(file, line))
+				{
+					while (!line.empty() && (line.back() == 13 || line.back() == 32))
+						line.pop_back();
+					if (!line.empty())
+						commands.push_back(line);
+					any = true;
+				}
+				file.close();
+				if (any)
+					std::remove(path);
+			}
+		}
+		for (const std::string& command : commands)
 		{
 			UPlayerPawn* harry = engine->viewport->Actor();
 			if (!harry)
@@ -100,6 +164,42 @@ namespace HP2
 				CallEvent(harry, NameString("SetGameState"), { ExpressionValue::StringValue(argument) });
 			else if (verb == "spells")
 				CallEvent(harry, NameString("AddAllSpellsToSpellBook"));
+			else if (verb == "fly" || verb == "ghost" || verb == "walk")
+			{
+				// PlayerPawn's cheats (exec Fly / Ghost / Walk) need bCheatsEnabled
+				harry->SetPropertyFromString(NameString("bCheatsEnabled"), "True");
+				if (verb != "walk")
+				{
+					// HP2's Harry never flies: his AirSpeed is 0, which caps the flying speed at 0
+					harry->SetPropertyFromString(NameString("AirSpeed"), "600");
+					harry->SetPropertyFromString(NameString("AccelRate"), "2048");
+				}
+				CallEvent(harry, NameString(verb == "fly" ? "Fly" : verb == "ghost" ? "Ghost" : "Walk"));
+				LogMessage("HP2 debug: " + verb + " -> state " + harry->GetStateName().ToString() + ", physics " + std::to_string((int)harry->Physics()) + ", cheats " + (KW::BoolProperty(harry, "bCheatsEnabled") ? "on" : "off"));
+			}
+			else if (verb == "pick")
+			{
+				// development: picks up the first challenge star in the level the way a touch does (ChallengeStar / FinalStar)
+				for (size_t i = 0; i < engine->Level->Actors.size(); i++)
+				{
+					UActor* star = engine->Level->Actors[i];
+					const std::string className = star ? star->Class->Name.ToString() : std::string();
+					if (className == "ChallengeStar" || className == "FinalStar")
+					{
+						LogMessage("HP2 debug: pick " + className + " in state " + star->GetStateName().ToString());
+						CallEvent(star, NameString("DoPickupProp"));
+						g_watchedStar = star;
+						g_watchedTicks = 0;
+						LogMessage("HP2 debug: after DoPickupProp state " + star->GetStateName().ToString() + ", EndState enabled " + std::to_string((int)star->IsEventEnabled(EventName::EndState)) + ", stateFrame " + std::to_string(star->StateFrame != nullptr) + ", func " + std::to_string(star->StateFrame && star->StateFrame->Func) + " probe " + std::to_string(star->StateFrame ? static_cast<UState*>(star->StateFrame->Func)->ProbeMask : 0) + " ignore " + std::to_string(star->StateFrame ? static_cast<UState*>(star->StateFrame->Func)->IgnoreMask : 0) + " classProbe " + std::to_string(star->Class->ProbeMask));
+						break;
+					}
+				}
+			}
+			else if (verb == "god")
+			{
+				g_godMode = !g_godMode;
+				LogMessage(std::string("HP2 debug: god mode ") + (g_godMode ? "on" : "off"));
+			}
 		}
 
 		// The SAVE button queues a save the way a SavePoint does; TickSave writes it at the end of the frame.

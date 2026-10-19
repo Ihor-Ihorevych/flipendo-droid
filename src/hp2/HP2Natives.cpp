@@ -11,6 +11,8 @@
 #include "Utils/File.h"
 #include "Package/PackageManager.h"
 #include "Packages/Core/UClass.h"
+#include "Packages/Engine/UViewport.h"
+#include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
 #include "Audio/AudioDevice.h"
 #include "Audio/AudioSource.h"
 #include "Packages/Engine/Subsystems/USurrealAudioDevice.h"
@@ -61,6 +63,21 @@ namespace HP2
 	// without a viewport.
 	static void NGetCurrentKeyState(UObject* Self, uint8_t Key, BitfieldBool& ReturnValue)
 	{
+#ifdef __ANDROID__
+		// harry.PlayerInput lets Harry move while casting only when a mouse button (IK 1, 2 or 4) is down. The touch overlay's cast
+		// button does not leave a mouse button in the window's key table, so while the cast (AltFire) is held the mouse buttons count as
+		// down: the player can run and cast at the same time.
+		if ((Key == 1 || Key == 2 || Key == 4) && engine->viewport && engine->viewport->Actor())
+		{
+			UObject* player = engine->viewport->Actor();
+			const PropertyDataOffset offset = player->Class->GetPropertyDataOffset(NameString("bAltFire"));
+			if (offset.DataOffset != (size_t)-1 && player->Value<uint8_t>(offset) > 0)
+			{
+				ReturnValue = true;
+				return;
+			}
+		}
+#endif
 		ReturnValue = engine->window && engine->window->GetKeyState((EInputKey)std::min<int>(Key, 254));
 	}
 

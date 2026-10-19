@@ -380,3 +380,40 @@ while the game is in cutscene mode. While `harry.CurrVendorManager` is set the o
 or the pad's cursor is the mouse; `FlipendoActivity.menuActive`), and the touch position goes into HUD units instead of the
 4:3 menu area (`HP1::MenuMousePosition`), the space the vendor's hit test works in. Duels use the existing controls: the wand
 button charges and casts, the jump button (right mouse) cycles the three spells, left and right strafe.
+
+## 0.3.3
+
+- **HP2 controls:** the wand button also turns the camera (a stick with a small range, `Overlay.aimStick`; Y inverted against HP1's), and Harry
+  can run while the wand is held (`NGetCurrentKeyState` answers "mouse button down" for keys 1, 2 and 4 while `bAltFire` is held:
+  `harry.PlayerInput` allows moving while casting only then). The toolbar's SAVE button and the pad's Y save are off in HP2 (the game's
+  save points still save); the Movement mod row is HP1's only. The launcher has a button that deletes the selected HP2 slot.
+- **HP2 English text:** the launcher sets `Language=` in `default.ini` / `SE-Game.ini` (`rus` for the Russian choice, `usa` for English when
+  `HpDialog.usa` is in System: the Russian edition's `.int` files are Russian), so English shows its subtitles.
+- **The wand's tip (HP2):** the scripts put the tip at `WeaponLoc + (0, 0, 20)` rotated by `WeaponRot`. HP2's weapon bone has Z pointing away
+  from the wand (opposite to it for Harry), so `KW::PawnWeaponFrame` takes WeaponRot's Z from the wand model (its origin to the far corner of
+  its bounds, through the transform the wand is drawn with; 19.9 long): Lumos and the spell particles sit on the tip.
+- **Adreno 735:** when the driver won't map the scene vertex or index buffer (`glMapBufferRange` returns null without a GL error), the frame is
+  built in memory and copied in with `glBufferSubData` (`GLRenderDevice::MapVertices` / `UnmapVertices`).
+
+## 0.3.4
+
+- **Settings > Graphics fix** (OpenGL only; the choice is `/sdcard/FlipendoHP/.flipendo-gltest`, read by `GLRenderDevice.cpp` when the renderer
+  starts, so the game restarts): for a GPU whose level walls and floors come out black while the characters are fine (a PowerVR Rogue GE8300 box;
+  the lightmap is the layer only level surfaces have). Options: *without the lightmap* (`NOLIGHTMAP` in `Scene.frag`: unlit but visible),
+  *without macro, detail and fog layers* (`NOEXTRA`), *lightmap with a plain bilinear filter* (a dedicated sampler without mip filtering).
+  The first helped the PowerVR box; the cause is still being narrowed.
+- **HP2 debug menu:** God mode (health topped up every frame), Fly, Ghost, Walk again. Fly and Ghost set `AirSpeed` and `AccelRate` first:
+  HP2's Harry has `AirSpeed = 0`, which capped the flying speed at 0. `/sdcard/FlipendoHP/hp2_debug.txt` (one command per line: `level <map>`,
+  `state GSTATE...`, `spells`, `god`, `fly`, `ghost`, `walk`) is taken once by the game, for testing without the dialogs.
+- **Easter eggs:** five quick taps on the version text in the settings header, or a direction code, open a link (per game).
+
+## 0.3.5
+
+- **HP2 editions (Russian voices and texts):** the language row of HP2 lists English, the Russian text (a `harry2` folder of `.rus` files) and every
+  edition found in `<HP2>/editions/<code>/` (the files that differ from the base game: `Sounds/AllDialog.uax`, `System/*.rus`,
+  `Textures/MenuArt.Rus_utx`, and `edition.txt` with its name). The choice is kept per game (`.flipendo-language` in the HP2 folder, the in-game
+  wish is `.selfpack-want` there). `SetupActivity.applyHp2Edition` puts the edition's files over the game, keeping what they replace and the
+  base `AllDialog.*_uax` in `.hp2-edition-backup`, and sets `Language=` in the ini files (`rus`; `usa` for English). A self pack carries editions
+  (`build-apk.sh --hp2-edition "ru=C:/Games/HP2Rus|Name"`); a light install gets one from a cache zip unpacked into the storage root
+  (`FlipendoHP2/editions/ru/...`).
+- **`.nomedia`:** the launcher puts an empty `.nomedia` in the game folder, so the game's pictures stay out of the phone's gallery; the cache zips carry it too.

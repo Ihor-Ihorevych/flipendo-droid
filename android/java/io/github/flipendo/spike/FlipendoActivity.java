@@ -71,6 +71,9 @@ public class FlipendoActivity extends SDLActivity {
 
     static native void nativeSetAutoJump(boolean on);
 
+    /** Settings > Invert wand: the wand button's up/down aim (while the spell is held) goes the other way. */
+    static boolean invertWand = false;
+
     void applyAutoJump(boolean on, boolean save) {
         autoJump = on;
         try {
@@ -94,7 +97,49 @@ public class FlipendoActivity extends SDLActivity {
      * process) is started, and this process, with the engine in it, is killed so the game starts again from nothing.
      */
     void switchLanguage(String code) {
+        if (SetupActivity.isHp2Folder(gameDir())) {
+            restartWithIn(new File(gameDir()), SetupActivity.LANG_WANT, code); // HP2 keeps its own choice, in its folder
+            return;
+        }
         restartWith(SetupActivity.LANG_WANT, code);
+    }
+
+    static final String GRAPHICS_FIX_FILE = "/sdcard/FlipendoHP/.flipendo-gltest"; // read by the OpenGL scene shader (GLRenderDevice.cpp)
+
+    /**
+     * Settings > Graphics fix: for a GPU whose level walls and floors come out black while the characters are fine. The choice is a
+     * file the OpenGL renderer reads when it starts, so the game restarts to apply it.
+     */
+    void openGraphicsFix() {
+        final String[] names = { "Off (the normal picture)", "Without the lightmap (the walls are visible, but not lit)", "Without macro, detail and fog layers",
+                "Lightmap with a plain bilinear filter", "Textures without mip levels", "Plain bilinear filter for every texture",
+                "Lightmap read at level 0 (textureLod)", "Lightmap read by texel (texelFetch)", "Test: show the lightmap only", "Test: show the lightmap coordinates" };
+        final String[] values = { "none", "lightmap", "extra", "lmsampler", "nomip", "plainsamplers", "lmlod", "lmfetch", "lmraw", "lmuv" };
+        String current = SetupActivity.readSmallFile(new File(GRAPHICS_FIX_FILE));
+        int selected = 0;
+        for (int i = 0; i < values.length; i++) {
+            if (values[i].equals(current)) selected = i;
+        }
+        final int was = selected;
+        runOnUiThread(new Runnable() {
+            public void run() {
+                new android.app.AlertDialog.Builder(FlipendoActivity.this)
+                        .setTitle("Graphics fix (the game restarts)")
+                        .setSingleChoiceItems(names, was, new android.content.DialogInterface.OnClickListener() {
+                            public void onClick(android.content.DialogInterface d, int which) {
+                                d.dismiss();
+                                if (which == was) return;
+                                try {
+                                    SetupActivity.writeSmallFile(new File(GRAPHICS_FIX_FILE), values[which]);
+                                } catch (IOException e) {
+                                    android.util.Log.e("flipendo", "could not keep the graphics fix: " + e);
+                                    return;
+                                }
+                                restartWith(null, null);
+                            }
+                        }).show();
+            }
+        });
     }
 
     /** Switches a mod on or off ("none" for the originals), the same way: wish file, launcher, fresh process. */
@@ -203,10 +248,15 @@ public class FlipendoActivity extends SDLActivity {
     }
 
     void restartWith(String wishFile, String value) {
-        new File(GAME_DIR).mkdirs(); // the wish files live there even when the game was picked elsewhere
+        restartWithIn(new File(GAME_DIR), wishFile, value);
+    }
+
+    /** restartWith with the wish file in a given folder (HP2's language wish lives in its own game folder). */
+    void restartWithIn(File wishDir, String wishFile, String value) {
+        wishDir.mkdirs(); // the wish files live there even when the game was picked elsewhere
         if (wishFile != null) {
             try {
-                SetupActivity.writeSmallFile(new File(GAME_DIR, wishFile), value);
+                SetupActivity.writeSmallFile(new File(wishDir, wishFile), value);
             } catch (IOException e) {
                 android.util.Log.e("flipendo", "could not write the wish " + wishFile + ": " + e);
                 return;
@@ -235,7 +285,7 @@ public class FlipendoActivity extends SDLActivity {
     private void saveScales() {
         getSharedPreferences("flipendo", MODE_PRIVATE).edit()
                 .putFloat("renderScale", surfaceScale).putFloat("uiScale", uiScale)
-                .putFloat("fovOffset", fovOffset).putBoolean("debugMode", debugMode).putBoolean("showFps", showFps).putBoolean("autoJump", autoJump).putInt("fpsLimit", fpsLimit).apply();
+                .putFloat("fovOffset", fovOffset).putBoolean("debugMode", debugMode).putBoolean("showFps", showFps).putBoolean("autoJump", autoJump).putBoolean("invertWand", invertWand).putInt("fpsLimit", fpsLimit).apply();
     }
 
     /** Resizes the render surface (the engine rebuilds its scene textures and swapchain for the new size). */
@@ -443,7 +493,7 @@ public class FlipendoActivity extends SDLActivity {
     /** The HP2 debug menu: go to a level (the level Harry is in is left like any exit: persistent actors travel), set the story
      *  state of the next level load, or fill the spell book. Opened from the settings panel's Debug row. */
     void openHp2Debug() {
-        final String[] actions = { "Go to level…", "Set story state…", "Give all spells" };
+        final String[] actions = { "Go to level…", "Set story state…", "Give all spells", "God mode (on / off)", "Fly", "Ghost (fly through walls)", "Walk again" };
         runOnUiThread(new Runnable() {
             public void run() {
                 new android.app.AlertDialog.Builder(FlipendoActivity.this)
@@ -469,8 +519,16 @@ public class FlipendoActivity extends SDLActivity {
                                                     debugCommand("state " + HP2_STATES[i]);
                                                 }
                                             }).show();
-                                } else {
+                                } else if (which == 2) {
                                     debugCommand("spells");
+                                } else if (which == 3) {
+                                    debugCommand("god");
+                                } else if (which == 4) {
+                                    debugCommand("fly");
+                                } else if (which == 5) {
+                                    debugCommand("ghost");
+                                } else {
+                                    debugCommand("walk");
                                 }
                             }
                         }).show();
@@ -568,6 +626,7 @@ public class FlipendoActivity extends SDLActivity {
         applyDebugMode(prefs.getBoolean("debugMode", false), false);
         showFps = prefs.getBoolean("showFps", false);
         applyAutoJump(prefs.getBoolean("autoJump", true), false);
+        invertWand = prefs.getBoolean("invertWand", false);
         applyFpsLimit(prefs.getInt("fpsLimit", 60), false);
         if (mSurface != null) {
             applyRenderScale(prefs.getFloat("renderScale", 0.5f));
@@ -766,7 +825,9 @@ public class FlipendoActivity extends SDLActivity {
         // Languages carried by this APK ({code, label}) and the Language button, which opens them as a list; its last row
         // adds a dubbing from a folder (ADD_VOICE, not a language)
         static final String ADD_VOICE = "+voice";
-        final java.util.List<String[]> languages = withAddVoice(SetupActivity.readLanguages(getContext()));
+        final java.util.List<String[]> languages = isHp2Game()
+                ? SetupActivity.readHp2Languages(new File(((FlipendoActivity) getContext()).gameDir()))
+                : withAddVoice(SetupActivity.readLanguages(getContext()));
 
         java.util.List<String[]> withAddVoice(java.util.List<String[]> list) {
             // the dubbing import is HP1's (its Sounds folder); HP2 takes its texts from its own harry2 folder
@@ -790,6 +851,7 @@ public class FlipendoActivity extends SDLActivity {
         float langTitleY, langHintY;
 
         String currentLanguage() {
+            if (isHp2Game()) return SetupActivity.chosenHp2Language(new File(((FlipendoActivity) getContext()).gameDir()));
             return SetupActivity.chosenLanguage(getContext());
         }
 
@@ -965,15 +1027,21 @@ public class FlipendoActivity extends SDLActivity {
                 if (mag > AIM_DEADZONE) {
                     float scaled = (Math.min(mag, 1f) - AIM_DEADZONE) / (1f - AIM_DEADZONE);
                     float length = (float) Math.hypot(aimDx, aimDy); // the knob offset, at most aimR
+                    float yFlip = (isHp2Game() ? -1f : 1f) * (invertWand ? -1f : 1f); // HP2: the stick looks the other way up and down than in HP1; Invert wand flips it
                     SDLActivity.onNativeMouse(0, MotionEvent.ACTION_MOVE,
-                            aimDx / length * scaled * AIM_GAIN, aimDy / length * scaled * AIM_GAIN, true);
+                            aimDx / length * scaled * AIM_GAIN, yFlip * aimDy / length * scaled * AIM_GAIN, true);
                 }
                 postDelayed(this, 16);
             }
         };
 
+        /** The wand button is also a stick that turns the camera: with the movement mod, on the broom, and in HP2 (with a small range). */
+        boolean aimStick() {
+            return modOn || broomShown || isHp2Game();
+        }
+
         boolean aimVisible() {
-            return (modOn || broomShown) && !padActive && !settingsOpen && !menuShown && !lessonShown && !cutsceneShown;
+            return aimStick() && !padActive && !settingsOpen && !menuShown && !lessonShown && !cutsceneShown;
         }
 
         void setAim(float x, float y) {
@@ -994,7 +1062,7 @@ public class FlipendoActivity extends SDLActivity {
 
         // An Xbox-style gamepad, mapped onto what the touch controls send:
         //   left stick / d-pad: walk (arrow keys)        right stick: camera (relative mouse); the cursor in menus; the wand in lessons
-        //   A, LB or LT: jump (A: click in menus); skip a cutscene    X, RB or RT: the wand (held)    Y: save    B or Start: Esc
+        //   A, LB or LT: jump (A: click in menus)    X, RB or RT: the wand (held)    Y: save (hold it in a cutscene: skip)    B or Start: Esc
         // While a pad is in use the on-screen arrows, wand and jump are hidden; a touch brings them back.
         boolean padActive;
         float padLx, padLy, padRx, padRy, padHatX, padHatY;
@@ -1078,7 +1146,11 @@ public class FlipendoActivity extends SDLActivity {
                     updatePadCast();
                     return true;
                 case KeyEvent.KEYCODE_BUTTON_Y:
-                    if (down && !menuShown && !lessonShown && !cutsceneShown) nativeRequestSave();
+                    if (cutsceneShown) {
+                        padSkipHold(down); // a cutscene is skipped by holding Y, so a touch on a stick or button skips nothing
+                    } else if (down && !menuShown && !lessonShown) {
+                        nativeRequestSave();
+                    }
                     return true;
                 case KeyEvent.KEYCODE_BUTTON_B:
                 case KeyEvent.KEYCODE_BACK:
@@ -1173,21 +1245,32 @@ public class FlipendoActivity extends SDLActivity {
             updatePadJump();
         }
 
-        /** A, LB or LT held: Space in cutscenes (skip), the jump in the game. */
+        /** A, LB or LT held: the jump in the game (nothing in a cutscene: that is skipped by holding Y). */
         void updatePadJump() {
-            boolean want = ((padA && !menuShown) || padJumpBumper || padJumpTrigger) && !settingsOpen && !promptOpen;
+            boolean want = ((padA && !menuShown) || padJumpBumper || padJumpTrigger) && !settingsOpen && !promptOpen && !cutsceneShown;
             if (menuShown && !padJumping) want = false;
             if (want == padJumping) return;
             padJumping = want;
-            if (want) padJumpIsSkip = cutsceneShown; // released the way it was pressed, even when the cutscene ended meanwhile
-            if (padJumpIsSkip) {
-                key(KeyEvent.KEYCODE_SPACE, want);
-            } else {
-                setButton(jump, want);
-            }
+            setButton(jump, want);
         }
 
-        boolean padJumpIsSkip;
+        static final int PAD_SKIP_HOLD_MS = 700;
+        boolean padSkipHeld;
+
+        final Runnable padSkipFire = new Runnable() {
+            public void run() {
+                if (!padSkipHeld || !cutsceneShown) return;
+                key(KeyEvent.KEYCODE_SPACE, true);
+                postDelayed(new Runnable() { public void run() { key(KeyEvent.KEYCODE_SPACE, false); } }, 120);
+            }
+        };
+
+        /** Y in a cutscene: Space (the skip) only once it has been held for a moment. */
+        void padSkipHold(boolean down) {
+            padSkipHeld = down;
+            removeCallbacks(padSkipFire);
+            if (down) postDelayed(padSkipFire, PAD_SKIP_HOLD_MS);
+        }
 
         /** The menu cursor while a pad drives it: the game's menus draw none on a touch screen. */
         void drawPadCursor(Canvas c) {
@@ -1430,7 +1513,7 @@ public class FlipendoActivity extends SDLActivity {
 
         // The port's settings panel: the entry the pad is on
         static final int SET_RENDER = 0, SET_UI = 1, SET_FOV = 2, SET_FPS = 3, SET_SEG = 4, SET_JUMP = 5, SET_LANG = 6, SET_MOD = 7,
-                SET_DEBUG = 8, SET_TELEGRAM = 9, SET_DONE = 10, SET_RENDERER = 11, SET_FPS_LIMIT = 12, SET_LAYOUT = 13, SET_HELP = 14;
+                SET_DEBUG = 8, SET_TELEGRAM = 9, SET_DONE = 10, SET_RENDERER = 11, SET_FPS_LIMIT = 12, SET_LAYOUT = 13, SET_HELP = 14, SET_INVERT = 15;
         int settingsFocus = -1;
         final java.util.List<android.graphics.RectF> setRects = new java.util.ArrayList<>();
         final java.util.List<Integer> setIds = new java.util.ArrayList<>();
@@ -1446,9 +1529,10 @@ public class FlipendoActivity extends SDLActivity {
             setRects.add(new android.graphics.RectF(fpsBtn)); setIds.add(SET_FPS);
             setRects.add(new android.graphics.RectF(segStick.left, segStick.top, segDpad.right, segDpad.bottom)); setIds.add(SET_SEG);
             setRects.add(new android.graphics.RectF(autoJumpBtn)); setIds.add(SET_JUMP);
+            if (aimStick() || isHp2Game()) { setRects.add(new android.graphics.RectF(invertBtn)); setIds.add(SET_INVERT); }
             setRects.add(new android.graphics.RectF(layoutBtn)); setIds.add(SET_LAYOUT);
             if (languages.size() > 1) { setRects.add(new android.graphics.RectF(languageBtn)); setIds.add(SET_LANG); }
-            setRects.add(new android.graphics.RectF(modBtn)); setIds.add(SET_MOD);
+            if (!isHp2Game()) { setRects.add(new android.graphics.RectF(modBtn)); setIds.add(SET_MOD); }
             setRects.add(new android.graphics.RectF(debugBtn)); setIds.add(SET_DEBUG);
             setRects.add(new android.graphics.RectF(helpBtn)); setIds.add(SET_HELP);
             setRects.add(new android.graphics.RectF(telegramBtn)); setIds.add(SET_TELEGRAM);
@@ -1500,10 +1584,11 @@ public class FlipendoActivity extends SDLActivity {
                 case SET_FPS: showFps = !showFps; fpsFrames = -1; activity.saveScales(); break;
                 case SET_SEG: setDpadMode(!dpadMode); break;
                 case SET_JUMP: activity.applyAutoJump(!autoJump, true); break;
+                case SET_INVERT: invertWand = !invertWand; activity.saveScales(); break;
                 case SET_LAYOUT: startLayoutEdit(); break;
                 case SET_HELP: helpOpen = true; break;
                 case SET_LANG: languageTap(); break;
-                case SET_MOD: modTap(); break;
+                case SET_MOD: if (!isHp2Game()) modTap(); break;
                 case SET_DEBUG:
                     if (isHp2Game()) { settingsOpen = false; activity.openHp2Debug(); } else activity.applyDebugMode(!debugMode, true);
                     break;
@@ -1656,7 +1741,7 @@ public class FlipendoActivity extends SDLActivity {
         boolean helpOpen;        // the controls help card over the settings panel
         final android.graphics.RectF panel = new android.graphics.RectF();
         final android.graphics.RectF segStick = new android.graphics.RectF(), segDpad = new android.graphics.RectF();
-        final android.graphics.RectF helpBtn = new android.graphics.RectF(), layoutBtn = new android.graphics.RectF(), closeBtn = new android.graphics.RectF(), debugBtn = new android.graphics.RectF(), autoJumpBtn = new android.graphics.RectF(), telegramBtn = new android.graphics.RectF(), languageBtn = new android.graphics.RectF(), modBtn = new android.graphics.RectF(), fpsBtn = new android.graphics.RectF();
+        final android.graphics.RectF fixBtn = new android.graphics.RectF(), helpBtn = new android.graphics.RectF(), layoutBtn = new android.graphics.RectF(), closeBtn = new android.graphics.RectF(), debugBtn = new android.graphics.RectF(), autoJumpBtn = new android.graphics.RectF(), invertBtn = new android.graphics.RectF(), telegramBtn = new android.graphics.RectF(), languageBtn = new android.graphics.RectF(), modBtn = new android.graphics.RectF(), fpsBtn = new android.graphics.RectF();
 
         final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
         final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -1741,7 +1826,7 @@ public class FlipendoActivity extends SDLActivity {
             jump.r = Math.max(0.08f * u, 32f * dp);
             jump.cx = cast.cx - cast.r - jump.r - 0.04f * u; jump.cy = sb - m - jump.r;
             text.setTextSize(0.035f * u);
-            aimR = 0.12f * u; // how far the wand button follows the finger
+            aimR = (isHp2Game() && !modOn && !broomShown ? 0.045f : 0.12f) * u; // how far the wand button follows the finger (HP2: a small ring)
 
             // bottom left: the arrows on one round pad
             float ad = 0.15f * u;
@@ -1784,13 +1869,15 @@ public class FlipendoActivity extends SDLActivity {
             }
 
             // right: Controls (movement segments, Auto jump) and Game (Language, Movement mod, Debug mode)
-            float rowH = 0.066f * h, rowGap = 0.008f * h;
+            float rowH = 0.06f * h, rowGap = 0.008f * h;
             secControlsY = contentTop + 0.03f * h;
             float y = secControlsY + 0.025f * h;
             segStick.set(colR0, y, (colR0 + colR1) / 2f, y + rowH);
             segDpad.set((colR0 + colR1) / 2f, y, colR1, y + rowH);
             y += rowH + rowGap;
             autoJumpBtn.set(colR0, y, colR1, y + rowH);
+            y += rowH + rowGap;
+            invertBtn.set(colR0, y, colR1, y + rowH);
             y += rowH + rowGap;
             layoutBtn.set(colR0, y, colR1, y + rowH);
             y += rowH + 0.012f * h;
@@ -1802,8 +1889,12 @@ public class FlipendoActivity extends SDLActivity {
             } else {
                 languageBtn.setEmpty();
             }
-            modBtn.set(colR0, y, colR1, y + rowH); // always: without a mod it imports one from a file
-            y += rowH + rowGap;
+            if (isHp2Game()) {
+                modBtn.setEmpty(); // the movement mod is HP1's: no row in HP2
+            } else {
+                modBtn.set(colR0, y, colR1, y + rowH); // always: without a mod it imports one from a file
+                y += rowH + rowGap;
+            }
             debugBtn.set(colR0, y, colR1, y + rowH);
 
             // footer: the channel on the left, Done on the right
@@ -1819,6 +1910,8 @@ public class FlipendoActivity extends SDLActivity {
             promptNo.set(w / 2f + gap, promptYes.top, promptPanel.right - 0.05f * ppw, promptYes.bottom);
 
             helpBtn.set(colL0 + 0.34f * u, headerY - 0.052f * h, colL0 + 0.56f * u, headerY + 0.008f * h);
+            fixBtn.set(helpBtn.right + 0.02f * u, helpBtn.top, helpBtn.right + 0.30f * u, helpBtn.bottom);
+            versionRect.set(colR1 - 0.5f * u, headerY - 0.07f * h, colR1 + 0.01f * u, headerY + 0.03f * h); // the "Flipendo for Android x.y.z" text
             layoutEditRects(w, h);
 
             titlePaint.setTextSize(0.055f * u);
@@ -1924,13 +2017,16 @@ public class FlipendoActivity extends SDLActivity {
             drawSection(c, "CONTROLS", colR0, secControlsY);
             drawSegments(c);
             drawSwitchRow(c, autoJumpBtn, "Auto jump", "Harry jumps by himself at ledges", autoJump, false);
+            drawSwitchRow(c, invertBtn, "Invert wand", "Flip the up/down aim of the wand button while the spell is held", invertWand, false);
             drawValueRow(c, layoutBtn, "Control layout", "Move and resize the buttons", "Edit", false);
             drawSection(c, "GAME", colR0, secGameY);
             if (languages.size() > 1) {
                 String current = languages.get(languageIndex(currentLanguage()))[1];
                 drawValueRow(c, languageBtn, "Language", "Game texts (and voices, where the build has them)", current, langListOpen);
             }
-            if (mods.isEmpty()) {
+            if (isHp2Game()) {
+                // no movement mod in HP2
+            } else if (mods.isEmpty()) {
                 drawValueRow(c, modBtn, "Movement mod", modAsk
                         ? "Tap again: pick the mod's zip, the game restarts (unsaved progress is lost)"
                         : "By AdamJD: camera, climbing, aim. Pick its zip (or .u files)", "Choose file", modAsk);
@@ -1965,6 +2061,11 @@ public class FlipendoActivity extends SDLActivity {
             rowPaint.setTextAlign(Paint.Align.CENTER);
             rowPaint.setColor(GOLD);
             c.drawText("? How to play", helpBtn.centerX(), helpBtn.centerY() + rowPaint.getTextSize() * 0.35f, rowPaint);
+            fill.setColor(0x22FFFFFF);
+            c.drawRoundRect(fixBtn, fixBtn.height() / 2f, fixBtn.height() / 2f, fill);
+            rowPaint.setColor(0xFFFFFFFF);
+            c.drawText("Graphics fix", fixBtn.centerX(), fixBtn.centerY() + rowPaint.getTextSize() * 0.35f, rowPaint);
+            rowPaint.setColor(GOLD);
             rowPaint.setColor(0xFFFFFFFF);
             rowPaint.setTextAlign(Paint.Align.LEFT);
             if (padActive && settingsFocus >= 0 && !langListOpen) {
@@ -1996,7 +2097,7 @@ public class FlipendoActivity extends SDLActivity {
                 { "Toolbar", "Settings, save anywhere (the book) and the pause menu (Esc). Hold Esc to send the logs" },
                 { "Control layout", "Settings > Control layout: drag the buttons where you want them, and resize them" },
                 hp2 ? new String[] { "Two-finger tap", "Tap the screen with two fingers: drink a Wiggenweld potion" } : null,
-                { "Gamepad", hp2 ? "A jump, X wand, Y save, B menu, a stick click drinks the potion" : "A jump, X wand, Y save, B menu" },
+                { "Gamepad", hp2 ? "A jump, X wand, Y save, B menu, a stick click drinks the potion. Hold Y to skip a cutscene" : "A jump, X wand, Y save, B menu. Hold Y to skip a cutscene" },
             };
             float y = dividerY + 0.07f * h;
             float step = (panel.bottom - 0.12f * h - y) / (hp2 ? 8 : 7);
@@ -2157,6 +2258,68 @@ public class FlipendoActivity extends SDLActivity {
             if (dirDown[i] != down) {
                 dirDown[i] = down;
                 key(DIR_KEYS[i], down);
+                if (down) eggInput(i);
+            }
+        }
+
+        // Two easter eggs: a code on the directions (the stick, the arrows or the pad's d-pad, one press after another, at most 2.5 s
+        // apart) opens a link. Up, up, down, down, left, right, left, right in Chamber of Secrets; down, down, up, up, right, left,
+        // right, left in Philosopher's Stone. Directions: 0 up, 1 down, 2 left, 3 right (DIR_KEYS).
+        static final int[] EGG_HP2 = { 0, 0, 1, 1, 2, 3, 2, 3 };
+        static final int[] EGG_HP1 = { 1, 1, 0, 0, 3, 2, 3, 2 };
+        static final String EGG_HP2_URL = "https://www.youtube.com/watch?v=VlTIbCgpIKE";
+        static final String EGG_HP1_URL = "https://www.youtube.com/watch?v=Ud9I7yAmZ4o";
+        final int[] eggBuffer = new int[8];
+        int eggCount;
+        long eggLast, eggOpened;
+
+        // The simple way in: five taps in a row on the version text in the settings header (like Android's build number).
+        final android.graphics.RectF versionRect = new android.graphics.RectF();
+        int versionTaps;
+        long versionTapTime;
+
+        void versionTap() {
+            long now = android.os.SystemClock.uptimeMillis();
+            if (now - versionTapTime > 1500) versionTaps = 0;
+            versionTapTime = now;
+            versionTaps++;
+            if (versionTaps >= 5) {
+                versionTaps = 0;
+                openEgg();
+            }
+        }
+
+        void openEgg() {
+            eggOpened = android.os.SystemClock.uptimeMillis();
+            try {
+                getContext().startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(isHp2Game() ? EGG_HP2_URL : EGG_HP1_URL)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            } catch (RuntimeException ignored) {
+            }
+        }
+
+        void eggInput(int dir) {
+            if (menuShown || settingsOpen || promptOpen || layoutEdit || cutsceneShown) {
+                eggCount = 0;
+                return;
+            }
+            long now = android.os.SystemClock.uptimeMillis();
+            if (now - eggLast > 2500) eggCount = 0;
+            eggLast = now;
+            if (eggCount == eggBuffer.length) {
+                System.arraycopy(eggBuffer, 1, eggBuffer, 0, eggBuffer.length - 1);
+                eggCount--;
+            }
+            eggBuffer[eggCount++] = dir;
+            if (eggCount < eggBuffer.length || now - eggOpened < 30000) return;
+            int[] code = isHp2Game() ? EGG_HP2 : EGG_HP1;
+            for (int k = 0; k < code.length; k++) {
+                if (eggBuffer[k] != code[k]) return;
+            }
+            eggOpened = now;
+            eggCount = 0;
+            try {
+                getContext().startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(isHp2Game() ? EGG_HP2_URL : EGG_HP1_URL)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            } catch (RuntimeException ignored) {
             }
         }
 
@@ -2267,6 +2430,15 @@ public class FlipendoActivity extends SDLActivity {
                             helpOpen = true;
                             break;
                         }
+                        if (fixBtn.contains(x, y)) {
+                            settingsOpen = false;
+                            ((FlipendoActivity) getContext()).openGraphicsFix();
+                            break;
+                        }
+                        if (versionRect.contains(x, y)) {
+                            versionTap();
+                            break;
+                        }
                         if (hitSlider(x, y) >= 0) {
                             roles.put(id, Role.SLIDER);
                             activeSlider = hitSlider(x, y);
@@ -2278,6 +2450,9 @@ public class FlipendoActivity extends SDLActivity {
                             setDpadMode(true);
                         } else if (autoJumpBtn.contains(x, y)) {
                             ((FlipendoActivity) getContext()).applyAutoJump(!autoJump, true);
+                        } else if (invertBtn.contains(x, y)) {
+                            invertWand = !invertWand;
+                            ((FlipendoActivity) getContext()).saveScales();
                         } else if (layoutBtn.contains(x, y)) {
                             startLayoutEdit();
                         } else if (fpsBtn.contains(x, y)) {
@@ -2291,7 +2466,7 @@ public class FlipendoActivity extends SDLActivity {
                             } else {
                                 ((FlipendoActivity) getContext()).applyDebugMode(!debugMode, true);
                             }
-                        } else if (modBtn.contains(x, y)) {
+                        } else if (!isHp2Game() && modBtn.contains(x, y)) {
                             modTap();
                         } else if (languages.size() > 1 && languageBtn.contains(x, y)) {
                             languageTap();
@@ -2312,7 +2487,7 @@ public class FlipendoActivity extends SDLActivity {
                         roles.put(id, Role.BUTTON);
                         b.pointer = id;
                         if (isArrow(b)) arrowFingers.add(id);
-                        if (b == cast && (modOn || broomShown)) {
+                        if (b == cast && aimStick()) {
                             // the wand button is a stick too: where the finger went down is its centre
                             aimPointer = id;
                             aimCx = x;
@@ -2874,7 +3049,7 @@ public class FlipendoActivity extends SDLActivity {
                 } else if (b == skip) {
                     sectionPaint.setTextAlign(Paint.Align.CENTER);
                     sectionPaint.setColor(b.down ? DARK : GOLD);
-                    c.drawText("SKIP ›", b.cx, b.cy + sectionPaint.getTextSize() * 0.35f, sectionPaint);
+                    c.drawText(padActive ? "Hold Y" : "SKIP ›", b.cx, b.cy + sectionPaint.getTextSize() * 0.35f, sectionPaint);
                     sectionPaint.setColor(GOLD);
                     sectionPaint.setTextAlign(Paint.Align.LEFT);
                 } else if (b.icon != null) {
@@ -2919,7 +3094,7 @@ public class FlipendoActivity extends SDLActivity {
                     c.drawCircle(cast.cx, cast.cy, aimR + cast.r, line);
                 }
                 c.save();
-                if ((modOn || broomShown) && aimPointer != -1) c.translate(aimDx, aimDy); // the wand button is the stick: it follows the finger
+                if (aimStick() && aimPointer != -1) c.translate(aimDx, aimDy); // the wand button is the stick: it follows the finger
                 drawDisc(c, cast.cx, cast.cy, cast.down ? cast.r * 0.94f : cast.r, cast.down);
                 if (cast.icon != null) drawIcon(c, cast, cast.cx, cast.cy, cast.r * 0.66f);
                 c.restore();
