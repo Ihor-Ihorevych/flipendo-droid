@@ -87,8 +87,13 @@ Looking up and down while walking: `PlayerWalking.PlayerMove` zeroes `aLookUp`; 
 pitches from `SmoothMouseY` instead. While Harry walks forward and isn't aiming, `PlayerMove` calls `Cam.SetPitch(-1500)`
 every frame if `bAutoCenterCamera` is set (Options > Input, "Auto Centre Camera", on in `DefUser.ini`), so the mouse can't
 change the pitch then. `FEInputPage.HideWindow` saves it with `SaveConfig`. Its `set ini:HGame.Harry <prop> <value>`
-console commands (and the Difficulty one) fail in Flipendo ("Could not find class 'None'": `ini:` resolves a class name
-from the ini); the settings are saved by the `SaveConfig` anyway. What the original engine does with them isn't checked.
+console commands (and the Difficulty one) fail in the original too: Core's `UObject::StaticExec` [HP2 Core 0x101601A0]
+(GET / SET) finds the class with `StaticFindObject(UClass, ANY_PACKAGE, name)`, whose `UObject::ResolveName` [HP2 Core
+0x10161DB0] reads `ini:A.B.C` as ini section `A.B`, key `C` of the system ini, so `ini:HGame.Harry` asks for
+`[HGame] Harry`, which no HP2 ini has: no class, "Unrecognized class ini:HGame.Harry", nothing set. The same goes for the
+options page's `get ini:Engine.Engine GameRenderDevice` (`[Engine] Engine`), which returns nothing. Flipendo fails the
+same way (logged as "Could not find class 'None'"). The settings are kept anyway: the input options by the
+`SaveConfig`, the difficulty and object detail as the player's `Difficulty` / `ObjectDetail`, which the pages set directly and the save game keeps.
 
 ## Collision
 

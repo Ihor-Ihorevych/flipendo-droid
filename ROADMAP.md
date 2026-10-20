@@ -41,9 +41,6 @@ Legend: [~] partly done / in progress · [ ] not started
         references in travel data, dialogue with `Disable3D` playing at full volume wherever the camera is
   3. Menus and options (1 day)
   - [ ] The in-game book's pages, rollover sounds, the folio, the map
-  - [ ] `get ini:` / `set ini:` with a class and a key fails with "Could not find class 'None'": `set ini:HGame.Harry
-        Difficulty ...` and `ObjectDetail` (the options page's difficulty and detail aren't kept), `get ini:Engine.Engine
-        GameRenderDevice`
   4. Play the 43 maps through, incl. the 10 duels and Quidditch (4-8 days)
   5. Polish (1-2 days)
   - [ ] Check the unverified HP2 engine differences in HP2's code ([docs/re/hp2/gameplay.md](docs/re/hp2/gameplay.md)):
