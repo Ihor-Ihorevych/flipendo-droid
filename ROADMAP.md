@@ -29,8 +29,6 @@ Legend: [~] partly done / in progress · [ ] not started
   - [ ] PrivetDr's intro flyover: the camera doesn't follow the original's path and shows the map's edges (playtest
         2026-10-17); the shot is also much darker. Check BaseCam's `FollowSpline ... EaseBetween` and FlyTo against HP2's
         code, and the sky through the backdrop surfaces
-  - [ ] Dobby's and Filch's eye blink channels fail (`eye_close` anim / `eye_root` bone not found): check HP2's mesh
-        and animation data against `CreateEyeBlinkAnimChannel`
   - [ ] HP2 music: songs playing at once and their fades follow ALAudio.dll now; still to check against it: looping,
         volumes, `StopSound`'s fade-out, `PlaySound`'s Disable3D and Loop
   - [ ] XA sounds: check the decoder by ear (nibble order), and the stereo XA case
