@@ -582,7 +582,7 @@ namespace KW
 		if (text.rfind("@console", 0) == 0)
 		{
 			// "@console[.Prop[.Prop]] Fn [arg]": follow object properties from the console, then call Fn. A number is
-			// passed as an int (SlotPage SetSelectedSlot 0), anything else as a string.
+			// passed as an int (SlotPage SetSelectedSlot 0), True / False as a bool, anything else as a string.
 			std::stringstream parts(text);
 			std::string path, fn, arg;
 			parts >> path >> fn;
@@ -596,6 +596,8 @@ namespace KW
 				LogMessage("HP1 exec: no object for " + path);
 			else if (arg.empty())
 				CallEvent(obj, NameString(fn));
+			else if (StrTools::equals_ignore_case(arg, "true") || StrTools::equals_ignore_case(arg, "false"))
+				CallEvent(obj, NameString(fn), { ExpressionValue::BoolValue(StrTools::equals_ignore_case(arg, "true")) });
 			else if (arg.find_first_not_of("-0123456789") == std::string::npos)
 				CallEvent(obj, NameString(fn), { ExpressionValue::IntValue(std::atoi(arg.c_str())) });
 			else
