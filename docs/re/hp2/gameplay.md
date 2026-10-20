@@ -57,8 +57,8 @@ belongs with them. So does `baseWand.Tick`'s `fxChargeParticles.bEmit` before th
 The same goes for `Pawn.CreateEyeBlinkAnimChannel`'s "Couldn't create EyeBlinkAnimChannel" errors (from
 `PostBeginPlay` with `bDoEyeBlinks`): the meshes don't have what it asks for (checked 2026-10-20 by listing their
 bones in Flipendo). `skFilchMesh`, `skMrsNorrisMesh` and `skbloodybaronMesh` have no `eye_root` bone;
-`skfatfriarMesh` and `skpinkladyMesh` have the bone but no `eye_close` animation, and nothing links another animation
-to them. `BoneNumber` and `HasAnim` differ from HP1's only by the DebugInfo check, and the characters whose meshes have
+`skdobbyMesh`, `skfatfriarMesh` and `skpinkladyMesh` have the bone but no `eye_close` animation, and no HP2 script links another animation
+(`LinkSkelAnim`) to them. `BoneNumber` and `HasAnim` differ from HP1's only by the DebugInfo check, and the characters whose meshes have
 both (Harry, Hermione, ...) blink.
 
 ## Saving
