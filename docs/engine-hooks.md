@@ -18,7 +18,7 @@ them, kept as patch files so a newer SurrealEngine rarely conflicts.
 | `src/surreal-patches/0120-knowwonder-actors.patch` | KnowWonder actor tick, native actors, animation |
 | `src/surreal-patches/0130-knowwonder-render.patch` | KnowWonder rendering; HP1's menu canvas |
 | `src/surreal-patches/0140-knowwonder-audio.patch` | KnowWonder sound and music |
-| `src/surreal-patches/0200-hp2.patch` | Harry Potter 2: its sound objects' extra fields and XA sounds, no IpDrv package |
+| `src/surreal-patches/0200-hp2.patch` | Harry Potter 2: its sound objects' extra fields and XA sounds, no IpDrv package, actors' tick parents |
 
 `src/surreal-patches/routes.txt` maps engine files to these patches (globs, first match wins) and documents the number ranges:
 0001-0009 plumbing, 0010-0099 game-independent fixes, 0100-0199 HP1, 0200-0299 free for HP2. Patches split by file,
@@ -149,6 +149,7 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `KW::PawnRotateToward` in `TickRotateTo` (100-unit yaw tolerance); `KW::PawnTurnStep` when TurnTo / TurnToward start and in their polls |
 | `GameFolder.h` | `IsKnowWonder()` is HP1 or HP2 |
 | `Render/VisibleFrame.cpp` (ProcessNodeSurface) | a one-sided BSP surface seen from behind is neither drawn nor an occluder, as in UE1 (any game; [rendering](re/engine/rendering.md#one-sided-bsp-surfaces-seen-from-behind)) |
+| `Packages/Engine/Resources/Level/ULevel.cpp` (TickActor), `Packages/Engine/Actors/UActor.cpp` (Destroy) | `IsHarryPotter2()`: an actor's `TickParent`, `TickParent2` and then its owner (`HP2::TickBefore`) tick before it, instead of only the owner; a destroyed actor is cleared from every `TickParent` / `TickParent2` (`HP2::ClearTickParents`) ([tick order](re/hp2/engine.md#tick-order)) |
 | `Engine.cpp` (LoginPlayer) | `IsHarryPotter2()`: `HP2::ScreenActorsByGameState` once the player is in, except on Entry ([GameState](re/hp2/engine.md#gamestate-actors-screened-by-the-story-state)) |
 | `Render/VisibleFrame.cpp` (Process), `Render/VisibleNode.cpp` (Draw), `RenderDevice/RenderDevice.h` (`SurfaceInfo::Opacity`), the three devices' `DrawComplexSurface` | `IsHarryPotter2()`: `HP2::MarkLumosSurfaces(ViewZone)` per frame, `HP2::LumosSurface` per BSP surface (skip it, or the flags and opacity to draw it with); the devices take `Opacity` as the surface's vertex colour and alpha ([Lumos surfaces](re/hp2/engine.md#lumos-surfaces)) |
 | `Engine.cpp` (Run, LoadMap) | `IsHarryPotter2()`: `HP2::LoadPersistentActorCache` once the save folder is known (after the front end); `HP2::LoadPersistentActors(url.Map)` in LoadMap after the actors are linked, before the GameInfo spawns, except on Entry ([hub persistence](re/hp2/engine.md#persistent-actors-across-hub-travel)) |

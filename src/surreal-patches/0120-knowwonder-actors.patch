@@ -1,18 +1,19 @@
 flipendo: KnowWonder actor tick, native actors (ParticleFX, Wind), animation
 
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor.cpp b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
-index 5f9e5e39..7aa583ad 100644
+index 5f9e5e39..79bf2866 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
-@@ -9,6 +9,7 @@
+@@ -9,6 +9,8 @@
  #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
  #include "Packages/Engine/Resources/Level/ULevel.h"
  #include "Packages/Engine/Resources/Level/UModel.h"
 +#include "KW.h"
++#include "HP2.h"
  #include "Packages/Engine/Subsystems/USurrealAudioDevice.h"
  #include "Utils/Logger.h"
  #include "Engine.h"
-@@ -45,7 +46,16 @@ UActor* UActor::Spawn(UClass* SpawnClass, std::optional<UActor*> SpawnOwner, std
+@@ -45,7 +47,16 @@ UActor* UActor::Spawn(UClass* SpawnClass, std::optional<UActor*> SpawnOwner, std
  	// To do: find unique new name in the package
  	static std::map<NameString, int> nextIndex;
  	NameString name = SpawnClass->Name.ToString() + std::to_string(nextIndex[SpawnClass->Name]++);
@@ -29,7 +30,7 @@ index 5f9e5e39..7aa583ad 100644
  
  	actor->Outer() = XLevel()->Outer();
  	actor->XLevel() = XLevel();
-@@ -120,8 +130,21 @@ bool UActor::Destroy()
+@@ -120,8 +131,21 @@ bool UActor::Destroy()
  	if (bDeleteMe())
  		return true;
  
@@ -51,7 +52,17 @@ index 5f9e5e39..7aa583ad 100644
  	//GotoState({}, {}); // What should happen to function calls after Destroy() has been called? Razor2 calls SetRoll afterwards!
  	SetBase(nullptr, true);
  
-@@ -168,6 +191,13 @@ bool UActor::Destroy()
+@@ -150,6 +174,9 @@ bool UActor::Destroy()
+ 
+ 	SetOwner(nullptr);
+ 
++	if (engine->LaunchInfo.IsHarryPotter2()) // no actor keeps this one as its TickParent / TickParent2
++		HP2::ClearTickParents(this);
++
+ 	while (!ChildActors.empty())
+ 	{
+ 		ChildActors.back()->SetOwner(nullptr);
+@@ -168,6 +195,13 @@ bool UActor::Destroy()
  
  void UActor::Tick(float elapsed)
  {
@@ -65,7 +76,7 @@ index 5f9e5e39..7aa583ad 100644
  	if (engine->LaunchInfo.IsDeusEx())
  	{
  		DistanceFromPlayer() = length(engine->viewport->Actor()->Location() - Location());
-@@ -182,13 +212,17 @@ void UActor::Tick(float elapsed)
+@@ -182,13 +216,17 @@ void UActor::Tick(float elapsed)
  		CallEvent(this, EventName::Tick, { ExpressionValue::FloatValue(elapsed) });
  	}
  
@@ -85,7 +96,7 @@ index 5f9e5e39..7aa583ad 100644
  				StateFrame->SetLatentState(LatentRunState::Continue);
  		}
  		else if (latentState == LatentRunState::FinishInterpolation)
-@@ -203,7 +237,9 @@ void UActor::Tick(float elapsed)
+@@ -203,7 +241,9 @@ void UActor::Tick(float elapsed)
  		}
  	}
  
@@ -96,7 +107,7 @@ index 5f9e5e39..7aa583ad 100644
  
  	if (TimerRate() > 0.0f) // Role() == ROLE_Authority && RemoteRole() == ROLE_AutonomousProxy
  	{
-@@ -216,6 +252,12 @@ void UActor::Tick(float elapsed)
+@@ -216,6 +256,12 @@ void UActor::Tick(float elapsed)
  			CallEvent(this, EventName::Timer);
  		}
  	}
@@ -109,7 +120,7 @@ index 5f9e5e39..7aa583ad 100644
  }
  
  bool UActor::Move(const vec3& delta)
-@@ -396,3 +438,13 @@ float UActor::AIVisibility(std::optional<bool> bIncludeVelocity)
+@@ -396,3 +442,13 @@ float UActor::AIVisibility(std::optional<bool> bIncludeVelocity)
  	//LogMessage(Name.ToString() + ": AIVisibility");
  	return 0.0f;
  }

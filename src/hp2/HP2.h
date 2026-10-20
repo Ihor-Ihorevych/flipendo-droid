@@ -7,6 +7,7 @@
 
 class AudioDevice;
 class ULevel;
+class UActor;
 class BspSurface;
 struct PlayingSound;
 template<typename T> struct vec3T;
@@ -41,6 +42,12 @@ namespace HP2
 	// After a map loads (not Entry): sets each actor's bInCurrentGameState from the player's CurrentGameState and raises
 	// OnResolveGameState (src/hp2/HP2GameState.cpp)
 	void ScreenActorsByGameState(ULevel* level);
+
+	// src/hp2/HP2Tick.cpp: ULevel::TickActor ticks TickBefore(actor, 0..2) before the actor: its TickParent, its
+	// TickParent2, then its Owner (unless the actor is one of the owner's tick parents). UActor::Destroy calls
+	// ClearTickParents: no actor keeps the destroyed one as a tick parent.
+	UActor* TickBefore(UActor* actor, int i);
+	void ClearTickParents(UActor* destroyed);
 
 	// HP2's front end (src/hp2/HP2FrontEnd.cpp, docs/re/hp2/startup.md): Game.exe's EA and WB splashes and its dialog
 	// (New Game, Load Game, Options), before the engine starts. Engine::Run calls it for a run without a URL, before the

@@ -1,5 +1,36 @@
-flipendo: Harry Potter 2: its sound objects' extra fields and XA sounds, no IpDrv package
+flipendo: Harry Potter 2: its sound objects' extra fields and XA sounds, no IpDrv package, actors' tick parents
 
+diff --git a/SurrealEngine/Packages/Engine/Resources/Level/ULevel.cpp b/SurrealEngine/Packages/Engine/Resources/Level/ULevel.cpp
+index 28e61f2a..1146dd50 100644
+--- a/SurrealEngine/Packages/Engine/Resources/Level/ULevel.cpp
++++ b/SurrealEngine/Packages/Engine/Resources/Level/ULevel.cpp
+@@ -7,6 +7,7 @@
+ #include "Packages/Engine/Resources/Level/UModel.h"
+ #include "Engine.h"
+ #include "VM/ScriptCall.h"
++#include "HP2.h"
+ 
+ ULevel::ULevel(NameString name, UClass* base, ObjectFlags flags) : ULevelBase(name, base, flags)
+ {
+@@ -60,8 +61,17 @@ void ULevel::TickActor(float elapsed, UActor* actor)
+ 	if (!actor)
+ 		return;
+ 
++	if (engine->LaunchInfo.IsHarryPotter2())
++	{
++		// Harry Potter 2: its TickParent and TickParent2 tick first, then its owner (src/hp2/HP2Tick.cpp)
++		if (!actor->bDeleteMe())
++		{
++			for (int i = 0; i < 3; i++)
++				TickActor(elapsed, HP2::TickBefore(actor, i));
++		}
++	}
+ 	// If we have an owner, tick it first
+-	if (!actor->bDeleteMe() && actor->Owner())
++	else if (!actor->bDeleteMe() && actor->Owner())
+ 	{
+ 		TickActor(elapsed, actor->Owner());
+ 	}
 diff --git a/SurrealEngine/Packages/Engine/Resources/USound.cpp b/SurrealEngine/Packages/Engine/Resources/USound.cpp
 index 75eb4e30..13d0f85c 100644
 --- a/SurrealEngine/Packages/Engine/Resources/USound.cpp

@@ -140,6 +140,21 @@ INVSRCALPHA / SRCALPHA with alpha `a` is the devices' premultiplied `PF_Highligh
 (`SurfaceInfo::Opacity`), which scales the texture and lightmap, not the fog map. Alpha 0 draws the surface without
 the two flags (solid), 255 skips it.
 
+## Tick order
+
+Checked in HP2's Engine.dll. HP2's `Actor.uc` adds `TickParent` and `TickParent2` (HP1 has neither). `AActor::Tick`
+(0x103C0E10) starts by calling `Tick` on the actor's `TickParent` (+0x3C), then its `TickParent2` (+0x40), then its
+`Owner` (+0x38) unless the owner's `TickParent` or `TickParent2` is the actor itself; only then comes the "ticked
+this frame already" test, so each of them ticks once and before the actor. HP1's ticks only the owner first.
+`ULevel::DestroyActor` (0x103B0D20), in its loop over the level's actors that also clears `Owner`, sets
+`TickParent` / `TickParent2` to None wherever they point at the destroyed actor.
+
+Users in the scripts: `CutScript` sets the camera's `TickParent2` to itself when it captures `BaseCam`, so the
+cutscene ticks before the camera; `BaseCamTarget`, `FlyToController` and HPawn's FlyTo use `TickParent`. Seen
+2026-10-21 in PrivetDr's intro: `BaseCam1` has `Owner` BaseCamTarget1, `TickParent` its SplineManager1 and
+`TickParent2` CutScriptDisk0; SurrealEngine's owner-only order ticked the camera before the spline that moves it.
+Port: `src/hp2/HP2Tick.cpp`.
+
 ## Pawn turning
 
 HP2's `execTurnTo` flattens the focal point for a walking pawn (`Focus.Z = Location.Z`); HP1's doesn't. Retail sizes
