@@ -2,6 +2,7 @@
 #include "KWPhysics.h"
 #include "KWMove.h"
 #include "KW.h"
+#include "KWGame.h"
 #include "KWActor.h"
 #include "Engine.h"
 #include "VM/ScriptCall.h"
@@ -267,8 +268,9 @@ namespace KW
 
 	// No HitWall against pawns. A pawn steering into the wall (towards Destination, flat when walking, within
 	// MinHitWall) gets HitWall only if its script probes it (falling: always); otherwise its move ends (MoveTimer -1,
-	// bFromWall). Other actors get HitWall if they probe it.
-	// IDA Engine.dll: ?processHitWall@AActor@@QAEXVFVector@@PAV1@@Z [HP1 0x103ECF20]
+	// bFromWall). HP2 only sets bFromWall: the move goes on (cutscene characters no longer stop at a light brush against
+	// a wall). Other actors get HitWall if they probe it.
+	// IDA Engine.dll: ?processHitWall@AActor@@QAEXVFVector@@PAV1@@Z [HP1 0x103ECF20] [HP2 0x103F9D30]
 	void ProcessHitWall(UActor* actor, vec3 hitNormal, UActor* hitActor)
 	{
 		if (hitActor && AsPawn(hitActor))
@@ -288,7 +290,8 @@ namespace KW
 				return;
 			if (!pawn->IsEventEnabled(EventName::HitWall) && pawn->Physics() != PHYS_Falling)
 			{
-				pawn->MoveTimer() = -1.0f;
+				if (!IsHP2())
+					pawn->MoveTimer() = -1.0f;
 				pawn->bFromWall() = true;
 				return;
 			}

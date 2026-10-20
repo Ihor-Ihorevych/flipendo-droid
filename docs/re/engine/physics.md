@@ -123,7 +123,8 @@ bBounce raises HitWall; a floor (normal.z > 0.7) lands (`processLanded`); a wall
 
 `processHitWall` (0x103ECF20): never against pawns. A pawn steering into the wall (towards Destination, flat when
 walking, within MinHitWall) gets HitWall only if its script probes it (falling: always); otherwise its move ends
-(MoveTimer -1, bFromWall). `processLanded` (0x103ED210): a decoration landing over an edge rolls off it (a ray under it
+(MoveTimer -1, bFromWall). HP2's (0x103F9D30) only sets bFromWall and leaves MoveTimer alone, so the MoveTo /
+MoveToward goes on along the wall (otherwise the same function). `processLanded` (0x103ED210): a decoration landing over an edge rolls off it (a ray under it
 finds nothing, four short traces under its corners pick the way), 5 times at most; a bSlidingCarcass on a slope slides;
 a non-pawn in a bBounceVelocity zone bounces; else Landed, then walking (pawns, spending the time left) or none.
 
