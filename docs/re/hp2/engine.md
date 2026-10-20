@@ -100,9 +100,36 @@ read in HP2's Engine.dll.
 
 - Music: ALAudio.dll (OpenAL + Ogg Vorbis) plays the music. Scripts pass a file name in `Music/`
   (`PlayMusic("sm_dia_Ambient02_01.ogg", 0.5)` returns a handle; `StopMusic(handle, fade)`, `StopAllMusic(fade)`;
-  `PlayerPawn.Song` is a string). Flipendo: `src/hp2/HP2Music.cpp`, written from the scripts and NOT yet checked against
-  ALAudio.dll: one song at a time, looping, linear fades. `KW::UpdateMusic` hands over to it for HP2 (HP1's Galaxy
-  music properties don't exist in HP2's PlayerPawn).
+  `PlayerPawn.Song` is a string). From ALAudio.dll (2026-10-20):
+  - `UALAudioSubsystem::PlayMusic` [HP2 ALAudio 0x10004C70]: an empty song or `None` plays nothing and returns 0. Else
+    the path is `..\Music\<song>`, with `.ogg` added when the name's extension isn't `ogg` (FEBook's
+    `Intro_Movie_Music_Edit`, `sm_wwa_skurgeExploreEdit_01_ogg`); a transient USound with flags 12 (streamed, music)
+    is played through `PlaySound` with flags 28 (+ no position), radius 1000, the fade-in time, and the handle is that
+    sound source's index + 1. **Each song is a sound source of its own: a new song doesn't stop the others.** A level's
+    music goes on under a jingle a MusicTrigger starts and stops (Adv1Willow's `willow1hit`), and a NewMusicTrigger's
+    song starts next to what a cutscene left playing, until a trigger with FadeOutAllSongs stops them all.
+  - `StopMusic(handle, fade)` [0x100050C0]: no fade stops the source; else it fades out (from full volume) and stops.
+    `StopAllMusic(fade)` [0x100051B0] does that to every source with the music flag (8).
+  - Fades (`Update` [0x100052D0]): linear in time, a step of at most 1 s; a music source's volume is MusicVolume.
+  - Music always loops: `RegisterSound` [0x10003400] opens a music Ogg as `FFileStream` type 2, which `FFileStream::Read`
+    [HP2 Core 0x10178390] rewinds at the end (type 1, other Ogg sounds, ends).
+  Flipendo (`src/hp2/HP2Music.cpp`) mixes the songs into the audio device's one music stream; handles are new numbers,
+  not reused source indices. `KW::UpdateMusic` hands over to it for HP2 (HP1's Galaxy music properties don't exist in
+  HP2's PlayerPawn). Before 2026-10-20 it played one song at a time, so each new song cut off the one before.
+  Every song loops, so SurrealEngine's Ogg stream restarts at the end (`OggAudioSource::SeekToSample`); that closed
+  the Vorbis decoder while the rest of its last frame was still to be copied, and the next read used the freed buffer
+  (a crash about two minutes into the Whomping Willow, at once with a 2.5 s song). Fixed in `0010-engine-fixes`.
+- Volumes: ALAudio keeps `MusicVolume` / `SoundVolume` as floats 0..1 (`[ALAudio.ALAudioSubsystem]` ships 0.53 and 0.9),
+  and the options page (`FESoundVideoPage`) reads and writes them so (`get ini:Engine.Engine.AudioDevice MusicVolume`
+  times 100, `set ... MusicVolume <slider / 100>`). `SETVOLUMES SOUND=<f> MUSIC=<f>` (`UALAudioSubsystem::Exec`
+  [HP2 ALAudio 0x100067B0]) clamps each to 0..1 and sets every playing source's gain at once: a music stream gets the
+  music volume, a sound its own volume times the sound volume. SurrealEngine's audio device keeps HP1's bytes 0..255
+  and parsed `1.000000` as 1 of 255 (near silence after touching a slider); for HP2 it reads and writes its ini
+  volumes as floats (`HP2::VolumeFromIni`/`VolumeToIni`), `HP2::AudioCommand` handles `SETVOLUMES`, and on the first
+  run it takes its settings from `[ALAudio.ALAudioSubsystem]` and `[D3DDrv.D3DRenderDevice]` instead of HP1's Galaxy
+  and Direct3D sections.
+- HP2 has no IpDrv package; SurrealEngine's IpDrv property offsets are skipped for it (`0200-hp2.patch`).
+- `I3DL2Listener` (Engine.u): EAX / I3DL2 reverb settings per zone, used by ALAudio.
 - Sounds: every sound export has a header of its own between the format name and the data, whatever the format:
   int32 0x104 (0 for wav), float duration, int32 sample count, bits, channels, frequency, then the lazy-array skip
   offset, then the size and data. Format `XA` is 4-bit ADPCM in 15-byte frames (1 byte shift/filter, 14 bytes of 28
@@ -122,7 +149,8 @@ read in HP2's Engine.dll.
 - `FlashFog.W` is the scene brightness as in HP1 (1 = normal): `ClientFadeIn` drives `ConstantGlowFog`, `ViewFlash` eases
   it; the engine hook `KW::ViewFlashParams` serves both games.
 - Spoken dialogue is `Sounds/AllDialog.USA_uax` (language editions `.<LANG>_uax`); the scripts ask for the package
-  `AllDialog`, so the scan maps every `*_uax` to its base name and prefers `USA`.
+  `AllDialog`, so `PackageManager::ScanFolder` finds a package that exists only as its language file and takes the file of the
+  `[Engine.Engine] Language` extension (KnowWonder: the plain file first when the language is `int`).
 
 ## Bytecode and loading
 
@@ -131,22 +159,6 @@ read in HP2's Engine.dll.
 - `IpDrv.u` does not ship with HP2 (only `IpDrv.dll`): SurrealEngine's IpDrv property offsets accept its absence.
 - The retail 1.0 install (`Game.exe` SHA-1 `28b0e54a...`, packages version 79) is what runs; the M212 x64 rebuild
   (packages 115) is a different engine and does not load.
-
-  `Intro_Movie_Music_Edit`, `PrivetDrive2_late2school`, `sm_wwa_willowLevel1p_01_part2`); Flipendo then tries `.ogg`.
-  Every song loops, so SurrealEngine's Ogg stream restarts at the end (`OggAudioSource::SeekToSample`); that closed
-  the Vorbis decoder while the rest of its last frame was still to be copied, and the next read used the freed buffer
-  (a crash about two minutes into the Whomping Willow, at once with a 2.5 s song). Fixed in `0010-engine-fixes`.
-- Volumes: ALAudio keeps `MusicVolume` / `SoundVolume` as floats 0..1 (`[ALAudio.ALAudioSubsystem]` ships 0.53 and 0.9),
-  and the options page (`FESoundVideoPage`) reads and writes them so (`get ini:Engine.Engine.AudioDevice MusicVolume`
-  times 100, `set ... MusicVolume <slider / 100>`). `SETVOLUMES SOUND=<f> MUSIC=<f>` (`UALAudioSubsystem::Exec`
-  [HP2 ALAudio 0x100067B0]) clamps each to 0..1 and sets every playing source's gain at once: a music stream gets the
-  music volume, a sound its own volume times the sound volume. SurrealEngine's audio device keeps HP1's bytes 0..255
-  and parsed `1.000000` as 1 of 255 (near silence after touching a slider); for HP2 it reads and writes its ini
-  volumes as floats (`HP2::VolumeFromIni`/`VolumeToIni`), `HP2::AudioCommand` handles `SETVOLUMES`, and on the first
-  run it takes its settings from `[ALAudio.ALAudioSubsystem]` and `[D3DDrv.D3DRenderDevice]` instead of HP1's Galaxy
-  and Direct3D sections.
-- HP2 has no IpDrv package; SurrealEngine's IpDrv property offsets are skipped for it (`0200-hp2.patch`).
-- `I3DL2Listener` (Engine.u): EAX / I3DL2 reverb settings per zone, used by ALAudio.
 
 ## Not needed
 

@@ -73,7 +73,7 @@ namespace KW
 	// UActor::TickMovingBrush: KnowWonder's physMovingBrush (Mover's own PhysAlpha/PhysRate, falling, world collision).
 	void PhysMovingBrush(UActor* mover, float deltaTime);
 
-	// RenderSubsystem::DrawGame, before presenting: HP1_SHOTS debug screenshots (src/knowwonder/KWDebug.cpp).
+	// RenderSubsystem::DrawGame, after Unlock (the frame is presented): HP1_SHOTS debug screenshots (src/knowwonder/KWDebug.cpp).
 	void OnFrameRendered(RenderDevice* device);
 	// Engine::Tick, after PlayerCalcView: HP1_CAMERA="x,y,z,pitch,yaw" replaces the view (src/knowwonder/KWDebug.cpp).
 	void DebugCamera(vec3& location, Rotator& rotation);
@@ -93,6 +93,9 @@ namespace KW
 	bool ViewportCommand(const Array<std::string>& args);
 	// Engine, right after a save is loaded: every actor's BSP leaf found again from its location.
 	void SaveGameLoaded();
+	// An 8-bit (paletted) or 24/32-bit uncompressed Windows BMP as BGRA8 rows, top row first: the save thumbnails
+	// (src/knowwonder/KWSave.cpp) and HP2's front end art.
+	bool ReadBMP(const Array<uint8_t>& file, int& width, int& height, Array<uint8_t>& bgra);
 	// Engine::LoadMap, after the LevelInfo is found: UGameEngine::LoadMap sets an empty LevelEnterText to URL.Map
 	// ("Lev_Tut1.unr"); HPConsole.doLevelSave names the save slot (and its thumbnail) after it.
 	void LevelInfoLoaded(ULevelInfo* levelInfo, const std::string& urlMap);
@@ -126,6 +129,9 @@ namespace KW
 	void MenuToPixels(float& x, float& y); // the inverse: a point of the menu canvas to viewport pixels
 	// Engine::ConsoleCommand "getres": common modes up to the desktop size, with the options page's 1024x768 cap lifted.
 	std::string AvailableResolutions(GameWindow* window);
+	// The modes behind it, smallest first, none under 640x480: the common ones that fit the desktop (screen size times
+	// dpiScale), the desktop itself and currentX x currentY (skipped when 0). HP2's front end lists them too.
+	std::vector<std::pair<int, int>> ResolutionModes(double dpiScale, int currentX, int currentY);
 	// RenderSubsystem::DrawGame: the screen flash from HP1's FlashFog (its W replaces FlashScale).
 	void ViewFlashParams(UPlayerPawn* player, vec3& flashScale, vec3& flashFog);
 	// Engine::LoadMap / LoadFromSaveFile: HP1's loading screen. LoadMapFadeOut at the start (fade to black over
@@ -156,6 +162,8 @@ namespace KW
 	// UActor::Tick, first: the Tick overrides of HP1's native actor classes. AParticleFX::Tick ages the system and
 	// destroys it when done (src/knowwonder/KWParticleFX.cpp); AWind::Tick moves the wind's fluctuation (src/knowwonder/KWWind.cpp).
 	void TickNativeActor(UActor* actor, float elapsed);
+	// UActor::Spawn, after the class defaults are copied: what the native class constructor sets (AParticleFX: Age 0).
+	void ActorConstructed(UActor* actor);
 	// UActor::Destroy: frees the particle list.
 	void ParticleFXDestroyed(UActor* actor);
 	// UActor::UpdateBspInfo for DrawType DT_Particles.

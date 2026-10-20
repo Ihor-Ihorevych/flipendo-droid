@@ -36,7 +36,7 @@ index 799eca23..bdce0120 100644
  set_target_properties(SurrealCommon PROPERTIES CXX_STANDARD 20)
  target_precompile_headers(SurrealCommon PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/SurrealEngine/Precomp.h>)
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 1e6022fb..725172f1 100644
+index 1e6022fb..06f2c288 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,13 @@
@@ -53,7 +53,18 @@ index 1e6022fb..725172f1 100644
  #include "Utils/File.h"
  #include "Utils/StrTools.h"
  #include "Utils/SHA1Sum.h"
-@@ -129,7 +136,12 @@ void Engine::Run()
+@@ -124,12 +131,23 @@ void Engine::Run()
+ 	LogMessage("Loaded key bindings");
+ 	LogGamePackageSHA1Sums();
+ 
++	// HP2's front end (New Game, Load Game, Options) is Game.exe's, before the engine starts
++#ifndef __ANDROID__ // Android has its own launcher (SetupActivity)
++	if (LaunchInfo.IsHarryPotter2() && LaunchInfo.url.empty() && !HP2::RunFrontEnd())
++		return;
++#endif
++
+ 	OpenWindow();
+ 
  	audiodev->InitDevice();
  	render = std::make_unique<RenderSubsystem>(window->GetRenderDevice());
  
@@ -66,30 +77,34 @@ index 1e6022fb..725172f1 100644
  		viewport->bWindowsMouseAvailable() = true;
  
  	window->LockCursor();
-@@ -149,9 +161,6 @@ void Engine::Run()
+@@ -149,9 +167,10 @@ void Engine::Run()
  
  	LoginPlayer();
  
 -	auto objprop = GC::Alloc<UObjectProperty>(NameString(), nullptr, ObjectFlags::NoFlags);
 -	auto vecprop = GC::Alloc<UStructProperty>(NameString(), nullptr, ObjectFlags::NoFlags);
 -	auto rotprop = GC::Alloc<UStructProperty>(NameString(), nullptr, ObjectFlags::NoFlags);
++	// HP2's -LOADGAME=<n> (Load Game in its front end): the save, once the first map is in
++	if (LaunchInfo.IsHarryPotter2() && HP2::LoadGameSave() >= 0)
++		ClientTravel("?load=" + std::to_string(HP2::LoadGameSave()), ETravelType::TRAVEL_Absolute, false);
++
  
  	bool firstCall = true;
  
-@@ -172,6 +181,8 @@ void Engine::Run()
+@@ -172,6 +191,8 @@ void Engine::Run()
  		float realTimeElapsed = CalcTimeElapsed();
  		float entryLevelElapsed = EntryLevel ? realTimeElapsed * clamp(EntryLevelInfo->TimeDilation() * currentZoneTimeDilation, 0.0025f, 25.0f) : 0.0f;
  		float levelElapsed = realTimeElapsed * clamp(LevelInfo->TimeDilation() * currentZoneTimeDilation, 0.0025f, 25.0f);
-+		if (LaunchInfo.IsHarryPotter1()) // src/hp1/mods (fast forward)
++		if (LaunchInfo.IsKnowWonder()) // src/hp1/mods (fast forward; HP1 and HP2)
 +			levelElapsed *= HP1::ModsTimeScale();
  
  		TotalTime += realTimeElapsed;
  
-@@ -208,36 +219,33 @@ void Engine::Run()
+@@ -208,36 +229,33 @@ void Engine::Run()
  
  		// Do NOT pause this Tick event otherwise some messages will stay on screen forever.
  		CallEvent(console, EventName::Tick, { ExpressionValue::FloatValue(levelElapsed) });
-+		if (LaunchInfo.IsHarryPotter1()) // src/hp1/mods (cutscene skip, launch skips)
++		if (LaunchInfo.IsKnowWonder()) // src/hp1/mods (cutscene skip, launch skips; HP2: the frame limit)
 +			HP1::TickMods(realTimeElapsed);
 +		if (LaunchInfo.IsHarryPotter2()) // the main menu at boot (src/hp2/HP2GameState.cpp)
 +		{
@@ -135,7 +150,7 @@ index 1e6022fb..725172f1 100644
  		// Save the game if there is a request for it
  		if (SaveGameInfo.SaveGameSlot != DONT_SAVE_GAME)
  		{
-@@ -293,6 +301,8 @@ void Engine::Run()
+@@ -293,6 +311,8 @@ void Engine::Run()
  		{
  			UnrealURL url(ClientTravelInfo.URL);
  			LoadFromSaveFile(url);
@@ -144,7 +159,7 @@ index 1e6022fb..725172f1 100644
  			PossessSavedPlayer();
  		}
  
-@@ -689,6 +699,9 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
+@@ -689,6 +709,9 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
  {
  	ClientTravelInfo.URL.Clear();
  
@@ -154,7 +169,7 @@ index 1e6022fb..725172f1 100644
  	if (Level)
  		CallEvent(console, EventName::NotifyLevelChange);
  
-@@ -701,6 +714,11 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
+@@ -701,6 +724,11 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
  
  	GetLevelInfoObject();
  
@@ -166,7 +181,7 @@ index 1e6022fb..725172f1 100644
  	LevelInfo->ComputerName() = "MyComputer";
  	LevelInfo->HubStackLevel() = 0; // To do: handle level hubs
  	LevelInfo->EngineVersion() = LaunchInfo.gameVersionString + " SE";
-@@ -773,6 +791,8 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
+@@ -773,6 +801,8 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
  		// Note: the events may spawn actors. We can't use iterators here.
  		for (size_t i = 0; i < loadActorCount; i++) { if (Level->Actors[i]) CallEvent(Level->Actors[i], EventName::PreBeginPlay); }
  		for (size_t i = 0; i < loadActorCount; i++) { if (Level->Actors[i]) CallEvent(Level->Actors[i], EventName::BeginPlay); }
@@ -175,7 +190,7 @@ index 1e6022fb..725172f1 100644
  		for (size_t i = 0; i < loadActorCount; i++) { if (Level->Actors[i]) CallEvent(Level->Actors[i], EventName::PostBeginPlay); }
  		for (size_t i = 0; i < loadActorCount; i++) { if (Level->Actors[i]) CallEvent(Level->Actors[i], EventName::SetInitialState); }
  
-@@ -808,12 +828,17 @@ void Engine::LoadFromSaveFile(const UnrealURL& url)
+@@ -808,12 +838,17 @@ void Engine::LoadFromSaveFile(const UnrealURL& url)
  	if (!savefilePackage)
  		return;
  
@@ -193,7 +208,7 @@ index 1e6022fb..725172f1 100644
  
  	// Same as LoadMap: these are session/engine identity, not save data, and must be
  	// re-established on every load regardless of what the package/save file contains.
-@@ -1000,6 +1025,8 @@ void Engine::LoginPlayer()
+@@ -1000,6 +1035,8 @@ void Engine::LoginPlayer()
  	// Assign the pawn to the viewport
  	viewport->Actor() = pawn;
  	viewport->Actor()->Player() = viewport;
@@ -202,7 +217,7 @@ index 1e6022fb..725172f1 100644
  	CallEvent(viewport->Actor(), EventName::Possess);
  
  	// Transfer travel actors to the new map
-@@ -1007,14 +1034,21 @@ void Engine::LoginPlayer()
+@@ -1007,14 +1044,21 @@ void Engine::LoginPlayer()
  	CallEvent(pawn, EventName::TravelPreAccept);
  
  	Array<UObject*> acceptedObjects;
@@ -226,7 +241,7 @@ index 1e6022fb..725172f1 100644
  		{
  			acceptedObjects = ActorTravelInfo::Accept(pawn, it->second);
  		}
-@@ -1039,6 +1073,8 @@ void Engine::LoginPlayer()
+@@ -1039,6 +1083,8 @@ void Engine::LoginPlayer()
  
  	CallEvent(pawn, EventName::TravelPostAccept);
  	CallEvent(LevelInfo->Game(), EventName::PostLogin, { ExpressionValue::ObjectValue(pawn) });
@@ -235,7 +250,7 @@ index 1e6022fb..725172f1 100644
  
  	render->OnMapLoaded();
  }
-@@ -1062,6 +1098,38 @@ UObject* Engine::FindObject(NameString name, NameString className)
+@@ -1062,6 +1108,38 @@ UObject* Engine::FindObject(NameString name, NameString className)
  	return nullptr;
  }
  
@@ -274,7 +289,7 @@ index 1e6022fb..725172f1 100644
  float Engine::CalcTimeElapsed()
  {
  	using namespace std::chrono;
-@@ -1131,6 +1199,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1131,6 +1209,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  	for (char& c : command) c = std::tolower(c);
  
  	found = true;
@@ -289,7 +304,7 @@ index 1e6022fb..725172f1 100644
  	if (command == "exit" || command == "quit")
  	{
  		quit = true;
-@@ -1170,8 +1246,8 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1170,8 +1256,8 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  	}*/
  	else if (command == "getres")
  	{
@@ -300,7 +315,7 @@ index 1e6022fb..725172f1 100644
  		return window->GetAvailableResolutions();
  	}
  	else if (command == "getcolordepths")
-@@ -1185,6 +1261,10 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1185,6 +1271,10 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  
  		return std::to_string(width) + "x" + std::to_string(height);
  	}
@@ -311,7 +326,7 @@ index 1e6022fb..725172f1 100644
  	else if (command == "getcurrentcolordepth")
  	{
  		return "32";
-@@ -1221,7 +1301,17 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1221,7 +1311,17 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  			{
  				ClientTravel(url.ToString(), ETravelType::TRAVEL_Absolute, false);
  				return {};
@@ -330,7 +345,7 @@ index 1e6022fb..725172f1 100644
  		}
  
  		LogMessage("Couldn't find map " + maparg);
-@@ -1275,6 +1365,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1275,6 +1375,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  			return {};
  		}
  
@@ -345,7 +360,7 @@ index 1e6022fb..725172f1 100644
  		SaveGameInfo.SaveGameSlot = slotNum;
  
  		if (args.size() == 3)
-@@ -1326,20 +1424,40 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1326,20 +1434,40 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  			}
  		}
  	}
@@ -394,7 +409,7 @@ index 1e6022fb..725172f1 100644
  		if (LaunchInfo.IsDeusEx() && className == "inputext")
  		{
  			// DeusEx version of input handling. How does this differ from the other one?
-@@ -1444,6 +1562,10 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1444,6 +1572,10 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  	}
  	else
  	{
@@ -405,7 +420,7 @@ index 1e6022fb..725172f1 100644
  		if (!ExecCommand(args))
  		{
  			LogMessage("Unknown command: " + commandline);
-@@ -1453,6 +1575,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1453,6 +1585,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  	return {};
  }
  
@@ -420,7 +435,7 @@ index 1e6022fb..725172f1 100644
  Array<std::string> Engine::GetArgs(const std::string& commandline)
  {
  	Array<std::string> args;
-@@ -1484,6 +1614,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
+@@ -1484,6 +1624,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
  			endpos = command.size();
  
  		std::string subcommand = command.substr(pos, endpos - pos);
@@ -431,7 +446,7 @@ index 1e6022fb..725172f1 100644
  		if (!subcommand.empty())
  			subcommands.push_back(subcommand);
  		pos = endpos + 1;
-@@ -1496,8 +1630,16 @@ void Engine::LoadEngineSettings()
+@@ -1496,8 +1640,16 @@ void Engine::LoadEngineSettings()
  	if (packages->MissingSESystemIni())
  	{
  		client->LoadProperties("WinDrv.WindowsClient");
@@ -450,7 +465,7 @@ index 1e6022fb..725172f1 100644
  	}
  	else
  	{
-@@ -1511,6 +1653,8 @@ void Engine::LoadEngineSettings()
+@@ -1511,6 +1663,8 @@ void Engine::LoadEngineSettings()
  #else
  	windowingSystemName = packages->GetIniValue("System", "Engine.SurrealWindowSystem", "WindowSystem", "SDL2");
  #endif
@@ -459,7 +474,7 @@ index 1e6022fb..725172f1 100644
  }
  
  void Engine::LoadKeybindings()
-@@ -1540,11 +1684,13 @@ void Engine::LoadKeybindings()
+@@ -1540,11 +1694,13 @@ void Engine::LoadKeybindings()
  					std::string aliasCommand = alias.substr(commandStart.size(), pos - commandStart.size());
  					std::string aliasName = alias.substr(pos + commandSplit.size(), pos2 - pos - commandSplit.size());
  					if (!aliasName.empty() && aliasName != "None")
@@ -474,7 +489,7 @@ index 1e6022fb..725172f1 100644
  }
  
  void Engine::UpdateInput(float timeElapsed)
-@@ -1577,7 +1723,15 @@ void Engine::UpdateInput(float timeElapsed)
+@@ -1577,7 +1733,15 @@ void Engine::UpdateInput(float timeElapsed)
  void Engine::OpenWindow()
  {
  	if (!window)
@@ -490,7 +505,7 @@ index 1e6022fb..725172f1 100644
  
  	int width = client->StartupFullscreen ? client->FullscreenViewportX : client->WindowedViewportX;
  	int height = client->StartupFullscreen ? client->FullscreenViewportY : client->WindowedViewportY;
-@@ -1586,9 +1740,19 @@ void Engine::OpenWindow()
+@@ -1586,9 +1750,19 @@ void Engine::OpenWindow()
  	std::string versionString = !LaunchInfo.gameVersionString.empty() ? " (v" + LaunchInfo.gameVersionString + ")" : "";
  
  	window->SetWindowTitle(LaunchInfo.gameName + versionString + " - Surreal Engine");
@@ -511,7 +526,7 @@ index 1e6022fb..725172f1 100644
  	if (fullscreen)
  		window->ShowFullscreen();
  	else
-@@ -1604,6 +1768,9 @@ void Engine::TickWindow()
+@@ -1604,6 +1778,9 @@ void Engine::TickWindow()
  {
  	if (window && engine->LaunchInfo.ue1Version > 219)
  	{
@@ -521,7 +536,7 @@ index 1e6022fb..725172f1 100644
  		if (viewport->bShowWindowsMouse() && viewport->bWindowsMouseAvailable())
  			window->UnlockCursor();
  		else
-@@ -1646,6 +1813,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
+@@ -1646,6 +1823,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
  	{
  		viewport->WindowsMouseX() = (float)(pos.x * window->GetDpiScale());
  		viewport->WindowsMouseY() = (float)(pos.y * window->GetDpiScale());
@@ -530,7 +545,7 @@ index 1e6022fb..725172f1 100644
  	}
  }
  
-@@ -1719,6 +1888,11 @@ void Engine::OnWindowKeyChar(std::string chars)
+@@ -1719,6 +1898,11 @@ void Engine::OnWindowKeyChar(std::string chars)
  
  void Engine::OnWindowKeyDown(EInputKey key)
  {
@@ -542,7 +557,7 @@ index 1e6022fb..725172f1 100644
  	if (playingAvi)
  	{
  		if (key == EInputKey::IK_Escape)
-@@ -1813,7 +1987,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
+@@ -1813,7 +1997,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
  
  			for (const std::string& command : GetSubcommands(keybindings[keynames[key]]))
  			{
@@ -678,7 +693,7 @@ index 287956c1..27898722 100644
  }
  
 diff --git a/SurrealEngine/Package/PackageManager.cpp b/SurrealEngine/Package/PackageManager.cpp
-index 333a3135..f56d3c12 100644
+index 333a3135..6d6dcf32 100644
 --- a/SurrealEngine/Package/PackageManager.cpp
 +++ b/SurrealEngine/Package/PackageManager.cpp
 @@ -6,6 +6,7 @@
@@ -765,44 +780,64 @@ index 333a3135..f56d3c12 100644
  	return GC::Alloc<Package>(this, mapFilename.stem().string(), absolute_path.string());
  }
  
-@@ -467,16 +498,34 @@ void PackageManager::ScanFolder(const std::string& packagedir, const std::string
+@@ -462,25 +493,42 @@ void PackageManager::ScanFolder(const std::string& packagedir, const std::string
+ 		else
+ 			langSearchExt = fs::path("." + languageExtension + "_" + searchExt.string());
+ 
++		// A package can exist only as its language file (HP2 ships Sounds/AllDialog.USA_uax and no AllDialog.uax), and
++		// the extension's case can differ from the ini's (Linux file names are case-sensitive).
++		std::map<NameString, fs::path> plainFiles, langFiles;
++		Array<NameString> order;
+ 		for (const auto& dir_entry: fs::directory_iterator{packageDirPath})
++		{
++			if (!dir_entry.is_regular_file())
++				continue;
++			std::string ext = dir_entry.path().extension().string();
++			bool plain = StrTools::equals_ignore_case(ext, searchExt.string());
++			bool lang = StrTools::equals_ignore_case(ext, langSearchExt.string());
++			if (!plain && !lang)
++				continue;
++			// dir_entry's path already starts with packageDirPath
++			NameString fileNameString(dir_entry.path().stem().string());
++			if (plainFiles.find(fileNameString) == plainFiles.end() && langFiles.find(fileNameString) == langFiles.end())
++				order.push_back(fileNameString);
++			(plain ? plainFiles : langFiles)[fileNameString] = dir_entry.path();
++		}
++
++		// KnowWonder's appFindPackageFile tries <name>.<Language>_<ext> first and then <name>.<ext>, but with Language
++		// int only the plain file (HP1's AllDialog.uax, not the smaller AllDialog.int_uax next to it).
++		bool preferLanguage = !launchInfo.IsKnowWonder() || !StrTools::equals_ignore_case(languageExtension, "int");
++		for (const NameString& fileNameString : order)
+ 		{
  			// Do not add the package again if it exists
  			// This is useful for example when you have HD textures installed in a different folder
  			// And you wish to load them instead of the original ones
-+			// HP2 keeps its spoken dialogue in language editions: AllDialog.USA_uax, AllDialog.RUS_uax, ... (the scripts ask for
-+			// the package AllDialog). The USA edition is the default, any other is used when there is no USA one.
-+			if (dir_entry.is_regular_file() && searchExt == ".uax")
-+			{
-+				std::string ext = dir_entry.path().extension().string();
-+				std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return (char)std::tolower(c); });
-+				if (ext.size() > 4 && ext.compare(ext.size() - 4, 4, "_uax") == 0)
-+				{
-+					NameString languageName(dir_entry.path().stem().string());
-+					auto existing = packageFilenames.find(languageName);
-+					if (existing == packageFilenames.end() || ext == ".usa_uax")
-+						packageFilenames[languageName] = (packageDirPath / dir_entry.path().filename()).string();
-+					continue;
-+				}
-+			}
- 			if (dir_entry.is_regular_file() && dir_entry.path().extension() == searchExt)
- 			{
- 				NameString fileNameString(dir_entry.path().stem().string());
- 				auto it = packageFilenames.find(fileNameString);
- 				if (it == packageFilenames.end())
- 				{
-+					// dir_entry's path already starts with packageDirPath
- 					auto langPath = dir_entry.path().parent_path() / (dir_entry.path().stem().string() + langSearchExt.string());
+-			if (dir_entry.is_regular_file() && dir_entry.path().extension() == searchExt)
+-			{
+-				NameString fileNameString(dir_entry.path().stem().string());
+-				auto it = packageFilenames.find(fileNameString);
+-				if (it == packageFilenames.end())
+-				{
+-					auto langPath = dir_entry.path().parent_path() / (dir_entry.path().stem().string() + langSearchExt.string());
 -					if (fs::exists(langPath) && fs::is_regular_file(langPath))
-+					// KnowWonder's appFindPackageFile takes the plain file first (HP1's AllDialog.uax over the
-+					// smaller AllDialog.int_uax next to it), and a language file only for a missing one and a language other than int.
-+					if (!launchInfo.IsKnowWonder() && fs::exists(langPath) && fs::is_regular_file(langPath))
- 						// Prioritize the language specific file
+-						// Prioritize the language specific file
 -						packageFilenames[fileNameString] = (packageDirPath / langPath).string();
-+						packageFilenames[fileNameString] = langPath.string();
- 					else
- 						packageFilenames[fileNameString] = (packageDirPath / dir_entry.path().filename()).string();
- 				}
-@@ -536,7 +585,12 @@ void PackageManager::ScanPaths()
+-					else
+-						packageFilenames[fileNameString] = (packageDirPath / dir_entry.path().filename()).string();
+-				}
+-			}
++			if (packageFilenames.find(fileNameString) != packageFilenames.end())
++				continue;
++			auto plainIt = plainFiles.find(fileNameString);
++			auto langIt = langFiles.find(fileNameString);
++			if (langIt != langFiles.end() && (preferLanguage || plainIt == plainFiles.end()))
++				packageFilenames[fileNameString] = langIt->second.string();
++			else if (plainIt != plainFiles.end())
++				packageFilenames[fileNameString] = plainIt->second.string();
+ 		}
+ 	}
+ }
+@@ -536,7 +584,12 @@ void PackageManager::ScanPaths()
  		auto filename = currentPath.filename();
  
  		// Calculate the final, absolute path
@@ -816,7 +851,7 @@ index 333a3135..f56d3c12 100644
  
  		// Add map folders in a separate list, so ScanForMaps() can use them
  		if (filename.string() == "*." + GetMapExtension())
-@@ -847,30 +901,30 @@ void PackageManager::LoadEngineIniFiles()
+@@ -847,30 +900,30 @@ void PackageManager::LoadEngineIniFiles()
  	std::string systemIniFileName = "SE-" + systemIniName + ".ini";
  	std::string userIniName = "SE-User.ini";
  
@@ -855,7 +890,7 @@ index 333a3135..f56d3c12 100644
  	}
  }
  
-@@ -976,6 +1030,45 @@ Array<IntObject>& PackageManager::GetIntObjects(const NameString& metaclass)
+@@ -976,6 +1029,45 @@ Array<IntObject>& PackageManager::GetIntObjects(const NameString& metaclass)
  	return IntObjects["int"][NameString(metaclass.ToString().substr(pos + 1))];
  }
  
@@ -901,7 +936,7 @@ index 333a3135..f56d3c12 100644
  std::string PackageManager::Localize(NameString packageName, const NameString& sectionName, const NameString& keyName, const int index)
  {
  	if (packageName == "Engine" && keyName == "ClassCaption")
-@@ -985,6 +1078,38 @@ std::string PackageManager::Localize(NameString packageName, const NameString& s
+@@ -985,6 +1077,38 @@ std::string PackageManager::Localize(NameString packageName, const NameString& s
  		else if (sectionName == "SurrealNetworkDevice") return "Surreal Network";
  	}
  
@@ -940,7 +975,7 @@ index 333a3135..f56d3c12 100644
  	auto& intFile = intFiles[packageName.ToString() + "." + languageExtension];
  
  	if (!intFile)
-@@ -994,8 +1119,9 @@ std::string PackageManager::Localize(NameString packageName, const NameString& s
+@@ -994,8 +1118,9 @@ std::string PackageManager::Localize(NameString packageName, const NameString& s
  	{
  		try
  		{
@@ -952,7 +987,7 @@ index 333a3135..f56d3c12 100644
  
  			if (IsUnreal1_227k() || (IsUnrealTournament_469() && launchInfo.gameSubVersion >= 4))
  			{
-@@ -1012,11 +1138,12 @@ std::string PackageManager::Localize(NameString packageName, const NameString& s
+@@ -1012,11 +1137,12 @@ std::string PackageManager::Localize(NameString packageName, const NameString& s
  			if (!intFile)
  			{
  				// Check the System path
@@ -968,7 +1003,7 @@ index 333a3135..f56d3c12 100644
  			}
  		}
  		catch (...)
-@@ -1182,6 +1309,9 @@ void PackageManager::RegisterFunctions()
+@@ -1182,6 +1308,9 @@ void PackageManager::RegisterFunctions()
  	{
  		NRMusicPlayer::RegisterFunctions();
  	}
@@ -979,10 +1014,10 @@ index 333a3135..f56d3c12 100644
  
  void PackageManager::RegisterNativeClasses()
 diff --git a/SurrealEngine/Package/PackageManager.h b/SurrealEngine/Package/PackageManager.h
-index c5c5543b..67f420ee 100644
+index c5c5543b..7a3126f2 100644
 --- a/SurrealEngine/Package/PackageManager.h
 +++ b/SurrealEngine/Package/PackageManager.h
-@@ -44,13 +44,15 @@ public:
+@@ -44,13 +44,16 @@ public:
  	bool IsCliveBarkersUndying() const { return launchInfo.IsCliveBarkersUndying(); }
  	bool IsKlingonHonorGuard() const  { return launchInfo.IsKlingonHonorGuard(); }
  	bool IsRune() const { return launchInfo.IsRune(); }
@@ -991,6 +1026,7 @@ index c5c5543b..67f420ee 100644
  	fs::path GetRootFolderPath() const { return gameRootFolderPath; }
  	fs::path GetSystemFolderPath() const { return gameSystemFolderPath; }
  	fs::path GetSaveFolderPath() const { return gameSaveFolderPath; }
++	void SetSaveFolderPath(const fs::path& path) { gameSaveFolderPath = path; }
  	fs::path GetCacheFolderPath() const { return gameCacheFolderPath; }
  
 -	Package* GetPackage(const NameString& name);
@@ -999,7 +1035,7 @@ index c5c5543b..67f420ee 100644
  	Array<NameString> GetPackageNames() const;
  	Package* GetSaveInfoPackage(const NameString& saveFolderName);
  	void RemoveSaveInfoPackage(const NameString& saveFolderName);
-@@ -90,6 +92,7 @@ public:
+@@ -90,6 +93,7 @@ public:
  	std::string Localize(NameString packageName, const NameString& sectionName, const NameString& keyName, const int index = 0);
  
  	Array<IntObject>& GetIntObjects(const NameString& metaclass);
@@ -1007,7 +1043,7 @@ index c5c5543b..67f420ee 100644
  	const Array<std::string>& GetMaps() const { return maps; }
  
  	bool MissingSESystemIni() const { return missing_se_system_ini; }
-@@ -143,6 +146,9 @@ private:
+@@ -143,6 +147,9 @@ private:
  	std::unique_ptr<IniFile> defaultUserFile; // Holds DefUser.ini
  
  	Array<std::string> mapFolders;

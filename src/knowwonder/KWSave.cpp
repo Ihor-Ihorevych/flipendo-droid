@@ -1,5 +1,6 @@
 #include "Precomp.h"
 #include "KW.h"
+#include "KWGame.h"
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
@@ -14,6 +15,7 @@
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
 #include "Packages/Engine/UViewport.h"
 #include "Render/RenderSubsystem.h"
+#include "VM/ScriptCall.h"
 
 // Save games (docs/re/engine/savegames.md). The level itself is saved by the SaveGame console command (upstream's
 // Engine::SaveGameToSlot writes <SavePath>/SaveN.usa) and loaded by "open saveN.usa" (KW::SaveGameLoadURL).
@@ -222,8 +224,7 @@ namespace KW
 		ReturnValue = fs::is_regular_file(path, ec) && fs::file_size(path, ec) > 0;
 	}
 
-	// An 8-bit (paletted) or 24/32-bit uncompressed Windows BMP as BGRA8 rows, top row first.
-	static bool ReadBMP(const Array<uint8_t>& f, int& width, int& height, Array<uint8_t>& bgra)
+	bool ReadBMP(const Array<uint8_t>& f, int& width, int& height, Array<uint8_t>& bgra)
 	{
 		auto u16 = [&](size_t o) { return (uint32_t)(f[o] | (f[o + 1] << 8)); };
 		auto u32 = [&](size_t o) { return (uint32_t)(f[o] | (f[o + 1] << 8) | (f[o + 2] << 16) | ((uint32_t)f[o + 3] << 24)); };
@@ -379,19 +380,68 @@ namespace KW
 			fog[i] = saved[i];
 	}
 
-	// The SaveGame console command: LevelAction is LEVACT_Saving (2) while the save runs, and one progress frame is
-	// drawn before it. The level package is written by upstream's Engine::SaveGameToSlot. Hub copies and the movers'
-	// saved positions aren't ported (docs/re/engine/savegames.md).
-	// IDA Engine.dll: ?SaveGame@UGameEngine@@UAEXH@Z [HP1 0x103A2280] [HP2 0x103AB430] (HP2 changed, not read yet)
+	// HP2: every actor gets PreSaveGame before the save and PostSaveGame after it (harry copies its status into its
+	// travel properties, a SavePoint tops Harry's health up for the save).
+	static void RaiseSaveEvent(const char* name)
+	{
+		if (!engine->Level)
+			return;
+		Array<UActor*> actors = engine->Level->Actors; // a handler may spawn or destroy
+		for (UActor* actor : actors)
+		{
+			if (actor && !actor->bDeleteMe())
+				CallEvent(actor, name);
+		}
+	}
+
+	// HP2: the slot's picture for the front end, <System>\Thumbnails\<map>.bmp (or Default.bmp) copied to
+	// <save folder>\Save0.bmp. The map is LevelInfo.LevelEnterText after its last backslash, cut at the first dot.
+	// IDA Engine.dll: ?SetThumbnailForSaveSlot@UGameEngine@@QAE_NXZ [HP2 0x103ABB00]
+	static bool SetThumbnailForSaveSlot()
+	{
+		if (!engine->LevelInfo)
+			return false;
+		std::string map = engine->LevelInfo->LevelEnterText();
+		size_t slash = map.find_last_of('\\');
+		if (slash != std::string::npos)
+			map = map.substr(slash + 1);
+		size_t dot = map.find('.');
+		if (dot != std::string::npos)
+			map = map.substr(0, dot);
+		fs::path folder = engine->packages->GetSystemFolderPath() / "Thumbnails";
+		fs::path thumbnail = FindIgnoringCase(folder, map + ".bmp");
+		if (thumbnail.empty())
+			thumbnail = FindIgnoringCase(folder, "Default.bmp");
+		if (thumbnail.empty())
+			return false;
+		std::error_code ec;
+		fs::copy_file(thumbnail, engine->packages->GetSaveFolderPath() / "Save0.bmp", fs::copy_options::overwrite_existing, ec);
+		return !ec;
+	}
+
+	// The SaveGame console command, and HP2's queued saves (HP2::TickQueuedSave): LevelAction is LEVACT_Saving (2)
+	// while the save runs, and one progress frame is drawn before it. The level package is written by upstream's
+	// Engine::SaveGameToSlot. Hub copies and the movers' saved positions aren't ported, nor HP2's persistent actor
+	// cache (docs/re/engine/savegames.md).
+	// IDA Engine.dll: ?SaveGame@UGameEngine@@UAEXH@Z [HP1 0x103A2280] [HP2 0x103AB430]
 	void SaveGame(int slot, const std::string& description)
 	{
 		ULevelInfo* level = engine->LevelInfo;
 		if (level)
 			level->LevelAction() = 2;
-		PaintProgress();
+		if (IsHP2())
+			RaiseSaveEvent("PreSaveGame");
+		// HP2 draws no progress frame while the player's loading screen is up (a save on arriving in a level)
+		if (!IsHP2() || !(engine->viewport && BoolProperty(engine->viewport->Actor(), "bShowLoadingScreen")))
+			PaintProgress();
 		engine->SaveGameToSlot(slot, description);
 		if (level)
 			level->LevelAction() = 0;
+		if (IsHP2())
+		{
+			SetThumbnailForSaveSlot();
+			RaiseSaveEvent("PostSaveGame");
+		}
 	}
 
 	std::string SaveGameLoadURL(const std::string& map)

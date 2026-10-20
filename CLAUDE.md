@@ -75,7 +75,8 @@ written for HP1 today is the code HP2 runs tomorrow. The rules with examples: `d
   it was PolyForm Noncommercial 1.0.0 (commits before that keep it).
 - Don't push to `origin` without explicit permission. `origin` is the Gitea server; it mirrors to GitHub
   (`github.com/kroplabeskidu/flipendo`, the README's clone URL) automatically, so a push to `origin` is all it takes.
-- The repository is `hp_re/flipendo`. Never modify `../eagames/hp1/` or `../eagames/hp2/` (pristine retail copies of HP1 and HP2).
+- The repository is `hp_re/flipendo`. Never modify `../eagames/hp1/` or `../eagames/hp2/` (pristine retail copies of HP1 and HP2; since 2026-10-20 HP2's
+  `system/Game.exe` is the No-CD build of the same exe, the SafeDisc original is kept as `../ida/hp2/Game_safedisc.exe`).
   Runs use `../eagames/hp1-work/` (disposable copy of `../eagames/hp1`, SurrealEngine writes ini/save files into it).
 - Don't download binaries or install tools without asking.
 
@@ -124,7 +125,9 @@ Each file has one job; keep them apart:
 ## IDA
 
 - Databases: `../ida/hp1/<Dll>.dll(.i64)` for HP1 (Engine, Core, Fire, Render, Galaxy), `../ida/hp2/<Dll>.dll` for HP2
-  (copies of the retail DLLs; never open the ones in `../eagames/`, IDA writes files next to them). Driven headless
+  (copies of the retail DLLs; never open the ones in `../eagames/`, IDA writes files next to them). HP2's `Game.exe`
+  (its front end): `../ida/hp2/Game_nocd.exe`, the No-CD build; the retail one's (`Game_safedisc.exe`) code is
+  encrypted by SafeDisc. Driven headless
   via the IDA MCP. HP1 vs HP2: fingerprints of each database in `../ida/fingerprints/` (`CLAUDE.local.md`).
 - Types: define structs in IDA from what the binary shows: the sizeof each class registers, field accesses in
   the decompiled code, `Serialize` order, and the script property layout from our `.u` files.

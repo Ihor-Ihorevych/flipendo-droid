@@ -26,6 +26,7 @@ namespace HP2
 	// ALAudio's console commands: MUTESOUNDS / UNMUTESOUNDS (HPConsole sends them while a skipped cutscene fast-forwards;
 	// while muted the sound effects play at volume 0, the music goes on) and SETVOLUMES SOUND=<f> MUSIC=<f> (the options page).
 	bool AudioCommand(const Array<std::string>& args);
+	// MUTESOUNDS, or the front end's "Disable all sound"
 	bool SoundsMuted();
 	// HP2's MusicVolume / SoundVolume ini values are floats 0..1 (ALAudio), the audio device's bytes 0..255.
 	// USurrealAudioDevice reads and writes its ini volumes through these.
@@ -34,6 +35,20 @@ namespace HP2
 	// What the engine loads its audio settings from on the first run, before it has its own ini section.
 	constexpr const char* AudioIniSection = "ALAudio.ALAudioSubsystem";
 	constexpr const char* RenderIniSection = "D3DDrv.D3DRenderDevice";
+
+	// HP2's front end (src/hp2/HP2FrontEnd.cpp, docs/re/hp2/startup.md): Game.exe's EA and WB splashes and its dialog
+	// (New Game, Load Game, Options), before the engine starts. Engine::Run calls it for a run without a URL, before the
+	// game window opens (not on Android: the launcher is SetupActivity). New Game sets the URL to NewGameURL, Load Game
+	// leaves it empty (the Startup map) and sets LoadGameSave(); both point the save folder at the slot's. False when the
+	// player chose Exit or closed it.
+	bool RunFrontEnd();
+	// What Game.exe starts the engine with after New Game
+	constexpr const char* NewGameURL = "PrivetDr.unr";
+	// -LOADGAME=<n>: after the first map, Engine::Run travels to the save folder's Save<n>.usa. -1 for none.
+	int LoadGameSave();
+	// [Engine.GameEngine] UseSound=False (the front end's "Disable all sound"): HP2's engine then has no audio subsystem;
+	// here sounds and music play at volume 0.
+	bool SoundDisabled();
 
 	// HP2's script bytecode (src/hp2/HP2Bytecode.cpp, docs/re/engine/scripting.md). HP2 inserted a DebugInfo token at 0x38
 	// and moved GlobalFunction..FloatToBool up by one. ToStockToken maps an HP2 token byte to the stock UE1 value

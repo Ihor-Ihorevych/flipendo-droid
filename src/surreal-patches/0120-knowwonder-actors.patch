@@ -1,7 +1,7 @@
 flipendo: KnowWonder actor tick, native actors (ParticleFX, Wind), animation
 
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor.cpp b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
-index 5f9e5e39..518d7094 100644
+index 5f9e5e39..fe6f9555 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
 @@ -9,6 +9,7 @@
@@ -12,7 +12,16 @@ index 5f9e5e39..518d7094 100644
  #include "Packages/Engine/Subsystems/USurrealAudioDevice.h"
  #include "Utils/Logger.h"
  #include "Engine.h"
-@@ -120,8 +121,23 @@ bool UActor::Destroy()
+@@ -46,6 +47,8 @@ UActor* UActor::Spawn(UClass* SpawnClass, std::optional<UActor*> SpawnOwner, std
+ 	static std::map<NameString, int> nextIndex;
+ 	NameString name = SpawnClass->Name.ToString() + std::to_string(nextIndex[SpawnClass->Name]++);
+ 	UActor* actor = UObject::Cast<UActor>(engine->LevelPackage->NewObject(name, UObject::Cast<UClass>(SpawnClass), ObjectFlags::Transient, true));
++	if (engine->LaunchInfo.IsKnowWonder()) // the native class constructor runs on the copied defaults
++		KW::ActorConstructed(actor);
+ 
+ 	actor->Outer() = XLevel()->Outer();
+ 	actor->XLevel() = XLevel();
+@@ -120,8 +123,23 @@ bool UActor::Destroy()
  	if (bDeleteMe())
  		return true;
  
@@ -36,7 +45,7 @@ index 5f9e5e39..518d7094 100644
  	//GotoState({}, {}); // What should happen to function calls after Destroy() has been called? Razor2 calls SetRoll afterwards!
  	SetBase(nullptr, true);
  
-@@ -168,6 +184,13 @@ bool UActor::Destroy()
+@@ -168,6 +186,13 @@ bool UActor::Destroy()
  
  void UActor::Tick(float elapsed)
  {
@@ -50,7 +59,7 @@ index 5f9e5e39..518d7094 100644
  	if (engine->LaunchInfo.IsDeusEx())
  	{
  		DistanceFromPlayer() = length(engine->viewport->Actor()->Location() - Location());
-@@ -182,13 +205,17 @@ void UActor::Tick(float elapsed)
+@@ -182,13 +207,17 @@ void UActor::Tick(float elapsed)
  		CallEvent(this, EventName::Tick, { ExpressionValue::FloatValue(elapsed) });
  	}
  
@@ -70,7 +79,7 @@ index 5f9e5e39..518d7094 100644
  				StateFrame->SetLatentState(LatentRunState::Continue);
  		}
  		else if (latentState == LatentRunState::FinishInterpolation)
-@@ -203,7 +230,9 @@ void UActor::Tick(float elapsed)
+@@ -203,7 +232,9 @@ void UActor::Tick(float elapsed)
  		}
  	}
  
@@ -81,7 +90,7 @@ index 5f9e5e39..518d7094 100644
  
  	if (TimerRate() > 0.0f) // Role() == ROLE_Authority && RemoteRole() == ROLE_AutonomousProxy
  	{
-@@ -216,6 +245,12 @@ void UActor::Tick(float elapsed)
+@@ -216,6 +247,12 @@ void UActor::Tick(float elapsed)
  			CallEvent(this, EventName::Timer);
  		}
  	}
@@ -94,7 +103,7 @@ index 5f9e5e39..518d7094 100644
  }
  
  bool UActor::Move(const vec3& delta)
-@@ -396,3 +431,13 @@ float UActor::AIVisibility(std::optional<bool> bIncludeVelocity)
+@@ -396,3 +433,13 @@ float UActor::AIVisibility(std::optional<bool> bIncludeVelocity)
  	//LogMessage(Name.ToString() + ": AIVisibility");
  	return 0.0f;
  }

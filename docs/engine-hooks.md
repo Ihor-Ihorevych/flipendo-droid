@@ -69,7 +69,8 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Packages/Engine/Actors/UActor.cpp` (Tick) | with KnowWonder's physics the Timer runs before the physics (HP1's AActor::Tick order) |
 | `Packages/Engine/Actors/UActor.cpp`, `UActor.h` (Tick), `Pawn/UPawn_Tick.cpp`, `Pawn/UPawn.h` | KnowWonder polls a pawn's latent action (`UPawn::PollLatentAction`, split out of `UPawn::Tick`) after the script Tick event, as HP1's ProcessState does |
 | `Collision/TopLevel/CollisionSystem.cpp/.h` | the hash files KnowWonder actors by `KW::ActorWorldCollisionBox` (CollisionWidth offset, CT_Box); `ActorsInBox` for KnowWonder's actor checks |
-| `Render/RenderSubsystem.cpp` | `HP1::OnFrameRendered` (`HP1_SHOTS` debug screenshots) |
+| `Engine.cpp` (Run, Exec) | HP2: `HP2::TickQueuedSave` after the level ticks (a save the player queued with `bQueuedToSaveGame`), `HP2::SaveCommand` for `LOADGAME <n>` (`src/hp2/HP2Save.cpp`) |
+| `Render/RenderSubsystem.cpp` | `KW::OnFrameRendered` after `Unlock` (`HP1_SHOTS` debug screenshots; `ReadPixels` needs the finished frame) |
 | `Render/RenderCanvas.cpp`, `RenderSubsystem.h` | `KW::CanvasUIScale` (float `uiscale`), `KW::SetCanvasArea` (full-width HUD, 4:3 console/menus; HP1 and HP2); `DrawClippedActor` relative to the canvas area |
 | `Render/RenderCanvas.cpp` (DrawText, DrawTextClipped), `Packages/Engine/Resources/UFont.*` | fonts made by `KW::CreateNativeFont` (`UFont::SetNativeGlyphs`, `IsNative`, `src/knowwonder/KWNativeFont.cpp`) draw premultiplied in the DrawColor whatever the style, its alpha taken as 1, like HP1's GDI text |
 | `Engine.cpp` | `HP1::ViewFovAngle` after PlayerCalcView (Hor+ FOV); trim `\|` input subcommands; `SET Input` takes the rest of the line (multi-word aliases; no alias unbinds); `getres` → `KW::AvailableResolutions`; `isfullscreen` (WinDrv's viewport command, any game: True / False); `KW::MenuMousePosition` in `OnWindowMouseMove` |
@@ -81,13 +82,13 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Packages/Engine/Actors/UActor_Phys.cpp`, `UActor_PhysRolling.cpp` | `HP1::PhysicsChecksLeftWorld` (zone-0 FellOutOfWorld only while walking) |
 | `Packages/Engine/Actors/UActor_PhysWalking.cpp` | player slides along actors it hits (no pushable decoration); `HP1::PawnMount` before the step up |
 | `Packages/Engine/Actors/UActor_PhysFalling.cpp` | `HP1::PawnMount` on a wall hit |
-| `Packages/Engine/Actors/UActor.cpp` | `HP1::TickNativeActor` (ParticleFX, Wind) in Tick, `HP1::ParticleFXDestroyed` in Destroy |
+| `Packages/Engine/Actors/UActor.cpp` | `HP1::TickNativeActor` (ParticleFX, Wind) in Tick, `HP1::ParticleFXDestroyed` in Destroy, `KW::ActorConstructed` in Spawn (what AParticleFX's constructor resets, after the class defaults are copied) |
 | `Packages/Engine/Actors/UActor.cpp` (Destroy) | KnowWonder: an actor in a state gets `EndState` when it is destroyed (HP1's ULevel::DestroyActor; `Target` draws the spell symbol on a creature from it) |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` (Tick) | with KnowWonder's physics `UPawn::Tick` leaves MoveTimer and AvgPhysicsTime to `KW::PerformPhysics` (counted twice before) |
 | `Packages/Engine/Actors/UActor_Render.cpp` | `HP1::GetParticleBoundingBox` for DT_Particles (8) |
 | `Render/VisibleActor.cpp` | DT_Particles actors drawn in the translucent pass by `HP1::DrawParticleSystem` |
-| `Engine.cpp` | `KW::FirstPersonView` after PlayerCalcView (Android: Settings > First person); `HP1::DebugCamera` after PlayerCalcView (`HP1_CAMERA`); `KW::ShowWindowInBackground` in OpenWindow (`HP1_BACKGROUND`); `HP1::TickMods` after the console tick; `HP1::ModsKeyDown` in OnWindowKeyDown |
-| `Engine.cpp` (Run) | `HP1::ModsTimeScale` multiplies the frame's level time (`src/hp1/mods/FastForward.cpp`: Shift held = 2.5x) |
+| `Engine.cpp` | `KW::FirstPersonView` after PlayerCalcView (Android: Settings > First person); `HP1::DebugCamera` after PlayerCalcView (`HP1_CAMERA`); `KW::ShowWindowInBackground` in OpenWindow (`HP1_BACKGROUND`); `HP1::TickMods` after the console tick (`IsKnowWonder()`: HP2 runs only the frame limit); `HP1::ModsKeyDown` in OnWindowKeyDown |
+| `Engine.cpp` (Run) | `HP1::ModsTimeScale` multiplies the frame's level time (`src/hp1/mods/FastForward.cpp`: Shift held = 2.5x; `IsKnowWonder()`, HP1 and HP2) |
 | `Render/RenderCanvas.cpp` (PostRender) | `HP1::PostRenderMods` after the HUD and console/menus |
 | `RenderDevice/Vulkan/UploadManager.cpp` (UploadTexture) | `HP1::LoadTextureOverride` (HP1 and HP2, gated `IsKnowWonder()`): a `Textures/<package>/<group>/<name>.dds` replacement image is uploaded instead of the texture's mipmaps (`src/hp1/mods/TextureOverrides.cpp`); UVs keep the texture's own USize/VSize. Vulkan only |
 | `Native/NObject.cpp` | DynamicLoadObject resolves "Package.Group.Name" |
@@ -108,6 +109,7 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Package/IniFile.cpp` | indexed keys (`Aliases[0]=`) are compared literally when updating a file, like the loader stores them (splitting the index threw, then blanked them) |
 | `Packages/Core/UObject.cpp` | `ScriptArray` copy/move constructors keep `Type` (copying an array, e.g. `int(Gesture.Points)`, crashed); `GotoState` clears disabled events (Core.dll's GotoState rebuilds the probe mask, so `Disable('Tick')` only lasts until the next state change; HP1's spell lesson hung on the second judging round); `Load` reads a set bit of the saved probe mask as enabled and `Save` writes it so (a mask of 0, from older saves, disables nothing) (it disabled every probe of a map actor until its first GotoState; Lev2_RemChase's intro cutscene ignored its trigger) |
 | `VM/Bytecode.h` | `FindLabelIndex` on a state with no statements returns -1 |
+| `VM/Frame.cpp` (Run) | Any game: more than 250 nested script calls is the script error "Infinite script recursion (250 calls) detected", as UE1's UObject::ProcessInternal, instead of overflowing the native stack; HP2's `harry.Summon` calls itself |
 | `VM/Frame.cpp` | `goto` to a label that doesn't exist logs "GotoLabel (x): Label not found" and stops the state code (UE1's UObject::GotoLabel) instead of a fatal error; HP1's `gargoyle.lookaround` does it (Lev4_Sneak, Lev3_Lumos) |
 | `VM/Frame.cpp` | Any game: "Accessed None" (also "when calling") is logged with its callstack once per script expression, not on every hit: since SurrealEngine runs statements on `Frame::RunExpr` it reports None inside sub-expressions too, and HP1's `BaseCam.CheckPosition` reads `PossibleVictim.Name` every frame when its trace hits nothing |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `TurnToward` on a pawn whose state frame has no code does nothing (UE1 never polls it) |
@@ -145,7 +147,7 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `GameFolder.h` | `IsKnowWonder()` is HP1 or HP2 |
 | `Render/VisibleFrame.cpp` (ProcessNodeSurface) | a one-sided BSP surface seen from behind is neither drawn nor an occluder, as in UE1 (any game; [rendering](re/engine/rendering.md#one-sided-bsp-surfaces-seen-from-behind)) |
 | `Engine.cpp` (LoginPlayer) | `IsHarryPotter2()`: `HP2::ScreenActorsByGameState` once the player is in, except on Entry ([GameState](re/hp2/engine.md#gamestate-actors-screened-by-the-story-state)) |
-| `Engine.cpp` (Run) | `IsHarryPotter2()`: without a URL, start `HP2::NewGameURL` (no front end yet, [startup](re/hp2/startup.md)) |
+| `Engine.cpp` (Run), `Package/PackageManager.h` (`SetSaveFolderPath`) | `IsHarryPotter2()`: without a URL, `HP2::RunFrontEnd` (Game.exe's splashes and menu) before the window opens: it sets the URL and the slot's save folder, or ends the run on Exit; after the first map `HP2::LoadGameSave` travels to the slot's save (Load Game, -LOADGAME) ([startup](re/hp2/startup.md)) |
 | `VM/Bytecode.h`, `VM/Bytecode.cpp`, `Packages/Core/UStruct.cpp` | `IsHarryPotter2()`: HP2's bytecode, `HP2::ToStockToken` and DebugInfo records skipped ([scripting](re/engine/scripting.md#how-flipendo-reads-it)); HP1's DynArrayCount token for HP2 too |
 | `Packages/Engine/Resources/USound.cpp`, `USound.h` | `IsHarryPotter2()`: HP2's extra sound fields in Load/Save, XA sounds through `HP2::DecodeXA` ([sound](re/engine/sound.md#hp2s-sound-objects)) |
 | `PropertyOffsets.cpp`, `Package/PackageManager.h` | `IsHarryPotter2()`: no IpDrv offsets (HP2 ships without IpDrv) |

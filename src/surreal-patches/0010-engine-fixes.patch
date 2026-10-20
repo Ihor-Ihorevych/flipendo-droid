@@ -1682,7 +1682,7 @@ index 908adb98..c32ef3f2 100644
  		{
  			Array->CopyArray(Ptr, rvalue.Ptr);
 diff --git a/SurrealEngine/VM/Frame.cpp b/SurrealEngine/VM/Frame.cpp
-index 1e7b3c96..929db6f4 100644
+index 1e7b3c96..d20024b1 100644
 --- a/SurrealEngine/VM/Frame.cpp
 +++ b/SurrealEngine/VM/Frame.cpp
 @@ -1,5 +1,6 @@
@@ -1825,18 +1825,29 @@ index 1e7b3c96..929db6f4 100644
  				StatementIndex = labelIndex;
  				LatentState = LatentRunState::Continue;
  				return;
-@@ -519,8 +571,8 @@ ExpressionEvalResult Frame::Run()
+@@ -519,8 +571,19 @@ ExpressionEvalResult Frame::Run()
  
  	ActiveCallStackFrame activeFrame(this);
  
 -	if (!Func->Code->Statements.empty())
 -		StepExpression = Func->Code->Statements[StatementIndex];
++	// UE1 stops a script that keeps calling itself (UObject::ProcessInternal: a critical error over 250 nested script
++	// calls) before the native stack runs out. HP2's harry.Summon calls itself.
++	static int scriptDepth = 0;
++	struct ScriptDepthGuard
++	{
++		ScriptDepthGuard() { scriptDepth++; }
++		~ScriptDepthGuard() { scriptDepth--; }
++	} depthGuard;
++	if (scriptDepth > 250)
++		ThrowException("Infinite script recursion (250 calls) detected");
++
 +	if (!(CodeOwner ? CodeOwner : Func)->Code->Statements.empty())
 +		StepExpression = (CodeOwner ? CodeOwner : Func)->Code->Statements[StatementIndex];
  
  	if (RunState == FrameRunState::StepInto)
  	{
-@@ -532,14 +584,22 @@ ExpressionEvalResult Frame::Run()
+@@ -532,14 +595,22 @@ ExpressionEvalResult Frame::Run()
  	int instructionsRetired = 0;
  	while (true)
  	{
@@ -1861,7 +1872,7 @@ index 1e7b3c96..929db6f4 100644
  
  		if (instructionsRetired >= maxInstructions)
  		{
-@@ -557,7 +617,7 @@ ExpressionEvalResult Frame::Run()
+@@ -557,7 +628,7 @@ ExpressionEvalResult Frame::Run()
  			Break();
  		}
  
@@ -1870,7 +1881,7 @@ index 1e7b3c96..929db6f4 100644
  		//ExpressionEvalResult result = ExpressionEvaluator::Eval(statement, Object, Object, Variables);
  		ExpressionEvalResult result = RunExpr(statement, Object, Object, Variables);
  		if (!Func)
-@@ -567,14 +627,21 @@ ExpressionEvalResult Frame::Run()
+@@ -567,14 +638,21 @@ ExpressionEvalResult Frame::Run()
  		case StatementResult::Next:
  			break;
  		case StatementResult::Jump:
@@ -1894,7 +1905,7 @@ index 1e7b3c96..929db6f4 100644
  				if (index != -1)
  				{
  					StatementIndex = index;
-@@ -592,10 +659,24 @@ ExpressionEvalResult Frame::Run()
+@@ -592,10 +670,24 @@ ExpressionEvalResult Frame::Run()
  							if (labelIndex != -1)
  							{
  								Func = state;
@@ -1919,7 +1930,7 @@ index 1e7b3c96..929db6f4 100644
  						}
  					}
  					if (!found)
-@@ -638,7 +719,7 @@ ExpressionEvalResult Frame::Run()
+@@ -638,7 +730,7 @@ ExpressionEvalResult Frame::Run()
  				ThrowException("Iterator statement without an iterator in " + Object->Name.ToString() + "." + Func->Name.ToString());
  			Iterators.push_back(std::move(result.Iter));
  			Iterators.back()->StartStatementIndex = curStatementIndex + 1;
@@ -1928,7 +1939,7 @@ index 1e7b3c96..929db6f4 100644
  			if (Iterators.back()->Next())
  				StatementIndex = Iterators.back()->StartStatementIndex;
  			else
-@@ -658,8 +739,7 @@ ExpressionEvalResult Frame::Run()
+@@ -658,8 +750,7 @@ ExpressionEvalResult Frame::Run()
  			Iterators.pop_back();
  			break;
  		case StatementResult::AccessedNone:
@@ -1938,7 +1949,7 @@ index 1e7b3c96..929db6f4 100644
  			break;
  		}
  
-@@ -674,18 +754,23 @@ ExpressionEvalResult Frame::Run()
+@@ -674,18 +765,23 @@ ExpressionEvalResult Frame::Run()
  
  void Frame::ProcessSwitch(const ExpressionValue& condition)
  {
@@ -1966,7 +1977,7 @@ index 1e7b3c96..929db6f4 100644
  		}
  		else
  		{
-@@ -1020,7 +1105,8 @@ ExpressionEvalResult Frame::RunExpr(Expression* statementExpr, UObject* self, UO
+@@ -1020,7 +1116,8 @@ ExpressionEvalResult Frame::RunExpr(Expression* statementExpr, UObject* self, UO
  					}
  					else
  					{

@@ -156,10 +156,21 @@ namespace KW
 	{
 		InstallResolutionOverride();
 
+		std::string result;
+		for (auto& mode : ResolutionModes(window->GetDpiScale(), window->GetPixelWidth(), window->GetPixelHeight()))
+		{
+			if (!result.empty())
+				result += " ";
+			result += std::to_string(mode.first) + "x" + std::to_string(mode.second);
+		}
+		return result.empty() ? "640x480" : result;
+	}
+
+	std::vector<std::pair<int, int>> ResolutionModes(double dpiScale, int currentX, int currentY)
+	{
 		Size screen = Widget::GetScreenSize();
-		double dpi = window->GetDpiScale();
-		int desktopX = (int)std::lround(screen.width * dpi);
-		int desktopY = (int)std::lround(screen.height * dpi);
+		int desktopX = (int)std::lround(screen.width * dpiScale);
+		int desktopY = (int)std::lround(screen.height * dpiScale);
 
 		static const int commonModes[][2] = {
 			{ 640, 480 }, { 800, 600 }, { 1024, 768 }, { 1280, 720 }, { 1280, 960 }, { 1366, 768 }, { 1600, 900 },
@@ -178,20 +189,12 @@ namespace KW
 				modes.push_back({ mode[0], mode[1] });
 		}
 		modes.push_back({ desktopX, desktopY });
-		modes.push_back({ window->GetPixelWidth(), window->GetPixelHeight() });
+		if (currentX > 0 && currentY > 0)
+			modes.push_back({ currentX, currentY });
 
 		std::sort(modes.begin(), modes.end());
 		modes.erase(std::unique(modes.begin(), modes.end()), modes.end());
-
-		std::string result;
-		for (auto& mode : modes)
-		{
-			if (mode.first < 640 || mode.second < 480)
-				continue;
-			if (!result.empty())
-				result += " ";
-			result += std::to_string(mode.first) + "x" + std::to_string(mode.second);
-		}
-		return result.empty() ? "640x480" : result;
+		modes.erase(std::remove_if(modes.begin(), modes.end(), [](auto& mode) { return mode.first < 640 || mode.second < 480; }), modes.end());
+		return modes;
 	}
 }

@@ -10,71 +10,153 @@
 #include "Utils/StrTools.h"
 #include <algorithm>
 #include <chrono>
+#include <mutex>
+#include <vector>
 #include <cmath>
 
 // HP2's music: no Galaxy songs in .umx packages but Ogg Vorbis files in Music/, which scripts start and stop by name
-// (PlayerPawn.ClientSetMusic, MusicTrigger, FEBook). The natives only record the request; UpdateMusic, called every
-// frame from the audio device in place of HP1's Galaxy music update, starts the song and runs the fades.
-// One song plays at a time: a new PlayMusic replaces the one playing.
+// (PlayerPawn.ClientSetMusic, MusicTrigger, NewMusicTrigger, cutscenes, FEBook). ALAudio plays each song as a sound
+// source of its own, so several play at once: a level's music goes on under a jingle that a MusicTrigger starts and
+// stops again. Here the songs are mixed into the audio device's one music stream (docs/re/hp2/engine.md).
 
 namespace HP2
 {
 	namespace
 	{
-		struct MusicState
+		struct Track
 		{
-			int lastHandle = 0;
-			int handle = 0;               // the song playing (or about to start), 0 = none
-			std::string pendingSong;      // set by PlayMusic, started by UpdateMusic
-			bool stopPending = false;
-			float fade = 0.0f;            // 0..1
-			float fadeRate = 0.0f;        // per second, > 0 fading in, < 0 fading out
-			bool started = false;
-			std::chrono::steady_clock::time_point lastUpdate;
+			int handle = 0;
+			std::unique_ptr<AudioSource> source;
+			int fadeState = 0;       // ALAudio's: 0 none, 1 fading in, 2 fading out (the source stops at the end)
+			float fadeTime = 0.0f;
+			float fadeElapsed = 0.0f;
+			float gain = 1.0f;       // set by UpdateMusic
+			float mixedGain = 1.0f;  // where the mixer's ramp to gain got to
 		};
-		MusicState music;
 
-		void StartFade(float seconds, bool in)
+		// The tracks are changed by the game thread (the natives, UpdateMusic) and read by the audio device's music
+		// thread (Mixer::ReadSamples)
+		std::mutex tracksMutex;
+		std::vector<Track> tracks;
+		int lastHandle = 0;
+		bool mixerPlaying = false;
+		bool started = false;
+		std::chrono::steady_clock::time_point lastUpdate;
+
+		const int MixFrequency = 44100;
+		const int MixChannels = 2;
+
+		class Mixer : public AudioSource
 		{
-			float rate = seconds > 0.0f ? 1.0f / seconds : 1000.0f;
-			music.fadeRate = in ? rate : -rate;
+		public:
+			int GetFrequency() override { return MixFrequency; }
+			int GetChannels() override { return MixChannels; }
+			int GetSamples() override { return -1; }
+			void SeekToSample(uint64_t position) override { }
+
+			size_t ReadSamples(float* output, size_t samples) override
+			{
+				std::fill(output, output + samples, 0.0f);
+				buffer.resize(samples);
+				size_t frames = samples / MixChannels;
+				std::lock_guard lock(tracksMutex);
+				for (Track& track : tracks)
+				{
+					size_t count = track.source->ReadSamples(buffer.data(), samples);
+					// A ramp from the last chunk's gain, so a fade has no steps
+					float from = track.mixedGain, to = track.gain;
+					for (size_t i = 0; i < count; i++)
+					{
+						float t = frames > 0 ? (float)(i / MixChannels) / (float)frames : 1.0f;
+						output[i] += buffer[i] * (from + (to - from) * t);
+					}
+					track.mixedGain = to;
+				}
+				for (size_t i = 0; i < samples; i++)
+					output[i] = std::clamp(output[i], -1.0f, 1.0f);
+				return samples;
+			}
+
+		private:
+			Array<float> buffer;
+		};
+
+		// UALAudioSubsystem::StopMusic: no fade time stops the source now, else it fades out from full volume
+		void StopTrack(std::vector<Track>::iterator it, float fadeOutTime)
+		{
+			if (fadeOutTime <= 0.0f)
+			{
+				tracks.erase(it);
+			}
+			else
+			{
+				it->fadeElapsed = 0.0f;
+				it->fadeTime = fadeOutTime;
+				it->fadeState = 2;
+			}
 		}
 	}
 
-	// IDA Engine.dll: ?execPlayMusic@AActor@@QAEXAAUFFrame@@QAX@Z NOT yet verified against HP2's code (ALAudio.dll not reversed)
-	// Actor.PlayMusic(string Song, float FadeInTime): the file name in Music/ ("sm_dia_Ambient02_01.ogg"); returns a handle.
+	// IDA ALAudio.dll: ?PlayMusic@UALAudioSubsystem@@UAEHVFString@@M@Z [HP2 ALAudio 0x10004C70]
+	// IDA ALAudio.dll: ?PlaySound@UALAudioSubsystem@@UAEHPAVAActor@@HPAVUSound@@VFVector@@MMMHMM@Z [HP2 ALAudio 0x100040F0] (flags 28: streamed, music volume, no position; the fade in)
+	// IDA ALAudio.dll: ?RegisterSound@UALAudioSubsystem@@UAEHPAVUSound@@@Z [HP2 ALAudio 0x10003400] (a music Ogg is stream type 2, which FFileStream::Read loops)
+	// Actor.PlayMusic(string Song, float FadeInTime): "..\Music\<Song>", with ".ogg" added when the name has another
+	// extension or none. An empty song or "None" plays nothing. Returns the handle, 0 when nothing plays. ALAudio's handle
+	// is the sound source's index + 1 (reused by later sounds); here every song gets a new one.
 	static void NPlayMusic(UObject* Self, const std::string& Song, float FadeInTime, int& ReturnValue)
 	{
-		music.handle = ++music.lastHandle;
-		music.pendingSong = Song;
-		music.stopPending = false;
-		music.fade = 0.0f;
-		StartFade(FadeInTime, true);
-		ReturnValue = music.handle;
+		ReturnValue = 0;
+		if (Song.empty() || StrTools::equals_ignore_case(Song, "None"))
+			return;
+		std::filesystem::path folder = KW::FindIgnoringCase(engine->LaunchInfo.gameRootFolder, "Music");
+		std::filesystem::path path = KW::FindIgnoringCase(folder, Song);
+		if (path.empty() || !StrTools::equals_ignore_case(path.extension().string(), ".ogg"))
+			path = KW::FindIgnoringCase(folder, Song + ".ogg");
+		std::unique_ptr<AudioSource> source;
+		if (!path.empty())
+			source = AudioSource::CreateOgg(File::read_all_bytes(path.string()), true);
+		if (source && source->GetFrequency() != MixFrequency)
+			source = AudioSource::CreateResampler(MixFrequency, std::move(source));
+		if (!source || source->GetChannels() != MixChannels)
+		{
+			LogMessage("PlayMusic: can't play " + Song);
+			return;
+		}
+
+		Track track;
+		track.handle = ++lastHandle;
+		track.source = std::move(source);
+		if (FadeInTime > 0.0f)
+		{
+			track.fadeState = 1;
+			track.fadeTime = FadeInTime;
+			track.gain = track.mixedGain = 0.0f;
+		}
+		std::lock_guard lock(tracksMutex);
+		tracks.push_back(std::move(track));
+		ReturnValue = lastHandle;
 	}
 
-	// IDA Engine.dll: ?execStopMusic@AActor@@QAEXAAUFFrame@@QAX@Z NOT yet verified against HP2's code (ALAudio.dll not reversed)
+	// IDA ALAudio.dll: ?StopMusic@UALAudioSubsystem@@UAEHHM@Z [HP2 ALAudio 0x100050C0]
 	static void NStopMusic(UObject* Self, int SongHandle, float FadeOutTime)
 	{
-		if (SongHandle != 0 && SongHandle == music.handle)
-			StartFade(FadeOutTime, false);
+		std::lock_guard lock(tracksMutex);
+		auto it = std::find_if(tracks.begin(), tracks.end(), [&](const Track& t) { return t.handle == SongHandle; });
+		if (it != tracks.end())
+			StopTrack(it, FadeOutTime);
 	}
 
-	// IDA Engine.dll: ?execStopAllMusic@AActor@@QAEXAAUFFrame@@QAX@Z NOT yet verified against HP2's code (ALAudio.dll not reversed)
+	// IDA ALAudio.dll: ?StopAllMusic@UALAudioSubsystem@@UAEHM@Z [HP2 ALAudio 0x100051B0]
 	static void NStopAllMusic(UObject* Self, float FadeOutTime)
 	{
-		if (music.handle == 0)
-			return;
+		std::lock_guard lock(tracksMutex);
 		if (FadeOutTime <= 0.0f)
 		{
-			music.handle = 0;
-			music.pendingSong.clear();
-			music.stopPending = true;
+			tracks.clear();
+			return;
 		}
-		else
-		{
-			StartFade(FadeOutTime, false);
-		}
+		for (auto it = tracks.begin(); it != tracks.end(); ++it)
+			StopTrack(it, FadeOutTime);
 	}
 
 	void RegisterMusicNatives()
@@ -84,47 +166,54 @@ namespace HP2
 		RegisterVMNativeFunc_1("Actor", "StopAllMusic", &NStopAllMusic, 0);
 	}
 
+	// IDA ALAudio.dll: ?Update@UALAudioSubsystem@@UAEXPAUFSceneNode@@@Z [HP2 ALAudio 0x100052D0] (the fades: a step of at most 1 s, linear in time)
 	float UpdateMusic(AudioDevice* device, uint8_t musicVolume)
 	{
 		auto now = std::chrono::steady_clock::now();
-		float deltaTime = music.started ? std::clamp(std::chrono::duration<float>(now - music.lastUpdate).count(), 0.0f, 1.0f) : 0.0f;
-		music.lastUpdate = now;
-		music.started = true;
+		float deltaTime = started ? std::chrono::duration<float>(now - lastUpdate).count() : 0.0f;
+		lastUpdate = now;
+		started = true;
 
-		if (music.stopPending)
+		if (!mixerPlaying)
 		{
-			device->PlayMusic(nullptr);
-			music.stopPending = false;
+			device->PlayMusic(std::make_unique<Mixer>());
+			mixerPlaying = true;
 		}
 
-		if (!music.pendingSong.empty())
 		{
-			std::string song = music.pendingSong;
-			music.pendingSong.clear();
-			// Scripts name the song with or without the extension (FEBook's "Intro_Movie_Music_Edit")
-			std::filesystem::path folder = KW::FindIgnoringCase(engine->LaunchInfo.gameRootFolder, "Music");
-			std::filesystem::path path = KW::FindIgnoringCase(folder, song);
-			if (path.empty())
-				path = KW::FindIgnoringCase(folder, song + ".ogg");
-			std::unique_ptr<AudioSource> source;
-			if (!path.empty())
-				source = AudioSource::CreateOgg(File::read_all_bytes(path.string()), true);
-			if (!source)
-				LogMessage("PlayMusic: can't play " + song);
-			device->PlayMusic(std::move(source));
-		}
-
-		if (music.handle != 0)
-		{
-			music.fade = std::clamp(music.fade + music.fadeRate * deltaTime, 0.0f, 1.0f);
-			if (music.fadeRate < 0.0f && music.fade <= 0.0f)
+			std::lock_guard lock(tracksMutex);
+			for (auto it = tracks.begin(); it != tracks.end();)
 			{
-				device->PlayMusic(nullptr);
-				music.handle = 0;
+				if (it->fadeState != 0 && deltaTime < 1.0f)
+					it->fadeElapsed += deltaTime;
+				if (it->fadeState == 1)
+				{
+					if (it->fadeElapsed < it->fadeTime)
+						it->gain = it->fadeElapsed / it->fadeTime;
+					else
+					{
+						it->gain = 1.0f;
+						it->fadeState = 0;
+					}
+				}
+				else if (it->fadeState == 2)
+				{
+					if (it->fadeElapsed >= it->fadeTime)
+					{
+						it = tracks.erase(it);
+						continue;
+					}
+					it->gain = 1.0f - it->fadeElapsed / it->fadeTime;
+				}
+				else
+				{
+					it->gain = 1.0f;
+				}
+				++it;
 			}
 		}
 
-		return music.handle != 0 ? music.fade * musicVolume / 255.0f : 0.0f;
+		return !SoundDisabled() ? musicVolume / 255.0f : 0.0f;
 	}
 
 	static bool soundsMuted = false;
@@ -189,6 +278,6 @@ namespace HP2
 
 	bool SoundsMuted()
 	{
-		return soundsMuted;
+		return soundsMuted || SoundDisabled();
 	}
 }

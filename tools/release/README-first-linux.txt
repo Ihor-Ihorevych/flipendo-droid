@@ -27,7 +27,7 @@ https://github.com/kroplabeskidu/flipendo/blob/master/docs/troubleshooting.md
 
 LAUNCH OPTIONS (after the game folder)
 
-  --skip-splash              skip the logo screens (HP1)
+  --skip-splash              skip the logo screens (the default; also with --vanilla)
   --skip-intro               New Game goes straight to the first level (HP1)
   --vanilla                  turn off every extra the original doesn't have
   --logfile=flipendo.log     write a log file (attach it to bug reports)

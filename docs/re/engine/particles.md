@@ -13,7 +13,8 @@ Addresses are HP1's `..._0` bodies in `../ida/hp1/Engine.dll.i64`. `EmitParticle
 HP2 keeps the system and leans on it harder (HP2's `HPParticle` package has 164 ParticleFX classes, and its spell
 cursor `SpellCursor` is a ParticleFX). In the HP1 vs HP2 code comparison: `Tick`, `Update`, `AddParticle`,
 `RecomputeDeltas`, `InitExecution`, `Destroy` and Wind's `Radius`/`FlucPeriod` differ only in offsets;
-`GetTotalWind` is identical; the constructor (125 -> 203 bytes), `GetParams`, `GetSysParams`, `EmitParticles`,
+`GetTotalWind` is identical; the constructor (125 -> 203 bytes: the same Age/ElapsedTime/LOD reset, the extra bytes
+are AActor's field inits inlined), `GetParams`, `GetSysParams`, `EmitParticles`,
 `UpdateParticles`, `UParticle::Update`, `GetRenderBoundingBox` and Wind's `GetWind`/`Tick` changed, HP2 code not read
 yet. Render.dll (the drawing passes) has no HP2 fingerprint yet.
 
@@ -83,6 +84,15 @@ draw f, each channel `min(Base + clamp(int(Rand*f), 0, 255), 255)`.
 ParentBlend <= 0: this; >= 1: the parent class's defaults; otherwise a copy with every FloatParams
 (except ParticlesPerSec/Period/Decay) lerped `parent*pb + own*(1-pb)` and colours per channel
 `clamp(int(parent*pb)) + clamp(int(own*(1-pb)))` (saturating). Parent = `Class->SuperField` defaults.
+
+## Constructor (0x103C0E90): spawned systems start at Age 0
+
+UE1 copies the class defaults into a new object and then runs its C++ constructor, which sets `Age` and
+`ElapsedTime` to 0 and `LOD` to 1. A spawned system therefore starts at Age 0 whatever its class's defaults hold;
+a map's systems load their saved Age over it afterwards. Some classes were saved with a large Age: HP2's
+`HPParticle.BronzePickup` (the burst when Harry picks up a bronze wizard card) has `Age=643` and `ParticlesMax=150`
+in its defaults. Without the reset, Tick finds `Age > ParticlesMax / ParticlesPerSec + Lifetime` and destroys it
+on its first tick, before it is ever drawn. With the reset it runs about 3 s.
 
 ## Tick (0x103C3C80) / Update (0x103C3DE0) / UpdateParticles (0x103C1D60)
 

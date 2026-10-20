@@ -15,7 +15,7 @@
 
 // HP2 saves from a queue: PlayerPawn.SaveGame() only sets bQueuedToSaveGame ("the engine will detect that we want a
 // save game at the end of the update loop") and the slot page always reads save number 0. At the end of a frame with the
-// flag set the engine clears it, tells every actor (PreSaveGame / PostSaveGame, which harry uses) and writes the level.
+// flag set the engine clears it and writes the level (KW::SaveGame tells every actor PreSaveGame / PostSaveGame, which harry uses).
 // NOT reversed: UGameEngine::SaveGame of HP2 (HP2 0x103AB430, changed from HP1) was not read; this writes the same
 // level package HP1's save does (KW::SaveGame), as Save0 of the save folder, and reloads it for "LoadGame 0".
 namespace HP2
@@ -34,18 +34,6 @@ namespace HP2
 		activeSlot = slot < 0 ? 0 : slot;
 	}
 
-	static void RaiseOnAllActors(const char* eventName)
-	{
-		if (!engine->Level)
-			return;
-		const size_t count = engine->Level->Actors.size();
-		for (size_t i = 0; i < count; i++)
-		{
-			UActor* actor = engine->Level->Actors[i];
-			if (actor)
-				CallEvent(actor, NameString(eventName));
-		}
-	}
 
 	void TickSave()
 	{
@@ -60,9 +48,7 @@ namespace HP2
 			return;
 		player->BoolValue(queued) = false;
 
-		RaiseOnAllActors("PreSaveGame");
 		KW::SaveGame(activeSlot, std::string());
-		RaiseOnAllActors("PostSaveGame");
 		LogMessage("HP2 save: Save" + std::to_string(activeSlot) + " written");
 
 		// What the launcher shows for the slot: the map (its picture is System/Thumbnails/<map>.bmp) and the time.

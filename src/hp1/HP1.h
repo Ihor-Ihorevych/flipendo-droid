@@ -15,7 +15,8 @@ template<typename T> class Array;
 
 namespace HP1
 {
-	// Additions the original game doesn't have (src/hp1/mods/). Engine::Tick, after the console tick.
+	// Additions the original game doesn't have (src/hp1/mods/). Engine::Tick, after the console tick (HP1 and HP2; HP2
+	// runs only the mods that read no HP1 scripts).
 	void TickMods(float realElapsed);
 	// Engine::OnWindowKeyDown, before the key is routed anywhere (EInputKey value).
 	void ModsKeyDown(int key);
@@ -28,7 +29,11 @@ namespace HP1
 	void TickSaveRequest();
 #endif
 	// Engine::Tick, when the frame's game time is worked out: how much faster the game runs this frame (1 = normal).
+	// HP1 and HP2.
 	float ModsTimeScale();
+	// HP2's front end (src/hp2/HP2FrontEnd.cpp), before Game.exe's EA and WB splashes: whether to skip them
+	// (src/hp1/mods/LaunchSkips.cpp).
+	bool ModsSkipSplash();
 	// RenderSubsystem::PostRender, after the HUD and the console/menus.
 	void PostRenderMods(UCanvas* canvas);
 	// Vulkan UploadManager::UploadTexture: a replacement image for the texture (Textures/<package>/<group>/<name>.dds,
