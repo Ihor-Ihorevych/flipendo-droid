@@ -7,6 +7,9 @@
 
 class AudioDevice;
 class ULevel;
+class BspSurface;
+template<typename T> struct vec3T;
+typedef vec3T<float> vec3;
 
 // Harry Potter 2 only: what HP2's engine has that HP1's doesn't (docs/one-engine.md). The shared KnowWonder engine code is
 // in src/knowwonder/KW.h, HP1-only code in src/hp1/HP1.h. Nothing here runs yet: IsKnowWonder() is still HP1 only (GameFolder.h).
@@ -61,6 +64,12 @@ namespace HP2
 	// [Engine.GameEngine] UseSound=False (the front end's "Disable all sound"): HP2's engine then has no audio subsystem;
 	// here sounds and music play at volume 0.
 	bool SoundDisabled();
+
+	// HP2's Lumos surfaces (src/hp2/HP2Lumos.cpp): VisibleFrame::Process marks the view zone's ones near the player's lit
+	// Lumos, VisibleNode::Draw asks how to draw one: false skips it, else polyFlags and opacity (SurfaceInfo::Opacity)
+	// are what to draw it with.
+	void MarkLumosSurfaces(int viewZone);
+	bool LumosSurface(const BspSurface& surface, const vec3* points, int count, uint32_t& polyFlags, float& opacity);
 
 	// HP2's "XA" sounds (EA-XA ADPCM, src/hp2/HP2Sound.cpp) decoded into a 16-bit WAV file
 	Array<uint8_t> DecodeXA(const Array<uint8_t>& data, int sampleCount, int channels, int rate);

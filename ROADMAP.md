@@ -33,6 +33,8 @@ Legend: [~] partly done / in progress · [ ] not started
         beam is another effect: likely the wand's charge particles (`baseWand.fxChargeParticles`, only
         `EnableEmission(false)` after a cast, so ParticleFX must stop emitting and let its particles die). Needs a
         real cast to see which
+  - [ ] Lumos surfaces (as HP2's Render.dll, 2026-10-20): check in play that the grounds wall by the stairs is solid,
+        and fades near Harry once Lumos was lit next to it
   - [ ] Check the remaining "changed" ports for real behaviour differences (beyond the DebugInfo check)
   - [ ] Engine behaviour HP2's scripts may need, worth checking: state labels inherited from a parent state, class
         references in travel data, dialogue with `Disable3D` playing at full volume wherever the camera is
@@ -43,7 +45,7 @@ Legend: [~] partly done / in progress · [ ] not started
   - [ ] Check the unverified HP2 engine differences in HP2's code ([docs/re/hp2/gameplay.md](docs/re/hp2/gameplay.md)):
         music always loops, save loading, lip sync, movers colliding by bounding box
   - [ ] HP2-only engine features ([docs/re/hp2/engine.md](docs/re/hp2/engine.md)): the `GAMESTATE=` command line
-        override, Lumos surfaces, TurnTo's flattened focus, particle Opacity, I3DL2 reverb, oval collision cylinders
+        override, TurnTo's flattened focus, particle Opacity, I3DL2 reverb, oval collision cylinders
   - [ ] Linux: `HP1_SHOTS` screenshots crash the game after the first one (also HP2), which limits automated testing
         (segfault in radv's `vkCmdEndRenderPass`, called from `VulkanRenderDevice::Unlock` in `RenderSubsystem::DrawGame`
         right after the shot is saved)

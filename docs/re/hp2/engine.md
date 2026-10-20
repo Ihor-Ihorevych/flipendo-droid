@@ -113,13 +113,32 @@ one in the story (checked 2026-10-05 over every `.unr` in HP1's `Maps`).
 
 ## Lumos surfaces
 
-HP2 marks BSP surfaces that Lumos makes disappear or appear, with combinations of existing poly flags
-(`PF_HighShadowDetail | PF_Modulated` = affected, disappearing by default; `PF_Gouraud` = appearing instead;
-`PF_DirtyShadows` = always on). The renderer reads the player's `bLumosOn` and `fLumosRadius` (PlayerPawn): in
-hardware mode the surface's alpha comes from the distance of its nearest vertex to the player, and appearing surfaces
-aren't drawn while Lumos is off. D3DDrv blends affected surfaces as INVSRCALPHA / SRCALPHA with the vertex alpha.
-Needs SurrealEngine's BSP surface path and the vertex alpha added for `Actor.Opacity`
-([engine/rendering.md](../engine/rendering.md)).
+HP2 marks BSP surfaces Lumos acts on with `PF_HighShadowDetail | PF_Modulated` in the surface's own PolyFlags (not the
+texture's); with `PF_Gouraud` too the surface is one Lumos brings in instead of fading out. `PF_DirtyShadows` on one of
+them means Lumos has reached it. Read in HP2's Render.dll and D3DDrv:
+
+- `URender::OccludeBsp` [HP2 Render 0x10B21DD0]: while the viewport's PlayerPawn has `bLumosOn` (not in the editor),
+  every BSP node with both zones the view zone, whose surface has either flag and not `PF_DirtyShadows`, gets
+  `PF_DirtyShadows` on its surface when one of its vertices is within `fLumosRadius` (PlayerPawn, 512, never changed by
+  the scripts) of the player's Location. The mark stays for good: from then on the surface fades by distance with or
+  without Lumos.
+- `URender::DrawFrame` [HP2 Render 0x10B24F30], a surface with either flag (not in the editor): not drawn at all
+  unless the viewport's actor is a PlayerPawn. Hardware path: without `PF_DirtyShadows`, alpha 0 (plus `0x80000000`,
+  depth write) or 255 for an appearing one; with it, `r = min(nearest vertex distance / (fLumosRadius * 0.8), 1)`, alpha
+  `255 - 255r` capped at 200 (0 gets the depth write), or for an appearing one `255r`, at least 100. The flags go to the
+  device unchanged, the alpha as a new last parameter of `DrawComplexSurface`. Software path (`SpanBased`): a marked
+  surface is drawn `PF_Translucent`; an unmarked appearing one only while `bLumosOn`.
+- `UD3DRenderDevice::SetBlending` [HP2 D3DDrv 0x10009270]: both flags blend as INVSRCALPHA / SRCALPHA, the alpha in
+  the vertex colour (`DrawComplexSurface`). So alpha 0 is solid, 255 invisible. With one flag only the surface draws as
+  usual (`PF_Modulated` modulates).
+
+The grounds wall (Grounds_hub surfaces 1566 and 1567, Grounds_Night 1216 and 1217, `HogBrickTrimGrass_GH1`, flags
+`0x800048`) is solid until Lumos is lit near it, then fades as the player comes close.
+
+Flipendo: `HP2::MarkLumosSurfaces` (from `VisibleFrame::Process`) and `HP2::LumosSurface` (from `VisibleNode::Draw`).
+INVSRCALPHA / SRCALPHA with alpha `a` is the devices' premultiplied `PF_Highlighted` with colour and alpha `1 - a`
+(`SurfaceInfo::Opacity`), which scales the texture and lightmap, not the fog map. Alpha 0 draws the surface without
+the two flags (solid), 255 skips it.
 
 ## Pawn turning
 
