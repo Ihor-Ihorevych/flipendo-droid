@@ -43,7 +43,8 @@ Legend: [~] partly done / in progress · [ ] not started
   3. Play the 43 maps through, incl. the 10 duels and Quidditch (4-8 days)
   4. Polish (1-2 days)
   - [ ] Check the unverified HP2 engine differences in HP2's code ([docs/re/hp2/gameplay.md](docs/re/hp2/gameplay.md)):
-        movers colliding by bounding box, the mover flickering fix
+        movers colliding by bounding box, the mover flickering fix; find a map with an
+        `MV_SpringByTime` mover (ported 2026-10-21, not seen in play) and check it
   - [ ] HP2-only engine features ([docs/re/hp2/engine.md](docs/re/hp2/engine.md)): the `GAMESTATE=` command line
         override, TurnTo's flattened focus, particle Opacity, I3DL2 reverb, oval collision cylinders
   - [ ] Linux: `HP1_SHOTS` screenshots crash the game after the first one (also HP2), which limits automated testing

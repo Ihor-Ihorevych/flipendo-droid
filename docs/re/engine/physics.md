@@ -311,6 +311,14 @@ bumps it again when `BumpMove` re-enables Bump. Checked 2026-10-05: each cast mo
 `Mover.uc` re-declares `PhysAlpha` and `PhysRate`, shadowing Actor's. Mover script (InterpolateTo etc.) and
 `AActor::physMovingBrush` (0x104061F0) use the Mover copies; SurrealEngine's TickMovingBrush used Actor's, which stay
 0, so doors were triggered but never moved. Ported whole in `KW::PhysMovingBrush` (`src/knowwonder/KWMover.cpp`).
+
+HP2's `physMovingBrush` [HP2 0x104137A0] (read 2026-10-21) is HP1's (both clamp the key index at 8) with two
+additions. `MoverGlideType` 2, `MV_SpringByTime`: into the first and the last key (moving towards a middle key it is
+linear) the mover moves linearly over the first `(MoveTime - MoverSpringTime) / MoveTime` of the move (0.75 when that
+isn't between 0 and 1), then makes `MoverFluctuations` (0 counts as 1) triangle dips back from the end, sharing the
+rest of the move evenly, the first `MoverMaxAmplitude` deep (0.1 when not between 0 and 1), each next one half as deep.
+A blocked move stores the hit's location and normal in the mover's `HitPosition` / `HitNormal` (no script reads them).
+Flipendo: `IsHP2()` branches in `KW::PhysMovingBrush`. Which HP2 maps use the spring glide wasn't checked.
 Checked in HP1. It first walks the actor's class chain and returns unless the actor is a Mover: any other actor with
 `PHYS_MovingBrush` doesn't move (Lev2_Inc_A's `spellTrigger2`, Tag `Shelf2`, has `Physics=9` in the map). While
 `bInterpolating`, each step:
