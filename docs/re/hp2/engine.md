@@ -100,10 +100,22 @@ read in HP2's Engine.dll.
 
 - Music: ALAudio.dll (OpenAL + Ogg Vorbis) plays the music. Scripts pass a file name in `Music/`
   (`PlayMusic("sm_dia_Ambient02_01.ogg", 0.5)` returns a handle; `StopMusic(handle, fade)`, `StopAllMusic(fade)`;
-  `PlayerPawn.Song` is a string). Flipendo: `src/hp2/HP2Music.cpp`, written from the scripts and NOT yet checked against
-  ALAudio.dll: one song at a time, looping, linear fades. `KW::UpdateMusic` hands over to it for HP2 (HP1's Galaxy
-  music properties don't exist in HP2's PlayerPawn). Some scripts leave the extension off (FEBook's
-  `Intro_Movie_Music_Edit`, `PrivetDrive2_late2school`, `sm_wwa_willowLevel1p_01_part2`); Flipendo then tries `.ogg`.
+  `PlayerPawn.Song` is a string). From ALAudio.dll (2026-10-20):
+  - `UALAudioSubsystem::PlayMusic` [HP2 ALAudio 0x10004C70]: an empty song or `None` plays nothing and returns 0. Else
+    the path is `..\Music\<song>`, with `.ogg` added when the name's extension isn't `ogg` (FEBook's
+    `Intro_Movie_Music_Edit`, `sm_wwa_skurgeExploreEdit_01_ogg`); a transient USound with flags 12 (streamed, music)
+    is played through `PlaySound` with flags 28 (+ no position), radius 1000, the fade-in time, and the handle is that
+    sound source's index + 1. **Each song is a sound source of its own: a new song doesn't stop the others.** A level's
+    music goes on under a jingle a MusicTrigger starts and stops (Adv1Willow's `willow1hit`), and a NewMusicTrigger's
+    song starts next to what a cutscene left playing, until a trigger with FadeOutAllSongs stops them all.
+  - `StopMusic(handle, fade)` [0x100050C0]: no fade stops the source; else it fades out (from full volume) and stops.
+    `StopAllMusic(fade)` [0x100051B0] does that to every source with the music flag (8).
+  - Fades (`Update` [0x100052D0]): linear in time, a step of at most 1 s; a music source's volume is MusicVolume.
+  - Music always loops: `RegisterSound` [0x10003400] opens a music Ogg as `FFileStream` type 2, which `FFileStream::Read`
+    [HP2 Core 0x10178390] rewinds at the end (type 1, other Ogg sounds, ends).
+  Flipendo (`src/hp2/HP2Music.cpp`) mixes the songs into the audio device's one music stream; handles are new numbers,
+  not reused source indices. `KW::UpdateMusic` hands over to it for HP2 (HP1's Galaxy music properties don't exist in
+  HP2's PlayerPawn). Before 2026-10-20 it played one song at a time, so each new song cut off the one before.
   Every song loops, so SurrealEngine's Ogg stream restarts at the end (`OggAudioSource::SeekToSample`); that closed
   the Vorbis decoder while the rest of its last frame was still to be copied, and the next read used the freed buffer
   (a crash about two minutes into the Whomping Willow, at once with a 2.5 s song). Fixed in `0010-engine-fixes`.
