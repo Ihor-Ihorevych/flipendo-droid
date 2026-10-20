@@ -1,7 +1,7 @@
 flipendo: fixes to SurrealEngine bugs (any game): VM (and HP2's bytecode tokens), properties, ini files (UTF-16 localization files), packages (Unicode strings), UTF-16 strings and file names that differ in case on Linux, GetLanguage, fonts (character remap, text drawn by code point, runtime-made fonts), crash reports, music streaming and following the default audio device (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties
 
 diff --git a/SurrealEngine/Audio/AudioDevice.cpp b/SurrealEngine/Audio/AudioDevice.cpp
-index 03e82566..b853159a 100644
+index 03e82566..d5e4326c 100644
 --- a/SurrealEngine/Audio/AudioDevice.cpp
 +++ b/SurrealEngine/Audio/AudioDevice.cpp
 @@ -13,6 +13,7 @@
@@ -21,7 +21,20 @@ index 03e82566..b853159a 100644
  		}
  	}
  
-@@ -131,7 +132,21 @@ public:
+@@ -116,6 +117,12 @@ public:
+ 		}
+ 	}
+ 
++	// Loops the whole sound when asked, or between its loop points when it has them (SetSound)
++	void SetLooping(bool loop)
++	{
++		alSourcei(id, AL_LOOPING, (loop || (sound && sound->loopInfo.Looped)) ? AL_TRUE : AL_FALSE);
++	}
++
+ 	void SetSpatial(bool bSpatial)
+ 	{
+ 		if (bIs3d != bSpatial)
+@@ -131,7 +138,21 @@ public:
  		{
  			volume = newVolume;
  			alSourcef(id, AL_GAIN, volume * globalVolume);
@@ -44,7 +57,7 @@ index 03e82566..b853159a 100644
  		}
  	}
  
-@@ -140,8 +155,11 @@ public:
+@@ -140,8 +161,11 @@ public:
  		globalVolume = newGlobalVolume;
  	}
  
@@ -56,7 +69,7 @@ index 03e82566..b853159a 100644
  		if (pitch != newPitch)
  		{
  			pitch = newPitch;
-@@ -173,6 +191,7 @@ private:
+@@ -173,6 +197,7 @@ private:
  	float pitch = 0.0f;
  	float dopplerFactor = 0.0f;
  	bool bIs3d = false;
@@ -64,7 +77,7 @@ index 03e82566..b853159a 100644
  };
  
  // TODO list:
-@@ -222,6 +241,9 @@ public:
+@@ -222,6 +247,9 @@ public:
  		if (alcMakeContextCurrent(alContext) == ALC_FALSE)
  			Exception::Throw("Failed to make OpenAL context current");
  
@@ -74,7 +87,7 @@ index 03e82566..b853159a 100644
  		// init listener state
  		ALfloat listenerOri[] = { 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, -1.0f };
  		alListener3f(AL_POSITION, 0, 0, 0.0f);
-@@ -280,6 +302,7 @@ public:
+@@ -280,6 +308,7 @@ public:
  
  	void AddSound(USound* sound) override
  	{
@@ -82,7 +95,7 @@ index 03e82566..b853159a 100644
  		sounds.push_back(sound);
  
  		ALenum format = AL_FORMAT_MONO_FLOAT32;
-@@ -298,6 +321,7 @@ public:
+@@ -298,6 +327,7 @@ public:
  
  	void RemoveSound(USound* sound) override
  	{
@@ -90,7 +103,7 @@ index 03e82566..b853159a 100644
  		auto it = sounds.begin();
  		while (it != sounds.end())
  		{
-@@ -313,6 +337,7 @@ public:
+@@ -313,6 +343,7 @@ public:
  
  	bool IsPlaying(int channel) override
  	{
@@ -98,7 +111,7 @@ index 03e82566..b853159a 100644
  		ALSoundSource& source = sources[channel];
  		return source.IsPlaying();
  	}
-@@ -326,6 +351,7 @@ public:
+@@ -326,6 +357,7 @@ public:
  
  	void PlaySound(int channel, USound* sound, vec3& location, float volume, float radius, float pitch) override
  	{
@@ -106,7 +119,7 @@ index 03e82566..b853159a 100644
  		if (!std::isfinite(volume) || volume < 0.0f || !std::isfinite(pitch) || channel >= sources.size())
  			Exception::Throw("Invalid PlaySound arguments");
  
-@@ -348,6 +374,7 @@ public:
+@@ -348,6 +380,7 @@ public:
  
  	void UpdateSound(int channel, USound* sound, vec3& location, float volume, float radius, float pitch) override
  	{
@@ -114,8 +127,17 @@ index 03e82566..b853159a 100644
  		if (!std::isfinite(volume) || volume < 0.0f || !std::isfinite(pitch) || channel >= sources.size())
  			Exception::Throw("Invalid PlaySound arguments");
  
-@@ -364,15 +391,16 @@ public:
+@@ -362,17 +395,25 @@ public:
+ 		source.DoLoop();
+ 	}
  
++	void SetLooping(int channel, bool loop) override
++	{
++		std::lock_guard alLock(alMutex);
++		if (channel < (int)sources.size())
++			sources[channel].SetLooping(loop);
++	}
++
  	void StopSound(int channel) override
  	{
 +		std::lock_guard alLock(alMutex);
@@ -133,7 +155,7 @@ index 03e82566..b853159a 100644
  		{
  		case AL_NO_ERROR:
  			return "AL_NO_ERROR";
-@@ -401,20 +429,21 @@ public:
+@@ -401,20 +442,21 @@ public:
  		{
  			alBufferData(alMusicBuffers[i], format, musicQueue.Pop(), musicBufferSize*4, freq);
  			if ((error = alGetError()) != AL_NO_ERROR)
@@ -160,7 +182,7 @@ index 03e82566..b853159a 100644
  		ALint status;
  		alGetSourcei(alMusicSource, AL_BUFFERS_PROCESSED, &status);
  
-@@ -427,12 +456,12 @@ public:
+@@ -427,12 +469,12 @@ public:
  			int freq = music->GetFrequency();
  
  			alBufferData(buffer, format, musicQueue.Pop(), musicBufferSize*4, freq);
@@ -177,7 +199,7 @@ index 03e82566..b853159a 100644
  
  			status--;
  		}
-@@ -441,18 +470,27 @@ public:
+@@ -441,18 +483,27 @@ public:
  		if (status == AL_STOPPED)
  		{
  			alSourcePlay(alMusicSource);
@@ -207,7 +229,7 @@ index 03e82566..b853159a 100644
  		globalSoundVolume = volume;
  
  		for (auto& soundSource : sources)
-@@ -461,6 +499,7 @@ public:
+@@ -461,6 +512,7 @@ public:
  
  	void Update() override
  	{
@@ -215,7 +237,7 @@ index 03e82566..b853159a 100644
  		UActor* listener = engine->CameraActor;
  		if (listener)
  		{
-@@ -482,6 +521,7 @@ public:
+@@ -482,6 +534,7 @@ public:
  	{
  		std::unique_ptr<AudioSource> currentMusic;
  		bool musicPlaying = false;
@@ -223,7 +245,7 @@ index 03e82566..b853159a 100644
  
  		while (true)
  		{
-@@ -493,47 +533,134 @@ public:
+@@ -493,47 +546,134 @@ public:
  			{
  				if (musicPlaying)
  				{
@@ -244,20 +266,14 @@ index 03e82566..b853159a 100644
  			if (currentMusic)
  			{
 -				while (musicQueue.Size() < musicBufferCount)
--				{
--					// render a chunk of music
--					currentMusic->ReadSamples(musicQueue.GetNextFree(), musicBufferSize);
--					musicQueue.Push(musicQueue.GetNextFree());
--				}
--
--				if (!musicPlaying)
 +				// An exception leaving this thread ends the game (std::terminate), so a music error only stops the
 +				// music: the source is reset and the track restarted once a second; a track that keeps failing is
 +				// dropped.
 +				try
  				{
--					PlayMusicBuffer(currentMusic.get());
--					musicPlaying = true;
+-					// render a chunk of music
+-					currentMusic->ReadSamples(musicQueue.GetNextFree(), musicBufferSize);
+-					musicQueue.Push(musicQueue.GetNextFree());
 +					while (musicQueue.Size() < musicBufferCount)
 +					{
 +						// render a chunk of music
@@ -283,6 +299,12 @@ index 03e82566..b853159a 100644
 +
 +					// TODO: music fade in/out
  				}
+-
+-				if (!musicPlaying)
+-				{
+-					PlayMusicBuffer(currentMusic.get());
+-					musicPlaying = true;
+-				}
 -				else if (musicQueue.Size() > 0)
 +				catch (const std::exception& e)
  				{
@@ -373,7 +395,7 @@ index 03e82566..b853159a 100644
  	ALCcontext* alContext = nullptr;
  	ALenum alError = 0;
  	ALuint alMusicSource = 0;
-@@ -664,6 +791,12 @@ public:
+@@ -664,6 +804,12 @@ public:
  	int frequency = 48000;
  	Array<USound*> sounds;
  
@@ -387,14 +409,15 @@ index 03e82566..b853159a 100644
  	struct
  	{
 diff --git a/SurrealEngine/Audio/AudioDevice.h b/SurrealEngine/Audio/AudioDevice.h
-index d201523d..1b395a9d 100644
+index d201523d..4aa24c82 100644
 --- a/SurrealEngine/Audio/AudioDevice.h
 +++ b/SurrealEngine/Audio/AudioDevice.h
-@@ -27,5 +27,6 @@ public:
+@@ -27,5 +27,7 @@ public:
  	virtual void StopSound(int channel) = 0;
  	virtual void SetMusicVolume(float volume) = 0;
  	virtual void SetSoundVolume(float volume) = 0;
 +	virtual void SetLinearFalloff(bool enable) { } // see ALSoundSource::SetLinearFalloff
++	virtual void SetLooping(int channel, bool loop) { } // loop the channel's sound even without loop points (HP2's PlaySound Loop)
  	virtual void Update() = 0;
  };
 diff --git a/SurrealEngine/Audio/AudioSource.cpp b/SurrealEngine/Audio/AudioSource.cpp

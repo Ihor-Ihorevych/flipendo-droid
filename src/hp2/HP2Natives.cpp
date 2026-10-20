@@ -73,8 +73,8 @@ namespace HP2
 		KW::StopSound(UObject::Cast<UActor>(Self), Sound ? UObject::Cast<USound>(*Sound) : nullptr, Slot.value_or(SLOT_Misc), FadeOutTime.value_or(0.0f));
 	}
 
-	// IDA Engine.dll: ?execPlaySound@AActor@@QAEXAAUFFrame@@QAX@Z NOT yet verified against HP2's code
-	// IDA Engine.dll: ?execPlayOwnedSound@AActor@@QAEXAAUFFrame@@QAX@Z NOT yet verified against HP2's code
+	// IDA Engine.dll: ?execPlaySound@AActor@@QAEXAAUFFrame@@QAX@Z [HP2 0x104192B0]
+	// IDA Engine.dll: ?execPlayOwnedSound@AActor@@QAEXAAUFFrame@@QAX@Z [HP2 0x10419CA0] NOT yet verified against HP2's code (taken to match PlaySound)
 	// HP2 added `optional bool Disable3D, optional bool Loop`; the shared body is in src/knowwonder/KWSound.cpp.
 	static void NPlaySound(UObject* Self, UObject* Sound, std::optional<uint8_t> Slot, std::optional<float> Volume, std::optional<bool> bNoOverride,
 		std::optional<float> Radius, std::optional<float> Pitch, std::optional<bool> Disable3D, std::optional<bool> Loop)

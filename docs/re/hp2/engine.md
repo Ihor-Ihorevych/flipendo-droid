@@ -178,6 +178,27 @@ read in HP2's Engine.dll.
   volumes as floats (`HP2::VolumeFromIni`/`VolumeToIni`), `HP2::AudioCommand` handles `SETVOLUMES`, and on the first
   run it takes its settings from `[ALAudio.ALAudioSubsystem]` and `[D3DDrv.D3DRenderDevice]` instead of HP1's Galaxy
   and Direct3D sections.
+- Sounds (read 2026-10-20). `Actor.PlaySound` gained `optional bool Disable3D, optional bool Loop`.
+  `AActor::execPlaySound` [HP2 0x104192B0] is HP1's (Id = object index * 16 + slot * 2 + bNoOverride, radius 1600 when
+  0, Volume and Pitch * 100) and hands both to `AActor::CheckHearSound` [HP2 0x104189D0], which is HP1's (0.877
+  radius, through BSP 0.35 volume within 0.6 of the range unless the hearer is the Instigator) except that **a Talk
+  slot sound skips the BSP test**. `APawn::execClientHearSound` [HP2 0x104156A0] builds ALAudio's flags from the
+  sound's own (USound +180): **2 loops** when Loop is set, **0x10 plays the sound without position** when Disable3D is
+  set or the sound's actor is the viewport's pawn or owned by it (Harry's own sounds, his wand's). ALAudio's
+  `PlaySound` [HP2 ALAudio 0x100040F0]: 0x10 puts the source at 0,0,0 relative to the listener (`AL_SOURCE_RELATIVE`),
+  2 sets `AL_LOOPING` (not for a streamed sound), 8 takes the music volume; the Talk slot gets priority 100, the
+  pitch is clamped to 0.1..2, the volume (times SoundVolume) to 0.01..1; the reference distance is the radius in
+  metres (0.0127 per unit). The scripts that loop: the movers' `MoveAmbientSound` while they move (stopped with
+  StopSound when they arrive); dialogue is played Disable3D.
+- `Actor.StopSound` gained `optional float FadeOutTime`. `AActor::execStopSound` [HP2 0x1041A550] passes it to ALAudio's
+  `StopSound(actor, id, sound, fade)` [HP2 ALAudio 0x100048C0], which takes **every** source of the actor whose id
+  matches (ignoring bit 0; slot None: every allocated one) and, if given, that sound (HP1's Galaxy stops the first
+  one); with a fade above 0 the source fades out linearly over it (`Update`, a step of at most 1 s) and then stops.
+- Flipendo: `KW::PlaySound` / `CheckHearSound` / `ClientHearSound` and `KW::StopSound` (`src/knowwonder/KWSound.cpp`)
+  with HP2 branches; the audio device plays a "no position" sound at the camera (where its listener is), loops the
+  channel (`AudioDevice::SetLooping`) and fades a stopped sound (`USurrealAudioDevice::StopSoundHP2`). Before
+  2026-10-20 a mover's sound played once and stopped, Harry's own sounds came from his position as heard from the
+  camera, dialogue was muffled behind walls, and every StopSound cut at once.
 - HP2 has no IpDrv package; SurrealEngine's IpDrv property offsets are skipped for it (`0200-hp2.patch`).
 - `I3DL2Listener` (Engine.u): EAX / I3DL2 reverb settings per zone, used by ALAudio.
 

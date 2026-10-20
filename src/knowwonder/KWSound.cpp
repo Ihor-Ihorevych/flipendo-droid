@@ -37,32 +37,43 @@ namespace KW
 		return ((((int)(ptrdiff_t)actor) & 0xffffff) << 4) + (slot << 1);
 	}
 
-	// IDA Engine.dll: ?execClientHearSound@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x10407F30]
+	// IDA Engine.dll: ?execClientHearSound@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x10407F30] [HP2 0x104156A0]
 	// Only a PlayerPawn with a local viewport plays it. Parameters = (Volume * 100, Radius, Pitch * 100), a zero
 	// radius plays at 1600. A sound of an actor being destroyed plays unattached (at SoundLocation).
-	static void ClientHearSound(UPawn* hearer, UActor* actor, int id, USound* sound, const vec3& soundLocation, const vec3& parameters)
+	// HP2 hands ALAudio flags as well: 2 loops (Loop), 0x10 plays it at the listener, not in 3D (Disable3D, or a sound
+	// of the player's own pawn or of an actor it owns, e.g. the wand).
+	static void ClientHearSound(UPawn* hearer, UActor* actor, int id, USound* sound, const vec3& soundLocation, const vec3& parameters, bool disable3D, bool loop)
 	{
 		UPlayerPawn* player = UObject::TryCast<UPlayerPawn>(hearer);
 		if (!player || !UObject::TryCast<UViewport>(player->Player()) || !engine->audiodev)
 			return;
 		if (actor && actor->bDeleteMe())
 			actor = nullptr;
+		bool no3D = false;
+		if (IsHP2())
+		{
+			no3D = disable3D;
+			for (UActor* a = actor; a && !no3D; a = a->Owner())
+				no3D = a == player;
+		}
 		float radius = parameters.y != 0.0f ? parameters.y : 1600.0f;
-		engine->audiodev->PlaySound(actor, id, sound, soundLocation, parameters.x * 0.01f, radius, parameters.z * 0.01f, (id & 14) == SLOT_Talk * 2);
+		engine->audiodev->PlaySound(actor, id, sound, soundLocation, parameters.x * 0.01f, radius, parameters.z * 0.01f, (id & 14) == SLOT_Talk * 2, no3D, IsHP2() && loop);
 	}
 
 	static void NClientHearSound(UObject* Self, UObject* Actor, int Id, UObject* S, const vec3& SoundLocation, const vec3& Parameters)
 	{
-		ClientHearSound(UObject::Cast<UPawn>(Self), UObject::TryCast<UActor>(Actor), Id, UObject::TryCast<USound>(S), SoundLocation, Parameters);
+		ClientHearSound(UObject::Cast<UPawn>(Self), UObject::TryCast<UActor>(Actor), Id, UObject::TryCast<USound>(S), SoundLocation, Parameters, false, false);
 	}
 
 	// IDA Engine.dll: ?CheckHearSound@AActor@@QAEXPAVAPawn@@HPAVUSound@@VFVector@@M@Z [HP1 0x1040AB90]
+	// IDA Engine.dll: ?CheckHearSound@AActor@@QAEXPAVAPawn@@HPAVUSound@@VFVector@@MHH@Z [HP2 0x104189D0]
 	// A player hears from its ViewTarget (Harry's camera) when it has one. Within 1/1.3 of the radius squared
 	// (0.877 radius) a sound with a clear BSP line plays as it is; through BSP it plays at 0.35 volume and only
-	// within 0.6 of that range squared (0.679 radius), unless the hearer is the sound's Instigator.
+	// within 0.6 of that range squared (0.679 radius), unless the hearer is the sound's Instigator. HP2 leaves the BSP
+	// test out for the Talk slot, and passes Disable3D and Loop on.
 	// The original raises the ClientHearSound event; Pawn.ClientHearSound is a native event no script overrides,
 	// so its body is called directly.
-	static void CheckHearSound(UActor* source, UPawn* hearer, int id, USound* sound, vec3 parameters, float radiusSquared)
+	static void CheckHearSound(UActor* source, UPawn* hearer, int id, USound* sound, vec3 parameters, float radiusSquared, bool disable3D, bool loop)
 	{
 		UActor* listener = hearer;
 		if (UPlayerPawn* player = UObject::TryCast<UPlayerPawn>(hearer))
@@ -77,7 +88,8 @@ namespace KW
 		if (distSquared >= range)
 			return;
 
-		if (!ModelFastLineCheck(source->XLevel()->Model, listener->Location(), source->Location()))
+		bool talk = IsHP2() && (id & 14) == SLOT_Talk * 2;
+		if (!talk && !ModelFastLineCheck(source->XLevel()->Model, listener->Location(), source->Location()))
 		{
 			if (source->Instigator() != hearer)
 				range *= 0.6f;
@@ -85,16 +97,16 @@ namespace KW
 			if (distSquared > range)
 				return;
 		}
-		ClientHearSound(hearer, source, id, sound, source->Location(), parameters);
+		ClientHearSound(hearer, source, id, sound, source->Location(), parameters, disable3D, loop);
 	}
 
-	// IDA Engine.dll: ?execPlaySound@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x1040B000]
+	// IDA Engine.dll: ?execPlaySound@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x1040B000] [HP2 0x104192B0]
 	// IDA Engine.dll: ?execPlayOwnedSound@AActor@@QAEXAAUFFrame@@QAX@Z [HP1 0x1040B890]
 	// Every bIsPlayer pawn may hear it (CheckHearSound). The original asks the viewports instead on a network
 	// client or from a simulated function, and PlayOwnedSound leaves out a remote owner; in a standalone game
 	// both come to the same player. DemoPlaySound (demo recording) is left out.
 	// The Id is SoundId (the original packs the actor's object index the same way) plus bNoOverride in bit 0.
-	// TODO HP2: PlaySound gained Disable3D and Loop (ALAudio.dll, not reversed yet); HP1 passes neither.
+	// HP2's PlaySound adds Disable3D and Loop and hands them to CheckHearSound; HP1 passes neither.
 	void PlaySound(UActor* actor, USound* sound, uint8_t slot, float volume, bool noOverride, float radius, float pitch, bool disable3D, bool loop)
 	{
 		if (!sound)
@@ -105,7 +117,7 @@ namespace KW
 		for (UPawn* pawn = actor->Level()->PawnList(); pawn; pawn = pawn->nextPawn())
 		{
 			if (pawn->bIsPlayer())
-				CheckHearSound(actor, pawn, id, sound, parameters, playRadius * playRadius);
+				CheckHearSound(actor, pawn, id, sound, parameters, playRadius * playRadius, disable3D, loop);
 		}
 	}
 
@@ -132,11 +144,16 @@ namespace KW
 	}
 
 	// IDA Galaxy.dll: ?StopSound@UGalaxyAudioSubsystem@@UAEHPAVAActor@@HPAVUSound@@@Z [HP1 Galaxy 0x10607BA0]
-	// Shared by HP1 (NStopSound below) and HP2 (src/hp2/HP2Natives.cpp, which adds FadeOutTime).
-	// TODO HP2: fadeOutTime (ALAudio.dll's StopSound, not reversed yet); HP1 always passes 0.
+	// IDA ALAudio.dll: ?StopSound@UALAudioSubsystem@@UAEHPAVAActor@@HPAVUSound@@M@Z [HP2 ALAudio 0x100048C0]
+	// Shared by HP1 (NStopSound below) and HP2 (src/hp2/HP2Natives.cpp, which adds FadeOutTime). Galaxy stops the
+	// first matching sound; ALAudio every one of the actor, a FadeOutTime above 0 fading it out linearly first.
 	void StopSound(UActor* actor, USound* sound, uint8_t slot, float fadeOutTime)
 	{
-		if (engine->audiodev)
+		if (!engine->audiodev)
+			return;
+		if (IsHP2())
+			engine->audiodev->StopSoundHP2(actor, SoundId(actor, slot), sound, fadeOutTime);
+		else
 			engine->audiodev->StopSoundHP1(SoundId(actor, slot), sound);
 	}
 
