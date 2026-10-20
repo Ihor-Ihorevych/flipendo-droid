@@ -24,7 +24,8 @@ KnowWonder's `GameSaveInfo` file for the slot page; the script side around them 
 
 ## HP2's flow (hgame scripts)
 
-Read from HP2's decompiled scripts only; HP2's native side isn't reversed yet.
+From HP2's decompiled scripts and its Engine.dll (2026-10-20: `UGameEngine::Tick`, `SaveGame`, `Exec`,
+`SetThumbnailForSaveSlot`).
 
 - **Saving is queued.** HP2's `PlayerPawn.SaveGame()` is a script function that only sets `bQueuedToSaveGame`; its
   comment says the engine saves at the end of the level tick, and that "slots are just directories, the save game
@@ -43,8 +44,25 @@ code not read yet. The `FString` serializer in Core.dll is identical.
 
 ## Engine side
 
-In HP2 `PaintProgress` differs only in offsets; `UGameEngine::SaveGame` changed (1154 -> 1380 bytes, HP2 0x103AB430),
-not read yet.
+In HP2 `PaintProgress` differs only in offsets. HP2's engine side of saving:
+
+- **The queued save**: `UGameEngine::Tick` [HP2 0x103A9910], after the levels tick, tests the viewport player's
+  `bQueuedToSaveGame` (PlayerPawn +0x958, at 0x103A9BB7). When set: creates SavePath and the save folder, logs "Saving
+  game...(before call) Filename: <folder>\Save0.usa", clears the flag, calls `SaveGame(0)`, runs the `RestartSounds`
+  console command, `Flush(1)`, and returns, leaving out the rest of that tick (no frame is drawn).
+- **`UGameEngine::SaveGame`** [HP2 0x103AB430] (1154 -> 1380 bytes): HP1's, plus: creates SavePath and the save folder;
+  after setting LevelAction to saving raises `PreSaveGame` on every actor; draws the progress frame only when the
+  viewport player's `bShowLoadingScreen` (+0x92C) is false (a save on arriving in a level happens under the loading
+  screen); after the save `SavePersistentActorCache()` (Core.dll), `SetThumbnailForSaveSlot`, then `PostSaveGame` on
+  every actor.
+- **`SetThumbnailForSaveSlot`** [HP2 0x103ABB00]: `LevelInfo.LevelEnterText` (+1112) after its last `\`, cut at the
+  first `.`, gives `<System>\Thumbnails\<name>.bmp`; that file (or `Thumbnails\Default.bmp`) is copied to
+  `<save folder>\Save0.bmp`, the front end's slot picture.
+- **`UGameEngine::Exec`** [HP2 0x103A20F0] new commands: `SAVEGAME <n>` (the same save, then RestartSounds), `LOADGAME
+  <n>` (`LoadPersistentActorCache()`, then `LevelInfo.ServerTravel("<folder>\Save<n>.usa")`), `SAVEPACTORS`
+  (`ULevel::SavePersistentActors(LevelEnterText)`, the hub persistence).
+- Flipendo: `HP2::TickQueuedSave` and `HP2::SaveCommand` (`src/hp2/HP2Save.cpp`), the shared `KW::SaveGame` with the HP2
+  differences. Not ported: the persistent actor cache, RestartSounds, the skipped rest of the tick.
 
 
 - **`UGameEngine::SaveGame(int)`** [HP1 0x103A2280] is stock UE1: sets `LevelInfo.LevelAction` to saving, paints one

@@ -69,6 +69,7 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Packages/Engine/Actors/UActor.cpp` (Tick) | with KnowWonder's physics the Timer runs before the physics (HP1's AActor::Tick order) |
 | `Packages/Engine/Actors/UActor.cpp`, `UActor.h` (Tick), `Pawn/UPawn_Tick.cpp`, `Pawn/UPawn.h` | KnowWonder polls a pawn's latent action (`UPawn::PollLatentAction`, split out of `UPawn::Tick`) after the script Tick event, as HP1's ProcessState does |
 | `Collision/TopLevel/CollisionSystem.cpp/.h` | the hash files KnowWonder actors by `KW::ActorWorldCollisionBox` (CollisionWidth offset, CT_Box); `ActorsInBox` for KnowWonder's actor checks |
+| `Engine.cpp` (Run, Exec) | HP2: `HP2::TickQueuedSave` after the level ticks (a save the player queued with `bQueuedToSaveGame`), `HP2::SaveCommand` for `LOADGAME <n>` (`src/hp2/HP2Save.cpp`) |
 | `Render/RenderSubsystem.cpp` | `KW::OnFrameRendered` after `Unlock` (`HP1_SHOTS` debug screenshots; `ReadPixels` needs the finished frame) |
 | `Render/RenderCanvas.cpp`, `RenderSubsystem.h` | `KW::CanvasUIScale` (float `uiscale`), `KW::SetCanvasArea` (full-width HUD, 4:3 console/menus; HP1 and HP2); `DrawClippedActor` relative to the canvas area |
 | `Render/RenderCanvas.cpp` (DrawText, DrawTextClipped), `Packages/Engine/Resources/UFont.*` | fonts made by `KW::CreateNativeFont` (`UFont::SetNativeGlyphs`, `IsNative`, `src/knowwonder/KWNativeFont.cpp`) draw premultiplied in the DrawColor whatever the style, its alpha taken as 1, like HP1's GDI text |

@@ -16,9 +16,8 @@ Legend: [~] partly done / in progress · [ ] not started
   resolution. Not tried past that; no saves, no voices. Since 2026-10-20 Game.exe's front end (splashes, New Game,
   Load Game, Options) comes first. In order:
   1. Start and save (2-4 days)
-  - [ ] HP2's save flow: queued saves into the slot folder the front end picks (`Save/Slot<n>`, with `Save0.bmp` from
-        `Thumbnails/`), `LoadGame 0` after death ([docs/re/engine/savegames.md](docs/re/engine/savegames.md)); then
-        check the front end's Load Game with a real save
+  - [ ] HP2's saves: check the front end's New Game and Load Game with a real save, and loading after death
+        ([docs/re/engine/savegames.md](docs/re/engine/savegames.md))
   - [ ] Persistent actors across hub travel ([docs/re/hp2/engine.md](docs/re/hp2/engine.md)): `bPersistent` actors keep
         their state when Harry leaves a hub map and comes back (the `SavePActors` console command, logged as unknown on
         every level change, and the persistent actor cache)

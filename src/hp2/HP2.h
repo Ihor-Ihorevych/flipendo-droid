@@ -47,6 +47,10 @@ namespace HP2
 	constexpr const char* NewGameURL = "PrivetDr.unr";
 	// -LOADGAME=<n>: after the first map, Engine::Run travels to the save folder's Save<n>.usa. -1 for none.
 	int LoadGameSave();
+	// HP2's saves (src/hp2/HP2Save.cpp): Engine::Run after the level ticks writes a save the player queued
+	// (PlayerPawn.bQueuedToSaveGame) as the save folder's Save0.usa; the LOADGAME <n> console command loads Save<n>.usa.
+	void TickQueuedSave();
+	bool SaveCommand(const Array<std::string>& args);
 	// [Engine.GameEngine] UseSound=False (the front end's "Disable all sound"): HP2's engine then has no audio subsystem;
 	// here sounds and music play at volume 0.
 	bool SoundDisabled();
