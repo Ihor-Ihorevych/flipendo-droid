@@ -11,20 +11,15 @@ Legend: [~] partly done / in progress · [ ] not started
   Estimate (2026-10-17): about 3 weeks at HP1's pace (10-19 working days). The engine side is ~85-90% reused (180 of
   ~183 natives covered; of 205 IDA-tagged ports 64 carry over as is, 56 are exec wrappers that differ only by the
   DebugInfo check, 66 need reading in HP2); the 43-map playthrough is new work.
-  Status (2026-10-17): boots on Linux straight into a new game; the intro and its cutscenes play (with Enter to skip)
-  through the flying car to the Whomping Willow, with subtitles; the in-game book and the options page work at any
-  resolution. Not tried past that; no saves, no voices. Since 2026-10-20 Game.exe's front end (splashes, New Game,
-  Load Game, Options) comes first. In order:
-  1. Start and save (2-4 days)
-  - [ ] HP2's saves: check the front end's New Game and Load Game with a real save, and loading after death
-        ([docs/re/engine/savegames.md](docs/re/engine/savegames.md))
-  - [ ] Persistent actors across hub travel ([docs/re/hp2/engine.md](docs/re/hp2/engine.md)): `bPersistent` actors keep
-        their state when Harry leaves a hub map and comes back (the `SavePActors` console command, logged as unknown on
-        every level change, and the persistent actor cache)
+  Status (2026-10-20): Game.exe's front end (splashes, New Game, Load Game, Options) comes first; the intro and its
+  cutscenes play (with Enter to skip) through the flying car to the Whomping Willow, with subtitles; the in-game book
+  and the options page work at any resolution; saving and loading work (playtest 2026-10-20). Not tried past that.
+  In order:
+  1. Start and save
+  - [ ] Hub persistence in play: walk the hubs by hand (beans, chests, wizard cards, Characters' restored states)
+        and check against the original
   2. The intro and first levels as the original (2-3 days)
-  - [ ] Voices: every dialogue line fails with "could not load 'AllDialog.PC_...': Could not find package 'AllDialog'".
-        The package is `Sounds/AllDialog.USA_uax`: HP2 names language-specific packages `<name>.<language>_<ext>`;
-        find how its Core.dll looks them up and do the same
+  - [ ] Voices: `Sounds/AllDialog.USA_uax` is found now; check in game that the dialogue lines play
   - [ ] Adv1Willow: SpottedJellyBean3/6/7 fall out of the world as the map starts (at Z -482): check where they
         start and what they should land on
   - [ ] Cutscene commands that start before the previous one finished ("Trying to issue command to: ... when previous
@@ -36,8 +31,8 @@ Legend: [~] partly done / in progress · [ ] not started
         code, and the sky through the backdrop surfaces
   - [ ] Dobby's and Filch's eye blink channels fail (`eye_close` anim / `eye_root` bone not found): check HP2's mesh
         and animation data against `CreateEyeBlinkAnimChannel`
-  - [ ] HP2 music: check `src/hp2/HP2Music.cpp` (written from the scripts) against ALAudio.dll: crossfades between
-        songs, looping, volumes; `StopSound`'s fade-out, `PlaySound`'s Disable3D and Loop
+  - [ ] HP2 music: songs playing at once and their fades follow ALAudio.dll now; still to check against it: looping,
+        volumes, `StopSound`'s fade-out, `PlaySound`'s Disable3D and Loop
   - [ ] XA sounds: check the decoder by ear (nibble order), and the stereo XA case
   - [ ] Lumos: after casting it the light beam on the wand stays for good (playtest 2026-10-17); check how HP2's
         scripts turn the wand's Lumos effect off
