@@ -36,6 +36,19 @@ that event never comes and every `bLevelLoadStarts` cutscene in the map starts (
 `00001PrivetIntroPart3` at once). Flipendo screens actors since 2026-10-17. `ParseCommand` also relies on `switch`
 ignoring case ([scripting.md](../engine/scripting.md#switch-on-strings-ignores-case)).
 
+"Trying to issue command to: X when previous CutCommand hasnt finished yet" is the scripts' own timing in the cases
+checked (2026-10-20, played without skipping). A command ending in `*` doesn't wait, and the next command for the same
+actor comes after a fixed `sleep` that is shorter than what the first one takes:
+- `00020FlyingFordIntro` thread 1: `FlyingCar FollowSpline CarSalesMan ... Time=6.5 Accel=200 EaseFrom *`, then
+  `Sleep 7`. `Pawn.FollowSplinePath` sets the speed to path length / Time (1617 here), so Time is the time at full
+  speed; `Pawn.SplineTick`'s ease-from ramps up at Accel until halfway through the first segment (4.5 s to reach 757),
+  which makes the move about 9.8 s. All script maths, so the original is late the same way. The other FordFlying0
+  errors come from `WaitFor CarChangeLastSpline` and `SetIdle` arriving while a 20 s spline is on purpose still going.
+- `00001PrivetIntro` thread 3: `dobby animate Introduce rate=.8 *`, `sleep 2`, then `Dobby say` and `sleep 1`,
+  `Dobby Animate shakeheadnostart`; Introduce plays about 3.5 s at rate .8 (34.4 to 37.9 s), so both commands find
+  it running. Thread 4's `Harry animate Look_Frantic rate=.8 *` is the same case for `harry walkto cutmark12`.
+  These depend on the animations' lengths (the sequences' rates in the mesh, through PlayAnim, ported from HP1).
+
 ## Accessed None from the scripts themselves
 
 These show in every run and come from HP2's own scripts, so the original hits them as well (UE1 logs and goes on):

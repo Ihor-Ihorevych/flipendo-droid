@@ -20,10 +20,12 @@ Legend: [~] partly done / in progress · [ ] not started
         and check against the original
   2. The intro and first levels as the original (2-3 days)
   - [ ] Voices: `Sounds/AllDialog.USA_uax` is found now; check in game that the dialogue lines play
-  - [ ] Cutscene commands that start before the previous one finished ("Trying to issue command to: ... when previous
-        CutCommand hasnt finished yet": Dobby and Harry in PrivetDr, `FordFlying0`, Harry in Adv1Willow): a move or
-        animation that doesn't report done. Compare with the original before calling it a bug
-  - [ ] Skipping: "SKIP ERROR ... failed to advance after 16 loops" when fast-forwarding PrivetDr's intro
+  - [ ] Cutscene commands that start before the previous one finished ("... hasnt finished yet"): the script timing in
+        every case checked ([docs/re/hp2/gameplay.md](docs/re/hp2/gameplay.md#cutscenes)); left: compare Dobby's
+        `Introduce` (3.5 s at rate .8 here) and Harry's `Look_Frantic` with the original, and Harry in Adv1Willow
+        (seen only while skipping)
+  - [ ] Skipping: "SKIP ERROR ... failed to advance after 16 loops" when fast-forwarding PrivetDr's intro (not
+        seen 2026-10-20 in 4 runs skipping every cutscene from PrivetDr to Adv1Willow at different moments)
   - [ ] PrivetDr's intro flyover: the camera doesn't follow the original's path and shows the map's edges (playtest
         2026-10-17); the shot is also much darker. Check BaseCam's `FollowSpline ... EaseBetween` and FlyTo against HP2's
         code, and the sky through the backdrop surfaces
