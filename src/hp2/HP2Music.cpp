@@ -7,9 +7,11 @@
 #include "VM/NativeFunc.h"
 #include "Engine.h"
 #include "Packages/Engine/Subsystems/USurrealAudioDevice.h"
+#include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Utils/StrTools.h"
 #include <algorithm>
 #include <chrono>
+#include <atomic>
 #include <mutex>
 #include <vector>
 #include <cmath>
@@ -32,6 +34,7 @@ namespace HP2
 			float fadeElapsed = 0.0f;
 			float gain = 1.0f;       // set by UpdateMusic
 			float mixedGain = 1.0f;  // where the mixer's ramp to gain got to
+			bool suspended = false;  // the game is paused (the menu is open) and the song was playing before: it waits, and goes on when the pause ends
 		};
 
 		// The tracks are changed by the game thread (the natives, UpdateMusic) and read by the audio device's music
@@ -39,8 +42,11 @@ namespace HP2
 		std::mutex tracksMutex;
 		std::vector<Track> tracks;
 		int lastHandle = 0;
-		bool mixerPlaying = false;
+		// The mixer the audio device plays, null once it is dropped: a video (Engine::PlayVideo) or anything else that sets the device's
+		// music drops it, and the next UpdateMusic puts a new one in
+		std::atomic<const AudioSource*> currentMixer{ nullptr };
 		bool started = false;
+		bool wasPaused = false;
 		std::chrono::steady_clock::time_point lastUpdate;
 
 		const int MixFrequency = 44100;
@@ -49,6 +55,8 @@ namespace HP2
 		class Mixer : public AudioSource
 		{
 		public:
+			Mixer() { currentMixer = this; }
+			~Mixer() override { const AudioSource* self = this; currentMixer.compare_exchange_strong(self, nullptr); } // a dropped old mixer must not clear the new one
 			int GetFrequency() override { return MixFrequency; }
 			int GetChannels() override { return MixChannels; }
 			int GetSamples() override { return -1; }
@@ -62,6 +70,8 @@ namespace HP2
 				std::lock_guard lock(tracksMutex);
 				for (Track& track : tracks)
 				{
+					if (track.suspended)
+						continue; // its position stays where it was
 					size_t count = track.source->ReadSamples(buffer.data(), samples);
 					// A ramp from the last chunk's gain, so a fade has no steps
 					float from = track.mixedGain, to = track.gain;
@@ -134,6 +144,7 @@ namespace HP2
 		}
 		std::lock_guard lock(tracksMutex);
 		tracks.push_back(std::move(track));
+		LogMessage("Music: PlayMusic " + Song + " fade " + std::to_string(FadeInTime) + " -> handle " + std::to_string(lastHandle));
 		ReturnValue = lastHandle;
 	}
 
@@ -174,16 +185,29 @@ namespace HP2
 		lastUpdate = now;
 		started = true;
 
-		if (!mixerPlaying)
-		{
+		if (!currentMixer)
 			device->PlayMusic(std::make_unique<Mixer>());
-			mixerPlaying = true;
-		}
 
 		{
 			std::lock_guard lock(tracksMutex);
+			// The game is paused while the menu is open (WindowConsole.LaunchUWindow sets Level.Pauser): the level's songs wait, the
+			// menu's own song (started during the pause) plays, and when the pause ends the waiting ones go on from where they were
+			bool paused = engine->LevelInfo && !engine->LevelInfo->Pauser().empty();
+			if (paused != wasPaused)
+			{
+				wasPaused = paused;
+				for (Track& track : tracks)
+					track.suspended = paused;
+				LogMessage(std::string("Music: game ") + (paused ? "paused" : "resumed") + ", " + std::to_string(tracks.size()) + " song(s)");
+			}
 			for (auto it = tracks.begin(); it != tracks.end();)
 			{
+				if (it->suspended)
+				{
+					it->gain = 0.0f; // not heard, not faded, not read
+					++it;
+					continue;
+				}
 				if (it->fadeState != 0 && deltaTime < 1.0f)
 					it->fadeElapsed += deltaTime;
 				if (it->fadeState == 1)

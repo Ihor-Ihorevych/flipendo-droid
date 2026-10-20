@@ -437,3 +437,18 @@ button charges and casts, the jump button (right mouse) cycles the three spells,
 - Script VM: struct out-parameters reach the caller again after the VM rework (the camera of HP2 stayed in Harry's torso: `ExpressionValue::Store` dropped
   Vector and Rotator values).
 - `build-apk.sh` gives d8 the class list in a file (the command line had grown past what Windows allows).
+
+## 0.3.7
+
+- **Merged with Flipendo again** (upstream c564a7e, same SurrealEngine 8d61ae5): HP2's front end (desktop only, skipped here: the launcher is `SetupActivity`),
+  several HP2 songs at once as ALAudio plays them (`src/hp2/HP2Music.cpp`), HP2 saves (`KW::SaveGame` now sends PreSaveGame / PostSaveGame itself), a script
+  recursion guard, the bronze pickup particle fix. The engine patches were rebuilt by a three-way merge of the patched trees. Saves stay ours: the launcher's slot
+  (`HP2::TickSave`, `LoadGame`), not upstream's Save0 in a slot folder.
+- **Settings on a squarer screen** (a foldable opened: Galaxy Fold, Honor Magic V): the panel's height and its text unit follow its width (`lh`, `lu` in
+  `onSizeChanged`), so the header, the sliders and the footer no longer overlap.
+- **HP2 FPS limit:** the limiter ran twice a frame (upstream's `TickMods` now calls it for HP2 too, and `HP2::TickTouch` still did), so 60 gave 30 and 25 gave 12.
+- **HP2 voices:** a package that exists only as another language's file (`AllDialog.USA_uax`, `.RUS_uax`) is found whatever `Language=` says (Android keeps `int`),
+  USA first (`PackageManager::ScanFolder`).
+- **HP2 music:** `USurrealAudioDevice::Update` ran the music update for HP1 only, so HP2's songs never started. The mixer is put back when a video drops it
+  (`Engine::PlayVideo` sets the device's music and then clears it). While the game is paused (the menu open) the songs playing before wait and go on from where
+  they were; the menu's own song plays meanwhile.

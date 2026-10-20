@@ -35,8 +35,6 @@ std::vector<std::string> AndroidTakeDebugCommands(); // the HP2 debug menu's com
 extern std::atomic<bool> g_saveRequested;  // the overlay's SAVE button (HP1Touch.cpp takes it for HP1)
 #endif
 
-// The frame limit (the Android FPS slider, --fps) is the one the HP1 mods have; it only paces the loop.
-namespace HP1::Mods { void TickFrameLimit(); } // src/hp1/mods/FrameLimit.cpp
 // --cyrillic: Windows-1251 texts drawn with glyphs from Noto Sans (src/hp1/HP1Cyrillic.cpp; to move to src/knowwonder/, both games use it)
 namespace HP1 { void InitCyrillic(); }
 
@@ -55,8 +53,6 @@ namespace HP2
 
 	void TickTouch()
 	{
-		// once per frame, after the console tick: waits for the next frame's start
-		HP1::Mods::TickFrameLimit();
 		// the Russian edition's texts (harry2/*.rus, put in by the launcher) are Windows-1251; HP2's fonts have no Cyrillic
 		HP1::InitCyrillic();
 

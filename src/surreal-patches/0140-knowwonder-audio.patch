@@ -46,7 +46,7 @@ index 75eb4e30..efd8e1d2 100644
  		stream->ReadUInt32(); // lazy array skip offset
  	uint32_t size = stream->ReadIndex();
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
-index a4e1dd8e..6e587db8 100644
+index a4e1dd8e..e1e6fcbd 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 +++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 @@ -12,9 +12,26 @@
@@ -147,7 +147,7 @@ index a4e1dd8e..6e587db8 100644
 +	// HP1's audio driver fades between songs, keeps a song playing when it is set again and scales the music by
 +	// PlayerPawn.PercentMusicVolume. It also plays its mp2 music although HP1 ships UseDigitalMusic=False. HP2 starts its music
 +	// from script (Actor.PlayMusic, src/hp2/HP2Natives.cpp): its PlayerPawn has no song properties for the stock code.
-+	if (engine->LaunchInfo.IsHarryPotter1())
++	if (engine->LaunchInfo.IsKnowWonder())
 +	{
 +		m_Device->SetMusicVolume(KW::UpdateMusic(m_Device.get(), m_Viewport ? m_Viewport->Actor() : nullptr, MusicVolume, Latency));
 +	}

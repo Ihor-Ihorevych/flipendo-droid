@@ -693,7 +693,7 @@ index 287956c1..27898722 100644
  }
  
 diff --git a/SurrealEngine/Package/PackageManager.cpp b/SurrealEngine/Package/PackageManager.cpp
-index 333a3135..6d6dcf32 100644
+index 333a3135..978c6de9 100644
 --- a/SurrealEngine/Package/PackageManager.cpp
 +++ b/SurrealEngine/Package/PackageManager.cpp
 @@ -6,6 +6,7 @@
@@ -780,23 +780,50 @@ index 333a3135..6d6dcf32 100644
  	return GC::Alloc<Package>(this, mapFilename.stem().string(), absolute_path.string());
  }
  
-@@ -462,25 +493,42 @@ void PackageManager::ScanFolder(const std::string& packagedir, const std::string
+@@ -462,25 +493,58 @@ void PackageManager::ScanFolder(const std::string& packagedir, const std::string
  		else
  			langSearchExt = fs::path("." + languageExtension + "_" + searchExt.string());
  
 +		// A package can exist only as its language file (HP2 ships Sounds/AllDialog.USA_uax and no AllDialog.uax), and
 +		// the extension's case can differ from the ini's (Linux file names are case-sensitive).
-+		std::map<NameString, fs::path> plainFiles, langFiles;
++		std::map<NameString, fs::path> plainFiles, langFiles, otherLangFiles;
 +		Array<NameString> order;
  		for (const auto& dir_entry: fs::directory_iterator{packageDirPath})
-+		{
+ 		{
+-			// Do not add the package again if it exists
+-			// This is useful for example when you have HD textures installed in a different folder
+-			// And you wish to load them instead of the original ones
+-			if (dir_entry.is_regular_file() && dir_entry.path().extension() == searchExt)
 +			if (!dir_entry.is_regular_file())
 +				continue;
 +			std::string ext = dir_entry.path().extension().string();
 +			bool plain = StrTools::equals_ignore_case(ext, searchExt.string());
 +			bool lang = StrTools::equals_ignore_case(ext, langSearchExt.string());
++			// HP2 ships its voices as AllDialog.USA_uax (or .RUS_uax in the Russian edition) whatever [Engine.Engine] Language says
++			// (Android keeps it at int): another language's file is the last resort, USA first
 +			if (!plain && !lang)
+ 			{
+-				NameString fileNameString(dir_entry.path().stem().string());
+-				auto it = packageFilenames.find(fileNameString);
+-				if (it == packageFilenames.end())
++				std::string suffix = "_" + searchExt.string().substr(searchExt.string().starts_with('.') ? 1 : 0);
++				if (launchInfo.IsKnowWonder() && ext.size() > suffix.size() + 1 && StrTools::equals_ignore_case(ext.substr(ext.size() - suffix.size()), suffix))
+ 				{
+-					auto langPath = dir_entry.path().parent_path() / (dir_entry.path().stem().string() + langSearchExt.string());
+-					if (fs::exists(langPath) && fs::is_regular_file(langPath))
+-						// Prioritize the language specific file
+-						packageFilenames[fileNameString] = (packageDirPath / langPath).string();
+-					else
+-						packageFilenames[fileNameString] = (packageDirPath / dir_entry.path().filename()).string();
++					NameString otherName(dir_entry.path().stem().string());
++					auto existing = otherLangFiles.find(otherName);
++					if (existing == otherLangFiles.end() || StrTools::equals_ignore_case(ext.substr(0, ext.size() - suffix.size()), ".usa"))
++						otherLangFiles[otherName] = dir_entry.path();
++					if (plainFiles.find(otherName) == plainFiles.end() && langFiles.find(otherName) == langFiles.end() && existing == otherLangFiles.end())
++						order.push_back(otherName);
+ 				}
 +				continue;
+ 			}
 +			// dir_entry's path already starts with packageDirPath
 +			NameString fileNameString(dir_entry.path().stem().string());
 +			if (plainFiles.find(fileNameString) == plainFiles.end() && langFiles.find(fileNameString) == langFiles.end())
@@ -808,24 +835,10 @@ index 333a3135..6d6dcf32 100644
 +		// int only the plain file (HP1's AllDialog.uax, not the smaller AllDialog.int_uax next to it).
 +		bool preferLanguage = !launchInfo.IsKnowWonder() || !StrTools::equals_ignore_case(languageExtension, "int");
 +		for (const NameString& fileNameString : order)
- 		{
- 			// Do not add the package again if it exists
- 			// This is useful for example when you have HD textures installed in a different folder
- 			// And you wish to load them instead of the original ones
--			if (dir_entry.is_regular_file() && dir_entry.path().extension() == searchExt)
--			{
--				NameString fileNameString(dir_entry.path().stem().string());
--				auto it = packageFilenames.find(fileNameString);
--				if (it == packageFilenames.end())
--				{
--					auto langPath = dir_entry.path().parent_path() / (dir_entry.path().stem().string() + langSearchExt.string());
--					if (fs::exists(langPath) && fs::is_regular_file(langPath))
--						// Prioritize the language specific file
--						packageFilenames[fileNameString] = (packageDirPath / langPath).string();
--					else
--						packageFilenames[fileNameString] = (packageDirPath / dir_entry.path().filename()).string();
--				}
--			}
++		{
++			// Do not add the package again if it exists
++			// This is useful for example when you have HD textures installed in a different folder
++			// And you wish to load them instead of the original ones
 +			if (packageFilenames.find(fileNameString) != packageFilenames.end())
 +				continue;
 +			auto plainIt = plainFiles.find(fileNameString);
@@ -834,10 +847,12 @@ index 333a3135..6d6dcf32 100644
 +				packageFilenames[fileNameString] = langIt->second.string();
 +			else if (plainIt != plainFiles.end())
 +				packageFilenames[fileNameString] = plainIt->second.string();
++			else if (otherLangFiles.find(fileNameString) != otherLangFiles.end())
++				packageFilenames[fileNameString] = otherLangFiles[fileNameString].string();
  		}
  	}
  }
-@@ -536,7 +584,12 @@ void PackageManager::ScanPaths()
+@@ -536,7 +600,12 @@ void PackageManager::ScanPaths()
  		auto filename = currentPath.filename();
  
  		// Calculate the final, absolute path
@@ -851,7 +866,7 @@ index 333a3135..6d6dcf32 100644
  
  		// Add map folders in a separate list, so ScanForMaps() can use them
  		if (filename.string() == "*." + GetMapExtension())
-@@ -847,30 +900,30 @@ void PackageManager::LoadEngineIniFiles()
+@@ -847,30 +916,30 @@ void PackageManager::LoadEngineIniFiles()
  	std::string systemIniFileName = "SE-" + systemIniName + ".ini";
  	std::string userIniName = "SE-User.ini";
  
@@ -890,7 +905,7 @@ index 333a3135..6d6dcf32 100644
  	}
  }
  
-@@ -976,6 +1029,45 @@ Array<IntObject>& PackageManager::GetIntObjects(const NameString& metaclass)
+@@ -976,6 +1045,45 @@ Array<IntObject>& PackageManager::GetIntObjects(const NameString& metaclass)
  	return IntObjects["int"][NameString(metaclass.ToString().substr(pos + 1))];
  }
  
@@ -936,7 +951,7 @@ index 333a3135..6d6dcf32 100644
  std::string PackageManager::Localize(NameString packageName, const NameString& sectionName, const NameString& keyName, const int index)
  {
  	if (packageName == "Engine" && keyName == "ClassCaption")
-@@ -985,6 +1077,38 @@ std::string PackageManager::Localize(NameString packageName, const NameString& s
+@@ -985,6 +1093,38 @@ std::string PackageManager::Localize(NameString packageName, const NameString& s
  		else if (sectionName == "SurrealNetworkDevice") return "Surreal Network";
  	}
  
@@ -975,7 +990,7 @@ index 333a3135..6d6dcf32 100644
  	auto& intFile = intFiles[packageName.ToString() + "." + languageExtension];
  
  	if (!intFile)
-@@ -994,8 +1118,9 @@ std::string PackageManager::Localize(NameString packageName, const NameString& s
+@@ -994,8 +1134,9 @@ std::string PackageManager::Localize(NameString packageName, const NameString& s
  	{
  		try
  		{
@@ -987,7 +1002,7 @@ index 333a3135..6d6dcf32 100644
  
  			if (IsUnreal1_227k() || (IsUnrealTournament_469() && launchInfo.gameSubVersion >= 4))
  			{
-@@ -1012,11 +1137,12 @@ std::string PackageManager::Localize(NameString packageName, const NameString& s
+@@ -1012,11 +1153,12 @@ std::string PackageManager::Localize(NameString packageName, const NameString& s
  			if (!intFile)
  			{
  				// Check the System path
@@ -1003,7 +1018,7 @@ index 333a3135..6d6dcf32 100644
  			}
  		}
  		catch (...)
-@@ -1182,6 +1308,9 @@ void PackageManager::RegisterFunctions()
+@@ -1182,6 +1324,9 @@ void PackageManager::RegisterFunctions()
  	{
  		NRMusicPlayer::RegisterFunctions();
  	}
