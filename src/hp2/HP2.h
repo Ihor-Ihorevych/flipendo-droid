@@ -51,6 +51,13 @@ namespace HP2
 	// (PlayerPawn.bQueuedToSaveGame) as the save folder's Save0.usa; the LOADGAME <n> console command loads Save<n>.usa.
 	void TickQueuedSave();
 	bool SaveCommand(const Array<std::string>& args);
+	// Persistent actors across hub travel (src/hp2/HP2Persist.cpp): SAVEPACTORS writes the level's bPersistent actors to
+	// <save folder>/cache/<map>_pa.usa, Engine::LoadMap reads them back for every map but Entry, before the GameInfo
+	// spawns. Saving copies the cache into the slot folder (KW::SaveGame), starting the game and LOADGAME copy it back.
+	void SavePersistentActors(const std::string& map);
+	void LoadPersistentActors(const std::string& map);
+	void SavePersistentActorCache();
+	void LoadPersistentActorCache();
 	// [Engine.GameEngine] UseSound=False (the front end's "Disable all sound"): HP2's engine then has no audio subsystem;
 	// here sounds and music play at volume 0.
 	bool SoundDisabled();

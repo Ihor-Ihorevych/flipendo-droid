@@ -50,16 +50,66 @@ one in the story (checked 2026-10-05 over every `.unr` in HP1's `Maps`).
   `VendorNimbusBroom`. `harry.LoadLevel` stores each persistent `Characters`' state, `LeadingActor` and `navP` names
   in `PersistentState` / `PersistentLeadingActor` / `PersistentNavPName` (read back in `Characters` on the next visit,
   only for the idle / leading-actor states), then runs `ConsoleCommand("SavePActors")` and travels.
-- Engine side, HP2 only (none of these is in HP1's DLLs): Engine.dll `?SavePersistentActors@ULevel@@QAE_NABVFString@@@Z`
-  (thunk 0x10303445), `?LoadPersistentActors@ULevel@@QAE_NABVFString@@@Z` (0x103037D3),
-  `?SerializePersistence@AActor@@QAEXAAVFArchive@@@Z` (0x10304A43); imported from Core.dll
-  `?SerializeTaggedPersistentProperties@UStruct@@QAEXAAVFArchive@@PAEPAVUClass@@@Z`, `?LoadPersistentActorCache@@YAXXZ`,
-  `?SavePersistentActorCache@@YAXXZ`. The UTF-16 string `SAVEPACTORS` is referenced at 0x103A2BEF (an Exec).
-  `SerializePersistence` writes the class, then only the properties tagged persistent, so the cache may keep results
-  (beans spawned, items taken) rather than resume an actor mid-action; not read yet.
-- The HP2 Engine database looked misaligned when this was read: the thunks point 0x10 bytes before the bodies
-  (bodies at 0x103B9030, 0x103B9E40, 0x103811D0) and the decompiled names didn't fit. Check the database first.
-- Flipendo: nothing yet.
+- Engine side, HP2 only (none of these is in HP1's DLLs; read 2026-10-20 in a fresh analysis of the DLLs, the old
+  Engine database was damaged): Engine.dll `ULevel::SavePersistentActors` [HP2 0x103B9030],
+  `ULevel::LoadPersistentActors` [HP2 0x103B9E40], `AActor::SerializePersistence` [HP2 0x103811D0]; Core.dll
+  `UStruct::SerializeTaggedPersistentProperties` [HP2 Core 0x10129300], `SavePersistentActorCache` [HP2 Core
+  0x10157790], `LoadPersistentActorCache` [HP2 Core 0x10157E20]. All do nothing in the editor.
+- Who calls them: `UGameEngine::Exec`'s `SAVEPACTORS` saves under `LevelInfo.LevelEnterText`; `UGameEngine::LoadMap`
+  loads for every map but Entry with `URL.Map`, right after the level package is in and before the GameInfo spawns
+  and InitGame / BeginPlay run (a save file's URL names `Save0`, which has no file); `UGameEngine::SaveGame` calls
+  `SavePersistentActorCache` after the save; `appInit` (Core, at every start, once the slot folder is known) and
+  `LOADGAME` call `LoadPersistentActorCache`.
+- Paths: `USystem` +0x40 is the save folder (the slot's, [startup](startup.md#save-slots--saveslot-and--loadgame)),
+  +0x4C the Maps folder (appInit: the folder above `System` plus the `Paths` entry for maps). The file is
+  `<save folder>\cache\<map without extension>_pa.usa`; the map name is cut after its last `\` and gets `.unr` when it
+  has no "unr" in it. The map file's size (FileSize) and time (GetGlobalTime: `_stat`'s modification time in seconds)
+  go into the header.
+- The cache: `SavePersistentActorCache` deletes the save folder's `*_pa.*` and copies `cache\*_pa.*` into it;
+  `LoadPersistentActorCache` empties `cache\` of `*_pa.*` and copies the save folder's in. So the hubs' state travels
+  with the slot: starting or loading a game brings them back as they were at the save, travel in between only touches
+  the cache.
+- Save: the level's actors with `bPersistent` (bit 0 of the dword at +200); none: nothing written (an older file
+  stays). Layout, each string as an int32 byte count of its UTF-16 text with the terminator, then the text:
+  `"PA0"` (8 bytes, UTF-16 with terminator), map file name, int32 map file size, int64 map file time, int32 actor
+  count, then per actor: name, class name (no package), int32 byte size of the rest (patched in after), the tagged
+  properties; then the string `EOF`. Logs "*** Starting to Save Persistent Actors for map %s" / "*** Finished Saving
+  ...". "*** Could not Save Persistent Actor file %s, CreateFileWriter had an error!!!!." when the file can't be made.
+- `SerializePersistence` sets the object flag 0x40000000, preloads the class (writes nothing) and runs
+  `SerializeTaggedPersistentProperties` (on a plain loader or saver). Saving writes **every** property of the class
+  chain (the class's own first, then its parents') that isn't native (0x1000) or, the archive being persistent,
+  transient (0x2000), except `AuxAnims`, whether or not it differs from the defaults, then `None`. So an actor comes
+  back with all its script variables, but not its running state code (the state frame isn't written; the scripts
+  restore `Characters`' state themselves, above).
+- The property tags are UE1's (name; info byte = type | size class << 4 | 0x80 for a true bool or an array index;
+  a struct's name; the size when its class doesn't give it; the array index), but through FFileManagerWindows' file
+  writer in Game.exe (`sub_10909740`, its `<<FName`): **names are strings** (int32 byte count + UTF-16), and
+  `<<UObject*` is the base FArchive's, so **object references write nothing**: they are never saved and an actor keeps
+  the map's. The tag's size comes from a counting archive (Core `off_1018373C`) that counts 4 bytes for a name or an
+  object, so for those the size doesn't match what follows; it is only used to skip. Values are SerializeItem's: byte
+  1, int and float 4, a bool in a tag none (its value is the 0x80 bit), a bool in a struct 1 byte, Str FString
+  (compact index of the length with terminator, negative for UTF-16, then the characters), struct its fields'
+  values in order, dynamic array a compact count then the elements.
+- Load: "*** Could not load Persistent Actor file %s (file is probably missing)."; builds name -> actor of the level's
+  persistent actors (none: stop); checks the header: map name (ignoring case), "FinalMapName != Saved map name",
+  size, time ("Loading map FileSize that this PA file is for", "Saving map FileTime ..."): a file for a changed map is
+  ignored. Per entry: the level's actor of that name (taken out of the table) gets the properties; none: logs "***
+  Actor is NOT in level %s but is in pa file %s!", finds the class in any package and spawns it with the saved name
+  (`ULevel::SpawnActor`), or skips the entry by its size if the class isn't found. The tag loader: a tag goes to the
+  property of that name; a String tag on a Str property is read as bytes; a type mismatch, an index out of bounds, a
+  struct of another name, a native or transient property ("Property %s of %s is ..." unless it's XLevel) or an unknown
+  name ("Property %s of %s not found") is skipped by its size. Afterwards a flag 0x20000 at +364 is cleared: LoadMap
+  skips actors with that flag in its PreBeginPlay / BeginPlay / PostBeginPlay / SetInitialState loops (and the ULevel vtable +176 call between them), so a
+  loaded actor gets them like any other (what sets the flag wasn't looked for). After a good `EOF` every persistent
+  actor the file didn't name is destroyed (`ULevel::DestroyActor`): a bean Harry picked up stays gone.
+- Flipendo: `src/hp2/HP2Persist.cpp` writes and reads the same file, so a save folder carries over from the original
+  game and back (as long as the map files keep their size and time). Not written: fixed-size String properties (raw
+  bytes of their declared size, which SurrealEngine doesn't keep). Classes are looked up in `[Editor.EditorEngine]
+  EditPackages`. Tested 2026-10-20 between Entryhall_hub and Grounds_hub: a changed property, a picked-up bean and
+  an actor only the file has come back as they should.
+- Also needed for it: actors spawned at runtime had names a map actor already used (SurrealEngine numbered them from
+  0 per class: a spawned `Jellybean0` next to the map's), which made two persistent actors share a name. Spawned
+  names now skip names in use (KnowWonder games).
 
 ## Lumos surfaces
 

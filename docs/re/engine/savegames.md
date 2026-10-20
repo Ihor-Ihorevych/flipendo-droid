@@ -62,7 +62,7 @@ In HP2 `PaintProgress` differs only in offsets. HP2's engine side of saving:
   <n>` (`LoadPersistentActorCache()`, then `LevelInfo.ServerTravel("<folder>\Save<n>.usa")`), `SAVEPACTORS`
   (`ULevel::SavePersistentActors(LevelEnterText)`, the hub persistence).
 - Flipendo: `HP2::TickQueuedSave` and `HP2::SaveCommand` (`src/hp2/HP2Save.cpp`), the shared `KW::SaveGame` with the HP2
-  differences. Not ported: the persistent actor cache, RestartSounds, the skipped rest of the tick.
+  differences; the persistent actor cache in `src/hp2/HP2Persist.cpp` ([hub persistence](../hp2/engine.md#persistent-actors-across-hub-travel)). Not ported: RestartSounds, the skipped rest of the tick.
 
 
 - **`UGameEngine::SaveGame(int)`** [HP1 0x103A2280] is stock UE1: sets `LevelInfo.LevelAction` to saving, paints one

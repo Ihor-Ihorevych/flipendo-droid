@@ -4,6 +4,7 @@
 #include "Engine.h"
 #include "Package/PackageManager.h"
 #include "Packages/Engine/UViewport.h"
+#include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
 #include "Utils/Logger.h"
 #include "Utils/StrTools.h"
@@ -28,17 +29,25 @@ namespace HP2
 		KW::SaveGame(0, {});
 	}
 
-	// UGameEngine::Exec's LOADGAME <n>: travels to the save folder's Save<n>.usa (the original calls
-	// LevelInfo.ServerTravel with its path, after loading the persistent actor cache, which isn't ported).
-	// IDA Engine.dll: ?Exec@UGameEngine@@UAEHPBGAAVFOutputDevice@@@Z [HP2 0x103A20F0] (the "LOADGAME" branch)
+	// UGameEngine::Exec's LOADGAME <n>: loads the persistent actor cache and travels to the save folder's
+	// Save<n>.usa (the original calls LevelInfo.ServerTravel with its path). SAVEPACTORS: the level's persistent
+	// actors, under LevelInfo.LevelEnterText (harry.LoadLevel, before it travels).
+	// IDA Engine.dll: ?Exec@UGameEngine@@UAEHPBGAAVFOutputDevice@@@Z [HP2 0x103A20F0] (the "LOADGAME" and "SAVEPACTORS" branches)
 	bool SaveCommand(const Array<std::string>& args)
 	{
+		if (args.size() >= 1 && StrTools::equals_ignore_case(args[0], "savepactors"))
+		{
+			if (engine->LevelInfo)
+				SavePersistentActors(engine->LevelInfo->LevelEnterText());
+			return true;
+		}
 		if (args.size() < 2 || !StrTools::equals_ignore_case(args[0], "loadgame"))
 			return false;
 		if (args[1].empty() || args[1][0] < '0' || args[1][0] > '9')
 			return true;
 		int save = Convert::to_int32(args[1]);
 		LogMessage("Loading game... filename: " + (engine->packages->GetSaveFolderPath() / ("Save" + std::to_string(save) + "." + engine->packages->GetSaveExtension())).string());
+		LoadPersistentActorCache();
 		engine->ClientTravel("?load=" + std::to_string(save), ETravelType::TRAVEL_Absolute, false);
 		return true;
 	}
