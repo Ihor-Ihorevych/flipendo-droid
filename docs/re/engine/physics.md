@@ -13,7 +13,8 @@ Both games' `Pawn.uc` / `PlayerPawn.uc` declare the KnowWonder additions below (
 and the latent polls (`execPollMoveTo`, `execPollMoveToward`, `execPollStrafeFacing`, `execPollWaitForLanding`) differ
 only in offsets; `physWalking` (14847 -> 13679 bytes), `physFlying`, `physSwimming`, `physRolling`, `physMovingBrush`,
 `physTrailer`, `APawn::performPhysics`, `physicsRotation`, `moveToward`, `Mount` and
-`AInterpolationManager::performPhysics` changed, HP2 code not read yet. `IsBlockedBy` differs only in offsets.
+`AInterpolationManager::performPhysics` changed, HP2 code not read yet (for the last one only the final move is read,
+[InterpolationManager](#interpolationmanager)). `IsBlockedBy` differs only in offsets.
 The turn natives changed too (`execTurnTo` 250 -> 295 bytes, `execTurnToward`, `rotateToward`): HP2 flattens
 TurnTo's focal point while walking ([hp2/engine.md](../hp2/engine.md#pawn-turning)).
 
@@ -351,3 +352,15 @@ PHYS_Interpolating; its `performPhysics` (0x103F7BA0) moves the Owner (PHYS_None
 Bezier segments and raises `UpdateCamera`, `InterpolationPoint.InterpolateEnd` and `FinishedInterpolation`.
 KnowWonder's InterpolationPoint is not UT's: arrays per pause (`Pause[8]`, `ViewTargetTag[8]`, ...), Bezier control
 points, DesiredSpeed/PathDist (HP2's has the same `Pause[8]` arrays).
+
+### HP1 and HP2
+
+HP2's `performPhysics` (0x10403E60) moves the Owner with the rotation it worked out only when the Owner's
+`bInterpolating_IgnoreRot` is off (the bool after `bInterpolating` in HP2's `Actor.uc`, bit 0x10 of the byte whose 0x08
+bit the loop tests as `bInterpolating`); with it on, the Owner moves along the path and keeps its own `Rotation`. The
+turn smoothing before the move still runs and updates `TurnRateX/Z`. HP1's Actor has no such flag.
+`Pawn.FollowSplinePath` sets it when called with `bDontAlignAlongPath` and never clears it (only BroomHarry,
+QuidditchPlayer and QuidditchPawn clear it); the cutscene command `FollowSpline` passes `bDontAlignAlongPath` unless it
+has the `Align` option. So PrivetDr's intro camera (`BaseCam FollowSpline CameraCrane EaseBetween ...`, no `Align`)
+keeps the rotation BaseCam gives it (towards its target, which follows its own spline) instead of turning with the
+crane path's points, which looked down at the map's edges. The rest of HP2's function is not compared with HP1's yet.

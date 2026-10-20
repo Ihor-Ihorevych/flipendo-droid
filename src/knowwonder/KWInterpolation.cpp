@@ -1,6 +1,7 @@
 #include "Precomp.h"
 #include "KW.h"
 #include "KWMove.h"
+#include "KWGame.h"
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Core/UClass.h"
 #include "Packages/Core/Properties/UProperty.h"
@@ -31,8 +32,8 @@ namespace KW
 		PropertyDataOffset bInstantNextPath, bFaceMoveDirection, bConstantSpeed, bTurnChange, bNewRotationSmoothing;
 		PropertyDataOffset Pause, ViewTargetTag, ViewTarget, Prev, Next;
 		PropertyDataOffset StartControlPoint, EndControlPoint, Smoothing, DesiredSpeed, PathDist;
-		// Actor
-		PropertyDataOffset IPSpeed;
+		// Actor (bInterpolating_IgnoreRot: HP2 only)
+		PropertyDataOffset IPSpeed, bInterpolating_IgnoreRot;
 		UClass* ManagerClass = nullptr;
 	};
 
@@ -87,6 +88,8 @@ namespace KW
 			p.DesiredSpeed = OwnProperty(ip, "DesiredSpeed");
 			p.PathDist = OwnProperty(ip, "PathDist");
 			p.IPSpeed = actor->GetPropertyDataOffset("IPSpeed");
+			if (IsHP2())
+				p.bInterpolating_IgnoreRot = OwnProperty(actor, "bInterpolating_IgnoreRot");
 			initialized = true;
 		}
 		return p;
@@ -309,7 +312,7 @@ namespace KW
 		return actor->IsA("InterpolationManager");
 	}
 
-	// IDA Engine.dll: ?performPhysics@AInterpolationManager@@UAEXM@Z [HP1 0x103F7BA0]
+	// IDA Engine.dll: ?performPhysics@AInterpolationManager@@UAEXM@Z [HP1 0x103F7BA0] [HP2 0x10403E60]
 	void InterpolationManagerPhysics(UActor* self, float deltaTime)
 	{
 		IManager m(self);
@@ -493,15 +496,20 @@ namespace KW
 					m.TurnRateZ() = (desired.ZAxis - cur.ZAxis) * inv;
 				}
 
-				// XLevel->MoveActor(Owner, Delta, NewRotation, Hit)
+				// XLevel->MoveActor(Owner, Delta, NewRotation, Hit). HP2: an owner with bInterpolating_IgnoreRot (set by
+				// Pawn.FollowSplinePath when the caller doesn't want it aligned to the path, never cleared by the
+				// script) moves along the path but keeps its own rotation; all the turn maths above still runs.
+				Rotator newRotation = OrthoRotation(desired);
+				if (IsHP2() && owner->BoolValue(GetInterpProps().bInterpolating_IgnoreRot))
+					newRotation = owner->Rotation();
 				if (UseKWPhysics())
 				{
 					CheckResult hit;
-					MoveActor(owner, location - owner->Location(), OrthoRotation(desired), hit);
+					MoveActor(owner, location - owner->Location(), newRotation, hit);
 				}
 				else
 				{
-					owner->SetRotation(OrthoRotation(desired));
+					owner->SetRotation(newRotation);
 					owner->TryMove(location - owner->Location());
 				}
 			}

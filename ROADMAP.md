@@ -23,9 +23,8 @@ Legend: [~] partly done / in progress · [ ] not started
         (seen only while skipping)
   - [ ] Skipping: "SKIP ERROR ... failed to advance after 16 loops" when fast-forwarding PrivetDr's intro (not
         seen 2026-10-20 in 4 runs skipping every cutscene from PrivetDr to Adv1Willow at different moments)
-  - [ ] PrivetDr's intro flyover: the camera doesn't follow the original's path and shows the map's edges (playtest
-        2026-10-17); the shot is also much darker. Check BaseCam's `FollowSpline ... EaseBetween` and FlyTo against HP2's
-        code, and the sky through the backdrop surfaces
+  - [ ] PrivetDr's intro flyover: the camera now keeps BaseCam's own rotation on the crane spline (no more map edges);
+        compare the path and the shot's brightness with the original in play, and the sky through the backdrop surfaces
   - [ ] Lumos: after casting it the light beam on the wand stays for good (playtest 2026-10-17). The LumosLight
         itself goes off after its 30 s (light and LumosLightFX, checked 2026-10-20 with baseWand.LumosTurnOn), so the
         beam is another effect: likely the wand's charge particles (`baseWand.fxChargeParticles`, only
