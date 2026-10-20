@@ -907,7 +907,7 @@ public class FlipendoActivity extends SDLActivity {
 
         /** The list's card: centred on the settings panel, one row per language, as tall as the rows need (at most the panel). */
         void layoutLanguageList() {
-            float h = getHeight();
+            float h = lh;
             int n = languages.size();
             float rowH = languageBtn.isEmpty() ? 0.11f * h : languageBtn.height();
             float gap = 0.2f * rowH, titleH = 1.3f * rowH, hintH = 0.9f * rowH;
@@ -934,7 +934,8 @@ public class FlipendoActivity extends SDLActivity {
         void drawLanguageList(Canvas c) {
             if (!langListOpen || !settingsOpen) return;
             layoutLanguageList();
-            float u = Math.min(getWidth(), getHeight());
+            float u = lu;
+            setPaintSizes(lu);
             fill.setColor(0x99000000);
             c.drawRect(0, 0, getWidth(), getHeight(), fill);
             float r = 0.03f * u;
@@ -945,7 +946,7 @@ public class FlipendoActivity extends SDLActivity {
             c.drawRoundRect(langPanel, r, r, line);
             float x0 = langRows.get(0).left;
             fill.setColor(GOLD);
-            c.drawRoundRect(x0, langTitleY - 0.04f * getHeight(), x0 + 0.008f * u, langTitleY + 0.005f * getHeight(), 4f, 4f, fill);
+            c.drawRoundRect(x0, langTitleY - 0.04f * lh, x0 + 0.008f * u, langTitleY + 0.005f * lh, 4f, 4f, fill);
             titlePaint.setTextAlign(Paint.Align.LEFT);
             c.drawText("Language", x0 + 0.025f * u, langTitleY, titlePaint);
             int current = languageIndex(currentLanguage());
@@ -1565,7 +1566,7 @@ public class FlipendoActivity extends SDLActivity {
         void buildSettingsEntries() {
             setRects.clear();
             setIds.clear();
-            float h = getHeight();
+            float h = lh;
             for (int i = 0; i < SLIDERS; i++) {
                 setRects.add(new android.graphics.RectF(colL0 - 0.01f * h, sliderLabelY[i] - 0.045f * h, colL1 + 0.01f * h, sliderY[i] + 0.03f * h));
                 setIds.add(sliderId(i));
@@ -1887,41 +1888,45 @@ public class FlipendoActivity extends SDLActivity {
             for (Btn a : arrows) a.r = 0.08f * u;
             applyLayout(w, h);
 
+            // The panel is laid out for a wide phone (about 2.1:1). On a squarer screen (a foldable opened) the text would outgrow the
+            // columns, so the panel's height and text unit follow its width instead of the tall screen
+            lh = Math.min(h, 0.94f * (sr - sl) / 2.1f);
+            lu = Math.min(u, lh);
             // The settings panel: a card with a header, two columns (Display: the sliders | Controls and Game: switches) and a footer.
-            float pw = Math.min(0.94f * (sr - sl), 2.1f * h);
-            float ph = Math.min(0.9f * h, sb - st);
+            float pw = Math.min(0.94f * (sr - sl), 2.1f * lh);
+            float ph = Math.min(0.9f * lh, sb - st);
             float pcx = (sl + sr) / 2f, pcy = (st + sb) / 2f;
             panel.set(pcx - pw / 2f, pcy - ph / 2f, pcx + pw / 2f, pcy + ph / 2f);
             float pad = 0.035f * pw;
             float gap = 0.02f * pw;
-            headerY = panel.top + 0.1f * h;
-            dividerY = panel.top + 0.145f * h;
-            float contentTop = dividerY + 0.03f * h;
-            float footerTop = panel.bottom - 0.115f * h;
+            headerY = panel.top + 0.1f * lh;
+            dividerY = panel.top + 0.145f * lh;
+            float contentTop = dividerY + 0.03f * lh;
+            float footerTop = panel.bottom - 0.115f * lh;
             colL0 = panel.left + pad;
             colL1 = panel.centerX() - pad / 2f;
             colR0 = panel.centerX() + pad / 2f;
             colR1 = panel.right - pad;
 
             // left: Display, three sliders sharing the column's height
-            secDisplayY = contentTop + 0.03f * h;
-            float knobR = 0.026f * u;
+            secDisplayY = contentTop + 0.03f * lh;
+            float knobR = 0.026f * lu;
             sliderX0 = colL0 + knobR;
             sliderX1 = colL1 - knobR;
             // the FPS counter switch at the bottom of the column, the sliders share what is above it
             // two switches at the bottom of the column, the sliders share what is above them
-            fpsBtn.set(colL0, footerTop - 0.035f * h - 0.062f * h, colL1, footerTop - 0.035f * h);
-            fpBtn.set(colL0, fpsBtn.top - 0.008f * h - 0.062f * h, colL1, fpsBtn.top - 0.008f * h);
-            float slot = (fpBtn.top - 0.015f * h - (secDisplayY + 0.015f * h)) / SLIDERS;
+            fpsBtn.set(colL0, footerTop - 0.035f * lh - 0.062f * lh, colL1, footerTop - 0.035f * lh);
+            fpBtn.set(colL0, fpsBtn.top - 0.008f * lh - 0.062f * lh, colL1, fpsBtn.top - 0.008f * lh);
+            float slot = (fpBtn.top - 0.015f * lh - (secDisplayY + 0.015f * lh)) / SLIDERS;
             for (int s = 0; s < SLIDERS; s++) {
-                sliderLabelY[s] = secDisplayY + 0.015f * h + s * slot + 0.047f * h;
-                sliderY[s] = sliderLabelY[s] + 0.043f * h;
+                sliderLabelY[s] = secDisplayY + 0.015f * lh + s * slot + 0.047f * lh;
+                sliderY[s] = sliderLabelY[s] + 0.043f * lh;
             }
 
             // right: Controls (movement segments, Auto jump) and Game (Language, Movement mod, Debug mode)
-            float rowH = 0.058f * h, rowGap = 0.006f * h;
-            secControlsY = contentTop + 0.03f * h;
-            float y = secControlsY + 0.025f * h;
+            float rowH = 0.058f * lh, rowGap = 0.006f * lh;
+            secControlsY = contentTop + 0.03f * lh;
+            float y = secControlsY + 0.025f * lh;
             segStick.set(colR0, y, (colR0 + colR1) / 2f, y + rowH);
             segDpad.set((colR0 + colR1) / 2f, y, colR1, y + rowH);
             y += rowH + rowGap;
@@ -1930,9 +1935,9 @@ public class FlipendoActivity extends SDLActivity {
             invertBtn.set(colR0, y, colR1, y + rowH);
             y += rowH + rowGap;
             layoutBtn.set(colR0, y, colR1, y + rowH);
-            y += rowH + 0.012f * h;
-            secGameY = y + 0.03f * h;
-            y = secGameY + 0.02f * h;
+            y += rowH + 0.012f * lh;
+            secGameY = y + 0.03f * lh;
+            y = secGameY + 0.02f * lh;
             if (languages.size() > 1) {
                 languageBtn.set(colR0, y, colR1, y + rowH);
                 y += rowH + rowGap;
@@ -1948,8 +1953,8 @@ public class FlipendoActivity extends SDLActivity {
             debugBtn.set(colR0, y, colR1, y + rowH);
 
             // footer: the channel on the left, Done on the right
-            float footH = 0.075f * h;
-            float footY = panel.bottom - 0.03f * h - footH;
+            float footH = 0.075f * lh;
+            float footY = panel.bottom - 0.03f * lh - footH;
             telegramBtn.set(colL0, footY, colL0 + 0.36f * pw, footY + footH);
             closeBtn.set(colR1 - 0.2f * pw, footY, colR1, footY + footH);
             rendererBtn.set(telegramBtn.right + gap, footY, closeBtn.left - gap, footY + footH); // between the channel and Done
@@ -1959,20 +1964,28 @@ public class FlipendoActivity extends SDLActivity {
             promptYes.set(promptPanel.left + 0.05f * ppw, promptPanel.bottom - 0.28f * promptPanel.height(), w / 2f - gap, promptPanel.bottom - 0.08f * promptPanel.height());
             promptNo.set(w / 2f + gap, promptYes.top, promptPanel.right - 0.05f * ppw, promptYes.bottom);
 
-            helpBtn.set(colL0 + 0.34f * u, headerY - 0.052f * h, colL0 + 0.56f * u, headerY + 0.008f * h);
-            fixBtn.set(helpBtn.right + 0.02f * u, helpBtn.top, helpBtn.right + 0.30f * u, helpBtn.bottom);
-            switchBtn.set(fixBtn.right + 0.02f * u, helpBtn.top, fixBtn.right + 0.38f * u, helpBtn.bottom);
-            versionRect.set(colR1 - 0.5f * u, headerY - 0.07f * h, colR1 + 0.01f * u, headerY + 0.03f * h); // the "Flipendo for Android x.y.z" text
+            helpBtn.set(colL0 + 0.34f * lu, headerY - 0.052f * lh, colL0 + 0.56f * lu, headerY + 0.008f * lh);
+            fixBtn.set(helpBtn.right + 0.02f * lu, helpBtn.top, helpBtn.right + 0.30f * lu, helpBtn.bottom);
+            switchBtn.set(fixBtn.right + 0.02f * lu, helpBtn.top, fixBtn.right + 0.38f * lu, helpBtn.bottom);
+            versionRect.set(colR1 - 0.5f * lu, headerY - 0.07f * lh, colR1 + 0.01f * lu, headerY + 0.03f * lh); // the "Flipendo for Android x.y.z" text
             layoutEditRects(w, h);
 
-            titlePaint.setTextSize(0.055f * u);
-            sectionPaint.setTextSize(0.026f * u);
-            rowPaint.setTextSize(0.033f * u);
-            subPaint.setTextSize(0.024f * u);
-            valuePaint.setTextSize(0.031f * u);
+            setPaintSizes(u);
             label.setTextSize(0.03f * u);
             label.setColor(0xFFFFFFFF);
             label.setShadowLayer(4f, 0f, 0f, 0xFF000000);
+        }
+
+        /** The settings panel's layout height and text unit (onSizeChanged): the screen's, or less on a squarer screen. */
+        float lh, lu;
+
+        /** The text sizes of the settings paints for a layout unit: the screen's short side (u) or the settings panel's (lu). */
+        void setPaintSizes(float unit) {
+            titlePaint.setTextSize(0.055f * unit);
+            sectionPaint.setTextSize(0.026f * unit);
+            rowPaint.setTextSize(0.033f * unit);
+            subPaint.setTextSize(0.024f * unit);
+            valuePaint.setTextSize(0.031f * unit);
         }
 
         final Paint label = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -1998,7 +2011,7 @@ public class FlipendoActivity extends SDLActivity {
         /** The slider under a touch (menu open only), or -1. */
         int hitSlider(float x, float y) {
             if (!settingsOpen) return -1;
-            float u = Math.min(getWidth(), getHeight());
+            float u = lu;
             for (int i = 0; i < SLIDERS; i++) {
                 if (Math.abs(y - sliderY[i]) < 0.045f * u && x > sliderX0 - 0.05f * u && x < sliderX1 + 0.05f * u) return i;
             }
@@ -2035,10 +2048,11 @@ public class FlipendoActivity extends SDLActivity {
 
         void drawSettings(Canvas c) {
             if (!settingsOpen) return;
-            float u = Math.min(getWidth(), getHeight());
-            float h = getHeight();
+            float u = lu;
+            float h = lh;
+            setPaintSizes(lu);
             fill.setColor(0xB8000000);
-            c.drawRect(0, 0, getWidth(), h, fill);
+            c.drawRect(0, 0, getWidth(), getHeight(), fill);
             float r = 0.035f * u;
             fill.setColor(CARD);
             c.drawRoundRect(panel, r, r, fill);
@@ -2133,10 +2147,11 @@ public class FlipendoActivity extends SDLActivity {
 
         /** The controls card (Settings > ? How to play): what every control does, and the HP2 extras. */
         void drawHelp(Canvas c) {
-            float u = Math.min(getWidth(), getHeight());
-            float h = getHeight();
+            float u = lu;
+            float h = lh;
+            setPaintSizes(lu);
             fill.setColor(0xDD000000);
-            c.drawRect(0, 0, getWidth(), h, fill);
+            c.drawRect(0, 0, getWidth(), getHeight(), fill);
             fill.setColor(CARD);
             c.drawRoundRect(panel, 0.035f * u, 0.035f * u, fill);
             line.setColor(0x33FFFFFF);
@@ -2246,7 +2261,7 @@ public class FlipendoActivity extends SDLActivity {
         }
 
         void drawSliders(Canvas c) {
-            float u = Math.min(getWidth(), getHeight());
+            float u = lu;
             int[] size = ((FlipendoActivity) getContext()).viewSize();
             int longSide = size[0], shortSide = size[1];
             for (int i = 0; i < SLIDERS; i++) {
@@ -3177,6 +3192,7 @@ public class FlipendoActivity extends SDLActivity {
             drawPadCursor(c);
             drawSettings(c);
             drawLanguageList(c);
+            setPaintSizes(Math.min(getWidth(), getHeight())); // the settings drawing used the panel's unit
             drawPrompt(c);
         }
     }
