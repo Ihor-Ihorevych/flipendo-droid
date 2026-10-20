@@ -26,7 +26,8 @@ Legend: [~] partly done / in progress · [ ] not started
   - [ ] PrivetDr's intro flyover: the camera doesn't follow the original's path and shows the map's edges (playtest
         2026-10-17); the shot is also much darker. Check BaseCam's `FollowSpline ... EaseBetween` and FlyTo against HP2's
         code, and the sky through the backdrop surfaces
-  - [ ] XA sounds: check the decoder by ear (nibble order), and the stereo XA case
+  - [ ] XA sounds: check the decoder (nibble order) and the stereo XA case against HP2's own XA decoder in Core.dll
+        (`FFileStream`), so the ear test isn't needed; next up
   - [ ] Lumos: after casting it the light beam on the wand stays for good (playtest 2026-10-17). The LumosLight
         itself goes off after its 30 s (light and LumosLightFX, checked 2026-10-20 with baseWand.LumosTurnOn), so the
         beam is another effect: likely the wand's charge particles (`baseWand.fxChargeParticles`, only
