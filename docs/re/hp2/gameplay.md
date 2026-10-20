@@ -129,7 +129,7 @@ Two new collide types, `CT_AlignedOvalCylinder` and `CT_OrientedOvalCylinder` ([
 
 Not read in HP2's code yet. Check each one in `../ida/hp2/` before relying on it.
 
-- **Sounds** are a modified Maxis XA format (an ADPCM), not plain wav; a decoder is ~150 lines.
+- **Sounds** are mostly EA-XA ADPCM, not plain wav, decoded by Core.dll's `FFileStream` ([sound](../engine/sound.md#hp2s-sound-objects)).
 - **Saves** are not loaded with `load saveN` as in every other UE1 game (fits the queued saves above).
 - **Lip sync** is precomputed when a sound is imported: at runtime a sound gives one 0-1 mouth value. HP1 has none
   (no script mentions it, no Engine.dll function is named for it).

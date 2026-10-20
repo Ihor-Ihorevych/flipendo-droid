@@ -1,69 +1,55 @@
 #include "Precomp.h"
 #include "HP2.h"
-#include "Utils/Logger.h"
 #include <algorithm>
 #include <cstring>
 
 // HP2's "XA" sounds (USound.Format == 'XA', most of HP2's sound effects, ambience and dialogue) are EA-XA ADPCM, EA's own
 // codec (HP2 ships EA's sx.exe tool with the game). Engine.dll only encodes it (USound::CompressXA, editor side); the game
-// streams the sound with FFileStream (Core.dll), started from UALAudioSubsystem::RegisterSound (ALAudio.dll). The
-// layout is the common EA-XA one, mono: 15-byte blocks of 28 samples. The header byte holds the predictor in its high
-// nibble and the shift in its low nibble, 0xEE marks an uncompressed block (two 16-bit history samples, then 28 16-bit
-// samples). The data bytes hold two samples each, high nibble first. The sound's HP2Values give the sample count, bits,
-// channels and rate (USound::Load).
+// streams the sound with FFileStream (Core.dll), started from UALAudioSubsystem::RegisterSound (ALAudio.dll), which
+// decodes it with a mono EA-XA decoder: 15-byte blocks of 28 samples, the header byte holding the predictor in its high
+// nibble and the shift in its low nibble, then two samples per byte, high nibble first. The sound's HP2Values give the
+// sample count, bits, channels and rate (USound::Load).
 
 namespace HP2
 {
-	// IDA ALAudio.dll: ?RegisterSound@UALAudioSubsystem@@UAEHPAVUSound@@@Z [HP2 ALAudio 0x10003400] NOT yet verified: the decoder itself (FFileStream, Core.dll) was not found; the format is EA-XA as decoded by vgmstream
-	// Only mono is decoded (every XA sound checked in HPSounds.u is mono); other channel counts give silence.
+	// IDA ALAudio.dll: ?RegisterSound@UALAudioSubsystem@@UAEHPAVUSound@@@Z [HP2 ALAudio 0x10003400]
+	// IDA Core.dll: ?Read@FFileStream@@QAEHHH@Z [HP2 Core 0x10178390]
+	// IDA Core.dll: not exported: sub_1017AD30 [HP2 Core 0x1017AD30] (the XA stream's read, called from FFileStream::Read for stream types 3 and 4)
+	// IDA Core.dll: not exported: sub_1017AB80 [HP2 Core 0x1017AB80] (the block decoder, sub_1017AD30's only callee; coefficient table at 0x101D44D8)
+	// The decoder has one sample history, so the data is always one stream of samples; RegisterSound gives OpenAL a
+	// stereo format when the sound isn't mono, which plays that stream as interleaved stereo (no HP2 sound does this,
+	// all 3114 XA sounds are mono).
 	Array<uint8_t> DecodeXA(const Array<uint8_t>& data, int sampleCount, int channels, int rate)
 	{
-		if (channels != 1)
-		{
-			LogMessage("XA sound with " + std::to_string(channels) + " channels isn't supported");
-			return DecodeXA(Array<uint8_t>(), 0, 1, rate);
-		}
+		// Only predictors 0-3 occur in HP2's sounds; the original's table runs on into unrelated data after them
 		static const int coefs[4][2] = { { 0, 0 }, { 240, 0 }, { 460, -208 }, { 392, -220 } };
 
 		std::vector<int16_t> pcm;
 		pcm.reserve(sampleCount > 0 ? sampleCount : data.size() * 2);
 		int hist1 = 0, hist2 = 0;
-		size_t pos = 0;
-		while (pos < data.size())
+		for (size_t pos = 0; pos + 15 <= data.size(); pos += 15)
 		{
 			uint8_t header = data[pos];
-			if (header == 0xEE)
-			{
-				if (pos + 61 > data.size())
-					break;
-				const uint8_t* p = data.data() + pos + 1;
-				hist1 = (int16_t)(p[0] << 8 | p[1]);
-				hist2 = (int16_t)(p[2] << 8 | p[3]);
-				for (int i = 0; i < 28; i++)
-					pcm.push_back((int16_t)(p[4 + i * 2] << 8 | p[5 + i * 2]));
-				pos += 61;
-				continue;
-			}
-			if (pos + 15 > data.size())
-				break;
 			int coef1 = coefs[(header >> 4) & 3][0];
 			int coef2 = coefs[(header >> 4) & 3][1];
-			int shift = header & 0x0F;
+			int shift = (header & 0x0F) + 8;
 			for (int i = 0; i < 28; i++)
 			{
 				uint8_t byte = data[pos + 1 + i / 2];
-				int nibble = (i & 1) ? (byte & 0x0F) : (byte >> 4);
-				int sample = (int)(int16_t)(nibble << 12) >> shift;
-				sample += (coef1 * hist1 + coef2 * hist2 + 128) >> 8;
+				uint32_t nibble = (i & 1) ? (byte & 0x0F) : (byte >> 4);
+				// One rounding for the prediction and the nibble together, as the original does
+				int sample = (coef1 * hist1 + coef2 * hist2 + ((int32_t)(nibble << 28) >> shift)) >> 8;
 				sample = std::clamp(sample, -32768, 32767);
 				pcm.push_back((int16_t)sample);
 				hist2 = hist1;
 				hist1 = sample;
 			}
-			pos += 15;
 		}
 		if (sampleCount > 0 && (size_t)sampleCount < pcm.size())
 			pcm.resize(sampleCount);
+		// AL_FORMAT_MONO16 for one channel, AL_FORMAT_STEREO16 for anything else
+		channels = channels == 1 ? 1 : 2;
+		pcm.resize(pcm.size() / channels * channels);
 
 		// As a WAV file, which SurrealEngine's audio code already reads
 		uint32_t dataSize = (uint32_t)(pcm.size() * 2);
