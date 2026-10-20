@@ -33,6 +33,8 @@ Legend: [~] partly done / in progress · [ ] not started
         real cast to see which
   - [ ] Sounds as ALAudio plays them (2026-10-20, not heard yet): check by ear that a mover's sound loops while it
         moves, Harry's own sounds and dialogue play centred, and StopSound fades out
+  - [ ] Lip sync (2026-10-21, not seen yet): check in play that Dobby's mouth moves with his lines in PrivetDr's intro
+        and closes after
   - [ ] Check the remaining "changed" ports for real behaviour differences (beyond the DebugInfo check)
   - [ ] Engine behaviour HP2's scripts may need, worth checking: state labels inherited from a parent state, class
         references in travel data, dialogue with `Disable3D` playing at full volume wherever the camera is
@@ -41,7 +43,7 @@ Legend: [~] partly done / in progress · [ ] not started
   3. Play the 43 maps through, incl. the 10 duels and Quidditch (4-8 days)
   4. Polish (1-2 days)
   - [ ] Check the unverified HP2 engine differences in HP2's code ([docs/re/hp2/gameplay.md](docs/re/hp2/gameplay.md)):
-        music always loops, save loading, lip sync, movers colliding by bounding box
+        movers colliding by bounding box, the mover flickering fix
   - [ ] HP2-only engine features ([docs/re/hp2/engine.md](docs/re/hp2/engine.md)): the `GAMESTATE=` command line
         override, TurnTo's flattened focus, particle Opacity, I3DL2 reverb, oval collision cylinders
   - [ ] Linux: `HP1_SHOTS` screenshots crash the game after the first one (also HP2), which limits automated testing

@@ -129,10 +129,6 @@ Two new collide types, `CT_AlignedOvalCylinder` and `CT_OrientedOvalCylinder` ([
 
 Not read in HP2's code yet. Check each one in `../ida/hp2/` before relying on it.
 
-- **Sounds** are mostly EA-XA ADPCM, not plain wav, decoded by Core.dll's `FFileStream` ([sound](../engine/sound.md#hp2s-sound-objects)).
-- **Saves** are not loaded with `load saveN` as in every other UE1 game (fits the queued saves above).
-- **Lip sync** is precomputed when a sound is imported: at runtime a sound gives one 0-1 mouth value. HP1 has none
-  (no script mentions it, no Engine.dll function is named for it).
 - **Movers** collide with the world by their bounding box, not only GridMover (the Flipendo blocks) as in HP1
   ([collision.md](../engine/collision.md)); that breaks hollow movers.
 - **Mover flickering**: HP2 retail has Epic's fix for it.

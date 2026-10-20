@@ -127,6 +127,7 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `UI/ErrorWindow/ErrorWindow.cpp` | the crash reporter also writes the exception and symbolized call stack to `<dump>.txt` |
 | `Packages/Engine/Actors/UActor_Phys.cpp` | an InterpolationManager runs `HP1::InterpolationManagerPhysics` instead of the physics modes |
 | `Packages/Engine/Subsystems/USurrealAudioDevice.cpp/.h` | HP2 (ALAudio.dll): `PlaySound`'s `no3D` / `loop` (a sound played at the camera, the channel looped with `SetLooping` for KnowWonder games) and `StopSoundHP2` (every matching sound of the actor, faded out linearly over FadeOutTime in `UpdateSounds`) ([re/hp2/engine.md](re/hp2/engine.md#audio)) |
+| `Packages/Engine/Subsystems/USurrealAudioDevice.cpp/.h` | `IsHarryPotter2()`: `UpdateLipSync` / `ClearLipSync` call `HP2::UpdateLipSync` / `StopLipSync` (the speaker's mouth_root channel driven by the sound's amplitude); `PlayingSound` keeps the channel and the start time ([re/hp2/engine.md](re/hp2/engine.md#audio)) |
 | `Packages/Engine/Subsystems/USurrealAudioDevice.cpp/.h` | `ModifySoundHP1` / `StopSoundHP1` (Galaxy.dll's slot + sound match, volume stored as given); `InitDevice` turns on the device's linear falloff and `PlaySound` keeps volume and radius as given (Galaxy's; `KW::PlaySound` already made a zero radius 1600) |
 | `Packages/Core/Properties/UStructProperty.cpp` | struct members that are fixed arrays load/save every element |
 | `Packages/Engine/Actors/UActor_PhysTrailer.cpp` | `HP1::PhysTrailer` (AnimBone attachment, HP1's rotation rules) |

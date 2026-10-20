@@ -218,6 +218,24 @@ read in HP2's Engine.dll.
   channel (`AudioDevice::SetLooping`) and fades a stopped sound (`USurrealAudioDevice::StopSoundHP2`). Before
   2026-10-20 a mover's sound played once and stopped, Harry's own sounds came from his position as heard from the
   camera, dialogue was muffled behind walls, and every StopSound cut at once.
+- Lip sync (read 2026-10-21). A sound with flag 0x80 carries a second lazy array, `FLipSyncData` (USound +68; Engine.dll
+  computes it when the sound is imported, `USound::CalcLipSyncData`): one amplitude byte every 0.02 s
+  (`fAmpSampleInterval`), the sound's duration being the float USound +104 (the first of the five values after the
+  flags). 2399 of HP2's sounds have it (all the dialogue). `FLipSyncData::GetMouthPos(t)` [HP2 0x10388EB0] is
+  `GetInterpAmplitude(t) / GetMaxAmplitude() * 0.9 * 0.7`: the amplitude at t (clamped to the duration) blended
+  linearly between the two samples around it [HP2 0x10388F30], over the sound's largest amplitude [HP2 0x10389140],
+  so a mouth position from 0 to 0.63. No script and nothing else in Engine.dll uses it: ALAudio does it all.
+  `UALAudioSubsystem::PlaySound` [HP2 ALAudio 0x100040F0], when the sound has the flag and is played on an actor,
+  gives the source a tracker (`sub_100075D0` [HP2 ALAudio 0x100075D0]): `CreateAnimChannel(AnimChannel, AT_Replace,
+  'mouth_root', bTransient false, bNotReplaceable true)` on the actor and `PlayAnim('mouth_anim')` on the channel at
+  rate 0. `Update` (`sub_10007670` [HP2 ALAudio 0x10007670]) sets the channel's `AnimFrame` (Actor +0x68) to
+  `GetMouthPos` of the time since the sound started (real time; a paused source shifts the start) whenever 0.05 s have
+  passed since the last update. When the source stops (`OldStopSound` [HP2 ALAudio 0x10006E30], through
+  `StopSoundSource`; also a sound that ended) the channel plays `mouth_rest` (rate 1, tween 1). An actor without a
+  `mouth_root` bone (the narrator's hidden pawn) gets no channel. Flipendo: `HP2::UpdateLipSync` / `StopLipSync`
+  (`src/hp2/HP2LipSync.cpp`) from the audio device's `UpdateLipSync` / `ClearLipSync` (SurrealEngine's place for Deus
+  Ex's lip sync); a paused game doesn't shift the start. Checked 2026-10-21 in PrivetDr's intro: Dobby's lines move
+  his mouth channel between 0 and about 0.5.
 - HP2 has no IpDrv package; SurrealEngine's IpDrv property offsets are skipped for it (`0200-hp2.patch`).
 - `I3DL2Listener` (Engine.u): EAX / I3DL2 reverb settings per zone, used by ALAudio.
 

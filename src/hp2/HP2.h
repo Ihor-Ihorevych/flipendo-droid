@@ -8,6 +8,7 @@
 class AudioDevice;
 class ULevel;
 class BspSurface;
+struct PlayingSound;
 template<typename T> struct vec3T;
 typedef vec3T<float> vec3;
 
@@ -70,6 +71,12 @@ namespace HP2
 	// are what to draw it with.
 	void MarkLumosSurfaces(int viewZone);
 	bool LumosSurface(const BspSurface& surface, const vec3* points, int count, uint32_t& polyFlags, float& opacity);
+
+	// HP2's lip sync (src/hp2/HP2LipSync.cpp): USurrealAudioDevice's UpdateLipSync and ClearLipSync hand a playing
+	// sound over; one with lip sync data animates its actor's mouth_root channel by the sound's amplitude, and puts the
+	// mouth to rest when it stops.
+	void UpdateLipSync(PlayingSound& playing);
+	void StopLipSync(PlayingSound& playing);
 
 	// HP2's "XA" sounds (EA-XA ADPCM, src/hp2/HP2Sound.cpp) decoded into a 16-bit WAV file
 	Array<uint8_t> DecodeXA(const Array<uint8_t>& data, int sampleCount, int channels, int rate);

@@ -1,7 +1,7 @@
 flipendo: KnowWonder sound and music
 
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
-index a4e1dd8e..95160322 100644
+index a4e1dd8e..d48c3186 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 +++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 @@ -9,12 +9,30 @@
@@ -116,7 +116,31 @@ index a4e1dd8e..95160322 100644
  	m_Device->Update();
  }
  
-@@ -310,10 +342,30 @@ void USurrealAudioDevice::UpdateSounds(const mat4& listener)
+@@ -264,6 +296,11 @@ static bool HasLipSync()
+ 
+ void USurrealAudioDevice::UpdateLipSync(PlayingSound& Playing)
+ {
++	if (engine->LaunchInfo.IsHarryPotter2())
++	{
++		HP2::UpdateLipSync(Playing);
++		return;
++	}
+ 	if (!HasLipSync() || !Playing.Actor || !engine->LevelInfo)
+ 		return;
+ 	if ((Playing.Id & 14) != SLOT_Talk * 2)
+@@ -286,6 +323,11 @@ void USurrealAudioDevice::UpdateLipSync(PlayingSound& Playing)
+ // Called wherever a slot is torn down, so the mouth does not freeze mid-vowel.
+ void USurrealAudioDevice::ClearLipSync(PlayingSound& Playing)
+ {
++	if (engine->LaunchInfo.IsHarryPotter2())
++	{
++		HP2::StopLipSync(Playing);
++		return;
++	}
+ 	if (!HasLipSync() || !Playing.Actor)
+ 		return;
+ 	if ((Playing.Id & 14) != SLOT_Talk * 2)
+@@ -310,10 +352,30 @@ void USurrealAudioDevice::UpdateSounds(const mat4& listener)
  
  		if (Playing.Id != 0)
  		{
@@ -149,7 +173,7 @@ index a4e1dd8e..95160322 100644
  			// Update the priority
  			Playing.Priority = SoundPriority(m_Viewport, Playing.Location, Playing.Volume, Playing.Radius);
  
-@@ -324,7 +376,7 @@ void USurrealAudioDevice::UpdateSounds(const mat4& listener)
+@@ -324,7 +386,7 @@ void USurrealAudioDevice::UpdateSounds(const mat4& listener)
  			{
  				if (m_Device->IsPlaying((int)i))
  				{
@@ -158,7 +182,7 @@ index a4e1dd8e..95160322 100644
  				}
  				else
  				{
-@@ -334,7 +386,9 @@ void USurrealAudioDevice::UpdateSounds(const mat4& listener)
+@@ -334,7 +396,9 @@ void USurrealAudioDevice::UpdateSounds(const mat4& listener)
  			}
  			else
  			{
@@ -169,7 +193,7 @@ index a4e1dd8e..95160322 100644
  				Playing.IsActive = true;
  			}
  		}
-@@ -378,12 +432,19 @@ void USurrealAudioDevice::UpdateMusic()
+@@ -378,12 +442,19 @@ void USurrealAudioDevice::UpdateMusic()
  	}
  }
  
@@ -192,7 +216,7 @@ index a4e1dd8e..95160322 100644
  	{
  		// Should this still be directional?
  		Volume *= 2.0f;
-@@ -439,6 +500,8 @@ bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 L
+@@ -439,6 +510,8 @@ bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 L
  	StopSound(Index);
  	PlayingSounds[Index] = PlayingSound(Actor, Id, Sound, Location, Volume, Radius, Pitch, Priority);
  	PlayingSounds[Index].StartTime = engine->LevelInfo->TimeSeconds();
@@ -201,7 +225,7 @@ index a4e1dd8e..95160322 100644
  
  	return true;
  }
-@@ -475,6 +538,63 @@ void USurrealAudioDevice::StopSound(UActor* Actor, int Id)
+@@ -475,6 +548,63 @@ void USurrealAudioDevice::StopSound(UActor* Actor, int Id)
  	}
  }
  
@@ -265,7 +289,7 @@ index a4e1dd8e..95160322 100644
  void USurrealAudioDevice::StopSound(size_t index)
  {
  	PlayingSound& Playing = PlayingSounds[index];
-@@ -494,6 +614,11 @@ void USurrealAudioDevice::StopSounds()
+@@ -494,6 +624,11 @@ void USurrealAudioDevice::StopSounds()
  	for (size_t i = 0; i < PlayingSounds.size(); i++)
  		StopSound(i);
  
@@ -278,10 +302,10 @@ index a4e1dd8e..95160322 100644
  	m_Viewport = nullptr;
  }
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h
-index 81534ba9..84f50559 100644
+index 81534ba9..b8c03732 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h
 +++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h
-@@ -24,6 +24,13 @@ struct PlayingSound
+@@ -24,6 +24,17 @@ struct PlayingSound
  	float Radius = 1.0f;
  	float Pitch = 1.0f;
  	float StartTime = 0.0f;
@@ -292,10 +316,14 @@ index 81534ba9..84f50559 100644
 +	float FadeOutTime = 0.0f;
 +	float FadeElapsed = 0.0f;
 +	double FadeLastTime = 0.0;
++	// HP2 (ALAudio.dll): the actor's mouth channel while a sound with lip sync data plays on it
++	UActor* MouthChannel = nullptr;
++	double LipSyncStart = -1.0;
++	float LipSyncLast = 0.0f;
  };
  
  class USurrealAudioDevice : public UAudioSubsystem
-@@ -62,8 +69,14 @@ public:
+@@ -62,8 +73,14 @@ public:
  
  	void Update(const mat4& listener);
  
@@ -311,7 +339,7 @@ index 81534ba9..84f50559 100644
  	void ActorDestroyed(UActor* Actor);
  	void StopSounds();
  
-@@ -82,6 +95,8 @@ private:
+@@ -82,6 +99,8 @@ private:
  	void UpdateMusic();
  	void StopSound(size_t index);
  

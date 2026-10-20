@@ -6,7 +6,9 @@
 
 class UActor;
 class UAnimation;
+class UClass;
 class USkeletalMesh;
+enum class EAnimType : uint8_t;
 
 // HP1 skeletal animation data (KnowWonder's UAnimation). See docs/re/engine/animation.md.
 namespace KW
@@ -55,6 +57,10 @@ namespace KW
 	// AActor::GetAnim: the sequence for a name, looked up the way HP1 does it (SkelAnim, then the
 	// skeletal mesh's DefaultAnimation, else the classic mesh). No fallback to the first sequence.
 	MeshAnimSeq* GetAnimSeq(UActor* actor, const NameString& name);
+
+	// AActor::PlayAnim and AActor::CreateAnimChannel (KWAnimState.cpp), for native code that animates an actor itself
+	bool PlayAnim(UActor* actor, NameString sequence, bool bLoop, float rate, float tweenTime, float minRate, EAnimType type, NameString rootBone);
+	UActor* CreateAnimChannel(UActor* actor, UClass* newClass, EAnimType type, const NameString& rootBone, bool bTransient, bool bNotReplaceable);
 
 	// USkeletalMesh::BoneIndex
 	int BoneIndex(USkeletalMesh* mesh, const NameString& name);
