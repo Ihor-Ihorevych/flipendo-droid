@@ -15,10 +15,7 @@ Legend: [~] partly done / in progress · [ ] not started
   cutscenes play (with Enter to skip) through the flying car to the Whomping Willow, with subtitles; the in-game book
   and the options page work at any resolution; saving and loading work (playtest 2026-10-20). Not tried past that.
   In order:
-  1. Start and save
-  - [ ] Hub persistence in play: walk the hubs by hand (beans, chests, wizard cards, Characters' restored states)
-        and check against the original
-  2. The intro and first levels as the original (2-3 days)
+  1. The intro and first levels as the original (2-3 days)
   - [ ] Voices: `Sounds/AllDialog.USA_uax` is found now; check in game that the dialogue lines play
   - [ ] Cutscene commands that start before the previous one finished ("... hasnt finished yet"): the script timing in
         every case checked ([docs/re/hp2/gameplay.md](docs/re/hp2/gameplay.md#cutscenes)); left: compare Dobby's
@@ -40,10 +37,10 @@ Legend: [~] partly done / in progress · [ ] not started
   - [ ] Check the remaining "changed" ports for real behaviour differences (beyond the DebugInfo check)
   - [ ] Engine behaviour HP2's scripts may need, worth checking: state labels inherited from a parent state, class
         references in travel data, dialogue with `Disable3D` playing at full volume wherever the camera is
-  3. Menus and options (1 day)
+  2. Menus and options (1 day)
   - [ ] The in-game book's pages, rollover sounds, the folio, the map
-  4. Play the 43 maps through, incl. the 10 duels and Quidditch (4-8 days)
-  5. Polish (1-2 days)
+  3. Play the 43 maps through, incl. the 10 duels and Quidditch (4-8 days)
+  4. Polish (1-2 days)
   - [ ] Check the unverified HP2 engine differences in HP2's code ([docs/re/hp2/gameplay.md](docs/re/hp2/gameplay.md)):
         music always loops, save loading, lip sync, movers colliding by bounding box
   - [ ] HP2-only engine features ([docs/re/hp2/engine.md](docs/re/hp2/engine.md)): the `GAMESTATE=` command line
