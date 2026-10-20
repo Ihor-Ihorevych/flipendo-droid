@@ -34,8 +34,11 @@ Legend: [~] partly done / in progress · [ ] not started
   - [ ] HP2 music: songs playing at once and their fades follow ALAudio.dll now; still to check against it: looping,
         volumes, `StopSound`'s fade-out, `PlaySound`'s Disable3D and Loop
   - [ ] XA sounds: check the decoder by ear (nibble order), and the stereo XA case
-  - [ ] Lumos: after casting it the light beam on the wand stays for good (playtest 2026-10-17); check how HP2's
-        scripts turn the wand's Lumos effect off
+  - [ ] Lumos: after casting it the light beam on the wand stays for good (playtest 2026-10-17). The LumosLight
+        itself goes off after its 30 s (light and LumosLightFX, checked 2026-10-20 with baseWand.LumosTurnOn), so the
+        beam is another effect: likely the wand's charge particles (`baseWand.fxChargeParticles`, only
+        `EnableEmission(false)` after a cast, so ParticleFX must stop emitting and let its particles die). Needs a
+        real cast to see which
   - [ ] Check the remaining "changed" ports for real behaviour differences (beyond the DebugInfo check)
   - [ ] Engine behaviour HP2's scripts may need, worth checking: state labels inherited from a parent state, class
         references in travel data, dialogue with `Disable3D` playing at full volume wherever the camera is
