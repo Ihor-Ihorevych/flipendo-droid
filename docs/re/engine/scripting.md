@@ -133,3 +133,11 @@ first word of a cutscene line against `"CUE"`, `"WAITFOR"`, `"SLEEP"`, ... while
 SurrealEngine compared strings exactly, so every such line was taken for an actor name ("Failed to find capture. Actor
 not captured.") and PrivetDr's intro stayed black. `Frame::ProcessSwitch` now ignores case for strings
 (`0010-engine-fixes.patch`, any game).
+
+## Script recursion limit
+
+`UObject::ProcessInternal` (HP1 Core 0x101431A0) counts nested script calls; past 250 it logs "Infinite script
+recursion (250 calls) detected" as critical, and `FFrame::Serialize` (0x10131A10) sends a critical message to
+`GError`, so the game stops with that error. Singular functions (FUNC_Singular) are skipped while they already run.
+HP2's `harry.Summon(ClassName)` calls itself (not `Super.Summon`), so the `summon` cheat ends the game this way in
+the original too.

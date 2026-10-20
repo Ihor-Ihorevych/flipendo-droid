@@ -69,7 +69,7 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Packages/Engine/Actors/UActor.cpp` (Tick) | with KnowWonder's physics the Timer runs before the physics (HP1's AActor::Tick order) |
 | `Packages/Engine/Actors/UActor.cpp`, `UActor.h` (Tick), `Pawn/UPawn_Tick.cpp`, `Pawn/UPawn.h` | KnowWonder polls a pawn's latent action (`UPawn::PollLatentAction`, split out of `UPawn::Tick`) after the script Tick event, as HP1's ProcessState does |
 | `Collision/TopLevel/CollisionSystem.cpp/.h` | the hash files KnowWonder actors by `KW::ActorWorldCollisionBox` (CollisionWidth offset, CT_Box); `ActorsInBox` for KnowWonder's actor checks |
-| `Render/RenderSubsystem.cpp` | `HP1::OnFrameRendered` (`HP1_SHOTS` debug screenshots) |
+| `Render/RenderSubsystem.cpp` | `KW::OnFrameRendered` after `Unlock` (`HP1_SHOTS` debug screenshots; `ReadPixels` needs the finished frame) |
 | `Render/RenderCanvas.cpp`, `RenderSubsystem.h` | `KW::CanvasUIScale` (float `uiscale`), `KW::SetCanvasArea` (full-width HUD, 4:3 console/menus; HP1 and HP2); `DrawClippedActor` relative to the canvas area |
 | `Render/RenderCanvas.cpp` (DrawText, DrawTextClipped), `Packages/Engine/Resources/UFont.*` | fonts made by `KW::CreateNativeFont` (`UFont::SetNativeGlyphs`, `IsNative`, `src/knowwonder/KWNativeFont.cpp`) draw premultiplied in the DrawColor whatever the style, its alpha taken as 1, like HP1's GDI text |
 | `Engine.cpp` | `HP1::ViewFovAngle` after PlayerCalcView (Hor+ FOV); trim `\|` input subcommands; `SET Input` takes the rest of the line (multi-word aliases; no alias unbinds); `getres` → `KW::AvailableResolutions`; `isfullscreen` (WinDrv's viewport command, any game: True / False); `KW::MenuMousePosition` in `OnWindowMouseMove` |
@@ -81,7 +81,7 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Packages/Engine/Actors/UActor_Phys.cpp`, `UActor_PhysRolling.cpp` | `HP1::PhysicsChecksLeftWorld` (zone-0 FellOutOfWorld only while walking) |
 | `Packages/Engine/Actors/UActor_PhysWalking.cpp` | player slides along actors it hits (no pushable decoration); `HP1::PawnMount` before the step up |
 | `Packages/Engine/Actors/UActor_PhysFalling.cpp` | `HP1::PawnMount` on a wall hit |
-| `Packages/Engine/Actors/UActor.cpp` | `HP1::TickNativeActor` (ParticleFX, Wind) in Tick, `HP1::ParticleFXDestroyed` in Destroy |
+| `Packages/Engine/Actors/UActor.cpp` | `HP1::TickNativeActor` (ParticleFX, Wind) in Tick, `HP1::ParticleFXDestroyed` in Destroy, `KW::ActorConstructed` in Spawn (what AParticleFX's constructor resets, after the class defaults are copied) |
 | `Packages/Engine/Actors/UActor.cpp` (Destroy) | KnowWonder: an actor in a state gets `EndState` when it is destroyed (HP1's ULevel::DestroyActor; `Target` draws the spell symbol on a creature from it) |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` (Tick) | with KnowWonder's physics `UPawn::Tick` leaves MoveTimer and AvgPhysicsTime to `KW::PerformPhysics` (counted twice before) |
 | `Packages/Engine/Actors/UActor_Render.cpp` | `HP1::GetParticleBoundingBox` for DT_Particles (8) |
@@ -108,6 +108,7 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Package/IniFile.cpp` | indexed keys (`Aliases[0]=`) are compared literally when updating a file, like the loader stores them (splitting the index threw, then blanked them) |
 | `Packages/Core/UObject.cpp` | `ScriptArray` copy/move constructors keep `Type` (copying an array, e.g. `int(Gesture.Points)`, crashed); `GotoState` clears disabled events (Core.dll's GotoState rebuilds the probe mask, so `Disable('Tick')` only lasts until the next state change; HP1's spell lesson hung on the second judging round); `Load` reads a set bit of the saved probe mask as enabled and `Save` writes it so (a mask of 0, from older saves, disables nothing) (it disabled every probe of a map actor until its first GotoState; Lev2_RemChase's intro cutscene ignored its trigger) |
 | `VM/Bytecode.h` | `FindLabelIndex` on a state with no statements returns -1 |
+| `VM/Frame.cpp` (Run) | Any game: more than 250 nested script calls is the script error "Infinite script recursion (250 calls) detected", as UE1's UObject::ProcessInternal, instead of overflowing the native stack; HP2's `harry.Summon` calls itself |
 | `VM/Frame.cpp` | `goto` to a label that doesn't exist logs "GotoLabel (x): Label not found" and stops the state code (UE1's UObject::GotoLabel) instead of a fatal error; HP1's `gargoyle.lookaround` does it (Lev4_Sneak, Lev3_Lumos) |
 | `VM/Frame.cpp` | Any game: "Accessed None" (also "when calling") is logged with its callstack once per script expression, not on every hit: since SurrealEngine runs statements on `Frame::RunExpr` it reports None inside sub-expressions too, and HP1's `BaseCam.CheckPosition` reads `PossibleVictim.Name` every frame when its trace hits nothing |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `TurnToward` on a pawn whose state frame has no code does nothing (UE1 never polls it) |

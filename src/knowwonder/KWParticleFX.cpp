@@ -67,7 +67,6 @@ namespace KW
 
 		// AActor::InitExecution override: steady state systems start primed (all particles already alive).
 		// IDA Engine.dll: ?InitExecution@AParticleFX@@UAEXXZ [HP1 0x103C0F30]
-		// IDA Engine.dll: ??0AParticleFX@@QAE@XZ [HP1 0x103C0E90] (LOD = 1, Age = ElapsedTime = 0; Age is then loaded from the map)
 		void InitExecution(UActor* a)
 		{
 			PFX::LOD(a) = 1.0f;
@@ -874,6 +873,19 @@ namespace KW
 			if (maxParticles > 0 && rate.Base > 0.0f && PFX::Age(a) > (float)maxParticles / rate.Base + MaxLifetime(a))
 				a->Destroy();
 		}
+	}
+
+	// UE1 runs the C++ constructor after copying the class defaults, so a spawned system starts at Age 0 whatever
+	// its class saved (a map's systems load their own Age over it). BronzePickup's defaults hold Age 643 with
+	// ParticlesMax 150: kept, Tick finds it past its end and destroys it before it draws.
+	// IDA Engine.dll: ??0AParticleFX@@QAE@XZ [HP1 0x103C0E90] [HP2 0x103CE420]
+	void ActorConstructed(UActor* a)
+	{
+		if (!IsParticleFX(a))
+			return;
+		PFX::Age(a) = 0.0f;
+		PFX::ElapsedTime(a) = 0.0f;
+		PFX::LOD(a) = 1.0f;
 	}
 
 	// IDA Engine.dll: ?Destroy@AParticleFX@@UAEXXZ [HP1 0x103C1CA0]

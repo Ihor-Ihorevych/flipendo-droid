@@ -1352,7 +1352,7 @@ index 908adb98..e11e90db 100644
  		return v;
  	Exception::Throw("Unsupported expression value property type");
 diff --git a/SurrealEngine/VM/Frame.cpp b/SurrealEngine/VM/Frame.cpp
-index 1e7b3c96..b439a79f 100644
+index 1e7b3c96..fe076bfc 100644
 --- a/SurrealEngine/VM/Frame.cpp
 +++ b/SurrealEngine/VM/Frame.cpp
 @@ -1,5 +1,6 @@
@@ -1410,7 +1410,25 @@ index 1e7b3c96..b439a79f 100644
  			}
  			else
  			{
-@@ -658,8 +676,7 @@ ExpressionEvalResult Frame::Run()
+@@ -519,6 +537,17 @@ ExpressionEvalResult Frame::Run()
+ 
+ 	ActiveCallStackFrame activeFrame(this);
+ 
++	// UE1 stops a script that keeps calling itself (UObject::ProcessInternal: a critical error over 250 nested script
++	// calls) before the native stack runs out. HP2's harry.Summon calls itself.
++	static int scriptDepth = 0;
++	struct ScriptDepthGuard
++	{
++		ScriptDepthGuard() { scriptDepth++; }
++		~ScriptDepthGuard() { scriptDepth--; }
++	} depthGuard;
++	if (scriptDepth > 250)
++		ThrowException("Infinite script recursion (250 calls) detected");
++
+ 	if (!Func->Code->Statements.empty())
+ 		StepExpression = Func->Code->Statements[StatementIndex];
+ 
+@@ -658,8 +687,7 @@ ExpressionEvalResult Frame::Run()
  			Iterators.pop_back();
  			break;
  		case StatementResult::AccessedNone:
@@ -1420,7 +1438,7 @@ index 1e7b3c96..b439a79f 100644
  			break;
  		}
  
-@@ -682,7 +699,12 @@ void Frame::ProcessSwitch(const ExpressionValue& condition)
+@@ -682,7 +710,12 @@ void Frame::ProcessSwitch(const ExpressionValue& condition)
  		{
  			//ExpressionValue casevalue = ExpressionEvaluator::Eval(caseexpr->Value, Object, Object, Variables).Value;
  			ExpressionValue casevalue = RunExpr(caseexpr->Value, Object, Object, Variables).Value;

@@ -73,7 +73,7 @@ namespace KW
 	// UActor::TickMovingBrush: KnowWonder's physMovingBrush (Mover's own PhysAlpha/PhysRate, falling, world collision).
 	void PhysMovingBrush(UActor* mover, float deltaTime);
 
-	// RenderSubsystem::DrawGame, before presenting: HP1_SHOTS debug screenshots (src/knowwonder/KWDebug.cpp).
+	// RenderSubsystem::DrawGame, after Unlock (the frame is presented): HP1_SHOTS debug screenshots (src/knowwonder/KWDebug.cpp).
 	void OnFrameRendered(RenderDevice* device);
 	// Engine::Tick, after PlayerCalcView: HP1_CAMERA="x,y,z,pitch,yaw" replaces the view (src/knowwonder/KWDebug.cpp).
 	void DebugCamera(vec3& location, Rotator& rotation);
@@ -159,6 +159,8 @@ namespace KW
 	// UActor::Tick, first: the Tick overrides of HP1's native actor classes. AParticleFX::Tick ages the system and
 	// destroys it when done (src/knowwonder/KWParticleFX.cpp); AWind::Tick moves the wind's fluctuation (src/knowwonder/KWWind.cpp).
 	void TickNativeActor(UActor* actor, float elapsed);
+	// UActor::Spawn, after the class defaults are copied: what the native class constructor sets (AParticleFX: Age 0).
+	void ActorConstructed(UActor* actor);
 	// UActor::Destroy: frees the particle list.
 	void ParticleFXDestroyed(UActor* actor);
 	// UActor::UpdateBspInfo for DrawType DT_Particles.

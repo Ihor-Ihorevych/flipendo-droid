@@ -409,7 +409,7 @@ index 4b2aa5c5..55b1394a 100644
  		FontGlyph glyph = font->GetGlyph(c);
  		x += (float)glyph.USize + spaceX;
 diff --git a/SurrealEngine/Render/RenderSubsystem.cpp b/SurrealEngine/Render/RenderSubsystem.cpp
-index f3fcef6d..fd253c8c 100644
+index f3fcef6d..d0bbc9c1 100644
 --- a/SurrealEngine/Render/RenderSubsystem.cpp
 +++ b/SurrealEngine/Render/RenderSubsystem.cpp
 @@ -12,6 +12,7 @@
@@ -435,16 +435,17 @@ index f3fcef6d..fd253c8c 100644
  	{
  		flashScale = player->FlashScale();
  		flashFog = player->FlashFog();
-@@ -55,6 +62,9 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
- 
+@@ -56,6 +63,10 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
  	PostRender();
  
-+	if (engine->LaunchInfo.IsKnowWonder()) // HP1_SHOTS debug screenshots
-+		KW::OnFrameRendered(Device);
-+
  	Device->Unlock(true);
++
++	// HP1_SHOTS debug screenshots: ReadPixels needs the frame finished (render pass ended, scene copied for postprocess)
++	if (engine->LaunchInfo.IsKnowWonder())
++		KW::OnFrameRendered(Device);
  }
  
+ void RenderSubsystem::DrawEditorViewport()
 diff --git a/SurrealEngine/Render/RenderSubsystem.h b/SurrealEngine/Render/RenderSubsystem.h
 index 0f88fc9c..d66b5d5b 100644
 --- a/SurrealEngine/Render/RenderSubsystem.h
