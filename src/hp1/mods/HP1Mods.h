@@ -25,6 +25,7 @@ namespace HP1::Mods
 
 	// LaunchSkips.cpp
 	void TickLaunchSkips();
+	bool SkipSplash();
 
 	// CutsceneSkip.cpp
 	void TickCutsceneSkip(float realElapsed);

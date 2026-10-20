@@ -29,6 +29,8 @@ Read from HP2's decompiled scripts only; HP2's native side isn't reversed yet.
 - **Saving is queued.** HP2's `PlayerPawn.SaveGame()` is a script function that only sets `bQueuedToSaveGame`; its
   comment says the engine saves at the end of the level tick, and that "slots are just directories, the save game
   number that the front end will always look for is zero". HP1 saves synchronously from a console command instead.
+  The slot is the folder: Game.exe's front end starts the engine with `-SAVESLOT=<n>`, which `appInit` turns into
+  `..\Save\Slot<n>`, and loads with `-LOADGAME=0` ([startup](../hp2/startup.md#save-slots--saveslot-and--loadgame)).
 - New events on every actor, `PreSaveGame` / `PostSaveGame` ("called right before/after it saves the game in
   UnGame::SaveGame()"); `harry` uses them.
 - `HPConsole.doLevelSave(i)` still fills a `GameSaveInfo` and writes it with native 325 (`SaveGameSaveInfo`), as in HP1.

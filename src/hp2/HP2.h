@@ -24,6 +24,7 @@ namespace HP2
 	// ALAudio's console commands: MUTESOUNDS / UNMUTESOUNDS (HPConsole sends them while a skipped cutscene fast-forwards;
 	// while muted the sound effects play at volume 0, the music goes on) and SETVOLUMES SOUND=<f> MUSIC=<f> (the options page).
 	bool AudioCommand(const Array<std::string>& args);
+	// MUTESOUNDS, or the front end's "Disable all sound"
 	bool SoundsMuted();
 	// HP2's MusicVolume / SoundVolume ini values are floats 0..1 (ALAudio), the audio device's bytes 0..255.
 	// USurrealAudioDevice reads and writes its ini volumes through these.
@@ -37,9 +38,18 @@ namespace HP2
 	// OnResolveGameState (src/hp2/HP2GameState.cpp)
 	void ScreenActorsByGameState(ULevel* level);
 
-	// What HP2's Game.exe starts the engine with after New Game in its own Windows front end (docs/re/hp2/startup.md).
-	// Flipendo has no front end yet, so a run without a URL starts a new game here instead of in the Startup test map.
+	// HP2's front end (src/hp2/HP2FrontEnd.cpp, docs/re/hp2/startup.md): Game.exe's EA and WB splashes and its dialog
+	// (New Game, Load Game, Options), before the engine starts. Engine::Run calls it for a run without a URL, before the
+	// game window opens. New Game sets the URL to NewGameURL, Load Game leaves it empty (the Startup map) and sets
+	// LoadGameSave(); both point the save folder at the slot's. False when the player chose Exit or closed it.
+	bool RunFrontEnd();
+	// What Game.exe starts the engine with after New Game
 	constexpr const char* NewGameURL = "PrivetDr.unr";
+	// -LOADGAME=<n>: after the first map, Engine::Run travels to the save folder's Save<n>.usa. -1 for none.
+	int LoadGameSave();
+	// [Engine.GameEngine] UseSound=False (the front end's "Disable all sound"): HP2's engine then has no audio subsystem;
+	// here sounds and music play at volume 0.
+	bool SoundDisabled();
 
 	// HP2's "XA" sounds (EA-XA ADPCM, src/hp2/HP2Sound.cpp) decoded into a 16-bit WAV file
 	Array<uint8_t> DecodeXA(const Array<uint8_t>& data, int sampleCount, int channels, int rate);

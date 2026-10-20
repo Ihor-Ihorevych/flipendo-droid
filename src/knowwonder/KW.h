@@ -93,6 +93,9 @@ namespace KW
 	bool ViewportCommand(const Array<std::string>& args);
 	// Engine, right after a save is loaded: every actor's BSP leaf found again from its location.
 	void SaveGameLoaded();
+	// An 8-bit (paletted) or 24/32-bit uncompressed Windows BMP as BGRA8 rows, top row first: the save thumbnails
+	// (src/knowwonder/KWSave.cpp) and HP2's front end art.
+	bool ReadBMP(const Array<uint8_t>& file, int& width, int& height, Array<uint8_t>& bgra);
 	// Engine::LoadMap, after the LevelInfo is found: UGameEngine::LoadMap sets an empty LevelEnterText to URL.Map
 	// ("Lev_Tut1.unr"); HPConsole.doLevelSave names the save slot (and its thumbnail) after it.
 	void LevelInfoLoaded(ULevelInfo* levelInfo, const std::string& urlMap);
@@ -123,6 +126,9 @@ namespace KW
 	void MenuMousePosition(float& x, float& y);
 	// Engine::ConsoleCommand "getres": common modes up to the desktop size, with the options page's 1024x768 cap lifted.
 	std::string AvailableResolutions(GameWindow* window);
+	// The modes behind it, smallest first, none under 640x480: the common ones that fit the desktop (screen size times
+	// dpiScale), the desktop itself and currentX x currentY (skipped when 0). HP2's front end lists them too.
+	std::vector<std::pair<int, int>> ResolutionModes(double dpiScale, int currentX, int currentY);
 	// RenderSubsystem::DrawGame: the screen flash from HP1's FlashFog (its W replaces FlashScale).
 	void ViewFlashParams(UPlayerPawn* player, vec3& flashScale, vec3& flashFog);
 	// Engine::LoadMap / LoadFromSaveFile: HP1's loading screen. LoadMapFadeOut at the start (fade to black over

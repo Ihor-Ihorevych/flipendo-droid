@@ -124,7 +124,7 @@ namespace HP2
 			}
 		}
 
-		return music.handle != 0 ? music.fade * musicVolume / 255.0f : 0.0f;
+		return music.handle != 0 && !SoundDisabled() ? music.fade * musicVolume / 255.0f : 0.0f;
 	}
 
 	static bool soundsMuted = false;
@@ -189,6 +189,6 @@ namespace HP2
 
 	bool SoundsMuted()
 	{
-		return soundsMuted;
+		return soundsMuted || SoundDisabled();
 	}
 }

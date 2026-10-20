@@ -6,26 +6,28 @@ Flipendo keeps a strict line between the **faithful port** and **additions**:
   Every function carries an `// IDA` tag saying which original function it reimplements.
 - `src/hp1/mods/` holds features the original never had: quality-of-life changes, developer shortcuts, anything a player
   of the 2001 release never saw. They never change vanilla behaviour unless switched on, and `--vanilla` switches off
-  all the ones that are on by default. Mods are HP1's for now (texture overrides also run for HP2); HP2 gets the rest once it runs.
+  all the ones that are on by default. Most are HP1's; the Games column says which run in HP2 too (HP2 gets the rest once
+  it is playable).
 
 ## Built-in mods
 
-| Mod | Default | What it does |
-|---|---|---|
-| `CutsceneSkip.cpp` | on (`--vanilla` disables) | "Press Space to skip" during cutscenes; Space fast-forwards to the end |
-| `StorybookSkip.cpp` | on (`--vanilla` disables) | "Press Space to skip" in storybooks (New Game intro, chapter interludes) |
-| `DiscordPresence.cpp` | on (`--vanilla` or `--no-discord` disables) | Discord Rich Presence: the level (the game's own level titles), cutscene / paused, Gryffindor's points, play time. Uses Flipendo's Discord application (its name and App Icon); `--discord-app=<id>` uses another |
-| `FastForward.cpp` | on (`--vanilla` disables) | hold Shift to run the game 2.5 times as fast (Shift is unbound in HP1) |
-| `FrameLimit.cpp` | on at 60 fps (`--fps=<n>`; `--fps=0` or `--vanilla` disables) | waits at the end of each frame's tick so the game runs at most n frames a second: HP1's per-frame movement breaks at high frame rates ([original_bugs.md](re/hp1/original_bugs.md)) |
-| `PathFixes.cpp` | on (`--vanilla` disables) | adds reach specs the original maps are missing, so `Pawn.FindPath` finds the route the designers meant: Lev_Tut3b's HPath_F3 → baseStation1, Peeves' exit after the duel ([original_bugs.md](re/hp1/original_bugs.md)) |
-| `TextureOverrides.cpp` | on (`--vanilla` disables) | draws a texture from `Textures/<package>/<group>/<name>.dds` in the game folder when that file exists (DXT1/3/5, the layout D3D11Drv texture packs such as the ESRGAN Upscale Pack use); realtime and procedural textures are left alone. Vulkan only |
-| `LaunchSkips.cpp` | off (`--skip-splash`, `--skip-intro`) | skip the logo/title splash screens; skip the New Game storybook |
+| Mod | Games | Default | What it does |
+|---|---|---|---|
+| `CutsceneSkip.cpp` | HP1 | on (`--vanilla` disables) | "Press Space to skip" during cutscenes; Space fast-forwards to the end |
+| `StorybookSkip.cpp` | HP1 | on (`--vanilla` disables) | "Press Space to skip" in storybooks (New Game intro, chapter interludes) |
+| `DiscordPresence.cpp` | HP1 | on (`--vanilla` or `--no-discord` disables) | Discord Rich Presence: the level (the game's own level titles), cutscene / paused, Gryffindor's points, play time. Uses Flipendo's Discord application (its name and App Icon); `--discord-app=<id>` uses another |
+| `FastForward.cpp` | HP1, HP2 | on (`--vanilla` disables) | hold Shift to run the game 2.5 times as fast (Shift is unbound in HP1) |
+| `FrameLimit.cpp` | HP1, HP2 | on at 60 fps (`--fps=<n>`; `--fps=0` or `--vanilla` disables) | waits at the end of each frame's tick so the game runs at most n frames a second: HP1's per-frame movement breaks at high frame rates ([original_bugs.md](re/hp1/original_bugs.md)) |
+| `PathFixes.cpp` | HP1 | on (`--vanilla` disables) | adds reach specs the original maps are missing, so `Pawn.FindPath` finds the route the designers meant: Lev_Tut3b's HPath_F3 → baseStation1, Peeves' exit after the duel ([original_bugs.md](re/hp1/original_bugs.md)) |
+| `TextureOverrides.cpp` | HP1, HP2 | on (`--vanilla` disables) | draws a texture from `Textures/<package>/<group>/<name>.dds` in the game folder when that file exists (DXT1/3/5, the layout D3D11Drv texture packs such as the ESRGAN Upscale Pack use); realtime and procedural textures are left alone. Vulkan only |
+| `LaunchSkips.cpp` | HP1, HP2 | splash skip on (`--vanilla` disables, `--skip-splash` forces it); intro skip off (`--skip-intro`, HP1) | skip the logo/title splash screens (HP2: the EA and WB splashes before its front end); skip the New Game storybook |
 
 ## Writing a mod
 
 A mod is a C++ file in `src/hp1/mods/`. The build picks up new files automatically (`src/hp1/hp1.cmake` globs `src/hp1/`). Mods are HP1's: they
-read HP1's script classes (`HPBase`, `HPMenu`). The exception is `TextureOverrides.cpp`, which reads no scripts and runs
-for HP2 too (its hook is gated `IsKnowWonder()`).
+read HP1's script classes (`HPBase`, `HPMenu`). The exceptions read no scripts and run for HP2 too: `TextureOverrides.cpp`,
+`FastForward.cpp` (`ModsTimeScale`), `FrameLimit.cpp` (the only mod `TickMods` runs for HP2) and the splash skip
+(`HP1::ModsSkipSplash`, asked by HP2's front end); their hooks are gated `IsKnowWonder()`.
 Mods hook in only through these calls (the first four in `src/hp1/mods/HP1Mods.cpp`):
 
 | Hook | Called | Use it for |
@@ -34,6 +36,7 @@ Mods hook in only through these calls (the first four in `src/hp1/mods/HP1Mods.c
 | `HP1::ModsKeyDown` | on every key press in the game window | key handling, also in menus |
 | `HP1::PostRenderMods` | after the HUD and menus are drawn | drawing on top of everything |
 | `HP1::ModsTimeScale` | every frame, when the frame's game time is worked out | running the game faster or slower (multiplies the frame time; leaves `LevelInfo.TimeDilation`, which save games store, alone) |
+| `HP1::ModsSkipSplash` | by HP2's front end, before Game.exe's EA and WB splashes | skipping them |
 | `HP1::LoadTextureOverride` | when the render device uploads a texture (Vulkan) | replacing a texture's image (the only mod hook below the scene code) |
 
 Steps:

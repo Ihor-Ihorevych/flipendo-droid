@@ -4,18 +4,24 @@
 #include "Packages/Engine/UConsole.h"
 #include "Engine.h"
 
-// Opt-in launch shortcuts (developer conveniences, not affected by --vanilla):
-//   --skip-splash  straight to the main menu (no EA/KnowWonder/title splash screens)
-//   --skip-intro   New Game goes straight to Lev_Tut1 (no storybook)
+// Launch shortcuts:
+//   splash skip    on by default (--vanilla shows them; --skip-splash skips them even then): HP1 goes straight to the
+//                  main menu (no EA/KnowWonder/title splash screens), HP2 to its front end (no EA and WB splashes)
+//   --skip-intro   opt-in: New Game goes straight to Lev_Tut1 (no storybook; HP1)
 
 namespace HP1::Mods
 {
 	// HPConsole opens its FEBook (menuBook) on the "Splash" page, which steps through SplashScreens[] on a timer
 	// and then changes to the main page (FEBook.Tick). Jump to the last splash screen with its time used up, so the
 	// book's own script switches to the main menu on its next tick.
+	bool SkipSplash()
+	{
+		return Enabled() || HasFlag("--skip-splash");
+	}
+
 	static void TickSkipSplash()
 	{
-		static const bool skip = HasFlag("--skip-splash");
+		static const bool skip = SkipSplash();
 		if (!skip)
 			return;
 		UObject* book = ObjectProperty(engine->console, "menuBook");

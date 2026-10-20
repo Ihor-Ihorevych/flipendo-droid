@@ -83,6 +83,12 @@ namespace HP1
 	{
 		if (!engine->console)
 			return;
+		if (engine->LaunchInfo.IsHarryPotter2())
+		{
+			// The other mods read HP1's script classes
+			Mods::TickFrameLimit();
+			return;
+		}
 		Mods::UpdateSpace();
 		Mods::TickLaunchSkips();
 		LevelStartTick();
@@ -96,6 +102,11 @@ namespace HP1
 	float ModsTimeScale()
 	{
 		return Mods::FastForwardTimeScale();
+	}
+
+	bool ModsSkipSplash()
+	{
+		return Mods::SkipSplash();
 	}
 
 	void ModsKeyDown(int key)

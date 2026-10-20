@@ -156,27 +156,28 @@ build-linux/SurrealEngine ~/Games/HarryPotter
 
 | Option | What it does |
 |---|---|
-| `--skip-splash` | skip the logo screens |
+| `--skip-splash` | skip the logo screens (already the default; this one works with `--vanilla` too) |
 | `--skip-intro` | New Game goes straight to the first level |
 | `--vanilla` | turn off every extra the original doesn't have |
 | `--logfile=flipendo.log` | write a log file (attach it to bug reports) |
 
 ## Extras and mods
 
-These are for Philosopher's Stone; Chamber of Secrets has none yet (its own cutscene skip, Enter, is part of the
-original game). The faithful port and the additions are kept apart: an extra never changes how the game plays unless it is
-switched on, and `--vanilla` switches all of them off.
+Most are for Philosopher's Stone (HP1); the Games column says which also work in Chamber of Secrets (HP2), whose own
+cutscene skip (Enter) is part of the original game. The faithful port and the additions are kept apart: an extra never
+changes how the game plays unless it is switched on, and `--vanilla` switches all of them off.
 
-| Extra | Default | What it does |
-|---|---|---|
-| Cutscene skip | on | "Press Space to skip" during cutscenes |
-| Storybook skip | on | "Press Space to skip" in storybooks (New Game intro, chapter interludes) |
-| Fast forward | on | hold Shift to play 2.5x as fast |
-| Discord status | on | friends on Discord see which level you're in and Gryffindor's house points; `--no-discord` turns it off |
-| 60 FPS cap | on | the game runs at most 60 frames a second, as the original was played (some of its movement goes wrong at high frame rates); `--fps=<n>` for another limit, `--fps=0` for none |
-| Map fixes | on | fixes broken paths in the original maps (Peeves now flies off after the Lev_Tut3b duel instead of drifting through the walls) |
-| Texture packs | on | `.dds` files in `Textures/<package>/<group>/<name>.dds` replace the game's textures: the layout of the DirectX 11 renderer's texture packs, such as the ESRGAN Upscale Pack (unpack it into the game folder) |
-| Launch skips | off | `--skip-splash`, `--skip-intro` |
+| Extra | Games | Default | What it does |
+|---|---|---|---|
+| Cutscene skip | HP1 | on | "Press Space to skip" during cutscenes |
+| Storybook skip | HP1 | on | "Press Space to skip" in storybooks (New Game intro, chapter interludes) |
+| Fast forward | HP1, HP2 | on | hold Shift to play 2.5x as fast |
+| Discord status | HP1 | on | friends on Discord see which level you're in and Gryffindor's house points; `--no-discord` turns it off |
+| 60 FPS cap | HP1, HP2 | on | the game runs at most 60 frames a second, as the original was played (some of its movement goes wrong at high frame rates); `--fps=<n>` for another limit, `--fps=0` for none |
+| Map fixes | HP1 | on | fixes broken paths in the original maps (Peeves now flies off after the Lev_Tut3b duel instead of drifting through the walls) |
+| Texture packs | HP1, HP2 | on | `.dds` files in `Textures/<package>/<group>/<name>.dds` replace the game's textures: the layout of the DirectX 11 renderer's texture packs, such as the ESRGAN Upscale Pack (unpack it into the game folder) |
+| Splash skip | HP1, HP2 | on | no logo screens at start: HP1 opens on the main menu, HP2 on its start menu |
+| Intro skip | HP1 | off | `--skip-intro`: New Game goes straight to the first level |
 
 More is coming (an in-game page to switch these, more extras): see the [roadmap](ROADMAP.md#extras-for-hp1-srchp1mods),
 and [docs/modding.md](docs/modding.md) to write a mod today.

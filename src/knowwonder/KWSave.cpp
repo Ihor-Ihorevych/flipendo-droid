@@ -222,8 +222,7 @@ namespace KW
 		ReturnValue = fs::is_regular_file(path, ec) && fs::file_size(path, ec) > 0;
 	}
 
-	// An 8-bit (paletted) or 24/32-bit uncompressed Windows BMP as BGRA8 rows, top row first.
-	static bool ReadBMP(const Array<uint8_t>& f, int& width, int& height, Array<uint8_t>& bgra)
+	bool ReadBMP(const Array<uint8_t>& f, int& width, int& height, Array<uint8_t>& bgra)
 	{
 		auto u16 = [&](size_t o) { return (uint32_t)(f[o] | (f[o + 1] << 8)); };
 		auto u32 = [&](size_t o) { return (uint32_t)(f[o] | (f[o + 1] << 8) | (f[o + 2] << 16) | ((uint32_t)f[o + 3] << 24)); };

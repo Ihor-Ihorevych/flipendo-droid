@@ -86,8 +86,8 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` (Tick) | with KnowWonder's physics `UPawn::Tick` leaves MoveTimer and AvgPhysicsTime to `KW::PerformPhysics` (counted twice before) |
 | `Packages/Engine/Actors/UActor_Render.cpp` | `HP1::GetParticleBoundingBox` for DT_Particles (8) |
 | `Render/VisibleActor.cpp` | DT_Particles actors drawn in the translucent pass by `HP1::DrawParticleSystem` |
-| `Engine.cpp` | `HP1::DebugCamera` after PlayerCalcView (`HP1_CAMERA`); `KW::ShowWindowInBackground` in OpenWindow (`HP1_BACKGROUND`); `HP1::TickMods` after the console tick; `HP1::ModsKeyDown` in OnWindowKeyDown |
-| `Engine.cpp` (Run) | `HP1::ModsTimeScale` multiplies the frame's level time (`src/hp1/mods/FastForward.cpp`: Shift held = 2.5x) |
+| `Engine.cpp` | `HP1::DebugCamera` after PlayerCalcView (`HP1_CAMERA`); `KW::ShowWindowInBackground` in OpenWindow (`HP1_BACKGROUND`); `HP1::TickMods` after the console tick (`IsKnowWonder()`: HP2 runs only the frame limit); `HP1::ModsKeyDown` in OnWindowKeyDown |
+| `Engine.cpp` (Run) | `HP1::ModsTimeScale` multiplies the frame's level time (`src/hp1/mods/FastForward.cpp`: Shift held = 2.5x; `IsKnowWonder()`, HP1 and HP2) |
 | `Render/RenderCanvas.cpp` (PostRender) | `HP1::PostRenderMods` after the HUD and console/menus |
 | `RenderDevice/Vulkan/UploadManager.cpp` (UploadTexture) | `HP1::LoadTextureOverride` (HP1 and HP2, gated `IsKnowWonder()`): a `Textures/<package>/<group>/<name>.dds` replacement image is uploaded instead of the texture's mipmaps (`src/hp1/mods/TextureOverrides.cpp`); UVs keep the texture's own USize/VSize. Vulkan only |
 | `Native/NObject.cpp` | DynamicLoadObject resolves "Package.Group.Name" |
@@ -145,7 +145,7 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `GameFolder.h` | `IsKnowWonder()` is HP1 or HP2 |
 | `Render/VisibleFrame.cpp` (ProcessNodeSurface) | a one-sided BSP surface seen from behind is neither drawn nor an occluder, as in UE1 (any game; [rendering](re/engine/rendering.md#one-sided-bsp-surfaces-seen-from-behind)) |
 | `Engine.cpp` (LoginPlayer) | `IsHarryPotter2()`: `HP2::ScreenActorsByGameState` once the player is in, except on Entry ([GameState](re/hp2/engine.md#gamestate-actors-screened-by-the-story-state)) |
-| `Engine.cpp` (Run) | `IsHarryPotter2()`: without a URL, start `HP2::NewGameURL` (no front end yet, [startup](re/hp2/startup.md)) |
+| `Engine.cpp` (Run), `Package/PackageManager.h` (`SetSaveFolderPath`) | `IsHarryPotter2()`: without a URL, `HP2::RunFrontEnd` (Game.exe's splashes and menu) before the window opens: it sets the URL and the slot's save folder, or ends the run on Exit; after the first map `HP2::LoadGameSave` travels to the slot's save (Load Game, -LOADGAME) ([startup](re/hp2/startup.md)) |
 | `VM/Bytecode.h`, `VM/Bytecode.cpp`, `Packages/Core/UStruct.cpp` | `IsHarryPotter2()`: HP2's bytecode, `HP2::ToStockToken` and DebugInfo records skipped ([scripting](re/engine/scripting.md#how-flipendo-reads-it)); HP1's DynArrayCount token for HP2 too |
 | `Packages/Engine/Resources/USound.cpp`, `USound.h` | `IsHarryPotter2()`: HP2's extra sound fields in Load/Save, XA sounds through `HP2::DecodeXA` ([sound](re/engine/sound.md#hp2s-sound-objects)) |
 | `PropertyOffsets.cpp`, `Package/PackageManager.h` | `IsHarryPotter2()`: no IpDrv offsets (HP2 ships without IpDrv) |
