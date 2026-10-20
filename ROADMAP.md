@@ -33,6 +33,8 @@ Legend: [~] partly done / in progress · [ ] not started
         beam is another effect: likely the wand's charge particles (`baseWand.fxChargeParticles`, only
         `EnableEmission(false)` after a cast, so ParticleFX must stop emitting and let its particles die). Needs a
         real cast to see which
+  - [ ] Sounds as ALAudio plays them (2026-10-20, not heard yet): check by ear that a mover's sound loops while it
+        moves, Harry's own sounds and dialogue play centred, and StopSound fades out
   - [ ] Check the remaining "changed" ports for real behaviour differences (beyond the DebugInfo check)
   - [ ] Engine behaviour HP2's scripts may need, worth checking: state labels inherited from a parent state, class
         references in travel data, dialogue with `Disable3D` playing at full volume wherever the camera is
