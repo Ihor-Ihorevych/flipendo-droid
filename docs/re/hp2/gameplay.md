@@ -61,6 +61,12 @@ bones in Flipendo). `skFilchMesh`, `skMrsNorrisMesh` and `skbloodybaronMesh` hav
 (`LinkSkelAnim`) to them. `BoneNumber` and `HasAnim` differ from HP1's only by the DebugInfo check, and the characters whose meshes have
 both (Harry, Hermione, ...) blink.
 
+Adv1Willow's `SpottedJellyBean3`, `6` and `7` "fell out of the world" on the first tick: the map places them at
+Z -482.3 (x 545-1010, y 1779-1936) inside solid BSP, and saves them so (Region zone LevelInfo0, leaf -1); a point check
+there finds zone 0 and a downward sweep is blocked from -400 on (checked 2026-10-20). `APawn::physWalking` [HP2] raises
+FellOutOfWorld for a walking pawn in zone 0, as SurrealEngine does, so the original loses these three beans as well.
+Their neighbours at the same height (`SpottedJellyBean1`, `2`, `4`) are inside a zone and land on the floor at -499.5.
+
 ## Saving
 
 `PlayerPawn.SaveGame()` only queues a save for the end of the level tick; the slot page reads save number 0 from a

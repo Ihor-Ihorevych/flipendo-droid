@@ -20,8 +20,6 @@ Legend: [~] partly done / in progress · [ ] not started
         and check against the original
   2. The intro and first levels as the original (2-3 days)
   - [ ] Voices: `Sounds/AllDialog.USA_uax` is found now; check in game that the dialogue lines play
-  - [ ] Adv1Willow: SpottedJellyBean3/6/7 fall out of the world as the map starts (at Z -482): check where they
-        start and what they should land on
   - [ ] Cutscene commands that start before the previous one finished ("Trying to issue command to: ... when previous
         CutCommand hasnt finished yet": Dobby and Harry in PrivetDr, `FordFlying0`, Harry in Adv1Willow): a move or
         animation that doesn't report done. Compare with the original before calling it a bug
