@@ -1,5 +1,7 @@
 #include "Precomp.h"
 #include "KW.h"
+#include "KWGame.h"
+#include "KWActor.h"
 #include "KWParticleFX.h"
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Engine/Actors/Info/UZoneInfo.h"
@@ -76,13 +78,15 @@ namespace KW
 			}
 		};
 
-		// Vertex colour of a particle: the system's light colour times the particle colour, faded by alpha.
-		// Modulated systems fade towards grey (0.5) instead of black.
+		// Vertex colour of a particle: the system's light colour times the particle colour, faded by alpha (the
+		// particle's Alpha times the system's ScaleGlow; HP2: its Opacity). Modulated systems fade towards grey (0.5)
+		// instead of black.
 		// IDA Render.dll: not exported: sub_10B16AB0 [HP1 Render 0x10B16AB0] (light slot of the billboard/shard/liquid/shell passes; vtable 0x10B388F8)
+		// IDA Render.dll: not exported: sub_10B162A0 [HP2 Render 0x10B162A0] (Actor +440, Opacity)
 		vec3 ParticleLight(const PassContext& ctx, const Particle& p)
 		{
 			vec3 light = ctx.LightColor.xyz() * p.Color.xyz();
-			float alpha = ctx.Actor->ScaleGlow() * p.Alpha;
+			float alpha = (IsHP2() ? Opacity(ctx.Actor) : ctx.Actor->ScaleGlow()) * p.Alpha;
 			if (alpha < 1.0f)
 			{
 				light *= alpha;

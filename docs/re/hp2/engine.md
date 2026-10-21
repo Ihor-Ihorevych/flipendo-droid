@@ -219,8 +219,14 @@ be hit. Sprite trailers are unchanged. Port: an `IsHP2()` branch in `KW::PhysTra
   1920x1080). The languages that use system fonts (`CreateNativeFont`) would have drawn additively; native fonts now
   ignore the alpha as GDI does ([engine/fonts.md](../engine/fonts.md#system-fonts-consolecreatenativefont)).
 
-- Particle colour: HP2 may fade it by `ParticleFX.Opacity * Alpha`; HP1's Render.dll uses `ScaleGlow * Alpha`
-  ([engine/particles.md](../engine/particles.md)). Check HP2's Render.dll.
+- Particle colour (checked 2026-10-21): HP2's Render.dll fades it by `Opacity * Alpha` (Actor +440; +416 is
+  ScaleGlow, after `SavedPrePivotZ` at +412) in every pass's light slot (billboard/shard/liquid/shell
+  `sub_10B162A0` [HP2 Render 0x10B162A0], and `sub_10B18670`, `sub_10B1AA50`); HP1's uses `ScaleGlow * Alpha`
+  ([engine/particles.md](../engine/particles.md)). Modulated still fades towards grey. Port: `KW::ParticleLight`.
+- Sprites (checked 2026-10-21): `URender::DrawFrame` [HP2 Render 0x10B24F30] draws the frame's sprites in two passes,
+  the second for an actor with Style `STY_Translucent` or `Opacity < 1` (ghosts 0.75, `LessonBackground` 0.5,
+  `FadeActorController`'s fades); `DrawActorSprite` itself doesn't read Opacity. SurrealEngine draws every sprite
+  in its sorted translucent pass already, so nothing changes here.
 - Actor shadows, `Actor.Opacity` and the loading screen: expected to be the same as HP1's
   ([engine/rendering.md](../engine/rendering.md)).
 
