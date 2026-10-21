@@ -8,6 +8,7 @@
 class AudioDevice;
 class ULevel;
 class UActor;
+class UPawn;
 class BspSurface;
 struct PlayingSound;
 template<typename T> struct vec3T;
@@ -48,6 +49,9 @@ namespace HP2
 	// ClearTickParents: no actor keeps the destroyed one as a tick parent.
 	UActor* TickBefore(UActor* actor, int i);
 	void ClearTickParents(UActor* destroyed);
+
+	// src/hp2/HP2Steps.cpp: after a pawn's physics (KW::PerformPhysics), SavedPrePivotZ eases its mesh over a step
+	void SmoothSteps(UPawn* pawn);
 
 	// HP2's front end (src/hp2/HP2FrontEnd.cpp, docs/re/hp2/startup.md): Game.exe's EA and WB splashes and its dialog
 	// (New Game, Load Game, Options), before the engine starts. Engine::Run calls it for a run without a URL, before the

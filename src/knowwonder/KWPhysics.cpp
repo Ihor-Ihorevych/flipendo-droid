@@ -3,6 +3,7 @@
 #include "KWMove.h"
 #include "KW.h"
 #include "KWGame.h"
+#include "HP2.h"
 #include "KWActor.h"
 #include "Engine.h"
 #include "VM/ScriptCall.h"
@@ -1833,6 +1834,8 @@ namespace KW
 		}
 		if (actor->bDeleteMe())
 			return;
+		if (IsHP2() && pawn)
+			HP2::SmoothSteps(pawn);
 
 		if (pawn)
 		{

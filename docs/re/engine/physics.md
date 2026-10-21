@@ -247,7 +247,7 @@ ported.
 HP1 and HP2: HP2's (0x103F2B80) turns no pawn in PHYS_Interpolating either (its InterpolationManager sets the rotation),
 the player always, and another pawn when it has bRotateToDesired and isn't at DesiredRotation, or has bFixedRotationDir
 without bRotateToDesired; RotationRate.Roll plays no part. Right after the physics switch it calls an unexported helper
-(sub_10302CFC, HP2's step smoothing, [hp2/engine.md](../hp2/engine.md)) that HP1 lacks.
+(sub_10302CFC, HP2's [stair smoothing](../hp2/engine.md#stair-smoothing)) that HP1 lacks.
 
 ## Latent moves
 

@@ -1,6 +1,7 @@
 #include "Precomp.h"
 #include "KW.h"
 #include "KWActor.h"
+#include "KWGame.h"
 #include "Anim/KWAnimation.h"
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Engine/Actors/Info/UZoneInfo.h"
@@ -450,7 +451,7 @@ namespace KW
 	}
 
 	// USkeletalMesh::GetMeshCoords as a matrix: mesh space -> world.
-	// IDA Engine.dll: ?GetMeshCoords@USkeletalMesh@@ABE?AVFCoords@@PBVAActor@@@Z [HP1 0x1041AEF0]
+	// IDA Engine.dll: ?GetMeshCoords@USkeletalMesh@@ABE?AVFCoords@@PBVAActor@@@Z [HP1 0x1041AEF0] [HP2 0x10429A00]
 	// A pawn's weapon is drawn in the pawn's weapon frame: Render.dll passes that frame as the coords (with the
 	// weapon's Location added to its origin, which cancels the Location in the mesh coords), zeroes the weapon's
 	// Rotation and swaps ThirdPersonScale into DrawScale for the draw.
@@ -478,6 +479,8 @@ namespace KW
 		vec3 adjust(0.0f);
 		if (bAlignBottom(actor) && actor->bCollideWorld() && actor->Physics() != 0 && CollideType(actor) != 3)
 			adjust.z = (mesh->Origin.z - mesh->BoundingBox.min.z) * mesh->Scale.z * drawScale - (actor->CollisionHeight() + 2.5f);
+		if (IsHP2()) // HP2's stair smoothing (src/hp2/HP2Steps.cpp)
+			adjust.z += SavedPrePivotZ(actor);
 
 		mat4 placement = weaponDraw ? WeaponDraw.Frame : mat4::translate(actor->Location()) * Coords::Rotation(actor->Rotation()).ToMatrix();
 		return placement * mat4::translate(actor->PrePivot() + adjust) * Coords::Rotation(mesh->RotOrigin).ToMatrix() *

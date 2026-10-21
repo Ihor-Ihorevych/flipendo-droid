@@ -46,6 +46,14 @@ Times are seconds since the first frame.
 | `@sweep sx sy sz ex ey ez bx by bz` | KnowWonder's BSP line check from start to end with a box of half size b, point checks at both ends (zone, leaf, push-out), and every actor the box sweep hits (MultiLineCheck), and the hit node's coplanar polygons with their flags and vertices: debugging collision and ledge grabs |
 | `@hull <actor>` | log every collision leaf hull of the actor's brush: its planes in world space (node, flipped) and its local box: where a mover is solid |
 
+## HP2 hubs with `--url`
+
+`--url=<hub>.unr` gives HP2's Harry a new game's `CurrentGameState` "None", so the map's actors aren't screened by the
+story state: every state's level-start cutscene runs at once and every state's characters stand around (two Filchs in
+Grandstaircase_hub). The original skips the screening for "None" too. Set a state and travel back into the map, which
+carries it over: `HP1_EXEC="1:@set Harry1 CurrentGameState GSTATE050;1.5:@travel Grandstaircase_hub"`. `HP1_GOD` is HP1
+only (HP2's Harry has no `MaxLifePotions`; the game stops with a fatal error).
+
 ## Starting a level: `--level`
 
 Start a level with `SurrealEngine.exe --autolaunch --level=<map> <game folder>`. It loads the map in the story flow (`HPConsole.bInHubFlow`,

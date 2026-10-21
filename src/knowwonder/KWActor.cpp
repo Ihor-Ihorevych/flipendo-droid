@@ -35,6 +35,7 @@ namespace KW
 			props.VisibilityRadius = cls->GetPropertyDataOffset("VisibilityRadius");
 			props.VisibilityHeight = cls->GetPropertyDataOffset("VisibilityHeight");
 			props.TransientSoundPitch = cls->GetPropertyDataOffset("TransientSoundPitch");
+			props.SavedPrePivotZ = cls->GetPropertyDataOffset("SavedPrePivotZ");
 			initialized = true;
 		}
 		return props;

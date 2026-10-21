@@ -155,6 +155,21 @@ cutscene ticks before the camera; `BaseCamTarget`, `FlyToController` and HPawn's
 `TickParent2` CutScriptDisk0; SurrealEngine's owner-only order ticked the camera before the spline that moves it.
 Port: `src/hp2/HP2Tick.cpp`.
 
+## Stair smoothing
+
+Checked in HP2's Engine.dll. `APawn::performPhysics` (0x103F2B80) calls an unexported helper (sub_103F29A0, through the
+thunk sub_10302CFC) right after its physics switch. Outside PHYS_Walking it zeroes `Actor.SavedPrePivotZ` (HP2 only,
+after `PrePivot`). Walking, `d` = the tick's horizontal movement (Location - OldLocation; physWalking sets OldLocation
+at its start) times `StepHeight / StepWidth` (Pawn, HP2 only, 16 / 32 by default), at most StepHeight; a non-zero
+SavedPrePivotZ moves `d` towards 0 without passing it. Then, if the pawn went down by StepHeight ±1 this tick,
+SavedPrePivotZ = StepHeight - d; up by StepHeight ±1, -(StepHeight - d). `USkeletalMesh::GetMeshCoords` (0x10429A00)
+adds SavedPrePivotZ to PrePivot.Z, so the mesh lags a step behind the collision cylinder and catches up as the pawn walks
+on. Only horizontal movement gives it back: a pawn that stops right after a step keeps its mesh offset until it moves
+again. `BaseCamTarget` adds it to the camera target too (script). Seen 2026-10-21 walking Harry down Grandstaircase_hub's
+stairs: 16-unit steps, SavedPrePivotZ up to about 14 after each and back towards 0. Port: `src/hp2/HP2Steps.cpp`,
+`KW::GetMeshToWorld`. GetMeshCoords' bAlignBottom test also takes HP2's `bAlignBottomAlways` (BroomHarry,
+QuidditchPlayer); not ported.
+
 ## Pawn turning
 
 Checked in HP2's Engine.dll: `execTurnTo` (0x103E6B90) sets Focus to the point and, for a pawn in PHYS_Walking, Focus.Z
