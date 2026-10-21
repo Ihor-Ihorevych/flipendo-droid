@@ -77,6 +77,7 @@ the move's acceleration still set (fixed 2026-10-05).
   encroachment (a refused one cancels the move). Then Bump both ways (not against the level or its own base),
   BeginTouch for the non-blocking hits before the stop (unless it blocks actors and players and no hit was looked at),
   EndTouch for touches no longer overlapping, SetActorZone.
+  HP2's movers of `MoverEncroachType` 4-7 skip the sweep ([hp2/engine.md](../hp2/engine.md#mover-sweep)).
 - `AActor::IsBasedOn` (0x10352430): this stands on other, through its base chain. **SurrealEngine's `a->IsBasedOn(b)`
   is the other way round** ("b stands on a"); `KW::IsBasedOn(a, b)` is HP1's. Mixing them up skipped the floor under
   every pawn standing on the level (Harry fell through Lev_Tut1's floor in the intro).

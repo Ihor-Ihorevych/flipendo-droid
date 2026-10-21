@@ -177,6 +177,16 @@ to its own Location.Z, so the latent turn and its poll aim level; HP1's keeps th
 `IsHP2()` branch in `KW::PawnStartTurnTo` ([engine/physics.md](../engine/physics.md#turning)). `rotateToward` (374 ->
 356 bytes) is not compared yet.
 
+## Mover sweep
+
+Checked in HP2's Engine.dll. HP2's `Mover.MoverEncroachType` has four more values, `ME_ReallyStopWhenEncroach` to
+`ME_ReallyIgnoreWhenEncroach` (4-7), which the script treats as their plain counterparts. `ULevel::MoveActor`
+(0x103B3E80) skips the `MultiLineCheck` sweep for a Mover of type 4 or more, so nothing stops it on the way: it passes
+through actors and only its encroachment check (the type's own reaction) applies. The rest of the move, up to the hit
+loop, is HP1's. Movers of type 7 (all of them 7, no 4-6 seen) seen 2026-10-21 moving in Adv11aCorridor (8), Adv8Forest,
+Adv11bSecrets, Ch4Spongify and Grandstaircase_hub (`ElevatorMover18`, Tag Puddle3). With nothing in their way they end
+where they did before. Port: an `IsHP2()` test in `KW::MoveActor`.
+
 ## Rendering
 
 - Menus: HP2's `HPConsole` lays the book out like HP1's (`Root.SetScale(RealWidth / 640)`, `FEBook` 640x480), so it

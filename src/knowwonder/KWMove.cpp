@@ -1,10 +1,12 @@
 #include "Precomp.h"
 #include "KWMove.h"
 #include "KW.h"
+#include "KWGame.h"
 #include "Engine.h"
 #include "VM/ScriptCall.h"
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Engine/Actors/Brush/UBrush.h"
+#include "Packages/Engine/Actors/Brush/UMover.h"
 #include "Packages/Engine/Actors/Decoration/UDecoration.h"
 #include "Packages/Engine/Actors/Pawn/UPawn.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
@@ -164,7 +166,8 @@ namespace KW
 		}
 	}
 
-	// IDA Engine.dll: ?MoveActor@ULevel@@UAEHPAVAActor@@VFVector@@VFRotator@@AAUFCheckResult@@HHHH@Z [HP1 0x103AA3A0]
+	// IDA Engine.dll: ?MoveActor@ULevel@@UAEHPAVAActor@@VFVector@@VFRotator@@AAUFCheckResult@@HHHH@Z [HP1 0x103AA3A0] [HP2 0x103B3E80]
+	// (HP2 compared up to the hit loop)
 	bool MoveActor(UActor* actor, const vec3& delta, const Rotator& newRotation, CheckResult& hit, bool test, bool ignorePawns, bool ignoreBases, bool noFail)
 	{
 		if (actor->bStatic() || !actor->bMovable())
@@ -205,7 +208,10 @@ namespace KW
 			vec3 extent = box.extents();
 			if (IsMover(actor))
 				extent -= vec3(0.50999999f);
-			hits = MultiLineCheck(center + testDelta, center, extent, actor->bCollideActors(), actor->bCollideWorld() ? LevelInfo() : nullptr, 0);
+			// HP2's ME_Really* movers (MoverEncroachType 4-7) don't sweep: they pass through actors and only encroach
+			UMover* mover = IsHP2() ? UObject::TryCast<UMover>(actor) : nullptr;
+			if (!mover || mover->MoverEncroachType() < 4)
+				hits = MultiLineCheck(center + testDelta, center, extent, actor->bCollideActors(), actor->bCollideWorld() ? LevelInfo() : nullptr, 0);
 
 			if (actor->bBlockActors() || actor->bBlockPlayers() || actor->bCollideWorld())
 			{
