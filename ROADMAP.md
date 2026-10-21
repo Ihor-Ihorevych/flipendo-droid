@@ -46,8 +46,7 @@ Legend: [~] partly done / in progress · [ ] not started
   - [ ] Check the unverified HP2 engine differences in HP2's code ([docs/re/hp2/gameplay.md](docs/re/hp2/gameplay.md)):
         movers colliding by bounding box, the mover flickering fix; find a map with an
         `MV_SpringByTime` mover (ported 2026-10-21, not seen in play) and check it
-  - [ ] HP2-only engine features ([docs/re/hp2/engine.md](docs/re/hp2/engine.md)): the `GAMESTATE=` command line
-        override, particle Opacity, oval collision cylinders
+  - [ ] HP2-only engine features ([docs/re/hp2/engine.md](docs/re/hp2/engine.md)): oval collision cylinders
   - [ ] Linux: `HP1_SHOTS` screenshots crash the game after the first one (also HP2), which limits automated testing
         (segfault in radv's `vkCmdEndRenderPass`, called from `VulkanRenderDevice::Unlock` in `RenderSubsystem::DrawGame`
         right after the shot is saved)

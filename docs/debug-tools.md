@@ -51,7 +51,7 @@ Times are seconds since the first frame.
 `--url=<hub>.unr` gives HP2's Harry a new game's `CurrentGameState` "None", so the map's actors aren't screened by the
 story state: every state's level-start cutscene runs at once and every state's characters stand around (two Filchs in
 Grandstaircase_hub). The original skips the screening for "None" too. Set a state and travel back into the map, which
-carries it over: `HP1_EXEC="1:@set Harry1 CurrentGameState GSTATE050;1.5:@travel Grandstaircase_hub"`. `HP1_GOD` is HP1
+carries it over: `HP1_EXEC="1:@set Harry1 CurrentGameState GSTATE050;1.5:@travel Grandstaircase_hub"`. On a map that places Harry with a state (PrivetDr), `--gamestate=<GSTATExxx>` (HP2's `GAMESTATE=`) starts in another one. `HP1_GOD` is HP1
 only (HP2's Harry has no `MaxLifePotions`; the game stops with a fatal error).
 
 ## Starting a level: `--level`

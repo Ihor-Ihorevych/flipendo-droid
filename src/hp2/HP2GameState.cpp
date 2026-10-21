@@ -5,6 +5,7 @@
 #include "Packages/Engine/Resources/Level/ULevel.h"
 #include "VM/ScriptCall.h"
 #include "Utils/Logger.h"
+#include "Utils/CommandLine.h"
 #include <algorithm>
 
 // HP2's GameState: the story state screens which actors take part in a map (docs/re/hp2/engine.md). The player's
@@ -34,7 +35,8 @@ namespace HP2
 	// Called by UGameEngine::LoadMap for every map but Entry, after the player has logged in. The player is the first
 	// bIsPlayer pawn in the actor list (KnowWonder's maps place Harry, with the state saved in the map: PrivetDr's
 	// Harry1 has "gstate000"). With the state "None" nothing is screened and no event is raised (a new game outside
-	// such a map). The original also takes a GAMESTATE= command line option (a debug override; not ported).
+	// such a map). The command line's GAMESTATE=<token> (here --gamestate=<token>) then replaces a state that isn't
+	// "None" when the master list has the token: the player's CurrentGameState becomes it, in capitals.
 	void ScreenActorsByGameState(ULevel* level)
 	{
 		UPawn* player = nullptr;
@@ -58,6 +60,12 @@ namespace HP2
 		}
 
 		const std::string& masterList = StringProperty(player, "GameStateMasterList");
+		std::string forced = commandline->GetArg("", "--gamestate", "");
+		if (!forced.empty() && masterList.find(forced) != std::string::npos)
+		{
+			current = Upper(forced);
+			*static_cast<std::string*>(player->GetProperty("CurrentGameState")) = current;
+		}
 		int tokenLen = player->HasProperty("GameStateTokenLen") ? *static_cast<int32_t*>(player->GetProperty("GameStateTokenLen")) : 0;
 		if (masterList.find(current) == std::string::npos)
 		{

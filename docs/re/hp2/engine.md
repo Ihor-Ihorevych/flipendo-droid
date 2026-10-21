@@ -19,7 +19,8 @@ The biggest engine feature HP1 doesn't have. HP2's Engine.dll has it (`ScreenAct
 - `ULevel::ScreenActorsByGameState` [HP2 0x103B86D0], from `UGameEngine::LoadMap` for every map but Entry, late, once
   the player is in. The player is the first pawn with `bIsPlayer`; its `CurrentGameState`, upper-cased, is the state.
   `NONE` (`PlayerPawn`'s default): nothing is screened and no event raised. A `GAMESTATE=` command line option
-  overrides the state when it is in the master list. A state not in the master list: "**** Caution: The player pawn has
+  then overrides any other state when the master list holds it (case-sensitive), and becomes the player's
+  `CurrentGameState`, upper-cased. A state not in the master list: "**** Caution: The player pawn has
   an Invalid CurrentGameState ..." and nothing else. Then for every actor: a non-empty `ExcludeGameStates` holding the
   state puts it out; otherwise each `GSTATE` token in its upper-cased `Group` (up to the next comma) is checked: one of
   `GameStateTokenLen` characters found in the master list and equal to the state puts it in, any other token logs
@@ -36,7 +37,9 @@ The biggest engine feature HP1 doesn't have. HP2's Engine.dll has it (`ScreenAct
   after Diagon Alley ran its intro and Part3 together, black screen). `UStrProperty::SetValueFromString` now drops the
   quotes, as UE1's ImportText does (`0010-engine-fixes.patch`, any game).
 - Flipendo: `HP2::ScreenActorsByGameState` (`src/hp2/HP2GameState.cpp`), called at the end of `Engine::LoginPlayer`
-  for maps other than Entry. The `GAMESTATE=` override isn't ported.
+  for maps other than Entry; `--gamestate=<token>` is the `GAMESTATE=` override (from 2026-10-21; it doesn't apply to
+  a `--url` hub, whose Harry starts at `NONE`). Checked 2026-10-21 that the event goes to every actor, tokens or not,
+  as here.
 
 ## Persistent actors across hub travel
 
