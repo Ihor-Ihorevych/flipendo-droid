@@ -39,7 +39,7 @@ namespace KW
 
 	// IDA Engine.dll: ?execClientHearSound@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x10407F30] [HP2 0x104156A0]
 	// Only a PlayerPawn with a local viewport plays it. Parameters = (Volume * 100, Radius, Pitch * 100), a zero
-	// radius plays at 1600. A sound of an actor being destroyed plays unattached (at SoundLocation).
+	// radius plays at 1600 (HP2: 450). A sound of an actor being destroyed plays unattached (at SoundLocation).
 	// HP2 hands ALAudio flags as well: 2 loops (Loop), 0x10 plays it at the listener, not in 3D (Disable3D, or a sound
 	// of the player's own pawn or of an actor it owns, e.g. the wand).
 	static void ClientHearSound(UPawn* hearer, UActor* actor, int id, USound* sound, const vec3& soundLocation, const vec3& parameters, bool disable3D, bool loop)
@@ -56,7 +56,8 @@ namespace KW
 			for (UActor* a = actor; a && !no3D; a = a->Owner())
 				no3D = a == player;
 		}
-		float radius = parameters.y != 0.0f ? parameters.y : 1600.0f;
+		// HP1 plays it at 1600, HP2 at Core.dll's GAudioDefaultRadius (450)
+		float radius = parameters.y != 0.0f ? parameters.y : (IsHP2() ? 450.0f : 1600.0f);
 		engine->audiodev->PlaySound(actor, id, sound, soundLocation, parameters.x * 0.01f, radius, parameters.z * 0.01f, (id & 14) == SLOT_Talk * 2, no3D, IsHP2() && loop);
 	}
 

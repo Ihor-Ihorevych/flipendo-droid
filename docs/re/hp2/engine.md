@@ -293,10 +293,46 @@ be hit. Sprite trailers are unchanged. Port: an `IsHP2()` branch in `KW::PhysTra
   `StopSoundSource`; also a sound that ended) the channel plays `mouth_rest` (rate 1, tween 1). An actor without a
   `mouth_root` bone (the narrator's hidden pawn) gets no channel. Flipendo: `HP2::UpdateLipSync` / `StopLipSync`
   (`src/hp2/HP2LipSync.cpp`) from the audio device's `UpdateLipSync` / `ClearLipSync` (SurrealEngine's place for Deus
-  Ex's lip sync); a paused game doesn't shift the start. Checked 2026-10-21 in PrivetDr's intro: Dobby's lines move
+  Ex's lip sync); a paused sound shifts the start (`HP2::SoundPaused`). Checked 2026-10-21 in PrivetDr's intro: Dobby's lines move
   his mouth channel between 0 and about 0.5.
 - HP2 has no IpDrv package; SurrealEngine's IpDrv property offsets are skipped for it (`0200-hp2.patch`).
-- `I3DL2Listener` (Engine.u): EAX / I3DL2 reverb settings per zone, used by ALAudio.
+- How far a sound carries, its channel, the ambience and pausing (read 2026-10-21, `UALAudioSubsystem::Init`
+  [HP2 ALAudio 0x10002F40], `PlaySound` [0x100040F0], `Update` [0x100052D0], `SoundPriority` [0x10006F10],
+  `FindLeastImportantSound` [0x10007180], `PauseSounds` / `UnpauseSounds` [0x10005250, 0x10005290]):
+  - Distance: OpenAL's inverse distance clamped model. The reference distance is the sound's radius, the rolloff
+    `[ALAudio.ALAudioSubsystem] RollOff` (1), and there is no maximum distance: full volume within the radius, then
+    radius / (radius + rolloff * (distance - radius)), half at twice the radius, never silent. HP1's Galaxy fades
+    linearly to nothing at the radius. A sound with radius 0 plays at Core.dll's `GAudioDefaultRadius`, 450 (HP1's
+    `execClientHearSound`: 1600); the hearing test before it (`CheckHearSound`) still uses 1600.
+  - Doppler: `alDopplerFactor(DopplerFactor)` (1); every frame each positioned source gets its actor's velocity (kept
+    when it is 300 m/s or more) and the listener the camera's movement over the frame (kept from 50 m/s).
+  - Priority: volume times `1 - distance² / (radius * GAudioMaxRadiusMultiplier)²` (from 0.01 to 1;
+    `GAudioMaxRadiusMultiplier` is Core.dll's 100), plus 4 for lip sync data (flag 0x80), 2 for a sound at the music
+    volume (8), 1 for one without position (0x10); recomputed every frame. A Talk slot sound starts at 100. A new sound
+    takes the channel of the same actor and slot (a bNoOverride one doesn't play instead), else the channel with the
+    lowest priority below its own, else `FindLeastImportantSound`: the ambient sound playing in the most copies gives
+    up its least important copy, and with no ambience playing any sound below the new one does (an ambient sound may
+    only push out another ambient sound). `[ALAudio.ALAudioSubsystem] Channels` sources, at most 32.
+  - Ambience is the driver's, not the engine's: every 0.2 s while the viewport is realtime and the game isn't paused,
+    every actor with an AmbientSound that isn't playing is a candidate, one the player views from (its ViewTarget) or
+    owns without position wherever it is, any other within SoundRadius * 100. The radius is the **byte** SoundRadius,
+    not `WorldSoundRadius` (25 * (SoundRadius + 1)): a torch with SoundRadius 16 is at full volume within 16 units.
+    Grouped by sound with the ambient sounds already playing and ranked by priority, at most three copies of a sound
+    play (the rest stop) and the top three not playing start, looped, with their pitch following SoundPitch. Then every
+    ambient sound out of SoundRadius * 100, or whose actor changed its AmbientSound, stops. An ambient sound takes its
+    actor's SoundVolume / 255 every frame (no AmbientFactor), and any sound of an actor with a LightType is scaled by
+    its LightBrightness / 255.
+  - The sounds pause (`alSourcePause`) when the viewport stops being realtime or the game is paused, and go on when
+    either ends; a paused source isn't updated and its lip sync waits.
+  - Not used: `ULevel::IsAudibleAt` and `CalculateRadiusMultiplier` [HP2 0x103BEFA0, 0x103BF120] (zone occlusion,
+    `0.85^(zone distance²)`) and Actor's `SoundOcclusion` exist, but nothing in ALAudio calls them. The radius ease
+    (a radius changed by ModifySound goes back to the PlaySound one over a second) never runs: no HP2 script calls
+    ModifySound. PlaySound's fade-in is always 0 from ClientHearSound.
+  Flipendo (`src/hp2/HP2Audio.cpp`) from `USurrealAudioDevice` (`0140-knowwonder-audio`) and an inverse model, source
+  velocity and pause in SurrealEngine's OpenAL device (`0010-engine-fixes`). Before 2026-10-21 HP2 used HP1's linear
+  Galaxy falloff, SurrealEngine's ambience (WorldSoundRadius, AmbientFactor), 16 channels and no pause.
+- `I3DL2Listener` (Engine.u): EAX / I3DL2 reverb settings per zone. ALAudio's `SetI3DL2Listener`
+  [HP2 ALAudio 0x100070D0] is a 3-byte stub (`ret`): retail applies no reverb.
 
 ## Not needed
 

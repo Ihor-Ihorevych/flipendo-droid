@@ -11,6 +11,9 @@ class UActor;
 class UPawn;
 class BspSurface;
 struct PlayingSound;
+class USurrealAudioDevice;
+class UViewport;
+class USound;
 template<typename T> struct vec3T;
 typedef vec3T<float> vec3;
 
@@ -88,6 +91,18 @@ namespace HP2
 	// mouth to rest when it stops.
 	void UpdateLipSync(PlayingSound& playing);
 	void StopLipSync(PlayingSound& playing);
+
+	// HP2's audio driver, ALAudio (src/hp2/HP2Audio.cpp): USurrealAudioDevice hands over the distance model (InitAudio),
+	// a new sound's flags, priority and channel, the per-frame pause, ambience and listener velocity (UpdateAudio), and
+	// each sound's volume, pitch and velocity (UpdateSound; SoundPaused: skip it while the game pauses it).
+	void InitAudio(AudioDevice* device);
+	int AudioChannels();
+	float SoundPriority(UViewport* viewport, const vec3& location, float volume, float radius, int flags);
+	int SoundFlags(USound* sound, int id, bool loop, bool no3D);
+	int ChooseSoundChannel(USurrealAudioDevice* audio, int id, float& priority);
+	void UpdateAudio(USurrealAudioDevice* audio);
+	float UpdateSound(USurrealAudioDevice* audio, int channel, PlayingSound& playing, float volume);
+	bool SoundPaused(PlayingSound& playing);
 
 	// HP2's "XA" sounds (EA-XA ADPCM, src/hp2/HP2Sound.cpp) decoded into a 16-bit WAV file
 	Array<uint8_t> DecodeXA(const Array<uint8_t>& data, int sampleCount, int channels, int rate);
