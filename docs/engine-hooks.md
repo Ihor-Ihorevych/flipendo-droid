@@ -136,6 +136,8 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Packages/Engine/Actors/UActor_PhysProjectile.cpp` | HitWall also for blocking actors (HP1 physProjectile), so a spell explodes on the mover it bumped |
 | `Audio/AudioDevice.cpp/.h` | `SetLooping(channel, loop)` (default nothing): `AL_LOOPING` on the whole sound, or between its loop points as before |
 | `Audio/AudioDevice.cpp/.h` | `SetLinearFalloff` (off unless a game asks): volume `min(Volume * (1 - d/R), 1)`, OpenAL reference distance 0, rolloff 1, max gain full volume |
+| `VM/Frame.cpp` (Run) | `IsKnowWonder()`: a function may run 100,000,000 statements before the runaway break (500,000 otherwise); KnowWonder's Core.dll only counts Jump tokens, 10,000,000, and logs ([re/hp2/engine.md](re/hp2/engine.md#special-pause)) |
+| `Engine.cpp` (InputEvent), `Packages/Engine/Resources/Level/ULevel.cpp` (TickActor) | `IsHarryPotter2()`: `HP2::InputEvent` (Delete in debug mode toggles the special pause) and `HP2::SpecialPauseTick` before an actor ticks ([re/hp2/engine.md](re/hp2/engine.md#special-pause)) |
 | `Audio/AudioDevice.cpp/.h` | `SetInverseFalloff(rolloff, doppler, speedOfSound)`, `SetSoundVelocity`, `SetListenerVelocity`, `SetPaused` (default nothing): OpenAL's inverse distance clamped model with the radius as reference distance and no maximum, doppler from the given velocities, a paused source still counts as playing (HP2's ALAudio) |
 | `Audio/AudioDevice.cpp` | ungated fix: the music thread fills the rest of a buffer with silence when the stream ends (it replayed a stale chunk, a stuck ~1 s loop) |
 | `Packages/Engine/Actors/UActor_Touch.cpp` | `KW::BeginTouch` in `Touch` (one side at a time, the trigger is told even when the spell destroyed itself) |

@@ -158,6 +158,24 @@ cutscene ticks before the camera; `BaseCamTarget`, `FlyToController` and HPawn's
 `TickParent2` CutScriptDisk0; SurrealEngine's owner-only order ticked the camera before the spline that moves it.
 Port: `src/hp2/HP2Tick.cpp`.
 
+## Special pause
+
+Checked in HP2's Engine.dll. `UGameEngine::InputEvent` [HP2 0x103AC4C0] first tests Delete (`IK_Delete`) pressed:
+when `[HGame.baseConsole] bDebugMode` is True it toggles a flag in the level (ULevel +4380), and the key goes on as
+usual. `AActor::Tick` [HP2 0x103C0E10], after the tick parents and the bTicked test: in that special pause a PlayerPawn
+with a Player still reads its input and gets `PlayerInput`, and only an actor with `bCanMoveInSpecialPause` (BaseCam)
+ticks, with `bInSpecialPause` set; BaseCam's script then flies it on the player's input. Outside it `bInSpecialPause`
+is cleared. HP1's Actor has the same two flags and its `AActor::Tick` [HP1 0x103B3840] the same test (without the
+input), but nothing in HP1 sets the flag. Port: `HP2::InputEvent` / `SpecialPauseTick` (`src/hp2/HP2Tick.cpp`) from
+`Engine::InputEvent` and `ULevel::TickActor`. Checked 2026-10-21: Delete in debug mode sets BaseCam's
+`bInSpecialPause` and holds Harry; Delete again lets go.
+
+HP2's debug mode also has `harry.DisplayFirstErrorMessages` compare every pair of cutscene actors in one foreach
+inside another. KnowWonder's Core.dll counts only Jump tokens against its runaway limit (`UObject::execJump`
+[HP2 Core 0x10133D00], 10,000,000, then a log line); SurrealEngine stopped any function after 500,000 statements and
+broke into its script debugger, which without a debugger froze the input. KnowWonder games get 100,000,000
+(`0010-engine-fixes`).
+
 ## Stair smoothing
 
 Checked in HP2's Engine.dll. `APawn::performPhysics` (0x103F2B80) calls an unexported helper (sub_103F29A0, through the

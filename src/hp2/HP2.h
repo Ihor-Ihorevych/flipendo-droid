@@ -52,6 +52,10 @@ namespace HP2
 	// ClearTickParents: no actor keeps the destroyed one as a tick parent.
 	UActor* TickBefore(UActor* actor, int i);
 	void ClearTickParents(UActor* destroyed);
+	// The special pause (src/hp2/HP2Tick.cpp): Engine::InputEvent hands every key over (Delete in debug mode toggles it),
+	// ULevel::TickActor asks SpecialPauseTick before an actor ticks (false: it doesn't)
+	void InputEvent(int key, int action);
+	bool SpecialPauseTick(UActor* actor, float elapsed);
 
 	// src/hp2/HP2Steps.cpp: after a pawn's physics (KW::PerformPhysics), SavedPrePivotZ eases its mesh over a step
 	void SmoothSteps(UPawn* pawn);

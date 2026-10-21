@@ -15,7 +15,7 @@ index 799eca23..799b7b61 100644
  set_target_properties(SurrealCommon PROPERTIES CXX_STANDARD 20)
  target_precompile_headers(SurrealCommon PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/SurrealEngine/Precomp.h>)
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 1e6022fb..86b18cd5 100644
+index 1e6022fb..3120ee89 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,9 @@
@@ -467,7 +467,17 @@ index 1e6022fb..86b18cd5 100644
  	if (playingAvi)
  	{
  		if (key == EInputKey::IK_Escape)
-@@ -1813,7 +1966,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
+@@ -1800,6 +1953,9 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
+ 	if (Frame::RunState != FrameRunState::Running || playingAvi)
+ 		return;
+ 
++	if (LaunchInfo.IsHarryPotter2()) // Delete in debug mode: the special pause (src/hp2/HP2Tick.cpp)
++		HP2::InputEvent(key, type);
++
+ 	bool handled = CallEvent(console, EventName::KeyEvent, { ExpressionValue::ByteValue(key), ExpressionValue::ByteValue(type), ExpressionValue::FloatValue((float)delta) }).ToBool();
+ 	
+ 	if (!handled)
+@@ -1813,7 +1969,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
  
  			for (const std::string& command : GetSubcommands(keybindings[keynames[key]]))
  			{

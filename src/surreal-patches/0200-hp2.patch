@@ -1,7 +1,7 @@
 flipendo: Harry Potter 2: its sound objects' extra fields and XA sounds, no IpDrv package, actors' tick parents
 
 diff --git a/SurrealEngine/Packages/Engine/Resources/Level/ULevel.cpp b/SurrealEngine/Packages/Engine/Resources/Level/ULevel.cpp
-index 28e61f2a..1146dd50 100644
+index 28e61f2a..bf8eb4d3 100644
 --- a/SurrealEngine/Packages/Engine/Resources/Level/ULevel.cpp
 +++ b/SurrealEngine/Packages/Engine/Resources/Level/ULevel.cpp
 @@ -7,6 +7,7 @@
@@ -31,6 +31,17 @@ index 28e61f2a..1146dd50 100644
  	{
  		TickActor(elapsed, actor->Owner());
  	}
+@@ -73,6 +83,10 @@ void ULevel::TickActor(float elapsed, UActor* actor)
+ 	// Mark actor as ticked
+ 	actor->bTicked() = ticked;
+ 
++	// Harry Potter 2's special pause stops every actor but the ones that may move in it (src/hp2/HP2Tick.cpp)
++	if (engine->LaunchInfo.IsHarryPotter2() && !HP2::SpecialPauseTick(actor, elapsed))
++		return;
++
+ 	// Tick the actor for this turn
+ 	actor->Tick(elapsed);
+ 
 diff --git a/SurrealEngine/Packages/Engine/Resources/USound.cpp b/SurrealEngine/Packages/Engine/Resources/USound.cpp
 index 75eb4e30..13d0f85c 100644
 --- a/SurrealEngine/Packages/Engine/Resources/USound.cpp

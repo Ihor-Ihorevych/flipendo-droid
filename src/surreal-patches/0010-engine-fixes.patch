@@ -1473,7 +1473,7 @@ index 908adb98..e11e90db 100644
  		return v;
  	Exception::Throw("Unsupported expression value property type");
 diff --git a/SurrealEngine/VM/Frame.cpp b/SurrealEngine/VM/Frame.cpp
-index 1e7b3c96..fe076bfc 100644
+index 1e7b3c96..404e8a42 100644
 --- a/SurrealEngine/VM/Frame.cpp
 +++ b/SurrealEngine/VM/Frame.cpp
 @@ -1,5 +1,6 @@
@@ -1549,7 +1549,18 @@ index 1e7b3c96..fe076bfc 100644
  	if (!Func->Code->Statements.empty())
  		StepExpression = Func->Code->Statements[StatementIndex];
  
-@@ -658,8 +687,7 @@ ExpressionEvalResult Frame::Run()
+@@ -528,7 +557,9 @@ ExpressionEvalResult Frame::Run()
+ 		Break();
+ 	}
+ 
+-	const int maxInstructions = 500'000;
++	// KnowWonder's Core.dll only counts Jump tokens, logs past 10,000,000 and goes on (UObject::execJump), so a long
++	// foreach is fine there: HP2's debug mode checks every pair of cutscene actors in harry.DisplayFirstErrorMessages
++	const int maxInstructions = engine->LaunchInfo.IsKnowWonder() ? 100'000'000 : 500'000;
+ 	int instructionsRetired = 0;
+ 	while (true)
+ 	{
+@@ -658,8 +689,7 @@ ExpressionEvalResult Frame::Run()
  			Iterators.pop_back();
  			break;
  		case StatementResult::AccessedNone:
@@ -1559,7 +1570,7 @@ index 1e7b3c96..fe076bfc 100644
  			break;
  		}
  
-@@ -682,7 +710,12 @@ void Frame::ProcessSwitch(const ExpressionValue& condition)
+@@ -682,7 +712,12 @@ void Frame::ProcessSwitch(const ExpressionValue& condition)
  		{
  			//ExpressionValue casevalue = ExpressionEvaluator::Eval(caseexpr->Value, Object, Object, Variables).Value;
  			ExpressionValue casevalue = RunExpr(caseexpr->Value, Object, Object, Variables).Value;
