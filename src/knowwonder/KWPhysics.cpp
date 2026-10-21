@@ -1799,7 +1799,7 @@ namespace KW
 	// performPhysics
 
 	// IDA Engine.dll: ?performPhysics@AActor@@UAEXM@Z [HP1 0x103E52C0]
-	// IDA Engine.dll: ?performPhysics@APawn@@UAEXM@Z [HP1 0x103E5520]
+	// IDA Engine.dll: ?performPhysics@APawn@@UAEXM@Z [HP1 0x103E5520] [HP2 0x103F2B80]
 	void PerformPhysics(UActor* actor, float deltaTime)
 	{
 		if (IsInterpolationManager(actor))
@@ -1836,7 +1836,19 @@ namespace KW
 
 		if (pawn)
 		{
-			if (pawn->Physics() != PHYS_Spider && (!IsPlayerPawn(pawn) || pawn->Rotation() != pawn->DesiredRotation() || pawn->RotationRate().Roll > 0))
+			// The player always turns. Another pawn: HP1 when it isn't at DesiredRotation or has roll to ease; HP2 when it
+			// rotates to DesiredRotation and isn't there yet, or has bFixedRotationDir without bRotateToDesired. HP2
+			// never turns a pawn in PHYS_Interpolating (an InterpolationManager sets its rotation).
+			bool turn;
+			if (pawn->Physics() == PHYS_Spider || (IsHP2() && pawn->Physics() == PHYS_Interpolating))
+				turn = false;
+			else if (IsPlayerPawn(pawn))
+				turn = true;
+			else if (IsHP2())
+				turn = (pawn->Rotation() != pawn->DesiredRotation() && pawn->bRotateToDesired()) || (!pawn->bRotateToDesired() && pawn->bFixedRotationDir());
+			else
+				turn = pawn->Rotation() != pawn->DesiredRotation() || pawn->RotationRate().Roll > 0;
+			if (turn)
 				PawnPhysicsRotation(pawn, deltaTime, oldVelocity);
 			pawn->MoveTimer() -= deltaTime;
 			pawn->AvgPhysicsTime() = pawn->AvgPhysicsTime() * 0.80000001f + deltaTime * 0.2f;

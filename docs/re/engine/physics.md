@@ -54,8 +54,8 @@ to the poll. A script that restarts its move every tick then never moves: `Doxie
 
 `AActor::performPhysics` (0x103E52C0) handles falling, projectile, rolling, moving brush and trailer only; a non-pawn in
 PHYS_Walking or PHYS_Interpolating doesn't move by itself (an InterpolationManager moves its owner).
-`APawn::performPhysics` (0x103E5520) adds walking, swimming, flying, spider, then turns the pawn (below) unless it is a
-player already at its DesiredRotation with no roll to ease, counts MoveTimer down and averages AvgPhysicsTime. Both raise
+`APawn::performPhysics` (0x103E5520) adds walking, swimming, flying, spider, then turns the pawn (below; which pawns
+differs between the games), counts MoveTimer down and averages AvgPhysicsTime. Both raise
 PostTouch. Nothing else counts MoveTimer down, and a pawn without physics never does. SurrealEngine's `UPawn::Tick` did it as
 well, so with this port every latent move's timer ran out at half its time: gnomes (`Tut1Gnome.hide`) gave up their
 `MoveTo` halfway, short of the 100 units the state waits for, and ran on the spot; ones that got close glided past with
@@ -235,11 +235,19 @@ actor stops dead. HP1's cutscenes depend on it ([cutscenes.md](../hp1/cutscenes.
 
 ## Pawn rotation
 
-`APawn::performPhysics` (0x103E5520) keeps a running average of the physics step, and turns every pawn (the player
-too) towards DesiredRotation after its movement via `physicsRotation` (0x103E5950), unless PHYS_Spider. Yaw and pitch
+`APawn::performPhysics` (0x103E5520) keeps a running average of the physics step, and turns pawns towards
+DesiredRotation after their movement via `physicsRotation` (0x103E5950), never in PHYS_Spider: the player always, any
+other pawn when its Rotation isn't DesiredRotation or its RotationRate.Roll > 0 (until 2026-10-21 Flipendo had this the
+other way round, the player only when not at DesiredRotation and every other pawn always; no difference seen in
+Lev_Tut1's opening cutscene). Yaw and pitch
 turn at RotationRate; roll is cleared, or with RotationRate.Roll > 0 eased back to level while walking. HP1's cutscene
 movement (MoveSmooth + DesiredRotation) depends on it. The flying/swimming bank from lateral acceleration is not
 ported.
+
+HP1 and HP2: HP2's (0x103F2B80) turns no pawn in PHYS_Interpolating either (its InterpolationManager sets the rotation),
+the player always, and another pawn when it has bRotateToDesired and isn't at DesiredRotation, or has bFixedRotationDir
+without bRotateToDesired; RotationRate.Roll plays no part. Right after the physics switch it calls an unexported helper
+(sub_10302CFC, HP2's step smoothing, [hp2/engine.md](../hp2/engine.md)) that HP1 lacks.
 
 ## Latent moves
 
