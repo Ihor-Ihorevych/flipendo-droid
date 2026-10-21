@@ -197,6 +197,15 @@ HP1's: still encroached after the push, the actor is pushed back from the mover'
 helpers divide the arm by its length and multiply it back, so an actor right on the turning axis would go NaN; the port
 leaves that out. Port: `RotationPush` in `src/knowwonder/KWMove.cpp`. Not seen pushing anything in a playtest yet.
 
+## Trailers touch
+
+Checked in HP2's Engine.dll. `AActor::physTrailer` (0x10402470) works out the place and rotation of a non-sprite
+trailer as HP1's (0x103F5F80) does, but moves it there with collision instead of placing it and turning it on the spot:
+a trailer with bCollideWorld or bBlockActors is placed by `FarMoveActor` (bNoCheck) and then moved 0.01 along X by
+`MoveActor` with the new rotation; any other trailer is moved the whole way by `MoveActor`. Either way the move sweeps,
+so the trailer touches what it passes. That is what the Basilisk's `GenericColObj`s on its head and breast bones need to
+be hit. Sprite trailers are unchanged. Port: an `IsHP2()` branch in `KW::PhysTrailer`.
+
 ## Rendering
 
 - Menus: HP2's `HPConsole` lays the book out like HP1's (`Root.SetScale(RealWidth / 640)`, `FEBook` 640x480), so it

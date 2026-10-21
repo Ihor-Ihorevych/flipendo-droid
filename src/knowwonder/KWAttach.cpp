@@ -2,6 +2,7 @@
 #include "KW.h"
 #include "KWMove.h"
 #include "KWActor.h"
+#include "KWGame.h"
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Engine/Actors/Pawn/UPawn.h"
 #include "Packages/Engine/Actors/Inventory/UWeapon.h"
@@ -50,7 +51,7 @@ namespace KW
 			actor->SetRotation(rotation);
 	}
 
-	// IDA Engine.dll: ?physTrailer@AActor@@QAEXM@Z [HP1 0x103F5F80]
+	// IDA Engine.dll: ?physTrailer@AActor@@QAEXM@Z [HP1 0x103F5F80] [HP2 0x10402470]
 	void PhysTrailer(UActor* actor)
 	{
 		UActor* owner = actor->Owner();
@@ -93,8 +94,26 @@ namespace KW
 						rotation = Rotator(0x4000, 0, 0);
 				}
 			}
-			TrailerPlace(actor, location);
-			TrailerTurn(actor, rotation);
+			if (IsHP2() && UseKWPhysics())
+			{
+				// HP2 moves the trailer there with collision, so it touches what it passes: a solid one
+				// (bCollideWorld or bBlockActors) is placed and then nudged 0.01 along X, the rest moves the whole way
+				CheckResult hit;
+				if (actor->bCollideWorld() || actor->bBlockActors())
+				{
+					FarMoveActor(actor, location, false, true);
+					MoveActor(actor, vec3(0.01f, 0.0f, 0.0f), rotation, hit);
+				}
+				else
+				{
+					MoveActor(actor, location - actor->Location(), rotation, hit);
+				}
+			}
+			else
+			{
+				TrailerPlace(actor, location);
+				TrailerTurn(actor, rotation);
+			}
 		}
 		else if (actor->bTrailerPrePivot())
 		{
