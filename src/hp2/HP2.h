@@ -63,7 +63,8 @@ namespace HP2
 	bool RunFrontEnd();
 	// What Game.exe starts the engine with after New Game
 	constexpr const char* NewGameURL = "PrivetDr.unr";
-	// -LOADGAME=<n>: after the first map, Engine::Run travels to the save folder's Save<n>.usa. -1 for none.
+	// -LOADGAME=<n> (the front end's Load Game, or --loadgame=<n>): after the first map, Engine::Run travels to the save
+	// folder's Save<n>.usa. -1 for none.
 	int LoadGameSave();
 	// HP2's saves (src/hp2/HP2Save.cpp): Engine::Run after the level ticks writes a save the player queued
 	// (PlayerPawn.bQueuedToSaveGame) as the save folder's Save0.usa and returns true: the rest of that frame is skipped.
