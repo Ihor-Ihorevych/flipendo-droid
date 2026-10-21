@@ -157,10 +157,10 @@ Port: `src/hp2/HP2Tick.cpp`.
 
 ## Pawn turning
 
-HP2's `execTurnTo` flattens the focal point for a walking pawn (`Focus.Z = Location.Z`); HP1's doesn't. Retail sizes
-fit: execTurnTo is 250 bytes in HP1, 295 in HP2 (`rotateToward` 374 -> 356). Flipendo's port is HP1's
-(`KW::PawnTurnStep`, [engine/physics.md](../engine/physics.md#turning)); add the flatten as an `IsHP2()` branch once
-read in HP2's Engine.dll.
+Checked in HP2's Engine.dll: `execTurnTo` (0x103E6B90) sets Focus to the point and, for a pawn in PHYS_Walking, Focus.Z
+to its own Location.Z, so the latent turn and its poll aim level; HP1's keeps the point as it is. Ported as an
+`IsHP2()` branch in `KW::PawnStartTurnTo` ([engine/physics.md](../engine/physics.md#turning)). `rotateToward` (374 ->
+356 bytes) is not compared yet.
 
 ## Rendering
 

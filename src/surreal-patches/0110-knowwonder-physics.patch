@@ -155,7 +155,7 @@ index 32736319..573aeef7 100644
  
  	void InitActorZone() override;
 diff --git a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
-index 48026a40..a7a3f31e 100644
+index 48026a40..c80c2d72 100644
 --- a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
 @@ -7,11 +7,10 @@
@@ -332,8 +332,8 @@ index 48026a40..a7a3f31e 100644
  {
  	MoveTarget() = nullptr;
  	Focus() = newFocus;
-+	if (engine->LaunchInfo.IsKnowWonder()) // execTurnTo starts turning at once
-+		KW::PawnTurnStep(this, Focus());
++	if (engine->LaunchInfo.IsKnowWonder()) // execTurnTo starts turning at once (HP2: Focus flattened while walking)
++		KW::PawnStartTurnTo(this);
  	if (StateFrame)
  		StateFrame->SetLatentState(LatentRunState::TurnTo);
  }
