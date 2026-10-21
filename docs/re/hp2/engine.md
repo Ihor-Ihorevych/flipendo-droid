@@ -187,6 +187,16 @@ loop, is HP1's. Movers of type 7 (all of them 7, no 4-6 seen) seen 2026-10-21 mo
 Adv11bSecrets, Ch4Spongify and Grandstaircase_hub (`ElevatorMover18`, Tag Puddle3). With nothing in their way they end
 where they did before. Port: an `IsHP2()` test in `KW::MoveActor`.
 
+## Turning movers push
+
+Checked in HP2's Engine.dll. In `ULevel::CheckEncroachment` (0x103B55C0), when a mover pushes a non-mover out of its
+way, HP1 (0x103AB5F0) pushes it by the mover's move alone; HP2 adds ten times how far the mover's turn carries the
+actor's location round the mover's: the location is turned by the roll change (in YZ, the other way), then the pitch
+change (XZ), then the yaw change (XY), each by an unexported helper (0x103B5210, 0x103B5340, 0x103B50F0). The rest is
+HP1's: still encroached after the push, the actor is pushed back from the mover's new place and gets EncroachingOn. The
+helpers divide the arm by its length and multiply it back, so an actor right on the turning axis would go NaN; the port
+leaves that out. Port: `RotationPush` in `src/knowwonder/KWMove.cpp`. Not seen pushing anything in a playtest yet.
+
 ## Rendering
 
 - Menus: HP2's `HPConsole` lays the book out like HP1's (`Root.SetScale(RealWidth / 640)`, `FEBook` 640x480), so it
