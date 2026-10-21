@@ -581,27 +581,46 @@ namespace KW
 		}
 		if (text.rfind("@console", 0) == 0)
 		{
-			// "@console[.Prop[.Prop]] Fn [arg]": follow object properties from the console, then call Fn. A number is
-			// passed as an int (SlotPage SetSelectedSlot 0), True / False as a bool, anything else as a string.
+			// "@console[.Prop[.Prop]] Fn [arg...]": follow object properties from the console, then call Fn. A number is
+			// passed as an int (SlotPage SetSelectedSlot 0), True / False as a bool, Class'Pkg.Name' as that class
+			// (@console.Viewport.Actor.Weapon StartChargingSpell True False Class'hgame.spellLumos'), anything else
+			// as a string (then the whole rest is one string).
 			std::stringstream parts(text);
-			std::string path, fn, arg;
+			std::string path, fn, rest;
 			parts >> path >> fn;
-			std::getline(parts >> std::ws, arg);
+			std::getline(parts >> std::ws, rest);
 			UObject* obj = engine->console;
 			std::stringstream props(path.substr(8));
 			std::string prop;
 			while (obj && std::getline(props, prop, '.'))
 				if (!prop.empty()) obj = obj->GetUObject(prop);
+			auto value = [](const std::string& arg)
+			{
+				if (StrTools::equals_ignore_case(arg, "true") || StrTools::equals_ignore_case(arg, "false"))
+					return ExpressionValue::BoolValue(StrTools::equals_ignore_case(arg, "true"));
+				if (!arg.empty() && arg.find_first_not_of("-0123456789") == std::string::npos)
+					return ExpressionValue::IntValue(std::atoi(arg.c_str()));
+				if (arg.rfind("Class'", 0) == 0 && arg.back() == '\'')
+					return ExpressionValue::ObjectValue(engine->packages->FindClass(arg.substr(6, arg.size() - 7)));
+				return ExpressionValue::StringValue(arg);
+			};
+			// Several arguments when none of them is a string; else the whole rest is one string
+			Array<ExpressionValue> args;
+			std::stringstream words(rest);
+			std::string word;
+			while (words >> word)
+			{
+				args.push_back(value(word));
+				if (args.back().GetType() == ExpressionValueType::ValueString)
+				{
+					args = { ExpressionValue::StringValue(rest) };
+					break;
+				}
+			}
 			if (!obj || fn.empty())
 				LogMessage("HP1 exec: no object for " + path);
-			else if (arg.empty())
-				CallEvent(obj, NameString(fn));
-			else if (StrTools::equals_ignore_case(arg, "true") || StrTools::equals_ignore_case(arg, "false"))
-				CallEvent(obj, NameString(fn), { ExpressionValue::BoolValue(StrTools::equals_ignore_case(arg, "true")) });
-			else if (arg.find_first_not_of("-0123456789") == std::string::npos)
-				CallEvent(obj, NameString(fn), { ExpressionValue::IntValue(std::atoi(arg.c_str())) });
 			else
-				CallEvent(obj, NameString(fn), { ExpressionValue::StringValue(arg) });
+				CallEvent(obj, NameString(fn), args);
 			return;
 		}
 		uint32_t foundBits = 0;

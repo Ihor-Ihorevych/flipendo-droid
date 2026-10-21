@@ -28,9 +28,10 @@ Legend: [~] partly done / in progress · [ ] not started
         compare the path and the shot's brightness with the original in play, and the sky through the backdrop surfaces
   - [ ] Lumos: after casting it the light beam on the wand stays for good (playtest 2026-10-17). The LumosLight
         itself goes off after its 30 s (light and LumosLightFX, checked 2026-10-20 with baseWand.LumosTurnOn), so the
-        beam is another effect: likely the wand's charge particles (`baseWand.fxChargeParticles`, only
-        `EnableEmission(false)` after a cast, so ParticleFX must stop emitting and let its particles die). Needs a
-        real cast to see which
+        beam is another effect. Not the wand's charge particles: driven with `@console.Viewport.Actor.Weapon
+        StartChargingSpell True False Class'hgame.spellLumos'` then `StopChargingSpell` (2026-10-21), `Lumos_fly`'s
+        `Shutdown()` caps ParticlesMax at what it emitted and the system is gone within its 2 s Lifetime. Needs a real
+        cast to see which effect stays (the flying spell's own `Lumos_fly`, `Lumos_hit`, the spell cursor)
   - [ ] Sounds as ALAudio plays them (2026-10-20, not heard yet): check by ear that a mover's sound loops while it
         moves, Harry's own sounds and dialogue play centred, and StopSound fades out
   - [ ] Lip sync (2026-10-21, not seen yet): check in play that Dobby's mouth moves with his lines in PrivetDr's intro
