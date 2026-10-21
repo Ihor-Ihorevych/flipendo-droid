@@ -66,8 +66,9 @@ namespace HP2
 	// -LOADGAME=<n>: after the first map, Engine::Run travels to the save folder's Save<n>.usa. -1 for none.
 	int LoadGameSave();
 	// HP2's saves (src/hp2/HP2Save.cpp): Engine::Run after the level ticks writes a save the player queued
-	// (PlayerPawn.bQueuedToSaveGame) as the save folder's Save0.usa; the LOADGAME <n> console command loads Save<n>.usa.
-	void TickQueuedSave();
+	// (PlayerPawn.bQueuedToSaveGame) as the save folder's Save0.usa and returns true: the rest of that frame is skipped.
+	// The LOADGAME <n> console command loads Save<n>.usa.
+	bool TickQueuedSave();
 	bool SaveCommand(const Array<std::string>& args);
 	// Persistent actors across hub travel (src/hp2/HP2Persist.cpp): SAVEPACTORS writes the level's bPersistent actors to
 	// <save folder>/cache/<map>_pa.usa, Engine::LoadMap reads them back for every map but Entry, before the GameInfo
@@ -103,6 +104,8 @@ namespace HP2
 	void UpdateAudio(USurrealAudioDevice* audio);
 	float UpdateSound(USurrealAudioDevice* audio, int channel, PlayingSound& playing, float volume);
 	bool SoundPaused(PlayingSound& playing);
+	// ALAudio's PAUSESOUNDS, UNPAUSESOUNDS, RESTARTSOUNDS (HP2::AudioCommand)
+	bool SoundPauseCommand(const std::string& command);
 
 	// HP2's "XA" sounds (EA-XA ADPCM, src/hp2/HP2Sound.cpp) decoded into a 16-bit WAV file
 	Array<uint8_t> DecodeXA(const Array<uint8_t>& data, int sampleCount, int channels, int rate);

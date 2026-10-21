@@ -15,7 +15,7 @@ index 799eca23..799b7b61 100644
  set_target_properties(SurrealCommon PROPERTIES CXX_STANDARD 20)
  target_precompile_headers(SurrealCommon PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/SurrealEngine/Precomp.h>)
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 1e6022fb..9cfb9c36 100644
+index 1e6022fb..86b18cd5 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,9 @@
@@ -76,8 +76,8 @@ index 1e6022fb..9cfb9c36 100644
  		Level->Tick(levelElapsed, m_GamePaused);
 +		if (LaunchInfo.IsKnowWonder() && viewport->Actor()) // UGameEngine::Tick raises ViewFlash (screen fades)
 +			CallEvent(viewport->Actor(), "ViewFlash", { ExpressionValue::FloatValue(realTimeElapsed) });
-+		if (LaunchInfo.IsHarryPotter2()) // a save the player queued (src/hp2/HP2Save.cpp)
-+			HP2::TickQueuedSave();
++		if (LaunchInfo.IsHarryPotter2() && HP2::TickQueuedSave()) // a save the player queued ends the frame (src/hp2/HP2Save.cpp)
++			continue;
  
  		if (dxRootWindow)
  			dxRootWindow->Tick(levelElapsed); // Should this maybe be realTimeElapsed?

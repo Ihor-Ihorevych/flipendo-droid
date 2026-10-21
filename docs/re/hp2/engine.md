@@ -323,7 +323,8 @@ be hit. Sprite trailers are unchanged. Port: an `IsHP2()` branch in `KW::PhysTra
     actor's SoundVolume / 255 every frame (no AmbientFactor), and any sound of an actor with a LightType is scaled by
     its LightBrightness / 255.
   - The sounds pause (`alSourcePause`) when the viewport stops being realtime or the game is paused, and go on when
-    either ends; a paused source isn't updated and its lip sync waits.
+    either ends; a paused source isn't updated and its lip sync waits. The console commands `PAUSESOUNDS` and
+    `UNPAUSESOUNDS` do it at once, `RESTARTSOUNDS` (sent by the engine after a queued save) at the next update.
   - Not used: `ULevel::IsAudibleAt` and `CalculateRadiusMultiplier` [HP2 0x103BEFA0, 0x103BF120] (zone occlusion,
     `0.85^(zone distance²)`) and Actor's `SoundOcclusion` exist, but nothing in ALAudio calls them. The radius ease
     (a radius changed by ModifySound goes back to the PlaySound one over a second) never runs: no HP2 script calls

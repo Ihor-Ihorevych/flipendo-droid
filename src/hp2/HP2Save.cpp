@@ -17,16 +17,19 @@
 namespace HP2
 {
 	// UGameEngine::Tick, after the levels tick: a save queued by the viewport's player is written now. The original
-	// then runs RestartSounds, flushes the engine's caches and leaves the rest of the tick out.
+	// then runs RESTARTSOUNDS (its streamed sources may have run dry during the save), flushes the engine's caches
+	// (nothing to flush here) and leaves the rest of the tick out: no travel and no drawing that frame.
 	// IDA Engine.dll: ?Tick@UGameEngine@@UAEXM@Z [HP2 0x103A9910] (the bQueuedToSaveGame test at 0x103A9BB7)
-	void TickQueuedSave()
+	bool TickQueuedSave()
 	{
 		UActor* player = engine->viewport ? engine->viewport->Actor() : nullptr;
 		if (!player || !KW::BoolProperty(player, "bQueuedToSaveGame"))
-			return;
+			return false;
 		LogMessage("Saving game...(before call) Filename: " + (engine->packages->GetSaveFolderPath() / ("Save0." + engine->packages->GetSaveExtension())).string());
 		player->BoolValue(player->GetPropertyDataOffset("bQueuedToSaveGame")) = false;
 		KW::SaveGame(0, {});
+		SoundPauseCommand("RESTARTSOUNDS");
+		return true;
 	}
 
 	// UGameEngine::Exec's LOADGAME <n>: loads the persistent actor cache and travels to the save folder's

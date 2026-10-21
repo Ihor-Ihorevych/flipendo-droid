@@ -3,6 +3,7 @@
 #include "Engine.h"
 #include "Audio/AudioDevice.h"
 #include "Package/PackageManager.h"
+#include "Utils/StrTools.h"
 #include "Packages/Engine/Subsystems/USurrealAudioDevice.h"
 #include "Packages/Engine/UViewport.h"
 #include "Packages/Engine/Actors/UActor.h"
@@ -42,6 +43,7 @@ namespace HP2
 			bool wasRealtime = false;
 			bool wasPaused = false;
 			bool paused = false;
+			bool restart = false;
 			vec3 lastListener = vec3(0.0f);
 		};
 
@@ -328,7 +330,8 @@ namespace HP2
 	}
 
 	// IDA ALAudio.dll: ?Update@UALAudioSubsystem@@UAEXPAUFSceneNode@@@Z [HP2 ALAudio 0x100052D0] (pause, ambience, listener velocity)
-	// The sounds pause when the viewport stops being realtime or the game is paused, and go on when either ends.
+	// The sounds pause when the viewport stops being realtime or the game is paused, and go on when either ends (or
+	// after RESTARTSOUNDS).
 	void UpdateAudio(USurrealAudioDevice* audio)
 	{
 		AudioState& s = State();
@@ -348,10 +351,11 @@ namespace HP2
 			PauseSounds(audio, true);
 			s.paused = true;
 		}
-		else if ((realtime && !s.wasRealtime) || (!paused && s.wasPaused))
+		else if ((realtime && !s.wasRealtime) || (!paused && s.wasPaused) || s.restart)
 		{
 			PauseSounds(audio, false);
 			s.paused = false;
+			s.restart = false;
 		}
 		s.wasRealtime = realtime;
 		s.wasPaused = paused;
@@ -392,6 +396,34 @@ namespace HP2
 		if (!(playing.Flags & FlagNo3D) && length(actor->Velocity()) * MetresPerUnit < 300.0f)
 			audio->GetDevice()->SetSoundVelocity(channel, actor->Velocity());
 		return volume;
+	}
+
+	// IDA ALAudio.dll: ?Exec@UALAudioSubsystem@@UAEHPBGAAVFOutputDevice@@@Z [HP2 ALAudio 0x100067B0] (PAUSESOUNDS,
+	// UNPAUSESOUNDS, RESTARTSOUNDS)
+	// PAUSESOUNDS and UNPAUSESOUNDS pause and go on at once; RESTARTSOUNDS (the engine's, after a queued save) goes on
+	// at the next update unless the game pauses then
+	bool SoundPauseCommand(const std::string& command)
+	{
+		USurrealAudioDevice* audio = engine->audiodev;
+		if (StrTools::equals_ignore_case(command, "PAUSESOUNDS"))
+		{
+			if (audio)
+				PauseSounds(audio, true);
+		}
+		else if (StrTools::equals_ignore_case(command, "UNPAUSESOUNDS"))
+		{
+			if (audio)
+				PauseSounds(audio, false);
+		}
+		else if (StrTools::equals_ignore_case(command, "RESTARTSOUNDS"))
+		{
+			State().restart = true;
+		}
+		else
+		{
+			return false;
+		}
+		return true;
 	}
 
 	// While its sound is paused its lip sync waits too (ALAudio moves the lip sync's start on by the paused time)

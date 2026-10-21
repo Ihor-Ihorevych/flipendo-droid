@@ -49,7 +49,11 @@ In HP2 `PaintProgress` differs only in offsets. HP2's engine side of saving:
 - **The queued save**: `UGameEngine::Tick` [HP2 0x103A9910], after the levels tick, tests the viewport player's
   `bQueuedToSaveGame` (PlayerPawn +0x958, at 0x103A9BB7). When set: creates SavePath and the save folder, logs "Saving
   game...(before call) Filename: <folder>\Save0.usa", clears the flag, calls `SaveGame(0)`, runs the `RestartSounds`
-  console command, `Flush(1)`, and returns, leaving out the rest of that tick (no frame is drawn).
+  console command, `Flush(1)`, and returns, leaving out the rest of that tick (no frame is drawn). `RESTARTSOUNDS`
+  (ALAudio's `Exec` [HP2 ALAudio 0x100067B0]) sets a flag that makes its next `Update` call `UnpauseSounds`: every
+  source that was playing plays again, so a streamed sound that ran dry while the save blocked starts over. Flipendo
+  (`HP2::TickQueuedSave`) does the same and ends the frame; there are no caches to flush (before 2026-10-21 it went on
+  with the frame).
 - **`UGameEngine::SaveGame`** [HP2 0x103AB430] (1154 -> 1380 bytes): HP1's, plus: creates SavePath and the save folder;
   after setting LevelAction to saving raises `PreSaveGame` on every actor; draws the progress frame only when the
   viewport player's `bShowLoadingScreen` (+0x92C) is false (a save on arriving in a level happens under the loading

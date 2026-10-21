@@ -269,6 +269,9 @@ namespace HP2
 					engine->audiodev->MusicVolume = VolumeFromIni(args[i].substr(eq + 1), engine->audiodev->MusicVolume);
 			}
 		}
+		else if (SoundPauseCommand(args[0]))
+		{
+		}
 		else
 		{
 			return false;
