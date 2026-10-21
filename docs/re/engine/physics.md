@@ -134,6 +134,12 @@ a non-pawn in a bBounceVelocity zone bounces; else Landed, then walking (pawns, 
 turns the velocity towards it; braking in 0.03 s steps, stopping dead under 10; non-players' MaxSpeed times
 DesiredSpeed; a walking player slows towards 30% of it. ZoneVelocity x25 (a player only over 300). Then per step:
 
+HP1 and HP2: HP2's physWalking (0x103F4130) calls calcVelocity (0x103F8400, the same code) without braking, so a pawn
+whose acceleration stops slows by friction alone (Harry: about 0.45 s and 13 units from running speed, against 0.1 s and 4
+in HP1's way), and with no ground friction while `Pawn.bNoZoneFriction` (HP2 only; HPawn's and Pawn's patrol states set it
+and clear it when they end). The rest of HP2's physWalking is not compared yet.
+
+
 - AI pawns that can't fly, and walking players, look ahead for a ledge (a probe one radius ahead, half without
   bAvoidLedges, down past MaxStepHeight). At one: the edge face under it; none found: a side step either way; found:
   back away (bAvoidLedges; bStopAtLedges also ends the move) or slide along it. MayFall once; a pawn that can jump walks

@@ -745,7 +745,8 @@ namespace KW
 	// player: 30% of it), velocity turned towards the acceleration by friction. Braking: friction in 0.03 s steps,
 	// stopping dead under 10 or on reversal. Max speed: MaxSpeed (non-players times DesiredSpeed); a walking player
 	// slows towards 30% of it.
-	// IDA Engine.dll: ?calcVelocity@APawn@@AAEXVFVector@@MMMHHH@Z [HP1 0x103EB3E0]
+	// HP2's is the same code (2146 bytes against 2415, no change in what it does).
+	// IDA Engine.dll: ?calcVelocity@APawn@@AAEXVFVector@@MMMHHH@Z [HP1 0x103EB3E0] [HP2 0x103F8400]
 	void CalcVelocity(UPawn* pawn, const vec3& accelDir, float deltaTime, float maxSpeed, float friction, bool fluid, bool brake, bool buoyant)
 	{
 		float effectiveFriction = std::max(friction, fluid ? 1.0f : 0.0f);
@@ -917,7 +918,14 @@ namespace KW
 	// hit steps up (stepUp, with ledge grab); then the floor (MaxStepHeight + 2 down): kept, snapped to, slid down a
 	// slope, or lost (Falling, physFalling; a pawn that can't jump or walks is put back, MoveTimer -1). PlayerPawn.bAutoJump
 	// jumps off an edge when jumping lands more than 10 higher.
-	// IDA Engine.dll: ?physWalking@APawn@@QAEXMH@Z [HP1 0x103E6B60]
+	// HP2's Pawn.bNoZoneFriction (set while HPawn patrols): walking ignores the zone's ground friction.
+	static bool NoZoneFriction(UPawn* pawn)
+	{
+		static PropertyDataOffset offset = engine->packages->FindClass("Engine.Pawn")->GetPropertyDataOffset("bNoZoneFriction");
+		return pawn->BoolValue(offset);
+	}
+
+	// IDA Engine.dll: ?physWalking@APawn@@QAEXMH@Z [HP1 0x103E6B60] [HP2 0x103F4130] (HP2 compared up to calcVelocity)
 	void PhysWalking(UPawn* pawn, float deltaTime, int iterations)
 	{
 		if (pawn->Region().ZoneNumber == 0)
@@ -931,7 +939,11 @@ namespace KW
 		pawn->Acceleration().z = 0.0f;
 		vec3 accelDir = IsZero(pawn->Acceleration()) ? pawn->Acceleration() : SafeNormal(pawn->Acceleration());
 		UZoneInfo* zone = pawn->Region().Zone;
-		CalcVelocity(pawn, accelDir, deltaTime, pawn->GroundSpeed(), zone->ZoneGroundFriction(), false, true, false);
+		// HP2 walks without braking, and with no ground friction under bNoZoneFriction
+		if (IsHP2())
+			CalcVelocity(pawn, accelDir, deltaTime, pawn->GroundSpeed(), NoZoneFriction(pawn) ? 0.0f : zone->ZoneGroundFriction(), false, false, false);
+		else
+			CalcVelocity(pawn, accelDir, deltaTime, pawn->GroundSpeed(), zone->ZoneGroundFriction(), false, true, false);
 		vec3 desiredMove = pawn->Velocity();
 		if (!IsPlayerPawn(pawn) || dot(zone->ZoneVelocity(), zone->ZoneVelocity()) > 90000.0f)
 			desiredMove += zone->ZoneVelocity() * 25.0f * deltaTime;
