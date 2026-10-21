@@ -62,7 +62,7 @@
 //                              "@travel Lev2_HogFront" changes level as the game's level exits do (carrying Harry's travel properties);
 //                              "@bump GridMover0 harry0" raises Bump(harry0) on the actors whose name starts with GridMover0;
 //                              "@polys Mover17" logs the brush polygons (normal, PolyFlags, texture, vertices) of the matching movers;
-//                              "@surfs cosLogo1" logs the level's BSP surfaces drawn with that texture (flags, center);
+//                              "@surfs cosLogo1" logs the level's BSP surfaces drawn with that texture (flags, center; "*mirror": the mirrors);
 //                              "@sweep x y z x y z ex ey ez" runs KnowWonder's BSP line/point checks and the actor sweep with that box and logs them;
 //                              "@hull Mover0" logs the brush's collision hulls (planes in world space)
 
@@ -425,11 +425,14 @@ namespace KW
 			for (size_t i = 0; i < surfaces.size(); i++)
 			{
 				const BspSurface& surf = surfaces[i];
-				if (!surf.Material || !StrTools::equals_ignore_case(surf.Material->Name.ToString(), texName))
+				// "@surfs *mirror": every mirror surface (PF_Mirrored, in its own or its texture's flags), whatever its texture
+				bool mirrors = texName == "*mirror";
+				uint32_t texFlags = surf.Material ? surf.Material->PolyFlags() : 0;
+				if (mirrors ? ((surf.PolyFlags | texFlags) & PF_Mirrored) == 0 : (!surf.Material || !StrTools::equals_ignore_case(surf.Material->Name.ToString(), texName)))
 					continue;
 				char buf[256];
 				snprintf(buf, sizeof(buf), "HP1 surfs %s %d: flags=0x%08x texflags=0x%08x center=(%.0f,%.0f,%.0f) radius=%.0f",
-					texName.c_str(), (int)i, surf.PolyFlags, surf.Material->PolyFlags(), surf.Center.x, surf.Center.y, surf.Center.z, surf.Radius);
+					surf.Material ? surf.Material->Name.ToString().c_str() : "None", (int)i, surf.PolyFlags, texFlags, surf.Center.x, surf.Center.y, surf.Center.z, surf.Radius);
 				LogMessage(buf);
 			}
 			return;

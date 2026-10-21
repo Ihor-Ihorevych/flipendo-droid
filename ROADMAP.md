@@ -23,7 +23,11 @@ Legend: [~] partly done / in progress · [ ] not started
         (seen only while skipping)
   - [ ] Skipping: "SKIP ERROR ... failed to advance after 16 loops" when fast-forwarding PrivetDr's intro (not
         seen 2026-10-20 in 4 runs skipping every cutscene from PrivetDr to Adv1Willow at different moments)
-  - [ ] Mirrors look wrong (playtest 2026-10-21; where and how not noted yet)
+  - [ ] Mirrors look wrong (playtest 2026-10-21, after PrivetDr's intro). PrivetDr's only mirror surface
+        (`@surfs *mirror`) is an outside window, `extwindow_PD` (surface 991, PolyFlags 0x08000000, center -832,776,272):
+        SurrealEngine draws the reflection and seals the surface invisible, so the window texture never shows. Check how
+        HP2's Render.dll draws a mirror surface's own texture: its PF_Mirrored tests in `URender::OccludeBsp`
+        (0x10B22F62, 0x10B23550) and `URender::DrawFrame` (0x10B2613B)
   - [ ] PrivetDr's intro flyover: the camera now keeps BaseCam's own rotation on the crane spline (no more map edges);
         compare the path and the shot's brightness with the original in play, and the sky through the backdrop surfaces
   - [ ] Lumos: after casting it the light beam on the wand stays for good (playtest 2026-10-17). The LumosLight
