@@ -45,8 +45,21 @@ namespace KW
 		if (!g_firstPerson.load())
 			return;
 		UPlayerPawn* player = engine->viewport ? engine->viewport->Actor() : nullptr;
-		if (!player || !StrTools::equals_ignore_case(player->GetStateName().ToString(), "PlayerWalking"))
+		if (!player)
 			return;
+		// Walking, and aiming the wand: casting a spell (AltFire) sends HP1's Harry to state PlayerAiming for as long as the
+		// spell is held, and the view must stay in his head then (it jumped to the third person camera at every cast)
+		const std::string state = player->GetStateName().ToString();
+		if (!StrTools::equals_ignore_case(state, "PlayerWalking") && !StrTools::equals_ignore_case(state, "PlayerAiming"))
+		{
+			static std::string lastOther;
+			if (state != lastOther)
+			{
+				lastOther = state;
+				LogMessage("First person: not in state " + state);
+			}
+			return;
+		}
 		UObject* hud = ObjectProperty(player, "myHUD");
 		if (hud && BoolProperty(hud, "bCutSceneMode"))
 			return;

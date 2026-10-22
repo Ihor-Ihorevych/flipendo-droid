@@ -44,6 +44,67 @@ public class SetupActivity extends Activity {
     private long splashUntil;   // uptime until which the splash stays (held while the channel link is open)
     static final String CHANNEL_URL = "https://t.me/flipendodroid";
 
+    /** The launcher's size: every size here is in dp / sp, so the screen's density scaled by this makes the whole launcher larger
+     *  (text, buttons, boxes) at once. Steps of the "Interface size" control; the default is 150%. */
+    static final String PREF_UI = "launcherScale";
+    static final float[] UI_STEPS = { 1.0f, 1.25f, 1.5f, 1.75f, 2.0f, 2.5f };
+    static final float UI_DEFAULT = 1.5f;
+
+    private static float savedUiScale(android.content.Context c) {
+        return c.getSharedPreferences("setup", MODE_PRIVATE).getFloat(PREF_UI, UI_DEFAULT);
+    }
+
+    @Override
+    protected void attachBaseContext(android.content.Context base) {
+        android.content.res.Configuration config = new android.content.res.Configuration(base.getResources().getConfiguration());
+        config.densityDpi = Math.round(config.densityDpi * savedUiScale(base));
+        super.attachBaseContext(base.createConfigurationContext(config));
+    }
+
+    /** "Interface size": a step smaller, the size, a step larger. The launcher starts again at the new size. */
+    private LinearLayout uiSizeRow() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        final float current = savedUiScale(this);
+        int at = 0;
+        for (int i = 0; i < UI_STEPS.length; i++) if (Math.abs(UI_STEPS[i] - current) < Math.abs(UI_STEPS[at] - current)) at = i;
+        final int index = at;
+        TextView smaller = uiStepButton("A\u2212", index > 0 ? UI_STEPS[index - 1] : -1f);
+        TextView larger = uiStepButton("A+", index < UI_STEPS.length - 1 ? UI_STEPS[index + 1] : -1f);
+        TextView value = new TextView(this);
+        value.setTextColor(0xDDFFFFFF);
+        value.setTextSize(14);
+        value.setGravity(Gravity.CENTER);
+        value.setText("Interface size " + Math.round(UI_STEPS[index] * 100) + "%");
+        row.addView(smaller, new LinearLayout.LayoutParams(dp(48), dp(40)));
+        LinearLayout.LayoutParams vp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        vp.leftMargin = dp(10);
+        vp.rightMargin = dp(10);
+        row.addView(value, vp);
+        row.addView(larger, new LinearLayout.LayoutParams(dp(48), dp(40)));
+        return row;
+    }
+
+    private TextView uiStepButton(String label, final float scale) {
+        TextView b = new TextView(this);
+        b.setText(label);
+        b.setTextSize(15);
+        b.setGravity(Gravity.CENTER);
+        b.setTextColor(scale > 0 ? GOLD : 0x55FFFFFF);
+        b.setBackground(rounded(0x1AE8C15A, 20, 0x40E8C15A));
+        if (scale > 0) {
+            b.setFocusable(true);
+            b.setOnClickListener(new android.view.View.OnClickListener() {
+                public void onClick(android.view.View v) {
+                    getSharedPreferences("setup", MODE_PRIVATE).edit().putFloat(PREF_UI, scale).commit();
+                    recreate();
+                }
+            });
+        }
+        return b;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -145,6 +206,9 @@ public class SetupActivity extends Activity {
         LinearLayout.LayoutParams fp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         fp.topMargin = dp(10);
         col.addView(folders, fp);
+        LinearLayout.LayoutParams uip = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        uip.topMargin = dp(10);
+        col.addView(uiSizeRow(), uip);
         return col;
     }
 
@@ -273,8 +337,8 @@ public class SetupActivity extends Activity {
             }
         });
         LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        rp.topMargin = dp(6);
-        rp.leftMargin = -dp(6); // the box's own inset: line it up with the text above
+        rp.topMargin = dp(12); // clear of the hint above: the box is taller than its text
+        remember.setPadding(dp(8), dp(6), dp(8), dp(6));
         card.addView(remember, rp);
 
         // what the launcher is doing (unpacking, permissions), then Play

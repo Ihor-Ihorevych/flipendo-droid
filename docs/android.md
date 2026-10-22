@@ -460,3 +460,6 @@ button charges and casts, the jump button (right mouse) cycles the three spells,
   physics fixes. Saves stay per launcher slot (`HP2::TickQueuedSave` writes `Save<slot>`, `LOADGAME` reads it). The patches were rebuilt by a three-way merge of the patched trees.
 - **Settings in three pages** (Display, Controls, Game) and two new switches: **No cutscene skip** and **No quick save**.
 - **FPS limit up to 120**: the app asks the display for the rate; cutscenes run at 60 at most (the original's cutscene walks break at high frame rates).
+- **Larger settings:** the panel's text, rows and padding are bigger and the page scrolls; Done is a large button at the top right, the channel and the controls help are icons beside it, and the renderer, graphics fix and the other game moved into the Game page.
+- **Launcher size:** Interface size (A−, A+: 100 to 250%, default 150%) scales the whole launcher (every size there is in dp / sp, so its density is scaled; `launcherScale` in the `setup` preferences). The "Remember my choice" box no longer overlaps the hint above it.
+- **First person:** it stays on while a spell is held (HP1's `PlayerAiming` state; only `PlayerWalking` kept it before, so every cast jumped to the third person camera). The log names any other state that takes the camera back.
