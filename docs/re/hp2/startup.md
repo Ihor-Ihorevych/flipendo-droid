@@ -73,6 +73,8 @@ play with `SND_ASYNC | SND_NOSTOP` (nothing new starts while one plays), Quit's 
   `Save Slot Path: %s`, created, and written back as `[Core.System] SavePath` (so `*.usa` in it is found as a package).
 - `UGameEngine::Init` [HP2 0x103A0FA0]: after the first map, `LOADGAME=<n>` loads `<save folder>\Save<n>.usa` with
   `ServerTravel` ("Loading game file %s").
+  Flipendo: the front end's Load Game, or `--loadgame=<n>` on the command line (`HP2::LoadGameSave`). There is no
+  `-LOAD=` option; `LOADGAME=` is the only save option the engine parses.
 - `UGameEngine::SetThumbnailForSaveSlot` [HP2 0x103ABB00], when saving: copies `Thumbnails\<map>.bmp` (or
   `Thumbnails\Default.bmp`) to `<save folder>\Save0.bmp`.
 - `UEngine::InitAudio` [HP2 0x1039A990]: no audio subsystem when `UseSound` is off or with `-NOSOUND`.

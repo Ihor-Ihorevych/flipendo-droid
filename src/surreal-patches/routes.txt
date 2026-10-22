@@ -95,6 +95,7 @@ SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.*
 SurrealEngine/RenderDevice/OpenGL/**
 SurrealWidgets/src/window/sdl3/sdl3_display_window.cpp
 
-[0200-hp2.patch] flipendo: Harry Potter 2: its sound objects' extra fields and XA sounds, no IpDrv package
+[0200-hp2.patch] flipendo: Harry Potter 2: its sound objects' extra fields and XA sounds, no IpDrv package, actors' tick parents
+SurrealEngine/Packages/Engine/Resources/Level/ULevel.cpp
 SurrealEngine/Packages/Engine/Resources/USound.*
 SurrealEngine/PropertyOffsets.cpp

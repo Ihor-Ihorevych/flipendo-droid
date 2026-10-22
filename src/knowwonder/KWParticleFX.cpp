@@ -66,7 +66,7 @@ namespace KW
 		}
 
 		// AActor::InitExecution override: steady state systems start primed (all particles already alive).
-		// IDA Engine.dll: ?InitExecution@AParticleFX@@UAEXXZ [HP1 0x103C0F30]
+		// IDA Engine.dll: ?InitExecution@AParticleFX@@UAEXXZ [HP1 0x103C0F30] [HP2 0x103CE530] (the same)
 		void InitExecution(UActor* a)
 		{
 			PFX::LOD(a) = 1.0f;

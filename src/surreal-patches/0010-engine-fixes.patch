@@ -1,10 +1,14 @@
 flipendo: fixes to SurrealEngine bugs (any game): VM (and HP2's bytecode tokens), properties, ini files (UTF-16 localization files), packages (Unicode strings), UTF-16 strings and file names that differ in case on Linux, GetLanguage, fonts (character remap, text drawn by code point, runtime-made fonts), crash reports, music streaming and following the default audio device (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties
 
 diff --git a/SurrealEngine/Audio/AudioDevice.cpp b/SurrealEngine/Audio/AudioDevice.cpp
-index 03e82566..b492a6bd 100644
+index 03e82566..fcb3c817 100644
 --- a/SurrealEngine/Audio/AudioDevice.cpp
 +++ b/SurrealEngine/Audio/AudioDevice.cpp
-@@ -13,6 +13,7 @@
+@@ -10,9 +10,11 @@
+ #include "Utils/Exception.h"
+ #include <map>
+ #include <cmath>
++#include <cfloat>
  #include <queue>
  #include <thread>
  #include <chrono>
@@ -12,16 +16,45 @@ index 03e82566..b492a6bd 100644
  #include <AL/al.h>
  #include <AL/alc.h>
  #include <AL/alext.h>
-@@ -88,7 +89,7 @@ public:
+@@ -57,7 +59,7 @@ public:
+ 
+ 		ALint state;
+ 		alGetSourcei(id, AL_SOURCE_STATE, &state);
+-		return state == AL_PLAYING;
++		return state == AL_PLAYING || state == AL_PAUSED; // HP2 pauses its sounds with the game (SetPaused)
+ 	}
+ 
+ 	USound* GetSound()
+@@ -87,8 +89,14 @@ public:
+ 		if (radius != newRadius)
  		{
  			radius = newRadius;
++			if (inverseFalloff)
++			{
++				alSourcef(id, AL_MAX_DISTANCE, FLT_MAX);
++				alSourcef(id, AL_REFERENCE_DISTANCE, radius);
++				return;
++			}
  			alSourcef(id, AL_MAX_DISTANCE, radius);
 -			alSourcef(id, AL_REFERENCE_DISTANCE, 0.1f * radius);
 +			alSourcef(id, AL_REFERENCE_DISTANCE, linearFalloff ? 0.0f : 0.1f * radius);
  		}
  	}
  
-@@ -131,17 +132,44 @@ public:
+@@ -116,6 +124,12 @@ public:
+ 		}
+ 	}
+ 
++	// Loops the whole sound when asked, or between its loop points when it has them (SetSound)
++	void SetLooping(bool loop)
++	{
++		alSourcei(id, AL_LOOPING, (loop || (sound && sound->loopInfo.Looped)) ? AL_TRUE : AL_FALSE);
++	}
++
+ 	void SetSpatial(bool bSpatial)
+ 	{
+ 		if (bIs3d != bSpatial)
+@@ -131,17 +145,63 @@ public:
  		{
  			volume = newVolume;
  			alSourcef(id, AL_GAIN, volume * globalVolume);
@@ -42,6 +75,25 @@ index 03e82566..b492a6bd 100644
 +			radius = -1.0f; // applied again by the next SetRadius and SetVolume
 +			volume = -1.0f;
 +		}
++	}
++
++	// HP2's ALAudio driver: full volume within the radius, then radius / (radius + rolloff * (distance - radius)),
++	// with no distance where it ends (OpenAL's inverse distance clamped model, set for the context)
++	void SetInverseFalloff(float rolloff)
++	{
++		inverseFalloff = true;
++		alSourcef(id, AL_ROLLOFF_FACTOR, rolloff);
++		radius = -1.0f; // applied again by the next SetRadius
++	}
++
++	void SetPaused(bool paused)
++	{
++		ALint state;
++		alGetSourcei(id, AL_SOURCE_STATE, &state);
++		if (paused && state == AL_PLAYING)
++			alSourcePause(id);
++		else if (!paused && state == AL_PAUSED)
++			alSourcePlay(id);
 +	}
 +
 +	// A new global volume applies to the playing sound at once. Only storing it left every looping sound at the gain it
@@ -68,15 +120,16 @@ index 03e82566..b492a6bd 100644
  		if (pitch != newPitch)
  		{
  			pitch = newPitch;
-@@ -173,6 +201,7 @@ private:
+@@ -173,6 +233,8 @@ private:
  	float pitch = 0.0f;
  	float dopplerFactor = 0.0f;
  	bool bIs3d = false;
 +	bool linearFalloff = false;
++	bool inverseFalloff = false;
  };
  
  // TODO list:
-@@ -222,6 +251,9 @@ public:
+@@ -222,6 +284,9 @@ public:
  		if (alcMakeContextCurrent(alContext) == ALC_FALSE)
  			Exception::Throw("Failed to make OpenAL context current");
  
@@ -86,7 +139,7 @@ index 03e82566..b492a6bd 100644
  		// init listener state
  		ALfloat listenerOri[] = { 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, -1.0f };
  		alListener3f(AL_POSITION, 0, 0, 0.0f);
-@@ -280,6 +312,7 @@ public:
+@@ -280,6 +345,7 @@ public:
  
  	void AddSound(USound* sound) override
  	{
@@ -94,7 +147,7 @@ index 03e82566..b492a6bd 100644
  		sounds.push_back(sound);
  
  		ALenum format = AL_FORMAT_MONO_FLOAT32;
-@@ -298,6 +331,7 @@ public:
+@@ -298,6 +364,7 @@ public:
  
  	void RemoveSound(USound* sound) override
  	{
@@ -102,7 +155,7 @@ index 03e82566..b492a6bd 100644
  		auto it = sounds.begin();
  		while (it != sounds.end())
  		{
-@@ -313,6 +347,7 @@ public:
+@@ -313,6 +380,7 @@ public:
  
  	bool IsPlaying(int channel) override
  	{
@@ -110,7 +163,7 @@ index 03e82566..b492a6bd 100644
  		ALSoundSource& source = sources[channel];
  		return source.IsPlaying();
  	}
-@@ -326,6 +361,7 @@ public:
+@@ -326,6 +394,7 @@ public:
  
  	void PlaySound(int channel, USound* sound, vec3& location, float volume, float radius, float pitch) override
  	{
@@ -118,7 +171,7 @@ index 03e82566..b492a6bd 100644
  		if (!std::isfinite(volume) || volume < 0.0f || !std::isfinite(pitch) || channel >= sources.size())
  			Exception::Throw("Invalid PlaySound arguments");
  
-@@ -344,10 +380,12 @@ public:
+@@ -344,10 +413,12 @@ public:
  		source.SetPitch(pitch);
  		source.SetSpatial(true);
  		source.Play();
@@ -131,8 +184,17 @@ index 03e82566..b492a6bd 100644
  		if (!std::isfinite(volume) || volume < 0.0f || !std::isfinite(pitch) || channel >= sources.size())
  			Exception::Throw("Invalid PlaySound arguments");
  
-@@ -364,15 +402,16 @@ public:
+@@ -362,17 +433,25 @@ public:
+ 		source.DoLoop();
+ 	}
  
++	void SetLooping(int channel, bool loop) override
++	{
++		std::lock_guard alLock(alMutex);
++		if (channel < (int)sources.size())
++			sources[channel].SetLooping(loop);
++	}
++
  	void StopSound(int channel) override
  	{
 +		std::lock_guard alLock(alMutex);
@@ -150,7 +212,7 @@ index 03e82566..b492a6bd 100644
  		{
  		case AL_NO_ERROR:
  			return "AL_NO_ERROR";
-@@ -401,20 +440,21 @@ public:
+@@ -401,20 +480,21 @@ public:
  		{
  			alBufferData(alMusicBuffers[i], format, musicQueue.Pop(), musicBufferSize*4, freq);
  			if ((error = alGetError()) != AL_NO_ERROR)
@@ -177,7 +239,7 @@ index 03e82566..b492a6bd 100644
  		ALint status;
  		alGetSourcei(alMusicSource, AL_BUFFERS_PROCESSED, &status);
  
-@@ -427,12 +467,12 @@ public:
+@@ -427,12 +507,12 @@ public:
  			int freq = music->GetFrequency();
  
  			alBufferData(buffer, format, musicQueue.Pop(), musicBufferSize*4, freq);
@@ -194,7 +256,7 @@ index 03e82566..b492a6bd 100644
  
  			status--;
  		}
-@@ -441,18 +481,27 @@ public:
+@@ -441,18 +521,61 @@ public:
  		if (status == AL_STOPPED)
  		{
  			alSourcePlay(alMusicSource);
@@ -218,13 +280,47 @@ index 03e82566..b492a6bd 100644
 +			soundSource.SetLinearFalloff(enable);
 +	}
 +
++	void SetInverseFalloff(float rolloff, float dopplerFactor, float speedOfSound) override
++	{
++		std::lock_guard alLock(alMutex);
++		alDistanceModel(AL_INVERSE_DISTANCE_CLAMPED);
++		alDopplerFactor(dopplerFactor);
++		alSpeedOfSound(speedOfSound);
++		for (auto& soundSource : sources)
++			soundSource.SetInverseFalloff(rolloff);
++		ownListenerVelocity = true;
++	}
++
++	void SetSoundVelocity(int channel, const vec3& velocity) override
++	{
++		std::lock_guard alLock(alMutex);
++		if (channel < (int)sources.size())
++		{
++			vec3 v = velocity;
++			sources[channel].SetVelocity(v);
++		}
++	}
++
++	void SetListenerVelocity(const vec3& velocity) override
++	{
++		std::lock_guard alLock(alMutex);
++		listenerVelocity = velocity;
++	}
++
++	void SetPaused(int channel, bool paused) override
++	{
++		std::lock_guard alLock(alMutex);
++		if (channel < (int)sources.size())
++			sources[channel].SetPaused(paused);
++	}
++
  	void SetSoundVolume(float volume) override
  	{
 +		std::lock_guard alLock(alMutex);
  		globalSoundVolume = volume;
  
  		for (auto& soundSource : sources)
-@@ -461,15 +510,18 @@ public:
+@@ -461,15 +584,18 @@ public:
  
  	void Update() override
  	{
@@ -234,11 +330,12 @@ index 03e82566..b492a6bd 100644
  		{
 -			// Update listener properties
 -			vec3& location = listener->Location();
+-			vec3& velocity = listener->Velocity();
 +			// Update listener properties: where the camera is, as PlayerCalcView left it (what is drawn). The CameraActor
 +			// itself is only the actor the script named; HP2's third person camera is not at its location, and sounds with a
 +			// radius (footsteps, spells, pickups) played from a listener that was elsewhere.
 +			vec3 location = engine->CameraLocation;
- 			vec3& velocity = listener->Velocity();
++			vec3& velocity = ownListenerVelocity ? listenerVelocity : listener->Velocity();
  
  			vec3 at, left, up;
 -			Coords::Rotation(listener->Rotation()).GetAxes(at, left, up);
@@ -246,7 +343,7 @@ index 03e82566..b492a6bd 100644
  
  			ALfloat listenerOri[6] = { up.x, up.y, -up.z, -at.x, -at.y, at.z };
  			alListener3f(AL_POSITION, location.x, location.y, -location.z);
-@@ -482,6 +534,7 @@ public:
+@@ -482,6 +608,7 @@ public:
  	{
  		std::unique_ptr<AudioSource> currentMusic;
  		bool musicPlaying = false;
@@ -254,7 +351,7 @@ index 03e82566..b492a6bd 100644
  
  		while (true)
  		{
-@@ -493,47 +546,134 @@ public:
+@@ -493,47 +620,134 @@ public:
  			{
  				if (musicPlaying)
  				{
@@ -275,14 +372,20 @@ index 03e82566..b492a6bd 100644
  			if (currentMusic)
  			{
 -				while (musicQueue.Size() < musicBufferCount)
+-				{
+-					// render a chunk of music
+-					currentMusic->ReadSamples(musicQueue.GetNextFree(), musicBufferSize);
+-					musicQueue.Push(musicQueue.GetNextFree());
+-				}
+-
+-				if (!musicPlaying)
 +				// An exception leaving this thread ends the game (std::terminate), so a music error only stops the
 +				// music: the source is reset and the track restarted once a second; a track that keeps failing is
 +				// dropped.
 +				try
  				{
--					// render a chunk of music
--					currentMusic->ReadSamples(musicQueue.GetNextFree(), musicBufferSize);
--					musicQueue.Push(musicQueue.GetNextFree());
+-					PlayMusicBuffer(currentMusic.get());
+-					musicPlaying = true;
 +					while (musicQueue.Size() < musicBufferCount)
 +					{
 +						// render a chunk of music
@@ -308,12 +411,6 @@ index 03e82566..b492a6bd 100644
 +
 +					// TODO: music fade in/out
  				}
--
--				if (!musicPlaying)
--				{
--					PlayMusicBuffer(currentMusic.get());
--					musicPlaying = true;
--				}
 -				else if (musicQueue.Size() > 0)
 +				catch (const std::exception& e)
  				{
@@ -404,7 +501,7 @@ index 03e82566..b492a6bd 100644
  	ALCcontext* alContext = nullptr;
  	ALenum alError = 0;
  	ALuint alMusicSource = 0;
-@@ -664,6 +804,12 @@ public:
+@@ -664,6 +878,12 @@ public:
  	int frequency = 48000;
  	Array<USound*> sounds;
  
@@ -417,15 +514,32 @@ index 03e82566..b492a6bd 100644
  	// Note: variables changed in musicThreadData *must* be done within a mutex lock to be thread safe
  	struct
  	{
+@@ -682,6 +902,9 @@ public:
+ 	float targetMusicVolume = 0.0f;
+ 	float fadeRate = 0.0f;
+ 	float globalSoundVolume = 1.0f;
++	// HP2: the listener velocity comes from the audio subsystem (SetListenerVelocity), not the camera actor
++	bool ownListenerVelocity = false;
++	vec3 listenerVelocity = vec3(0.0f);
+ };
+ 
+ std::unique_ptr<AudioDevice> AudioDevice::Create(int frequency, int numVoices, int musicBufferCount, int musicBufferSize)
 diff --git a/SurrealEngine/Audio/AudioDevice.h b/SurrealEngine/Audio/AudioDevice.h
-index d201523d..1b395a9d 100644
+index d201523d..3014c1ec 100644
 --- a/SurrealEngine/Audio/AudioDevice.h
 +++ b/SurrealEngine/Audio/AudioDevice.h
-@@ -27,5 +27,6 @@ public:
+@@ -27,5 +27,13 @@ public:
  	virtual void StopSound(int channel) = 0;
  	virtual void SetMusicVolume(float volume) = 0;
  	virtual void SetSoundVolume(float volume) = 0;
 +	virtual void SetLinearFalloff(bool enable) { } // see ALSoundSource::SetLinearFalloff
++	virtual void SetLooping(int channel, bool loop) { } // loop the channel's sound even without loop points (HP2's PlaySound Loop)
++	// HP2's ALAudio driver: OpenAL's inverse distance clamped model (see ALSoundSource::SetInverseFalloff), doppler
++	// from the sources' and the listener's velocities, and its sounds paused with the game
++	virtual void SetInverseFalloff(float rolloff, float dopplerFactor, float speedOfSound) { }
++	virtual void SetSoundVelocity(int channel, const vec3& velocity) { }
++	virtual void SetListenerVelocity(const vec3& velocity) { }
++	virtual void SetPaused(int channel, bool paused) { }
  	virtual void Update() = 0;
  };
 diff --git a/SurrealEngine/Audio/AudioPlayer.cpp b/SurrealEngine/Audio/AudioPlayer.cpp
@@ -1682,7 +1796,7 @@ index 908adb98..c32ef3f2 100644
  		{
  			Array->CopyArray(Ptr, rvalue.Ptr);
 diff --git a/SurrealEngine/VM/Frame.cpp b/SurrealEngine/VM/Frame.cpp
-index 1e7b3c96..d20024b1 100644
+index 1e7b3c96..5b2b74a4 100644
 --- a/SurrealEngine/VM/Frame.cpp
 +++ b/SurrealEngine/VM/Frame.cpp
 @@ -1,5 +1,6 @@
@@ -1847,7 +1961,14 @@ index 1e7b3c96..d20024b1 100644
  
  	if (RunState == FrameRunState::StepInto)
  	{
-@@ -532,14 +595,22 @@ ExpressionEvalResult Frame::Run()
+@@ -528,18 +591,28 @@ ExpressionEvalResult Frame::Run()
+ 		Break();
+ 	}
+ 
+-	const int maxInstructions = 500'000;
++	// KnowWonder's Core.dll only counts Jump tokens, logs past 10,000,000 and goes on (UObject::execJump), so a long
++	// foreach is fine there: HP2's debug mode checks every pair of cutscene actors in harry.DisplayFirstErrorMessages
++	const int maxInstructions = engine->LaunchInfo.IsKnowWonder() ? 100'000'000 : 500'000;
  	int instructionsRetired = 0;
  	while (true)
  	{
@@ -1872,7 +1993,7 @@ index 1e7b3c96..d20024b1 100644
  
  		if (instructionsRetired >= maxInstructions)
  		{
-@@ -557,7 +628,7 @@ ExpressionEvalResult Frame::Run()
+@@ -557,7 +630,7 @@ ExpressionEvalResult Frame::Run()
  			Break();
  		}
  
@@ -1881,7 +2002,7 @@ index 1e7b3c96..d20024b1 100644
  		//ExpressionEvalResult result = ExpressionEvaluator::Eval(statement, Object, Object, Variables);
  		ExpressionEvalResult result = RunExpr(statement, Object, Object, Variables);
  		if (!Func)
-@@ -567,14 +638,21 @@ ExpressionEvalResult Frame::Run()
+@@ -567,14 +640,21 @@ ExpressionEvalResult Frame::Run()
  		case StatementResult::Next:
  			break;
  		case StatementResult::Jump:
@@ -1905,7 +2026,7 @@ index 1e7b3c96..d20024b1 100644
  				if (index != -1)
  				{
  					StatementIndex = index;
-@@ -592,10 +670,24 @@ ExpressionEvalResult Frame::Run()
+@@ -592,10 +672,24 @@ ExpressionEvalResult Frame::Run()
  							if (labelIndex != -1)
  							{
  								Func = state;
@@ -1930,7 +2051,7 @@ index 1e7b3c96..d20024b1 100644
  						}
  					}
  					if (!found)
-@@ -638,7 +730,7 @@ ExpressionEvalResult Frame::Run()
+@@ -638,7 +732,7 @@ ExpressionEvalResult Frame::Run()
  				ThrowException("Iterator statement without an iterator in " + Object->Name.ToString() + "." + Func->Name.ToString());
  			Iterators.push_back(std::move(result.Iter));
  			Iterators.back()->StartStatementIndex = curStatementIndex + 1;
@@ -1939,7 +2060,7 @@ index 1e7b3c96..d20024b1 100644
  			if (Iterators.back()->Next())
  				StatementIndex = Iterators.back()->StartStatementIndex;
  			else
-@@ -658,8 +750,7 @@ ExpressionEvalResult Frame::Run()
+@@ -658,8 +752,7 @@ ExpressionEvalResult Frame::Run()
  			Iterators.pop_back();
  			break;
  		case StatementResult::AccessedNone:
@@ -1949,7 +2070,7 @@ index 1e7b3c96..d20024b1 100644
  			break;
  		}
  
-@@ -674,18 +765,23 @@ ExpressionEvalResult Frame::Run()
+@@ -674,18 +767,23 @@ ExpressionEvalResult Frame::Run()
  
  void Frame::ProcessSwitch(const ExpressionValue& condition)
  {
@@ -1977,7 +2098,7 @@ index 1e7b3c96..d20024b1 100644
  		}
  		else
  		{
-@@ -1020,7 +1116,8 @@ ExpressionEvalResult Frame::RunExpr(Expression* statementExpr, UObject* self, UO
+@@ -1020,7 +1118,8 @@ ExpressionEvalResult Frame::RunExpr(Expression* statementExpr, UObject* self, UO
  					}
  					else
  					{

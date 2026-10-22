@@ -747,7 +747,7 @@ index 36448a66..3f69fb58 100644
  	bool DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly& poly, int pass, UMover* mover, bool translucentPass);
  };
 diff --git a/SurrealEngine/Render/VisibleFrame.cpp b/SurrealEngine/Render/VisibleFrame.cpp
-index 818aa65d..8aa3f6be 100644
+index 818aa65d..b3f9dd36 100644
 --- a/SurrealEngine/Render/VisibleFrame.cpp
 +++ b/SurrealEngine/Render/VisibleFrame.cpp
 @@ -2,6 +2,7 @@
@@ -758,17 +758,18 @@ index 818aa65d..8aa3f6be 100644
  #include "RenderSubsystem.h"
  #include "RenderDevice/RenderDevice.h"
  #include "Packages/Engine/UViewport.h"
-@@ -10,6 +11,9 @@
+@@ -10,6 +11,10 @@
  #include "Packages/Engine/Actors/Info/USkyZoneInfo.h"
  #include "Packages/Engine/Actors/Info/ULevelInfo.h"
  #include "Packages/Extension/Windows/TabGroup/URootWindow.h"
 +#include "Engine.h"
 +#include "VM/ScriptCall.h"
 +#include "KW.h"
++#include "HP2.h"
  
  void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const Coords& viewRotation, bool mirrorFlag, int portalDepth, const Array<PortalSpan>& portalSpans, const vec4& portalPlane)
  {
-@@ -19,9 +23,21 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
+@@ -19,9 +24,21 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
  	FrameCounter = engine->render->FrameCounter++;
  	MirrorFlag = mirrorFlag;
  	PortalDepth = portalDepth;
@@ -790,7 +791,16 @@ index 818aa65d..8aa3f6be 100644
  	Clipper.numDrawSpans = 0;
  	Clipper.numSurfs = 0;
  	Clipper.numTris = 0;
-@@ -38,9 +54,18 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
+@@ -29,6 +46,8 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
+ 
+ 	ViewLocation = vec4(location, 1.0f);
+ 	ViewZone = FindZoneAt(location);
++	if (engine->LaunchInfo.IsHarryPotter2())
++		HP2::MarkLumosSurfaces(ViewZone);
+ 	//ViewZoneMask = ViewZone ? 1ULL << ViewZone : -1;
+ 	ViewRotation = viewRotation;
+ 
+@@ -38,9 +57,18 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
  	Coronas.clear();
  	Portals.clear();
  
@@ -809,7 +819,7 @@ index 818aa65d..8aa3f6be 100644
  void VisibleFrame::SetupSceneFrame(const mat4& worldToView)
  {
  	Frame.XB = engine->viewport->ViewportX();
-@@ -191,9 +216,18 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -191,9 +219,18 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  
  	VisibleNode info;
  	info.Node = node;
@@ -829,7 +839,7 @@ index 818aa65d..8aa3f6be 100644
  	if (PortalDepth < 4)
  	{
  		if ((PolyFlags & (PF_FakeBackdrop | PF_Invisible)) == PF_FakeBackdrop)
-@@ -226,12 +260,26 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -226,12 +263,26 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  		}
  		else if (PolyFlags & PF_Portal)
  		{
@@ -858,7 +868,7 @@ index 818aa65d..8aa3f6be 100644
  					Array<PortalSpan> spans = Clipper.CheckPortal(points, numverts);
  					if (!spans.empty())
  					{
-@@ -256,15 +304,25 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -256,15 +307,25 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  		}
  		else if (PolyFlags & PF_Mirrored)
  		{
@@ -886,7 +896,7 @@ index 818aa65d..8aa3f6be 100644
  					{
  						p.Nodes.push_back(info);
  						p.Spans.insert(p.Spans.end(), spans.begin(), spans.end());
-@@ -308,6 +366,13 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -308,6 +369,13 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  
  void VisibleFrame::SortTranslucent()
  {
@@ -900,7 +910,7 @@ index 818aa65d..8aa3f6be 100644
  	std::sort(Translucents.begin(), Translucents.end(), [](const VisibleTranslucent& a, const VisibleTranslucent& b) { return a.DistSqr < b.DistSqr; });
  }
  
-@@ -354,6 +419,12 @@ void VisibleFrame::DrawCoronas()
+@@ -354,6 +422,12 @@ void VisibleFrame::DrawCoronas()
  	frame2d.WorldToView = mat4::identity();
  	Device->SetSceneNode(&frame2d);
  
@@ -913,7 +923,7 @@ index 818aa65d..8aa3f6be 100644
  	for (VisibleCorona &corona : Coronas)
  		corona.Draw(this);
  }
-@@ -403,14 +474,16 @@ void VisibleFrame::DrawPortals()
+@@ -403,14 +477,16 @@ void VisibleFrame::DrawPortals()
  		else if (portal.WarpZone)
  		{
  			// Warp camera
@@ -932,7 +942,7 @@ index 818aa65d..8aa3f6be 100644
  			vec3 p = WarpLocationToOtherSide(portal.WarpZone, plane.xyz() * -plane.w);
  			vec3 n = WarpNormalToOtherSide(portal.WarpZone, vec3(node->PlaneX, node->PlaneY, node->PlaneZ));
  			vec4 portalPlane(n, -dot(p,n));
-@@ -425,15 +498,35 @@ void VisibleFrame::DrawPortals()
+@@ -425,15 +501,35 @@ void VisibleFrame::DrawPortals()
  		}
  		else // Mirror
  		{
@@ -973,7 +983,7 @@ index 818aa65d..8aa3f6be 100644
  			Device->SetSceneNode(&mirrorframe.Frame);
  			mirrorframe.Draw();
  			Device->ClearZ();
-@@ -444,6 +537,8 @@ void VisibleFrame::DrawPortals()
+@@ -444,6 +540,8 @@ void VisibleFrame::DrawPortals()
  	Device->SetSceneNode(&Frame);
  	for (VisiblePortal& portal : Portals)
  	{
@@ -1099,6 +1109,40 @@ index 9a14d426..51e6147b 100644
  	return DrawLodMesh(frame, actor, lightLocationActor, mesh, ObjectToWorld, ObjectNormalToWorld, translucentPass);
  }
  
+diff --git a/SurrealEngine/Render/VisibleNode.cpp b/SurrealEngine/Render/VisibleNode.cpp
+index 1a567482..94d82262 100644
+--- a/SurrealEngine/Render/VisibleNode.cpp
++++ b/SurrealEngine/Render/VisibleNode.cpp
+@@ -3,6 +3,7 @@
+ #include "VisibleNode.h"
+ #include "VisibleDecal.h"
+ #include "RenderSubsystem.h"
++#include "HP2.h"
+ #include "Engine.h"
+ #include "Packages/Engine/Resources/Level/ULevel.h"
+ #include "Packages/Engine/Resources/Level/UModel.h"
+@@ -71,6 +72,11 @@ void VisibleNode::Draw(VisibleFrame* frame)
+ 		}
+ 	}
+ 
++	uint32_t polyFlags = PolyFlags;
++	float opacity = 1.0f;
++	if (engine->LaunchInfo.IsHarryPotter2() && !HP2::LumosSurface(surface, points, numverts, polyFlags, opacity))
++		return;
++
+ 	TextureInfo lightmap;
+ 	TextureInfo fogmap;
+ 	if ((PolyFlags & PF_Unlit) == 0)
+@@ -80,7 +86,8 @@ void VisibleNode::Draw(VisibleFrame* frame)
+ 	}
+ 
+ 	SurfaceInfo surfaceinfo;
+-	surfaceinfo.PolyFlags = PolyFlags;
++	surfaceinfo.PolyFlags = polyFlags;
++	surfaceinfo.Opacity = opacity;
+ 	surfaceinfo.Texture = &texture;
+ 	surfaceinfo.MacroTexture = surface.Material && surface.Material->MacroTexture() ? &macrotex : nullptr;
+ 	surfaceinfo.DetailTexture = surface.Material && surface.Material->DetailTexture() ? &detailtex : nullptr;
 diff --git a/SurrealEngine/Render/VisiblePortal.h b/SurrealEngine/Render/VisiblePortal.h
 index 70dc72e3..1ec0d278 100644
 --- a/SurrealEngine/Render/VisiblePortal.h
@@ -1181,10 +1225,20 @@ index a2940705..c8f614e1 100644
  
  				output.outColor = clamp(output.outColor, 0.0, 1.0);
 diff --git a/SurrealEngine/RenderDevice/D3D11/D3D11RenderDevice.cpp b/SurrealEngine/RenderDevice/D3D11/D3D11RenderDevice.cpp
-index ba22defd..1bb02add 100644
+index ba22defd..3e934c52 100644
 --- a/SurrealEngine/RenderDevice/D3D11/D3D11RenderDevice.cpp
 +++ b/SurrealEngine/RenderDevice/D3D11/D3D11RenderDevice.cpp
-@@ -2005,7 +2005,7 @@ void D3D11RenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info,
+@@ -1838,7 +1838,8 @@ void D3D11RenderDevice::DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surfac
+ 	info.detailtex = Textures->GetTexture(Surface.DetailTexture, false);
+ 	info.fogmap = (Surface.FogMap && Surface.FogMap->NumMips > 0 && !Surface.FogMap->Mips[0].Data.empty()) ?
+ 		Textures->GetTexture(Surface.FogMap, false) : nulltex;
+-	info.editorcolor = nullptr;
++	vec4 opacityColor(Surface.Opacity);
++	info.editorcolor = Surface.Opacity < 1.0f ? &opacityColor : nullptr;
+ 
+ 	if (Surface.DetailTexture && Surface.FogMap) info.detailtex = nulltex;
+ 
+@@ -2005,7 +2006,7 @@ void D3D11RenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info,
  				vertex->Color.r = P->Light.x;
  				vertex->Color.g = P->Light.y;
  				vertex->Color.b = P->Light.z;
@@ -1195,7 +1249,7 @@ index ba22defd..1bb02add 100644
  		}
 diff --git a/SurrealEngine/RenderDevice/OpenGL/GLESCompat.h b/SurrealEngine/RenderDevice/OpenGL/GLESCompat.h
 new file mode 100644
-index 00000000..f56e7b79
+index 00000000..72bc5ec3
 --- /dev/null
 +++ b/SurrealEngine/RenderDevice/OpenGL/GLESCompat.h
 @@ -0,0 +1,67 @@
@@ -1373,7 +1427,7 @@ index 3268fcbf..323fecc6 100644
  #include <memory>
  
 diff --git a/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp b/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp
-index 00a0aab8..d4305213 100644
+index 00a0aab8..fede0bdf 100644
 --- a/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp
 +++ b/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp
 @@ -1,4 +1,8 @@
@@ -1858,7 +1912,17 @@ index 00a0aab8..d4305213 100644
  		ThrowIfGLError("Could not unmap ScenePass.IndexBuffer");
  		SceneIndexes = nullptr;
  	}
-@@ -1469,7 +1735,7 @@ void GLRenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info, con
+@@ -1302,7 +1568,8 @@ void GLRenderDevice::DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surface,
+ 	info.detailtex = Textures->GetTexture(Surface.DetailTexture, false);
+ 	info.fogmap = (Surface.FogMap && Surface.FogMap->NumMips > 0 && !Surface.FogMap->Mips[0].Data.empty()) ?
+ 		Textures->GetTexture(Surface.FogMap, false) : nulltex;
+-	info.editorcolor = nullptr;
++	vec4 opacityColor(Surface.Opacity);
++	info.editorcolor = Surface.Opacity < 1.0f ? &opacityColor : nullptr;
+ 
+ 	if (Surface.DetailTexture && Surface.FogMap) info.detailtex = nulltex;
+ 
+@@ -1469,7 +1736,7 @@ void GLRenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info, con
  				vertex->Color.r = P->Light.x;
  				vertex->Color.g = P->Light.y;
  				vertex->Color.b = P->Light.z;
@@ -1867,7 +1931,7 @@ index 00a0aab8..d4305213 100644
  				vertex++;
  			}
  		}
-@@ -1953,7 +2219,14 @@ void GLRenderDevice::SetBufferData(GLenum target, GLenum usage, GLBuffer* buffer
+@@ -1953,7 +2220,14 @@ void GLRenderDevice::SetBufferData(GLenum target, GLenum usage, GLBuffer* buffer
  
  void GLRenderDevice::SetBlendState(GLBlendState* blendState, const float* blendConstants)
  {
@@ -1883,7 +1947,7 @@ index 00a0aab8..d4305213 100644
  	{
  		// To do: this might require OpenGL 4.0 - glBlendFuncSeparatei does, not sure about glEnablei(GL_BLEND)
  		for (int i = 0; i < 2; i++)
-@@ -2014,6 +2287,10 @@ void GLRenderDevice::SetRasterizerState(GLRasterizerState* rasterizerState)
+@@ -2014,6 +2288,10 @@ void GLRenderDevice::SetRasterizerState(GLRasterizerState* rasterizerState)
  
  	glFrontFace(rasterizerState->desc.FrontCounterClockwise ? GL_CCW : GL_CW);
  
@@ -1894,7 +1958,7 @@ index 00a0aab8..d4305213 100644
  	if (rasterizerState->desc.DepthClipEnable)
  		glEnable(GL_DEPTH_CLAMP);
  	else
-@@ -2122,7 +2399,7 @@ void GLRenderDevice::DrawEntry(const DrawBatchEntry& entry)
+@@ -2122,7 +2400,7 @@ void GLRenderDevice::DrawEntry(const DrawBatchEntry& entry)
  	GLSampler* samplers[4] =
  	{
  		ScenePass.Samplers[entry.TexSamplerMode].get(),
@@ -1903,7 +1967,7 @@ index 00a0aab8..d4305213 100644
  		ScenePass.Samplers[entry.MacrotexSamplerMode].get(),
  		ScenePass.Samplers[entry.DetailtexSamplerMode].get()
  	};
-@@ -2200,6 +2477,9 @@ std::shared_ptr<GLProgram> GLRenderDevice::CreateProgram(const std::string& prog
+@@ -2200,6 +2478,9 @@ std::shared_ptr<GLProgram> GLRenderDevice::CreateProgram(const std::string& prog
  		log.resize(length);
  		throw std::runtime_error("Could not link program'" + programName + "':" + log);
  	}
@@ -1913,7 +1977,7 @@ index 00a0aab8..d4305213 100644
  	return program;
  }
  
-@@ -2219,9 +2499,71 @@ std::shared_ptr<GLFragmentShader> GLRenderDevice::CreateFragmentShader(const std
+@@ -2219,9 +2500,71 @@ std::shared_ptr<GLFragmentShader> GLRenderDevice::CreateFragmentShader(const std
  	return shader;
  }
  
@@ -1985,7 +2049,7 @@ index 00a0aab8..d4305213 100644
  	for (const std::string& define : defines)
  	{
  		code += "#define ";
-@@ -2229,7 +2571,13 @@ void GLRenderDevice::CompileGlsl(GLShader* shader, const std::string& filename,
+@@ -2229,7 +2572,13 @@ void GLRenderDevice::CompileGlsl(GLShader* shader, const std::string& filename,
  		code += "\r\n";
  	}
  	code += "#line 1\r\n";
@@ -2284,7 +2348,7 @@ index a7d42da7..5a08fa12 100644
  		if (!Mip->Data.empty())
  		{
 diff --git a/SurrealEngine/RenderDevice/RenderDevice.h b/SurrealEngine/RenderDevice/RenderDevice.h
-index 2e23b3c1..72b3f515 100644
+index 2e23b3c1..8480ad73 100644
 --- a/SurrealEngine/RenderDevice/RenderDevice.h
 +++ b/SurrealEngine/RenderDevice/RenderDevice.h
 @@ -37,6 +37,7 @@ struct GouraudVertex
@@ -2295,6 +2359,14 @@ index 2e23b3c1..72b3f515 100644
  };
  
  struct SurfaceFacet
+@@ -86,6 +87,7 @@ struct SurfaceInfo
+ 	TextureInfo* MacroTexture = nullptr;
+ 	TextureInfo* DetailTexture = nullptr;
+ 	TextureInfo* FogMap = nullptr;
++	float Opacity = 1.0f; // below 1: vertex colour and alpha for PF_Highlighted (HP2's Lumos surfaces)
+ };
+ 
+ class OutputDevice
 diff --git a/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp b/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
 index 118f3de3..6dd4ff35 100644
 --- a/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
@@ -2878,7 +2950,7 @@ index 4d7dcaff..4450fac8 100644
  	int height = Info.VSize;
  	int mipcount = Info.NumMips;
 diff --git a/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp b/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp
-index 0c7b3bb7..0abf9dfa 100644
+index 0c7b3bb7..55f330d4 100644
 --- a/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp
 +++ b/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp
 @@ -10,6 +10,9 @@
@@ -2992,6 +3064,15 @@ index 0c7b3bb7..0abf9dfa 100644
  		cmdbuffer->pushConstants(layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ScenePushConstants), &pushconstants);
  		cmdbuffer->setBlendConstants(Batch.BlendConstants);
  		cmdbuffer->drawIndexed((uint32_t)icount, 1, (uint32_t)Batch.SceneIndexStart, 0, 0);
+@@ -414,7 +468,7 @@ void VulkanRenderDevice::DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surfa
+ 	SetPipeline(RenderPasses->GetPipeline(PolyFlags));
+ 
+ 	ivec4 textureBinds = GetTextureIndexes(PolyFlags, tex, lightmap, macrotex, detailtex);
+-	vec4 color(1.0f);
++	vec4 color(Surface.Opacity);
+ 
+ 	auto pts = Facet.Vertices;
+ 	uint32_t vcount = Facet.VertexCount;
 @@ -534,7 +588,7 @@ void VulkanRenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info,
  				vertex->Color.r = P->Light.x;
  				vertex->Color.g = P->Light.y;

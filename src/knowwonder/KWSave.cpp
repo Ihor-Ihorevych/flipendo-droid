@@ -1,6 +1,7 @@
 #include "Precomp.h"
 #include "KW.h"
 #include "KWGame.h"
+#include "HP2.h"
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
@@ -439,6 +440,7 @@ namespace KW
 			level->LevelAction() = 0;
 		if (IsHP2())
 		{
+			HP2::SavePersistentActorCache();
 			SetThumbnailForSaveSlot();
 			RaiseSaveEvent("PostSaveGame");
 		}

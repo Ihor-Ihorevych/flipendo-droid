@@ -1,5 +1,6 @@
 #include "Precomp.h"
 #include "KW.h"
+#include "KWGame.h"
 #include "Packages/Engine/Actors/Pawn/UPawn.h"
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
 #include "Packages/Engine/Actors/Inventory/UInventory.h"
@@ -270,7 +271,6 @@ namespace KW
 	// One step of TurnTo / TurnToward: a flying or swimming pawn that can't strafe accelerates along its facing,
 	// then rotateToward. execTurnTo/execTurnToward do it once when the latent turn starts (TurnTo also clears
 	// MoveTarget, TurnToward sets FaceTarget and Focus to it); the polls every tick until rotateToward says done.
-	// IDA Engine.dll: ?execTurnTo@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D93F0]
 	// IDA Engine.dll: ?execPollTurnTo@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D9530]
 	// IDA Engine.dll: ?execTurnToward@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D9130]
 	// IDA Engine.dll: ?execPollTurnToward@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D9290]
@@ -279,6 +279,16 @@ namespace KW
 		if (!pawn->bCanStrafe() && (pawn->Physics() == PHYS_Flying || pawn->Physics() == PHYS_Swimming))
 			pawn->Acceleration() = Coords::Rotation(pawn->Rotation()).XAxis * pawn->AccelRate();
 		return PawnRotateToward(pawn, focus);
+	}
+
+	// The start of TurnTo, once Focus is set: HP2 keeps a walking pawn's Focus at its own height, so it only turns
+	// (yaw); HP1 turns towards the point as it is. Then the first turn step.
+	// IDA Engine.dll: ?execTurnTo@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D93F0] [HP2 0x103E6B90]
+	void PawnStartTurnTo(UPawn* pawn)
+	{
+		if (IsHP2() && pawn->Physics() == PHYS_Walking)
+			pawn->Focus().z = pawn->Location().z;
+		PawnTurnStep(pawn, pawn->Focus());
 	}
 
 	// Focus = FaceTarget's location; moves to Destination, which AlterDestination may change for this step.

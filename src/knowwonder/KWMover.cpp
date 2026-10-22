@@ -1,5 +1,6 @@
 #include "Precomp.h"
 #include "KW.h"
+#include "KWGame.h"
 #include "Packages/Engine/Actors/UActor.h"
 #include "Package/PackageManager.h"
 #include "Packages/Core/UClass.h"
@@ -25,6 +26,8 @@ namespace KW
 	struct MoverProps
 	{
 		PropertyDataOffset PhysAlpha, PhysRate;
+		// HP2 only: MV_SpringByTime's settings, and where a blocked move hit
+		PropertyDataOffset MoverSpringTime, MoverMaxAmplitude, MoverFluctuations, HitPosition, HitNormal;
 	};
 
 	// UObject::GetPropertyDataOffset returns the first (base-most) property with a name; we want the
@@ -50,12 +53,54 @@ namespace KW
 			props.PhysRate = LastPropertyOffset(moverCls, "PhysRate");
 			if (props.PhysAlpha.DataOffset == actorCls->GetPropertyDataOffset("PhysAlpha").DataOffset)
 				Exception::Throw("HP1: expected Mover.PhysAlpha to shadow Actor.PhysAlpha");
+			if (IsHP2())
+			{
+				props.MoverSpringTime = moverCls->GetPropertyDataOffset("MoverSpringTime");
+				props.MoverMaxAmplitude = moverCls->GetPropertyDataOffset("MoverMaxAmplitude");
+				props.MoverFluctuations = moverCls->GetPropertyDataOffset("MoverFluctuations");
+				props.HitPosition = moverCls->GetPropertyDataOffset("HitPosition");
+				props.HitNormal = moverCls->GetPropertyDataOffset("HitNormal");
+			}
 			initialized = true;
 		}
 		return props;
 	}
 
-	// IDA Engine.dll: ?physMovingBrush@AActor@@QAEXM@Z [HP1 0x104061F0]
+	// HP2's MV_SpringByTime (physMovingBrush [HP2 0x104137A0]): linear until the last MoverSpringTime seconds of MoveTime
+	// (0.75 of the move when that isn't between 0 and 1), then MoverFluctuations (at least 1) dips back from the end and
+	// returns, each a triangle as wide as the rest of the move shared out, the first MoverMaxAmplitude deep (0.1 when not
+	// between 0 and 1), each next one half as deep.
+	static float SpringAlpha(UMover* mover, const MoverProps& p, float alpha)
+	{
+		float springStart = (mover->MoveTime() - mover->Value<float>(p.MoverSpringTime)) / mover->MoveTime();
+		float amplitude = mover->Value<float>(p.MoverMaxAmplitude);
+		int fluctuations = mover->Value<uint8_t>(p.MoverFluctuations);
+		if (fluctuations == 0)
+			fluctuations = 1;
+		if (springStart <= 0.0f || springStart >= 1.0f)
+			springStart = 0.75f;
+		if (amplitude <= 0.0f || amplitude >= 1.0f)
+			amplitude = 0.1f;
+		if (alpha <= springStart)
+			return alpha / springStart;
+
+		float halfWidth = (1.0f - springStart) / (fluctuations * 2.0f);
+		for (int i = 0; i < fluctuations; i++)
+		{
+			float peak = (i * 2.0f + 1.0f) * halfWidth + springStart;
+			float start = peak - halfWidth;
+			float end = peak + halfWidth;
+			float depth = amplitude / (float)(1 << i);
+			float slope = depth / halfWidth;
+			if (alpha > start && alpha <= peak)
+				return 1.0f - slope * alpha - depth + slope * peak;
+			if (alpha > peak && alpha <= end)
+				return slope * alpha + 1.0f - depth - slope * peak;
+		}
+		return 1.0f;
+	}
+
+	// IDA Engine.dll: ?physMovingBrush@AActor@@QAEXM@Z [HP1 0x104061F0] [HP2 0x104137A0]
 	void PhysMovingBrush(UActor* actor, float deltaTime)
 	{
 		// Only movers move: any other actor with PHYS_MovingBrush stays put (Lev2_Inc_A's spellTrigger2)
@@ -115,9 +160,18 @@ namespace KW
 				alpha = 1.0f;
 			}
 
+			// HP2's MV_SpringByTime springs only into the first and the last key; between them the move is linear
+			uint8_t glide = mover->MoverGlideType();
+			if (IsHP2() && glide == 2 && mover->PrevKeyNum() < mover->KeyNum() && mover->KeyNum() != mover->NumKeys() - 1)
+				glide = 0;
+			else if (IsHP2() && glide == 2 && mover->PrevKeyNum() > mover->KeyNum() && mover->KeyNum() != 0)
+				glide = 0;
+
 			float t = alpha;
-			if (mover->MoverGlideType() == 1/*MV_GlideByTime*/)
+			if (glide == 1/*MV_GlideByTime*/)
 				t = t * t * 3.0f - t * t * t * 2.0f;
+			else if (IsHP2() && glide == 2/*MV_SpringByTime*/)
+				t = SpringAlpha(mover, p, alpha);
 
 			Rotator oldRot = mover->OldRot();
 			Rotator rotDelta = mover->BaseRot() + mover->KeyRot()[key] - oldRot;
@@ -137,6 +191,11 @@ namespace KW
 				if (time < 1.0f)
 				{
 					mover->bInterpolating() = false; // blocked: GridMover's Tick sees this and finishes the move
+					if (IsHP2())
+					{
+						mover->Value<vec3>(p.HitPosition) = hit.Location;
+						mover->Value<vec3>(p.HitNormal) = hit.Normal;
+					}
 				}
 				else if (physAlpha >= 1.0f)
 				{

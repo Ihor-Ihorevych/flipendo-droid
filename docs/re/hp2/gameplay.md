@@ -36,6 +36,19 @@ that event never comes and every `bLevelLoadStarts` cutscene in the map starts (
 `00001PrivetIntroPart3` at once). Flipendo screens actors since 2026-10-17. `ParseCommand` also relies on `switch`
 ignoring case ([scripting.md](../engine/scripting.md#switch-on-strings-ignores-case)).
 
+"Trying to issue command to: X when previous CutCommand hasnt finished yet" is the scripts' own timing in the cases
+checked (2026-10-20, played without skipping). A command ending in `*` doesn't wait, and the next command for the same
+actor comes after a fixed `sleep` that is shorter than what the first one takes:
+- `00020FlyingFordIntro` thread 1: `FlyingCar FollowSpline CarSalesMan ... Time=6.5 Accel=200 EaseFrom *`, then
+  `Sleep 7`. `Pawn.FollowSplinePath` sets the speed to path length / Time (1617 here), so Time is the time at full
+  speed; `Pawn.SplineTick`'s ease-from ramps up at Accel until halfway through the first segment (4.5 s to reach 757),
+  which makes the move about 9.8 s. All script maths, so the original is late the same way. The other FordFlying0
+  errors come from `WaitFor CarChangeLastSpline` and `SetIdle` arriving while a 20 s spline is on purpose still going.
+- `00001PrivetIntro` thread 3: `dobby animate Introduce rate=.8 *`, `sleep 2`, then `Dobby say` and `sleep 1`,
+  `Dobby Animate shakeheadnostart`; Introduce plays about 3.5 s at rate .8 (34.4 to 37.9 s), so both commands find
+  it running. Thread 4's `Harry animate Look_Frantic rate=.8 *` is the same case for `harry walkto cutmark12`.
+  These depend on the animations' lengths (the sequences' rates in the mesh, through PlayAnim, ported from HP1).
+
 ## Accessed None from the scripts themselves
 
 These show in every run and come from HP2's own scripts, so the original hits them as well (UE1 logs and goes on):
@@ -52,7 +65,20 @@ These show in every run and come from HP2's own scripts, so the original hits th
 - `GameInfo.ScoreKill`: a pawn without a PlayerReplicationInfo that dies ([engine/scripting.md](../engine/scripting.md#an-out-parameter-through-a-none-context)).
 
 `harry.CutCommand` (`CutScript.Running.Tick`) follows the "previous CutCommand hasnt finished yet" cutscene errors and
-belongs with them.
+belongs with them. So does `baseWand.Tick`'s `fxChargeParticles.bEmit` before the wand has charged once.
+
+The same goes for `Pawn.CreateEyeBlinkAnimChannel`'s "Couldn't create EyeBlinkAnimChannel" errors (from
+`PostBeginPlay` with `bDoEyeBlinks`): the meshes don't have what it asks for (checked 2026-10-20 by listing their
+bones in Flipendo). `skFilchMesh`, `skMrsNorrisMesh` and `skbloodybaronMesh` have no `eye_root` bone;
+`skdobbyMesh`, `skfatfriarMesh` and `skpinkladyMesh` have the bone but no `eye_close` animation, and no HP2 script links another animation
+(`LinkSkelAnim`) to them. `BoneNumber` and `HasAnim` differ from HP1's only by the DebugInfo check, and the characters whose meshes have
+both (Harry, Hermione, ...) blink.
+
+Adv1Willow's `SpottedJellyBean3`, `6` and `7` "fell out of the world" on the first tick: the map places them at
+Z -482.3 (x 545-1010, y 1779-1936) inside solid BSP, and saves them so (Region zone LevelInfo0, leaf -1); a point check
+there finds zone 0 and a downward sweep is blocked from -400 on (checked 2026-10-20). `APawn::physWalking` [HP2] raises
+FellOutOfWorld for a walking pawn in zone 0, as SurrealEngine does, so the original loses these three beans as well.
+Their neighbours at the same height (`SpottedJellyBean1`, `2`, `4`) are inside a zone and land on the floor at -499.5.
 
 ## Saving
 
@@ -87,8 +113,13 @@ Looking up and down while walking: `PlayerWalking.PlayerMove` zeroes `aLookUp`; 
 pitches from `SmoothMouseY` instead. While Harry walks forward and isn't aiming, `PlayerMove` calls `Cam.SetPitch(-1500)`
 every frame if `bAutoCenterCamera` is set (Options > Input, "Auto Centre Camera", on in `DefUser.ini`), so the mouse can't
 change the pitch then. `FEInputPage.HideWindow` saves it with `SaveConfig`. Its `set ini:HGame.Harry <prop> <value>`
-console commands (and the Difficulty one) fail in Flipendo ("Could not find class 'None'": `ini:` resolves a class name
-from the ini); the settings are saved by the `SaveConfig` anyway. What the original engine does with them isn't checked.
+console commands (and the Difficulty one) fail in the original too: Core's `UObject::StaticExec` [HP2 Core 0x101601A0]
+(GET / SET) finds the class with `StaticFindObject(UClass, ANY_PACKAGE, name)`, whose `UObject::ResolveName` [HP2 Core
+0x10161DB0] reads `ini:A.B.C` as ini section `A.B`, key `C` of the system ini, so `ini:HGame.Harry` asks for
+`[HGame] Harry`, which no HP2 ini has: no class, "Unrecognized class ini:HGame.Harry", nothing set. The same goes for the
+options page's `get ini:Engine.Engine GameRenderDevice` (`[Engine] Engine`), which returns nothing. Flipendo fails the
+same way (logged as "Could not find class 'None'"). The settings are kept anyway: the input options by the
+`SaveConfig`, the difficulty and object detail as the player's `Difficulty` / `ObjectDetail`, which the pages set directly and the save game keeps.
 
 ## Collision
 
@@ -98,10 +129,6 @@ Two new collide types, `CT_AlignedOvalCylinder` and `CT_OrientedOvalCylinder` ([
 
 Not read in HP2's code yet. Check each one in `../ida/hp2/` before relying on it.
 
-- **Sounds** are a modified Maxis XA format (an ADPCM), not plain wav; a decoder is ~150 lines.
-- **Saves** are not loaded with `load saveN` as in every other UE1 game (fits the queued saves above).
-- **Lip sync** is precomputed when a sound is imported: at runtime a sound gives one 0-1 mouth value. HP1 has none
-  (no script mentions it, no Engine.dll function is named for it).
 - **Movers** collide with the world by their bounding box, not only GridMover (the Flipendo blocks) as in HP1
   ([collision.md](../engine/collision.md)); that breaks hollow movers.
 - **Mover flickering**: HP2 retail has Epic's fix for it.

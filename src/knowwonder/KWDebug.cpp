@@ -62,7 +62,7 @@
 //                              "@travel Lev2_HogFront" changes level as the game's level exits do (carrying Harry's travel properties);
 //                              "@bump GridMover0 harry0" raises Bump(harry0) on the actors whose name starts with GridMover0;
 //                              "@polys Mover17" logs the brush polygons (normal, PolyFlags, texture, vertices) of the matching movers;
-//                              "@surfs cosLogo1" logs the level's BSP surfaces drawn with that texture (flags, center);
+//                              "@surfs cosLogo1" logs the level's BSP surfaces drawn with that texture (flags, center; "*mirror": the mirrors);
 //                              "@sweep x y z x y z ex ey ez" runs KnowWonder's BSP line/point checks and the actor sweep with that box and logs them;
 //                              "@hull Mover0" logs the brush's collision hulls (planes in world space)
 
@@ -425,11 +425,14 @@ namespace KW
 			for (size_t i = 0; i < surfaces.size(); i++)
 			{
 				const BspSurface& surf = surfaces[i];
-				if (!surf.Material || !StrTools::equals_ignore_case(surf.Material->Name.ToString(), texName))
+				// "@surfs *mirror": every mirror surface (PF_Mirrored, in its own or its texture's flags), whatever its texture
+				bool mirrors = texName == "*mirror";
+				uint32_t texFlags = surf.Material ? surf.Material->PolyFlags() : 0;
+				if (mirrors ? ((surf.PolyFlags | texFlags) & PF_Mirrored) == 0 : (!surf.Material || !StrTools::equals_ignore_case(surf.Material->Name.ToString(), texName)))
 					continue;
 				char buf[256];
 				snprintf(buf, sizeof(buf), "HP1 surfs %s %d: flags=0x%08x texflags=0x%08x center=(%.0f,%.0f,%.0f) radius=%.0f",
-					texName.c_str(), (int)i, surf.PolyFlags, surf.Material->PolyFlags(), surf.Center.x, surf.Center.y, surf.Center.z, surf.Radius);
+					surf.Material ? surf.Material->Name.ToString().c_str() : "None", (int)i, surf.PolyFlags, texFlags, surf.Center.x, surf.Center.y, surf.Center.z, surf.Radius);
 				LogMessage(buf);
 			}
 			return;
@@ -581,25 +584,46 @@ namespace KW
 		}
 		if (text.rfind("@console", 0) == 0)
 		{
-			// "@console[.Prop[.Prop]] Fn [arg]": follow object properties from the console, then call Fn. A number is
-			// passed as an int (SlotPage SetSelectedSlot 0), anything else as a string.
+			// "@console[.Prop[.Prop]] Fn [arg...]": follow object properties from the console, then call Fn. A number is
+			// passed as an int (SlotPage SetSelectedSlot 0), True / False as a bool, Class'Pkg.Name' as that class
+			// (@console.Viewport.Actor.Weapon StartChargingSpell True False Class'hgame.spellLumos'), anything else
+			// as a string (then the whole rest is one string).
 			std::stringstream parts(text);
-			std::string path, fn, arg;
+			std::string path, fn, rest;
 			parts >> path >> fn;
-			std::getline(parts >> std::ws, arg);
+			std::getline(parts >> std::ws, rest);
 			UObject* obj = engine->console;
 			std::stringstream props(path.substr(8));
 			std::string prop;
 			while (obj && std::getline(props, prop, '.'))
 				if (!prop.empty()) obj = obj->GetUObject(prop);
+			auto value = [](const std::string& arg)
+			{
+				if (StrTools::equals_ignore_case(arg, "true") || StrTools::equals_ignore_case(arg, "false"))
+					return ExpressionValue::BoolValue(StrTools::equals_ignore_case(arg, "true"));
+				if (!arg.empty() && arg.find_first_not_of("-0123456789") == std::string::npos)
+					return ExpressionValue::IntValue(std::atoi(arg.c_str()));
+				if (arg.rfind("Class'", 0) == 0 && arg.back() == '\'')
+					return ExpressionValue::ObjectValue(engine->packages->FindClass(arg.substr(6, arg.size() - 7)));
+				return ExpressionValue::StringValue(arg);
+			};
+			// Several arguments when none of them is a string; else the whole rest is one string
+			Array<ExpressionValue> args;
+			std::stringstream words(rest);
+			std::string word;
+			while (words >> word)
+			{
+				args.push_back(value(word));
+				if (args.back().GetType() == ExpressionValueType::ValueString)
+				{
+					args = { ExpressionValue::StringValue(rest) };
+					break;
+				}
+			}
 			if (!obj || fn.empty())
 				LogMessage("HP1 exec: no object for " + path);
-			else if (arg.empty())
-				CallEvent(obj, NameString(fn));
-			else if (arg.find_first_not_of("-0123456789") == std::string::npos)
-				CallEvent(obj, NameString(fn), { ExpressionValue::IntValue(std::atoi(arg.c_str())) });
 			else
-				CallEvent(obj, NameString(fn), { ExpressionValue::StringValue(arg) });
+				CallEvent(obj, NameString(fn), args);
 			return;
 		}
 		uint32_t foundBits = 0;

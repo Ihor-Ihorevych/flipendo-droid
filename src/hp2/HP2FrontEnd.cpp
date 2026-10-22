@@ -1,5 +1,6 @@
 #include "Precomp.h"
 #include "HP2.h"
+#include "Utils/CommandLine.h"
 #include "KW.h"
 #include "HP1.h"
 #include "Engine.h"
@@ -36,8 +37,16 @@ namespace HP2
 	static int loadGameSave = -1;
 	static int soundDisabled = -1; // not read yet
 
+	// IDA Engine.dll: ?Init@UGameEngine@@UAEHXZ [HP2 0x103A0FA0] (the LOADGAME= option, at its end)
+	// Set by Load Game in the front end, or by --loadgame=<n> on the command line (Game.exe's -LOADGAME=<n>)
 	int LoadGameSave()
 	{
+		if (loadGameSave < 0)
+		{
+			std::string arg = commandline->GetArg("", "--loadgame", "");
+			if (!arg.empty())
+				return std::atoi(arg.c_str());
+		}
 		return loadGameSave;
 	}
 

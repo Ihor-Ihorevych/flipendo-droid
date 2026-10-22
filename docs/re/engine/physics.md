@@ -13,7 +13,8 @@ Both games' `Pawn.uc` / `PlayerPawn.uc` declare the KnowWonder additions below (
 and the latent polls (`execPollMoveTo`, `execPollMoveToward`, `execPollStrafeFacing`, `execPollWaitForLanding`) differ
 only in offsets; `physWalking` (14847 -> 13679 bytes), `physFlying`, `physSwimming`, `physRolling`, `physMovingBrush`,
 `physTrailer`, `APawn::performPhysics`, `physicsRotation`, `moveToward`, `Mount` and
-`AInterpolationManager::performPhysics` changed, HP2 code not read yet. `IsBlockedBy` differs only in offsets.
+`AInterpolationManager::performPhysics` changed, HP2 code not read yet (for the last one only the final move is read,
+[InterpolationManager](#interpolationmanager)). `IsBlockedBy` differs only in offsets.
 The turn natives changed too (`execTurnTo` 250 -> 295 bytes, `execTurnToward`, `rotateToward`): HP2 flattens
 TurnTo's focal point while walking ([hp2/engine.md](../hp2/engine.md#pawn-turning)).
 
@@ -53,8 +54,8 @@ to the poll. A script that restarts its move every tick then never moves: `Doxie
 
 `AActor::performPhysics` (0x103E52C0) handles falling, projectile, rolling, moving brush and trailer only; a non-pawn in
 PHYS_Walking or PHYS_Interpolating doesn't move by itself (an InterpolationManager moves its owner).
-`APawn::performPhysics` (0x103E5520) adds walking, swimming, flying, spider, then turns the pawn (below) unless it is a
-player already at its DesiredRotation with no roll to ease, counts MoveTimer down and averages AvgPhysicsTime. Both raise
+`APawn::performPhysics` (0x103E5520) adds walking, swimming, flying, spider, then turns the pawn (below; which pawns
+differs between the games), counts MoveTimer down and averages AvgPhysicsTime. Both raise
 PostTouch. Nothing else counts MoveTimer down, and a pawn without physics never does. SurrealEngine's `UPawn::Tick` did it as
 well, so with this port every latent move's timer ran out at half its time: gnomes (`Tut1Gnome.hide`) gave up their
 `MoveTo` halfway, short of the 100 units the state waits for, and ran on the spot; ones that got close glided past with
@@ -76,6 +77,8 @@ the move's acceleration still set (fixed 2026-10-05).
   encroachment (a refused one cancels the move). Then Bump both ways (not against the level or its own base),
   BeginTouch for the non-blocking hits before the stop (unless it blocks actors and players and no hit was looked at),
   EndTouch for touches no longer overlapping, SetActorZone.
+  HP2's movers of `MoverEncroachType` 4-7 skip the sweep ([hp2/engine.md](../hp2/engine.md#mover-sweep)).
+  A turning HP2 mover also pushes by its turn ([hp2/engine.md](../hp2/engine.md#turning-movers-push)).
 - `AActor::IsBasedOn` (0x10352430): this stands on other, through its base chain. **SurrealEngine's `a->IsBasedOn(b)`
   is the other way round** ("b stands on a"); `KW::IsBasedOn(a, b)` is HP1's. Mixing them up skipped the floor under
   every pawn standing on the level (Harry fell through Lev_Tut1's floor in the intro).
@@ -122,7 +125,8 @@ bBounce raises HitWall; a floor (normal.z > 0.7) lands (`processLanded`); a wall
 
 `processHitWall` (0x103ECF20): never against pawns. A pawn steering into the wall (towards Destination, flat when
 walking, within MinHitWall) gets HitWall only if its script probes it (falling: always); otherwise its move ends
-(MoveTimer -1, bFromWall). `processLanded` (0x103ED210): a decoration landing over an edge rolls off it (a ray under it
+(MoveTimer -1, bFromWall). HP2's (0x103F9D30) only sets bFromWall and leaves MoveTimer alone, so the MoveTo /
+MoveToward goes on along the wall (otherwise the same function). `processLanded` (0x103ED210): a decoration landing over an edge rolls off it (a ray under it
 finds nothing, four short traces under its corners pick the way), 5 times at most; a bSlidingCarcass on a slope slides;
 a non-pawn in a bBounceVelocity zone bounces; else Landed, then walking (pawns, spending the time left) or none.
 
@@ -131,6 +135,12 @@ a non-pawn in a bBounceVelocity zone bounces; else Landed, then walking (pawns, 
 `calcVelocity` (0x103EB3E0) with ground friction: acceleration capped at AccelRate (a walking player 30%), friction
 turns the velocity towards it; braking in 0.03 s steps, stopping dead under 10; non-players' MaxSpeed times
 DesiredSpeed; a walking player slows towards 30% of it. ZoneVelocity x25 (a player only over 300). Then per step:
+
+HP1 and HP2: HP2's physWalking (0x103F4130) calls calcVelocity (0x103F8400, the same code) without braking, so a pawn
+whose acceleration stops slows by friction alone (Harry: about 0.45 s and 13 units from running speed, against 0.1 s and 4
+in HP1's way), and with no ground friction while `Pawn.bNoZoneFriction` (HP2 only; HPawn's and Pawn's patrol states set it
+and clear it when they end). The rest of HP2's physWalking is not compared yet.
+
 
 - AI pawns that can't fly, and walking players, look ahead for a ledge (a probe one radius ahead, half without
   bAvoidLedges, down past MaxStepHeight). At one: the edge face under it; none found: a side step either way; found:
@@ -233,11 +243,19 @@ actor stops dead. HP1's cutscenes depend on it ([cutscenes.md](../hp1/cutscenes.
 
 ## Pawn rotation
 
-`APawn::performPhysics` (0x103E5520) keeps a running average of the physics step, and turns every pawn (the player
-too) towards DesiredRotation after its movement via `physicsRotation` (0x103E5950), unless PHYS_Spider. Yaw and pitch
+`APawn::performPhysics` (0x103E5520) keeps a running average of the physics step, and turns pawns towards
+DesiredRotation after their movement via `physicsRotation` (0x103E5950), never in PHYS_Spider: the player always, any
+other pawn when its Rotation isn't DesiredRotation or its RotationRate.Roll > 0 (until 2026-10-21 Flipendo had this the
+other way round, the player only when not at DesiredRotation and every other pawn always; no difference seen in
+Lev_Tut1's opening cutscene). Yaw and pitch
 turn at RotationRate; roll is cleared, or with RotationRate.Roll > 0 eased back to level while walking. HP1's cutscene
 movement (MoveSmooth + DesiredRotation) depends on it. The flying/swimming bank from lateral acceleration is not
 ported.
+
+HP1 and HP2: HP2's (0x103F2B80) turns no pawn in PHYS_Interpolating either (its InterpolationManager sets the rotation),
+the player always, and another pawn when it has bRotateToDesired and isn't at DesiredRotation, or has bFixedRotationDir
+without bRotateToDesired; RotationRate.Roll plays no part. Right after the physics switch it calls an unexported helper
+(sub_10302CFC, HP2's [stair smoothing](../hp2/engine.md#stair-smoothing)) that HP1 lacks.
 
 ## Latent moves
 
@@ -311,6 +329,14 @@ bumps it again when `BumpMove` re-enables Bump. Checked 2026-10-05: each cast mo
 `Mover.uc` re-declares `PhysAlpha` and `PhysRate`, shadowing Actor's. Mover script (InterpolateTo etc.) and
 `AActor::physMovingBrush` (0x104061F0) use the Mover copies; SurrealEngine's TickMovingBrush used Actor's, which stay
 0, so doors were triggered but never moved. Ported whole in `KW::PhysMovingBrush` (`src/knowwonder/KWMover.cpp`).
+
+HP2's `physMovingBrush` [HP2 0x104137A0] (read 2026-10-21) is HP1's (both clamp the key index at 8) with two
+additions. `MoverGlideType` 2, `MV_SpringByTime`: into the first and the last key (moving towards a middle key it is
+linear) the mover moves linearly over the first `(MoveTime - MoverSpringTime) / MoveTime` of the move (0.75 when that
+isn't between 0 and 1), then makes `MoverFluctuations` (0 counts as 1) triangle dips back from the end, sharing the
+rest of the move evenly, the first `MoverMaxAmplitude` deep (0.1 when not between 0 and 1), each next one half as deep.
+A blocked move stores the hit's location and normal in the mover's `HitPosition` / `HitNormal` (no script reads them).
+Flipendo: `IsHP2()` branches in `KW::PhysMovingBrush`. Which HP2 maps use the spring glide wasn't checked.
 Checked in HP1. It first walks the actor's class chain and returns unless the actor is a Mover: any other actor with
 `PHYS_MovingBrush` doesn't move (Lev2_Inc_A's `spellTrigger2`, Tag `Shelf2`, has `Physics=9` in the map). While
 `bInterpolating`, each step:
@@ -343,3 +369,15 @@ PHYS_Interpolating; its `performPhysics` (0x103F7BA0) moves the Owner (PHYS_None
 Bezier segments and raises `UpdateCamera`, `InterpolationPoint.InterpolateEnd` and `FinishedInterpolation`.
 KnowWonder's InterpolationPoint is not UT's: arrays per pause (`Pause[8]`, `ViewTargetTag[8]`, ...), Bezier control
 points, DesiredSpeed/PathDist (HP2's has the same `Pause[8]` arrays).
+
+### HP1 and HP2
+
+HP2's `performPhysics` (0x10403E60) moves the Owner with the rotation it worked out only when the Owner's
+`bInterpolating_IgnoreRot` is off (the bool after `bInterpolating` in HP2's `Actor.uc`, bit 0x10 of the byte whose 0x08
+bit the loop tests as `bInterpolating`); with it on, the Owner moves along the path and keeps its own `Rotation`. The
+turn smoothing before the move still runs and updates `TurnRateX/Z`. HP1's Actor has no such flag.
+`Pawn.FollowSplinePath` sets it when called with `bDontAlignAlongPath` and never clears it (only BroomHarry,
+QuidditchPlayer and QuidditchPawn clear it); the cutscene command `FollowSpline` passes `bDontAlignAlongPath` unless it
+has the `Align` option. So PrivetDr's intro camera (`BaseCam FollowSpline CameraCrane EaseBetween ...`, no `Align`)
+keeps the rotation BaseCam gives it (towards its target, which follows its own spline) instead of turning with the
+crane path's points, which looked down at the map's edges. The rest of HP2's function is not compared with HP1's yet.

@@ -31,7 +31,7 @@ Times are seconds since the first frame.
 | Command | What it does |
 |---|---|
 | `open save99.usa`, `SaveGame 3`, ... | any console command |
-| `@console[.Prop] Fn [arg]` | call a script function on the console or an object it references, e.g. `@console.MenuBook OpenBook Slot`; a number is passed as an int (`@console.MenuBook.SlotPage SetSelectedSlot 0` before `LoadSelectedSlot` loads slot 0 and keeps later saves there) |
+| `@console[.Prop] Fn [arg...]` | call a script function on the console or an object it references, e.g. `@console.MenuBook OpenBook Slot`; `True` / `False` is passed as a bool, a number as an int (`@console.MenuBook.SlotPage SetSelectedSlot 0` before `LoadSelectedSlot` loads slot 0 and keeps later saves there), `Class'Pkg.Name'` as the class; several such arguments are passed in order, anything else makes the whole rest one string. Harry's wand: `@console.Viewport.Actor.Weapon StartChargingSpell True False Class'hgame.spellLumos'` |
 | `@console.MenuBook.SlotPage LoadSelectedSlot` | load a save from the main menu (slot 99 when none is selected); a bare `open saveN.usa` leaves the menu book open over the game and `HPConsole.bInHubFlow` false (a Quidditch match then runs in league mode), so for a playtest copy the save to `Save99.usa` and use this |
 | `@console SaveSelectedSlot` | save (slot 99 without a selected slot) |
 | `@set <actor prefix> <prop>[[i]] <value>` | set a property on live actors, e.g. `@set CutScene3 bDebugScript True`; `[i]` sets one element of a fixed array, in `@get`'s format (`@set Harry1 WizardCards[3] (ID=10, bHasCard=True)`). With `@get` this copies Harry's state from one save into another: read it with the scripts the save was made with, set it on a fresh `--level` start, then `@console SaveSelectedSlot` |
@@ -45,6 +45,14 @@ Times are seconds since the first frame.
 | `@polys <actor>` | log the brush polygons of every actor whose name starts with `<actor>`: normal, PolyFlags (0x1000 = mountable), texture, vertices (brush space) |
 | `@sweep sx sy sz ex ey ez bx by bz` | KnowWonder's BSP line check from start to end with a box of half size b, point checks at both ends (zone, leaf, push-out), and every actor the box sweep hits (MultiLineCheck), and the hit node's coplanar polygons with their flags and vertices: debugging collision and ledge grabs |
 | `@hull <actor>` | log every collision leaf hull of the actor's brush: its planes in world space (node, flipped) and its local box: where a mover is solid |
+
+## HP2 hubs with `--url`
+
+`--url=<hub>.unr` gives HP2's Harry a new game's `CurrentGameState` "None", so the map's actors aren't screened by the
+story state: every state's level-start cutscene runs at once and every state's characters stand around (two Filchs in
+Grandstaircase_hub). The original skips the screening for "None" too. Set a state and travel back into the map, which
+carries it over: `HP1_EXEC="1:@set Harry1 CurrentGameState GSTATE050;1.5:@travel Grandstaircase_hub"`. On a map that places Harry with a state (PrivetDr), `--gamestate=<GSTATExxx>` (HP2's `GAMESTATE=`) starts in another one. `--loadgame=<n>` (HP2's `-LOADGAME=<n>`) loads the save folder's `Save<n>.usa` once the first map is in (with `--url`, the folder is `Save/` itself, not a slot). `HP1_GOD` is HP1
+only (HP2's Harry has no `MaxLifePotions`; the game stops with a fatal error).
 
 ## Starting a level: `--level`
 

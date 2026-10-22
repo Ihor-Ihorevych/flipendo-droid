@@ -58,20 +58,6 @@ namespace HP2
 			result.clear();
 			return true;
 		}
-		if (StrTools::equals_ignore_case(name, "loadgame"))
-		{
-			int slot = 0;
-			words >> slot;
-			result.clear();
-			LoadGame(slot);
-			return true;
-		}
-		if (StrTools::equals_ignore_case(name, "savepactors"))
-		{
-			result.clear();
-			SavePersistentActors();
-			return true;
-		}
 		if (StrTools::equals_ignore_case(name, "isfullscreen"))
 		{
 			result = "True";

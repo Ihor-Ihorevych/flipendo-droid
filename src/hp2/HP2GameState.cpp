@@ -1,122 +1,129 @@
 #include "Precomp.h"
 #include "HP2.h"
+#include "Packages/Engine/Actors/UActor.h"
+#include "Packages/Engine/Actors/Pawn/UPawn.h"
+#include "Packages/Engine/Resources/Level/ULevel.h"
+#include "VM/ScriptCall.h"
+#include "Utils/Logger.h"
+#include "Utils/CommandLine.h"
+
+
 #include "VM/Frame.h"
 #include "Engine.h"
-#include "VM/ScriptCall.h"
 #include "Package/PackageManager.h"
 #include "Packages/Core/UClass.h"
-#include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
-#include "Packages/Engine/Resources/Level/ULevel.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Packages/Engine/UConsole.h"
 #include <algorithm>
 #include <cctype>
 #include <fstream>
-#include <map>
 
-// HP2's story state screens the actors of a level (docs/re/hp2/engine.md, "GameState"). After a map has loaded and the
-// player has logged in, the engine takes PlayerPawn.CurrentGameState and, for every actor, sets Actor.bInCurrentGameState
-// (the actor is in the current state unless the state is listed in its ExcludeGameStates string) and raises the script event
-// OnResolveGameState. The scripts depend on it: a CutScene starts in its `disabled` state and only the event moves it to
-// `Idle`, so no cutscene would ever run without it.
+// HP2's GameState: the story state screens which actors take part in a map (docs/re/hp2/engine.md). The player's
+// PlayerPawn.CurrentGameState is one of the tokens in GameStateMasterList ("GSTATE000,GSTATE010,..."); an actor lists
+// the states it belongs to in its Group name ("None,GSTATE000") and the ones it stays out of in ExcludeGameStates. After
+// a map loads the engine sets each actor's bInCurrentGameState and raises OnResolveGameState, where CutScene,
+// Characters, CreatureGenerator and others enable or disable themselves.
 
 namespace HP2
 {
-	static std::string Upper(std::string text)
+	namespace
 	{
-		std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return (char)std::toupper(c); });
-		return text;
+		std::string Upper(std::string s)
+		{
+			std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return (char)toupper(c); });
+			return s;
+		}
+
+		const std::string& StringProperty(UObject* obj, const char* name)
+		{
+			static const std::string empty;
+			return obj->HasProperty(name) ? *static_cast<const std::string*>(obj->GetProperty(name)) : empty;
+		}
 	}
 
-	// A state token is "GSTATE" + 3 digits. True when the comma separated group has no state token or lists `state`.
-	static bool GroupAllowsState(const std::string& group, const std::string& state)
+	// IDA Engine.dll: ?ScreenActorsByGameState@ULevel@@QAEXXZ [HP2 0x103B86D0]
+	// Called by UGameEngine::LoadMap for every map but Entry, after the player has logged in. The player is the first
+	// bIsPlayer pawn in the actor list (KnowWonder's maps place Harry, with the state saved in the map: PrivetDr's
+	// Harry1 has "gstate000"). With the state "None" nothing is screened and no event is raised (a new game outside
+	// such a map). The command line's GAMESTATE=<token> (here --gamestate=<token>) then replaces a state that isn't
+	// "None" when the master list has the token: the player's CurrentGameState becomes it, in capitals.
+	void ScreenActorsByGameState(ULevel* level)
 	{
-		bool hasToken = false;
-		size_t pos = 0;
-		while (pos <= group.size())
+		UPawn* player = nullptr;
+		for (UActor* actor : level->Actors)
 		{
-			size_t end = group.find(',', pos);
-			if (end == std::string::npos)
-				end = group.size();
-			const std::string token = group.substr(pos, end - pos);
-			if (token.size() == 9 && token.compare(0, 6, "GSTATE") == 0)
+			UPawn* pawn = UObject::TryCast<UPawn>(actor);
+			if (pawn && pawn->bIsPlayer())
 			{
-				hasToken = true;
-				if (token == state)
-					return true;
-			}
-			pos = end + 1;
-		}
-		return !hasToken;
-	}
-
-	// IDA Engine.dll: ?ScreenActorsByGameState@ULevelBase@@QAEXXZ [HP2 not located: no HP2 database on this machine]
-	// Written from the script side only: the engine's check of each token against GameStateMasterList and its "GameState
-	// ERROR" message are not ported. Every actor gets the event, not only those with tokens (a CutScene has none).
-	void RestorePersistentActors(UPlayerPawn* player);
-
-	void ScreenActorsByGameState(UPlayerPawn* player)
-	{
-		if (!engine->Level || !player)
-			return;
-		RestorePersistentActors(player);
-
-		UClass* actorClass = engine->packages->FindClass(NameString("Engine.Actor"));
-		UClass* playerClass = engine->packages->FindClass(NameString("Engine.PlayerPawn"));
-		if (!actorClass || !playerClass)
-			return;
-		const PropertyDataOffset currentState = playerClass->GetPropertyDataOffset(NameString("CurrentGameState"));
-		const PropertyDataOffset excludeStates = actorClass->GetPropertyDataOffset(NameString("ExcludeGameStates"));
-		const PropertyDataOffset inState = actorClass->GetPropertyDataOffset(NameString("bInCurrentGameState"));
-		if (currentState.DataOffset == (size_t)-1 || excludeStates.DataOffset == (size_t)-1 || inState.DataOffset == (size_t)-1)
-			return;
-
-#ifdef __ANDROID__
-		// Development: a first line of /sdcard/FlipendoHP/start_state.txt (GSTATE020) is the story state of the first level
-		// loaded, to try a map in a state it normally gets from the story (start_level.txt picks the map).
-		static bool stateFileDone = false;
-		if (!stateFileDone)
-		{
-			stateFileDone = true;
-			std::ifstream file("/sdcard/FlipendoHP/start_state.txt");
-			std::string token;
-			if (file && std::getline(file, token))
-			{
-				while (!token.empty() && (token.back() == '\r' || token.back() == ' '))
-					token.pop_back();
-				if (!token.empty())
-					CallEvent(player, NameString("SetGameState"), { ExpressionValue::StringValue(token) });
+				player = pawn;
+				break;
 			}
 		}
-#endif
 
-		const PropertyDataOffset groupOffset = actorClass->GetPropertyDataOffset(NameString("Group"));
-		const std::string state = Upper(player->Value<std::string>(currentState));
-
-		// the events may spawn actors, which are not screened (they begin play in the current state)
-		const size_t count = engine->Level->Actors.size();
-		for (size_t i = 0; i < count; i++)
+		std::string current = player ? Upper(StringProperty(player, "CurrentGameState")) : std::string();
+		if (current == "NONE")
+			return;
+		if (!player)
 		{
-			UActor* actor = engine->Level->Actors[i];
+			LogMessage("**** Can't find a valid player!!!! PP == NULL ");
+			return;
+		}
+
+		const std::string& masterList = StringProperty(player, "GameStateMasterList");
+		std::string forced = commandline->GetArg("", "--gamestate", "");
+		if (!forced.empty() && masterList.find(forced) != std::string::npos)
+		{
+			current = Upper(forced);
+			*static_cast<std::string*>(player->GetProperty("CurrentGameState")) = current;
+		}
+		int tokenLen = player->HasProperty("GameStateTokenLen") ? *static_cast<int32_t*>(player->GetProperty("GameStateTokenLen")) : 0;
+		if (masterList.find(current) == std::string::npos)
+		{
+			LogMessage("**** Caution: The player pawn has an Invalid CurrentGameState for the GameStateMasterList: " + current);
+			return;
+		}
+
+		for (UActor* actor : level->Actors)
+		{
 			if (!actor)
 				continue;
 
-			bool in = true;
-			if (!state.empty())
+			std::string tokens = Upper(static_cast<NameString*>(actor->GetProperty("Group"))->ToString());
+			std::string exclude = Upper(StringProperty(actor, "ExcludeGameStates"));
+			bool screened = false;
+			bool inState = false;
+			if (!exclude.empty() && exclude.find(current) != std::string::npos)
 			{
-				const std::string excluded = Upper(actor->Value<std::string>(excludeStates));
-				if (!excluded.empty() && excluded.find(state) != std::string::npos)
-					in = false;
-
-				// The editor's Group field carries the story state an actor belongs to ("None,GSTATE000"): an actor
-				// with GSTATE tokens exists only in those states (PrivetDr: the intro in GSTATE000, the Diagon Alley
-				// scene in GState010; without this both cutscenes start together on load).
-				if (in && groupOffset.DataOffset != (size_t)-1)
-					in = GroupAllowsState(Upper(actor->Value<NameString>(groupOffset).ToString()), state);
+				screened = true; // excluded: out, tokens or not
 			}
-			actor->BoolValue(inState) = in;
-			CallEvent(actor, NameString("OnResolveGameState"));
+			else
+			{
+				size_t pos;
+				while ((pos = tokens.find("GSTATE")) != std::string::npos)
+				{
+					screened = true;
+					tokens = tokens.substr(pos);
+					std::string token = tokens.substr(0, tokens.find(','));
+					if ((int)token.size() == tokenLen && masterList.find(token) != std::string::npos)
+					{
+						if (token == current)
+						{
+							inState = true;
+							break;
+						}
+					}
+					else
+					{
+						LogMessage("*** GameState ERROR Actor: " + actor->Name.ToString() + " has an invalid GameState Token: " + token);
+					}
+					tokens = tokens.substr(token.size());
+				}
+			}
+			if (screened)
+				actor->BoolValue(actor->GetPropertyDataOffset("bInCurrentGameState")) = inState;
+
+			CallEvent(actor, "OnResolveGameState");
 		}
 	}
 }
@@ -184,118 +191,6 @@ namespace HP2
 		done = true;
 		book->BoolValue(bGamePlaying) = false;
 		CallEvent(book, NameString("OpenBook"), { ExpressionValue::StringValue("Main") });
-	}
-}
-
-// Persistent actors across a level change (bPersistent, "SavePActors"). harry.LoadLevel copies each persistent Characters'
-// state into three script properties (PersistentState = GetStateName(), PersistentLeadingActor = the name of the actor it
-// follows, PersistentNavPName) and sends the console command SavePActors; the next level's Characters.PostBeginPlay reads the
-// three back (InitialState = PersistentState, LeadingActor and navP looked up by name). The engine carried them over; without
-// it Ron stood where the new level placed him instead of following Harry. Done here by actor name: the values are stored
-// on SavePActors and put into the actor of the same name after the next level has loaded, with what PostBeginPlay would do.
-// NOT reversed: how the original stores them (a save of the actors' properties; spawned persistent actors such as beans are
-// not carried here).
-namespace HP2
-{
-	struct PersistentRecord
-	{
-		std::string state, leading, nav;
-	};
-	static std::map<std::string, PersistentRecord> persistentActors;
-
-	static std::string Lower(std::string text)
-	{
-		std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return (char)std::tolower(c); });
-		return text;
-	}
-
-	void SavePersistentActors()
-	{
-		persistentActors.clear();
-		if (!engine->Level)
-			return;
-		for (UActor* actor : engine->Level->Actors)
-		{
-			if (!actor || !actor->Class)
-				continue;
-			const PropertyDataOffset persistent = actor->Class->GetPropertyDataOffset(NameString("bPersistent"));
-			const PropertyDataOffset state = actor->Class->GetPropertyDataOffset(NameString("PersistentState"));
-			const PropertyDataOffset leading = actor->Class->GetPropertyDataOffset(NameString("PersistentLeadingActor"));
-			const PropertyDataOffset nav = actor->Class->GetPropertyDataOffset(NameString("PersistentNavPName"));
-			if (persistent.DataOffset == (size_t)-1 || state.DataOffset == (size_t)-1 || leading.DataOffset == (size_t)-1 || nav.DataOffset == (size_t)-1)
-				continue;
-			if (!actor->BoolValue(persistent))
-				continue;
-			PersistentRecord record;
-			record.state = actor->Value<NameString>(state).ToString();
-			record.leading = actor->Value<NameString>(leading).ToString();
-			record.nav = actor->Value<NameString>(nav).ToString();
-			persistentActors[Lower(actor->Name.ToString())] = record;
-		}
-		LogMessage("HP2 SavePActors: " + std::to_string(persistentActors.size()) + " persistent actors kept");
-	}
-
-	// After the next level has loaded: what Characters.PostBeginPlay does with the three values.
-	void RestorePersistentActors(UPlayerPawn* player)
-	{
-		if (persistentActors.empty() || !engine->Level)
-			return;
-		const std::map<std::string, PersistentRecord> records = std::move(persistentActors);
-		persistentActors.clear();
-
-		const size_t count = engine->Level->Actors.size();
-		for (size_t i = 0; i < count; i++)
-		{
-			UActor* actor = engine->Level->Actors[i];
-			if (!actor || !actor->Class)
-				continue;
-			auto it = records.find(Lower(actor->Name.ToString()));
-			if (it == records.end())
-				continue;
-			const PropertyDataOffset persistent = actor->Class->GetPropertyDataOffset(NameString("bPersistent"));
-			const PropertyDataOffset state = actor->Class->GetPropertyDataOffset(NameString("PersistentState"));
-			const PropertyDataOffset leading = actor->Class->GetPropertyDataOffset(NameString("PersistentLeadingActor"));
-			const PropertyDataOffset nav = actor->Class->GetPropertyDataOffset(NameString("PersistentNavPName"));
-			const PropertyDataOffset leadingActor = actor->Class->GetPropertyDataOffset(NameString("LeadingActor"));
-			const PropertyDataOffset navP = actor->Class->GetPropertyDataOffset(NameString("navP"));
-			if (persistent.DataOffset == (size_t)-1 || state.DataOffset == (size_t)-1 || !actor->BoolValue(persistent))
-				continue;
-
-			const PersistentRecord& record = it->second;
-			actor->Value<NameString>(state) = NameString(record.state);
-			actor->Value<NameString>(leading) = NameString(record.leading);
-			actor->Value<NameString>(nav) = NameString(record.nav);
-
-			// PostBeginPlay only carries a following or idle character over (None is stateIdle's default too)
-			const std::string s = Lower(record.state);
-			if (s != "stateidle" && s != "stateleadingactorpause" && s != "stateleadingactor")
-				continue;
-
-			UActor* leader = nullptr;
-			UActor* navPoint = nullptr;
-			const std::string wantLeader = Lower(record.leading), wantNav = Lower(record.nav);
-			for (UActor* other : engine->Level->Actors)
-			{
-				if (!other)
-					continue;
-				const std::string name = Lower(other->Name.ToString());
-				if (!wantLeader.empty() && name == wantLeader)
-					leader = other;
-				if (!wantNav.empty() && name == wantNav)
-					navPoint = other;
-			}
-			// Harry's actor is named after the level's own numbering (Harry1 here, Harry0 there)
-			if (!leader && wantLeader.rfind("harry", 0) == 0)
-				leader = player;
-
-			if (leadingActor.DataOffset != (size_t)-1 && leader)
-				actor->Value<UObject*>(leadingActor) = leader;
-			if (navP.DataOffset != (size_t)-1 && navPoint)
-				actor->Value<UObject*>(navP) = navPoint;
-			if (!record.state.empty() && record.state != "None")
-				CallEvent(actor, NameString("GotoState"), { ExpressionValue::NameValue(NameString(record.state)) });
-			LogMessage("HP2 persistent actor " + actor->Name.ToString() + " back in " + record.state + " leading " + record.leading);
-		}
 	}
 }
 

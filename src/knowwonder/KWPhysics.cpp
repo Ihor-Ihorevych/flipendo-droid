@@ -2,6 +2,8 @@
 #include "KWPhysics.h"
 #include "KWMove.h"
 #include "KW.h"
+#include "KWGame.h"
+#include "HP2.h"
 #include "KWActor.h"
 #include "Engine.h"
 #include "VM/ScriptCall.h"
@@ -267,8 +269,9 @@ namespace KW
 
 	// No HitWall against pawns. A pawn steering into the wall (towards Destination, flat when walking, within
 	// MinHitWall) gets HitWall only if its script probes it (falling: always); otherwise its move ends (MoveTimer -1,
-	// bFromWall). Other actors get HitWall if they probe it.
-	// IDA Engine.dll: ?processHitWall@AActor@@QAEXVFVector@@PAV1@@Z [HP1 0x103ECF20]
+	// bFromWall). HP2 only sets bFromWall: the move goes on (cutscene characters no longer stop at a light brush against
+	// a wall). Other actors get HitWall if they probe it.
+	// IDA Engine.dll: ?processHitWall@AActor@@QAEXVFVector@@PAV1@@Z [HP1 0x103ECF20] [HP2 0x103F9D30]
 	void ProcessHitWall(UActor* actor, vec3 hitNormal, UActor* hitActor)
 	{
 		if (hitActor && AsPawn(hitActor))
@@ -288,7 +291,8 @@ namespace KW
 				return;
 			if (!pawn->IsEventEnabled(EventName::HitWall) && pawn->Physics() != PHYS_Falling)
 			{
-				pawn->MoveTimer() = -1.0f;
+				if (!IsHP2())
+					pawn->MoveTimer() = -1.0f;
 				pawn->bFromWall() = true;
 				return;
 			}
@@ -741,7 +745,8 @@ namespace KW
 	// player: 30% of it), velocity turned towards the acceleration by friction. Braking: friction in 0.03 s steps,
 	// stopping dead under 10 or on reversal. Max speed: MaxSpeed (non-players times DesiredSpeed); a walking player
 	// slows towards 30% of it.
-	// IDA Engine.dll: ?calcVelocity@APawn@@AAEXVFVector@@MMMHHH@Z [HP1 0x103EB3E0]
+	// HP2's is the same code (2146 bytes against 2415, no change in what it does).
+	// IDA Engine.dll: ?calcVelocity@APawn@@AAEXVFVector@@MMMHHH@Z [HP1 0x103EB3E0] [HP2 0x103F8400]
 	void CalcVelocity(UPawn* pawn, const vec3& accelDir, float deltaTime, float maxSpeed, float friction, bool fluid, bool brake, bool buoyant)
 	{
 		float effectiveFriction = std::max(friction, fluid ? 1.0f : 0.0f);
@@ -913,7 +918,14 @@ namespace KW
 	// hit steps up (stepUp, with ledge grab); then the floor (MaxStepHeight + 2 down): kept, snapped to, slid down a
 	// slope, or lost (Falling, physFalling; a pawn that can't jump or walks is put back, MoveTimer -1). PlayerPawn.bAutoJump
 	// jumps off an edge when jumping lands more than 10 higher.
-	// IDA Engine.dll: ?physWalking@APawn@@QAEXMH@Z [HP1 0x103E6B60]
+	// HP2's Pawn.bNoZoneFriction (set while HPawn patrols): walking ignores the zone's ground friction.
+	static bool NoZoneFriction(UPawn* pawn)
+	{
+		static PropertyDataOffset offset = engine->packages->FindClass("Engine.Pawn")->GetPropertyDataOffset("bNoZoneFriction");
+		return pawn->BoolValue(offset);
+	}
+
+	// IDA Engine.dll: ?physWalking@APawn@@QAEXMH@Z [HP1 0x103E6B60] [HP2 0x103F4130] (HP2 compared up to calcVelocity)
 	void PhysWalking(UPawn* pawn, float deltaTime, int iterations)
 	{
 		if (pawn->Region().ZoneNumber == 0)
@@ -927,7 +939,11 @@ namespace KW
 		pawn->Acceleration().z = 0.0f;
 		vec3 accelDir = IsZero(pawn->Acceleration()) ? pawn->Acceleration() : SafeNormal(pawn->Acceleration());
 		UZoneInfo* zone = pawn->Region().Zone;
-		CalcVelocity(pawn, accelDir, deltaTime, pawn->GroundSpeed(), zone->ZoneGroundFriction(), false, true, false);
+		// HP2 walks without braking, and with no ground friction under bNoZoneFriction
+		if (IsHP2())
+			CalcVelocity(pawn, accelDir, deltaTime, pawn->GroundSpeed(), NoZoneFriction(pawn) ? 0.0f : zone->ZoneGroundFriction(), false, false, false);
+		else
+			CalcVelocity(pawn, accelDir, deltaTime, pawn->GroundSpeed(), zone->ZoneGroundFriction(), false, true, false);
 		vec3 desiredMove = pawn->Velocity();
 		if (!IsPlayerPawn(pawn) || dot(zone->ZoneVelocity(), zone->ZoneVelocity()) > 90000.0f)
 			desiredMove += zone->ZoneVelocity() * 25.0f * deltaTime;
@@ -1796,7 +1812,7 @@ namespace KW
 	// performPhysics
 
 	// IDA Engine.dll: ?performPhysics@AActor@@UAEXM@Z [HP1 0x103E52C0]
-	// IDA Engine.dll: ?performPhysics@APawn@@UAEXM@Z [HP1 0x103E5520]
+	// IDA Engine.dll: ?performPhysics@APawn@@UAEXM@Z [HP1 0x103E5520] [HP2 0x103F2B80]
 	void PerformPhysics(UActor* actor, float deltaTime)
 	{
 		if (IsInterpolationManager(actor))
@@ -1830,10 +1846,24 @@ namespace KW
 		}
 		if (actor->bDeleteMe())
 			return;
+		if (IsHP2() && pawn)
+			HP2::SmoothSteps(pawn);
 
 		if (pawn)
 		{
-			if (pawn->Physics() != PHYS_Spider && (!IsPlayerPawn(pawn) || pawn->Rotation() != pawn->DesiredRotation() || pawn->RotationRate().Roll > 0))
+			// The player always turns. Another pawn: HP1 when it isn't at DesiredRotation or has roll to ease; HP2 when it
+			// rotates to DesiredRotation and isn't there yet, or has bFixedRotationDir without bRotateToDesired. HP2
+			// never turns a pawn in PHYS_Interpolating (an InterpolationManager sets its rotation).
+			bool turn;
+			if (pawn->Physics() == PHYS_Spider || (IsHP2() && pawn->Physics() == PHYS_Interpolating))
+				turn = false;
+			else if (IsPlayerPawn(pawn))
+				turn = true;
+			else if (IsHP2())
+				turn = (pawn->Rotation() != pawn->DesiredRotation() && pawn->bRotateToDesired()) || (!pawn->bRotateToDesired() && pawn->bFixedRotationDir());
+			else
+				turn = pawn->Rotation() != pawn->DesiredRotation() || pawn->RotationRate().Roll > 0;
+			if (turn)
 				PawnPhysicsRotation(pawn, deltaTime, oldVelocity);
 			pawn->MoveTimer() -= deltaTime;
 			pawn->AvgPhysicsTime() = pawn->AvgPhysicsTime() * 0.80000001f + deltaTime * 0.2f;

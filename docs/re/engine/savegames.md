@@ -49,7 +49,11 @@ In HP2 `PaintProgress` differs only in offsets. HP2's engine side of saving:
 - **The queued save**: `UGameEngine::Tick` [HP2 0x103A9910], after the levels tick, tests the viewport player's
   `bQueuedToSaveGame` (PlayerPawn +0x958, at 0x103A9BB7). When set: creates SavePath and the save folder, logs "Saving
   game...(before call) Filename: <folder>\Save0.usa", clears the flag, calls `SaveGame(0)`, runs the `RestartSounds`
-  console command, `Flush(1)`, and returns, leaving out the rest of that tick (no frame is drawn).
+  console command, `Flush(1)`, and returns, leaving out the rest of that tick (no frame is drawn). `RESTARTSOUNDS`
+  (ALAudio's `Exec` [HP2 ALAudio 0x100067B0]) sets a flag that makes its next `Update` call `UnpauseSounds`: every
+  source that was playing plays again, so a streamed sound that ran dry while the save blocked starts over. Flipendo
+  (`HP2::TickQueuedSave`) does the same and ends the frame; there are no caches to flush (before 2026-10-21 it went on
+  with the frame).
 - **`UGameEngine::SaveGame`** [HP2 0x103AB430] (1154 -> 1380 bytes): HP1's, plus: creates SavePath and the save folder;
   after setting LevelAction to saving raises `PreSaveGame` on every actor; draws the progress frame only when the
   viewport player's `bShowLoadingScreen` (+0x92C) is false (a save on arriving in a level happens under the loading
@@ -62,7 +66,7 @@ In HP2 `PaintProgress` differs only in offsets. HP2's engine side of saving:
   <n>` (`LoadPersistentActorCache()`, then `LevelInfo.ServerTravel("<folder>\Save<n>.usa")`), `SAVEPACTORS`
   (`ULevel::SavePersistentActors(LevelEnterText)`, the hub persistence).
 - Flipendo: `HP2::TickQueuedSave` and `HP2::SaveCommand` (`src/hp2/HP2Save.cpp`), the shared `KW::SaveGame` with the HP2
-  differences. Not ported: the persistent actor cache, RestartSounds, the skipped rest of the tick.
+  differences; the persistent actor cache in `src/hp2/HP2Persist.cpp` ([hub persistence](../hp2/engine.md#persistent-actors-across-hub-travel)). Not ported: RestartSounds, the skipped rest of the tick.
 
 
 - **`UGameEngine::SaveGame(int)`** [HP1 0x103A2280] is stock UE1: sets `LevelInfo.LevelAction` to saving, paints one

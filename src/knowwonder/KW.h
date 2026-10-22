@@ -192,6 +192,7 @@ namespace KW
 	bool PawnRotateToward(UPawn* pawn, const vec3& focalPoint);
 	// UPawn::TurnTo / TurnToward and their latent polls: one step of the turn (flying acceleration + rotateToward).
 	bool PawnTurnStep(UPawn* pawn, const vec3& focus);
+	void PawnStartTurnTo(UPawn* pawn);
 	// UPawn::MoveTo / MoveToward / StrafeTo / StrafeFacing: the first step when the latent move starts.
 	void PawnStartMove(UPawn* pawn);
 	bool PawnPollWaitForLanding(UPawn* pawn, float elapsed);

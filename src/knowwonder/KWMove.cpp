@@ -6,10 +6,12 @@
 #include "Utils/Logger.h"
 #include "KWMove.h"
 #include "KW.h"
+#include "KWGame.h"
 #include "Engine.h"
 #include "VM/ScriptCall.h"
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Engine/Actors/Brush/UBrush.h"
+#include "Packages/Engine/Actors/Brush/UMover.h"
 #include "Packages/Engine/Actors/Decoration/UDecoration.h"
 #include "Packages/Engine/Actors/Pawn/UPawn.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
@@ -169,7 +171,8 @@ namespace KW
 		}
 	}
 
-	// IDA Engine.dll: ?MoveActor@ULevel@@UAEHPAVAActor@@VFVector@@VFRotator@@AAUFCheckResult@@HHHH@Z [HP1 0x103AA3A0]
+	// IDA Engine.dll: ?MoveActor@ULevel@@UAEHPAVAActor@@VFVector@@VFRotator@@AAUFCheckResult@@HHHH@Z [HP1 0x103AA3A0] [HP2 0x103B3E80]
+	// (HP2 compared up to the hit loop)
 	bool MoveActor(UActor* actor, const vec3& delta, const Rotator& newRotation, CheckResult& hit, bool test, bool ignorePawns, bool ignoreBases, bool noFail)
 	{
 		if (actor->bStatic() || !actor->bMovable())
@@ -209,7 +212,10 @@ namespace KW
 			vec3 extent = box.extents();
 			if (IsMover(actor))
 				extent -= vec3(0.50999999f);
-			hits = MultiLineCheck(center + testDelta, center, extent, actor->bCollideActors(), actor->bCollideWorld() ? LevelInfo() : nullptr, 0);
+			// HP2's ME_Really* movers (MoverEncroachType 4-7) don't sweep: they pass through actors and only encroach
+			UMover* mover = IsHP2() ? UObject::TryCast<UMover>(actor) : nullptr;
+			if (!mover || mover->MoverEncroachType() < 4)
+				hits = MultiLineCheck(center + testDelta, center, extent, actor->bCollideActors(), actor->bCollideWorld() ? LevelInfo() : nullptr, 0);
 
 			if (actor->bBlockActors() || actor->bBlockPlayers() || actor->bCollideWorld())
 			{
@@ -331,7 +337,37 @@ namespace KW
 	// Other actors in the way of an actor (a mover, or anything that collides) moving to location/rotation. A mover
 	// first pushes each one along (moveSmooth); only what it couldn't push away gets EncroachingOn, and if that returns
 	// true the move is refused. Then EncroachedBy for actors it is blocked by, touch for the rest (touchNotify).
-	// IDA Engine.dll: ?CheckEncroachment@ULevel@@UAEHPAVAActor@@VFVector@@VFRotator@@H@Z [HP1 0x103AB5F0]
+	// p turned round pivot by angle (65536 to a full turn) in the plane of two of its coordinates: the first turns
+	// towards the second. HP2 divides the arm by its length and multiplies it back, which makes an actor right on the
+	// axis NaN; this skips that.
+	// IDA Engine.dll: not exported: sub_103B5210 (roll, by -angle in YZ), sub_103B5340 (pitch, XZ), sub_103B50F0 (yaw,
+	// XY) [HP2 0x103B5210] [HP2 0x103B5340] [HP2 0x103B50F0]
+	static void TurnAround(vec3& p, const vec3& pivot, int a, int b, int angle)
+	{
+		double rad = angle * 0.000095873802;
+		float s = (float)std::sin(rad);
+		float c = (float)std::cos(rad);
+		float da = p[a] - pivot[a];
+		float db = p[b] - pivot[b];
+		p[a] = c * da - s * db + pivot[a];
+		p[b] = c * db + s * da + pivot[b];
+	}
+
+	// HP2: a turning mover pushes an actor also by how far the turn moves the actor's location round the mover's,
+	// ten times over (roll, then pitch, then yaw)
+	// IDA Engine.dll: ?CheckEncroachment@ULevel@@UAEHPAVAActor@@VFVector@@VFRotator@@H@Z [HP2 0x103B55C0] (the mover
+	// pushes a non-mover)
+	static vec3 RotationPush(UActor* mover, UActor* other, const Rotator& rotation)
+	{
+		vec3 pivot = mover->Location();
+		vec3 p = other->Location();
+		TurnAround(p, pivot, 1, 2, -(rotation.Roll - mover->Rotation().Roll));
+		TurnAround(p, pivot, 0, 2, rotation.Pitch - mover->Rotation().Pitch);
+		TurnAround(p, pivot, 0, 1, rotation.Yaw - mover->Rotation().Yaw);
+		return (p - other->Location()) * 10.0f;
+	}
+
+	// IDA Engine.dll: ?CheckEncroachment@ULevel@@UAEHPAVAActor@@VFVector@@VFRotator@@H@Z [HP1 0x103AB5F0] [HP2 0x103B55C0]
 	bool CheckEncroachment(UActor* actor, const vec3& location, const Rotator& rotation, bool touchNotify)
 	{
 		if (!actor->bCollideActors() && !actor->bBlockActors() && !actor->bBlockPlayers() && !IsMover(actor))
@@ -351,6 +387,8 @@ namespace KW
 			{
 				// Push it along; still in the way afterwards: put it back and ask
 				vec3 push = location - actor->Location();
+				if (IsHP2())
+					push += RotationPush(actor, other, rotation);
 				MoveSmooth(other, push);
 				bool stillThere = false;
 				for (const CheckResult& again : ActorEncroachmentCheck(actor, location, rotation))

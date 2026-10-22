@@ -108,8 +108,8 @@ sounds; ambient sounds out of range are stopped instead of left to the priority;
 ## HP1 and HP2
 
 HP2's `PlaySound` adds `optional bool Disable3D, optional bool Loop`, and HP2 plays through ALAudio.dll (OpenAL)
-instead of Galaxy. `KW::PlaySound` takes both parameters for HP2's adapter (`src/hp2/HP2Natives.cpp`, also
-`PlayOwnedSound`) but ignores them so far.
+instead of Galaxy. How HP2's `PlaySound`, `CheckHearSound`, `ClientHearSound` and `StopSound` differ, and how
+`KW::PlaySound` follows them: [HP2's engine](../hp2/engine.md).
 
 ### HP2's sound objects
 
@@ -122,12 +122,16 @@ a wav file is read with `FWaveModInfo::ReadWaveInfo` as in HP1. Flipendo reads t
 (`0200-hp2.patch`).
 
 Format `XA` (most of HP2's sound effects, ambience and dialogue) is EA-XA ADPCM, EA's own codec; HP2's folder even
-ships EA's `sx.exe`. Engine.dll only has the encoder (`USound::CompressXA`); ALAudio hands the sound to Core.dll's
-`FFileStream`, whose decoder wasn't found (no coefficient table in Core, ALAudio or OpenAL32). The data matches EA-XA
-mono exactly: 15-byte blocks of 28 samples (a sound of 429,638 samples is 15,345 blocks, 230,175 bytes), the header byte
-holding the predictor (high nibble, coefficient pairs 0/0, 240/0, 460/-208, 392/-220 in 1/256) and the shift (low
-nibble). Both nibble orders sound alike in a smoothness test; the high nibble first of the common EA-XA layout is used.
-Flipendo decodes it to a WAV in `src/hp2/HP2Sound.cpp`. Not checked by ear against the original. In
-the HP1 vs HP2 code comparison HP2's `execPlaySound`, `execPlayOwnedSound` and `execClientHearSound` are
-"changed" and `CheckHearSound` isn't exported (inlined or rewritten); none of it, nor ALAudio.dll's mixing, has been
-read yet.
+ships EA's `sx.exe`. Engine.dll only has the encoder (`USound::CompressXA`). `UALAudioSubsystem::RegisterSound` streams
+every sound with flag 4 that isn't `OGG` through `FFileStream::CreateStream` as stream type 3 (4 with flag 2, looping),
+and `FFileStream::Read` [HP2 Core 0x10178390] decodes types 3 and 4 with two unexported functions: `sub_1017AD30` [HP2
+Core 0x1017AD30] hands out whole blocks and keeps a partial last one, `sub_1017AB80` [HP2 Core 0x1017AB80] decodes
+blocks. The decoder is mono: 15-byte blocks of 28 samples, the header byte holding the predictor (high nibble, a table
+of 16-bit pairs at 0x101D44D8: 0/0, 240/0, 460/-208, 392/-220 in 1/256, then unrelated data) and the shift (low
+nibble), two samples per byte, high nibble first. Each sample is
+`clamp((c1 * h1 + c2 * h2 + ((nibble << 28) >> (shift + 8))) >> 8)`, one rounding for the prediction and the nibble
+together (the common EA-XA decoders round them apart, up to 53 off on HP2's sounds); there is no 0xEE uncompressed
+block. The OpenAL format is mono 16-bit when the sound has one channel and stereo 16-bit otherwise, so a stereo XA sound
+would play the one decoded stream as interleaved stereo. Every one of HP2's 3114 XA sounds (AllDialog.USA_uax and every
+.u and map) is mono, uses predictors 0-3 only and is exactly `ceil(samples / 28)` blocks long.
+Flipendo decodes it the same way to a WAV in `src/hp2/HP2Sound.cpp`.
