@@ -452,3 +452,11 @@ button charges and casts, the jump button (right mouse) cycles the three spells,
 - **HP2 music:** `USurrealAudioDevice::Update` ran the music update for HP1 only, so HP2's songs never started. The mixer is put back when a video drops it
   (`Engine::PlayVideo` sets the device's music and then clears it). While the game is paused (the menu open) the songs playing before wait and go on from where
   they were; the menu's own song plays meanwhile.
+
+## 0.4.0
+
+- **Merged with Flipendo** (upstream af1e267, same SurrealEngine 8d61ae5): HP2's sound as ALAudio plays it (inverse distance falloff, ambience, priorities, 32 channels, pause),
+  lip sync, the new XA decoder, persistent actors across hub travel, the faithful story-state screening, Lumos surfaces, tick order, stair smoothing and the
+  physics fixes. Saves stay per launcher slot (`HP2::TickQueuedSave` writes `Save<slot>`, `LOADGAME` reads it). The patches were rebuilt by a three-way merge of the patched trees.
+- **Settings in three pages** (Display, Controls, Game) and two new switches: **No cutscene skip** and **No quick save**.
+- **FPS limit up to 120**: the app asks the display for the rate; cutscenes run at 60 at most (the original's cutscene walks break at high frame rates).
