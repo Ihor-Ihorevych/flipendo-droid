@@ -2574,10 +2574,35 @@ index 2e23b3c1..8480ad73 100644
  
  class OutputDevice
 diff --git a/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp b/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
-index 118f3de3..6dd4ff35 100644
+index 118f3de3..265cece0 100644
 --- a/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
 +++ b/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
-@@ -66,22 +66,37 @@ void CommandBufferManager::SubmitCommands(bool present, int presentWidth, int pr
+@@ -29,11 +29,13 @@ CommandBufferManager::CommandBufferManager(VulkanRenderDevice* renderer) : rende
+ 
+ CommandBufferManager::~CommandBufferManager()
+ {
++	FinishFrame();
+ 	DeleteFrameObjects();
+ }
+ 
+ void CommandBufferManager::WaitForTransfer()
+ {
++	FinishFrame();
+ 	renderer->Uploads->SubmitUploads();
+ 
+ 	if (TransferCommands)
+@@ -55,8 +57,9 @@ void CommandBufferManager::WaitForTransfer()
+ 	}
+ }
+ 
+-void CommandBufferManager::SubmitCommands(bool present, int presentWidth, int presentHeight, bool presentFullscreen)
++void CommandBufferManager::SubmitCommands(bool present, int presentWidth, int presentHeight, bool presentFullscreen, bool deferWait)
+ {
++	FinishFrame();
+ 	renderer->Uploads->SubmitUploads();
+ 
+ 	if (present)
+@@ -66,22 +69,37 @@ void CommandBufferManager::SubmitCommands(bool present, int presentWidth, int pr
  			UsingVsync = renderer->UseVSync;
  			UsingHdr = renderer->Hdr;
  			renderer->Framebuffers->DestroySwapChainFramebuffers();
@@ -2626,15 +2651,102 @@ index 118f3de3..6dd4ff35 100644
  		}
  	}
  
-@@ -129,6 +144,8 @@ void CommandBufferManager::SubmitCommands(bool present, int presentWidth, int pr
+@@ -119,6 +137,17 @@ void CommandBufferManager::SubmitCommands(bool present, int presentWidth, int pr
+ 		SwapChain->QueuePresent(PresentImageIndex, RenderFinishedSemaphores[PresentImageIndex].get());
+ 	}
+ 
++	if (deferWait)
++	{
++		// What the GPU is using stays alive until FinishFrame: the buffers, what is on the delete list
++		PendingDrawCommands = std::move(DrawCommands);
++		PendingTransferCommands = std::move(TransferCommands);
++		PendingDeleteList = std::move(FrameDeleteList);
++		FrameDeleteList = std::make_unique<DeleteList>();
++		FramePending = true;
++		return;
++	}
++
+ 	VkResult result = vkWaitForFences(renderer->Device.get()->device, 1, &RenderFinishedFence->fence, VK_TRUE, std::numeric_limits<uint64_t>::max());
+ 	if (result != VK_SUCCESS)
+ 		throw std::runtime_error("vkWaitForFences failed");
+@@ -129,10 +158,35 @@ void CommandBufferManager::SubmitCommands(bool present, int presentWidth, int pr
  	DrawCommands.reset();
  	TransferCommands.reset();
  	DeleteFrameObjects();
 +	// Spike: Mali keeps command-stream memory until the pool is reset; recycle it every frame.
 +	vkResetCommandPool(renderer->Device.get()->device, CommandPool->pool, 0);
++}
++
++// The end of a frame submitted with deferWait: wait for the GPU, then let go of what it was using
++void CommandBufferManager::FinishFrame()
++{
++	if (!FramePending)
++		return;
++	FramePending = false;
++
++	VkResult result = vkWaitForFences(renderer->Device.get()->device, 1, &RenderFinishedFence->fence, VK_TRUE, std::numeric_limits<uint64_t>::max());
++	if (result != VK_SUCCESS)
++		throw std::runtime_error("vkWaitForFences failed");
++	result = vkResetFences(renderer->Device.get()->device, 1, &RenderFinishedFence->fence);
++	if (result != VK_SUCCESS)
++		throw std::runtime_error("vkResetFences failed");
++
++	PendingDrawCommands.reset();
++	PendingTransferCommands.reset();
++	PendingDeleteList.reset();
++	vkResetCommandPool(renderer->Device.get()->device, CommandPool->pool, 0);
++	if (!renderer->Bindless)
++		renderer->DescriptorSets->ResetFixedTextureSets();
  }
  
  VulkanCommandBuffer* CommandBufferManager::GetTransferCommands()
+ {
++	FinishFrame();
+ 	if (!TransferCommands)
+ 	{
+ 		TransferCommands = CommandPool->createBuffer();
+@@ -145,8 +199,11 @@ VulkanCommandBuffer* CommandBufferManager::GetDrawCommands()
+ {
+ 	if (!DrawCommands)
+ 	{
++		FinishFrame();
+ 		DrawCommands = CommandPool->createBuffer();
+ 		DrawCommands->begin();
++		// The frame's start was left for the first thing that records into it (VulkanRenderDevice::Lock)
++		renderer->BeginSceneCommands();
+ 	}
+ 	return DrawCommands.get();
+ }
+diff --git a/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.h b/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.h
+index f1c8d832..bf92c0dc 100644
+--- a/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.h
++++ b/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.h
+@@ -11,9 +11,15 @@ public:
+ 	~CommandBufferManager();
+ 
+ 	void WaitForTransfer();
+-	void SubmitCommands(bool present, int presentWidth, int presentHeight, bool presentFullscreen);
++	// deferWait: the frame is submitted and its end (the wait for the GPU and everything that waits on it: command pool, delete
++	// list, descriptor sets, upload and vertex buffers) is left to FinishFrame, which the first thing of the next frame that
++	// touches those calls (GetDrawCommands, GetTransferCommands, ReserveVertices, a texture upload). The CPU then prepares the
++	// next frame while the GPU draws this one, instead of idling until it is done.
++	void SubmitCommands(bool present, int presentWidth, int presentHeight, bool presentFullscreen, bool deferWait = false);
++	void FinishFrame();
+ 	VulkanCommandBuffer* GetTransferCommands();
+ 	VulkanCommandBuffer* GetDrawCommands();
++	VulkanCommandBuffer* GetDrawCommandsNoBegin() { return DrawCommands.get(); }
+ 	void DeleteFrameObjects();
+ 
+ 	struct DeleteList
+@@ -40,4 +46,8 @@ private:
+ 	std::unique_ptr<VulkanCommandPool> CommandPool;
+ 	std::unique_ptr<VulkanCommandBuffer> DrawCommands;
+ 	std::unique_ptr<VulkanCommandBuffer> TransferCommands;
++
++	bool FramePending = false;
++	std::unique_ptr<VulkanCommandBuffer> PendingDrawCommands, PendingTransferCommands;
++	std::unique_ptr<DeleteList> PendingDeleteList;
+ };
 diff --git a/SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.cpp b/SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.cpp
 index 2ff37d79..11586c86 100644
 --- a/SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.cpp
@@ -3117,7 +3229,7 @@ index 8705efbe..7f604c57 100644
 +	int Kind; // 1 = BC1, 2 = BC2, 3 = BC3
 +};
 diff --git a/SurrealEngine/RenderDevice/Vulkan/UploadManager.cpp b/SurrealEngine/RenderDevice/Vulkan/UploadManager.cpp
-index 4d7dcaff..4450fac8 100644
+index 4d7dcaff..7f0a3be6 100644
 --- a/SurrealEngine/RenderDevice/Vulkan/UploadManager.cpp
 +++ b/SurrealEngine/RenderDevice/Vulkan/UploadManager.cpp
 @@ -3,6 +3,9 @@
@@ -3155,8 +3267,16 @@ index 4d7dcaff..4450fac8 100644
  	int width = Info.USize;
  	int height = Info.VSize;
  	int mipcount = Info.NumMips;
+@@ -156,6 +174,7 @@ void UploadManager::UploadWhite(CachedTexture* tex)
+ 
+ void UploadManager::WaitIfUploadBufferIsFull(int bytes)
+ {
++	renderer->Commands->FinishFrame(); // the staging buffer may still be read by the frame before
+ 	if (UploadBufferPos + bytes > BufferManager::UploadBufferSize)
+ 	{
+ 		renderer->Commands->WaitForTransfer();
 diff --git a/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp b/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp
-index 0c7b3bb7..55f330d4 100644
+index 0c7b3bb7..fbcf66af 100644
 --- a/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp
 +++ b/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp
 @@ -10,6 +10,9 @@
@@ -3206,16 +3326,89 @@ index 0c7b3bb7..55f330d4 100644
  	}
  	catch (const std::exception& e)
  	{
-@@ -113,6 +126,8 @@ void VulkanRenderDevice::SubmitAndWait(bool present, int presentWidth, int prese
+@@ -108,11 +121,13 @@ void VulkanError(const char* text)
+ 	throw std::runtime_error(text);
+ }
+ 
+-void VulkanRenderDevice::SubmitAndWait(bool present, int presentWidth, int presentHeight, bool presentFullscreen)
++void VulkanRenderDevice::SubmitAndWait(bool present, int presentWidth, int presentHeight, bool presentFullscreen, bool deferWait)
+ {
  	DescriptorSets->UpdateBindlessSet();
  
- 	Commands->SubmitCommands(present, presentWidth, presentHeight, presentFullscreen);
-+	if (!Bindless)
+-	Commands->SubmitCommands(present, presentWidth, presentHeight, presentFullscreen);
++	Commands->SubmitCommands(present, presentWidth, presentHeight, presentFullscreen, deferWait);
++	if (!Bindless && !deferWait)
 +		DescriptorSets->ResetFixedTextureSets();
  
  	Batch.SceneIndexStart = 0;
  	SceneVertexPos = 0;
-@@ -336,6 +351,37 @@ void VulkanRenderDevice::UpdateTextureRect(TextureInfo& Info, int U, int V, int
+@@ -178,6 +193,20 @@ void VulkanRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenCle
+ 	pushconstants.hitIndex = 0;
+ 	ForceHitIndex = -1;
+ 
++	// The frame's start (the barriers and the render pass) is recorded with the first command that needs a command buffer,
++	// when the frame before has been finished: until then the GPU may still be drawing it while the CPU does its own work
++	LockClear = ScreenClear;
++	LockPending = true;
++	IsLocked = true;
++}
++
++void VulkanRenderDevice::BeginSceneCommands()
++{
++	if (!LockPending)
++		return;
++	LockPending = false;
++	vec4 ScreenClear = LockClear;
++
+ 	// If frame textures no longer match the window or user settings, recreate them along with the swap chain
+ 	if (!Textures->Scene || Textures->Scene->Width != Viewport->GetNativePixelWidth() || Textures->Scene->Height != Viewport->GetNativePixelHeight() ||Textures->Scene->Multisample != GetSettingsMultisample())
+ 	{
+@@ -190,7 +219,7 @@ void VulkanRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenCle
+ 		DescriptorSets->UpdateFrameDescriptors();
+ 	}
+ 
+-	auto cmdbuffer = Commands->GetDrawCommands();
++	auto cmdbuffer = Commands->GetDrawCommandsNoBegin();
+ 
+ 	// Special thanks to Khronos and AMD for making this absolute hell to use.
+ 	VkAccessFlags srcColorAccess = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+@@ -219,8 +248,6 @@ void VulkanRenderDevice::Lock(vec4 InFlashScale, vec4 InFlashFog, vec4 ScreenCle
+ 	VkDeviceSize offsets[] = { 0 };
+ 	cmdbuffer->bindVertexBuffers(0, 1, vertexBuffers, offsets);
+ 	cmdbuffer->bindIndexBuffer(Buffers->SceneIndexBuffer->buffer, 0, VK_INDEX_TYPE_UINT32);
+-
+-	IsLocked = true;
+ }
+ 
+ void VulkanRenderDevice::FlushDrawBatchAndWait()
+@@ -271,12 +298,13 @@ void VulkanRenderDevice::Unlock(bool Blit)
+ 	int windowWidth = Viewport->GetNativePixelWidth();
+ 	int windowHeight = Viewport->GetNativePixelHeight();
+ 
+-	SubmitAndWait(Blit ? true : false, windowWidth, windowHeight, Viewport->IsFullscreen());
++	SubmitAndWait(Blit ? true : false, windowWidth, windowHeight, Viewport->IsFullscreen(), true);
+ 
+ 	Batch.Pipeline = nullptr;
+ 
+ 	if (Samplers->LODBias != LODBias)
+ 	{
++		Commands->FinishFrame();
+ 		DescriptorSets->ClearCache();
+ 		Textures->ClearAllBindlessIndexes();
+ 		Samplers->CreateSceneSamplers();
+@@ -284,6 +312,7 @@ void VulkanRenderDevice::Unlock(bool Blit)
+ 
+ 	if (HitData)
+ 	{
++		Commands->FinishFrame();
+ 		// Look for the last hit
+ 		int width = HitWidth;
+ 		int height = HitHeight;
+@@ -333,9 +362,41 @@ bool VulkanRenderDevice::SupportsTextureFormat(TextureFormat Format)
+ 
+ void VulkanRenderDevice::UpdateTextureRect(TextureInfo& Info, int U, int V, int UL, int VL)
+ {
++	Commands->FinishFrame();
  	Textures->UpdateTextureRect(&Info, U, V, UL, VL);
  }
  
@@ -3253,7 +3446,7 @@ index 0c7b3bb7..55f330d4 100644
  void VulkanRenderDevice::DrawBatch(VulkanCommandBuffer* cmdbuffer)
  {
  	size_t icount = SceneIndexPos - Batch.SceneIndexStart;
-@@ -350,7 +396,15 @@ void VulkanRenderDevice::DrawBatch(VulkanCommandBuffer* cmdbuffer)
+@@ -350,7 +411,15 @@ void VulkanRenderDevice::DrawBatch(VulkanCommandBuffer* cmdbuffer)
  
  		auto layout = RenderPasses->Scene.BindlessPipelineLayout.get();
  		cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, Batch.Pipeline->Pipeline.get());
@@ -3270,7 +3463,15 @@ index 0c7b3bb7..55f330d4 100644
  		cmdbuffer->pushConstants(layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ScenePushConstants), &pushconstants);
  		cmdbuffer->setBlendConstants(Batch.BlendConstants);
  		cmdbuffer->drawIndexed((uint32_t)icount, 1, (uint32_t)Batch.SceneIndexStart, 0, 0);
-@@ -414,7 +468,7 @@ void VulkanRenderDevice::DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surfa
+@@ -361,6 +430,7 @@ void VulkanRenderDevice::DrawBatch(VulkanCommandBuffer* cmdbuffer)
+ 
+ void VulkanRenderDevice::DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surface, SurfaceFacet& Facet)
+ {
++	Commands->FinishFrame();
+ 	if (Facet.VertexCount < 3)
+ 		return;
+ 
+@@ -414,7 +484,7 @@ void VulkanRenderDevice::DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surfa
  	SetPipeline(RenderPasses->GetPipeline(PolyFlags));
  
  	ivec4 textureBinds = GetTextureIndexes(PolyFlags, tex, lightmap, macrotex, detailtex);
@@ -3279,7 +3480,15 @@ index 0c7b3bb7..55f330d4 100644
  
  	auto pts = Facet.Vertices;
  	uint32_t vcount = Facet.VertexCount;
-@@ -534,7 +588,7 @@ void VulkanRenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info,
+@@ -465,6 +535,7 @@ void VulkanRenderDevice::DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surfa
+ 
+ void VulkanRenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info, const GouraudVertex* Pts, int NumPts, uint32_t PolyFlags)
+ {
++	Commands->FinishFrame();
+ 	if (NumPts < 3) return; // This can apparently happen!!
+ 
+ 	PolyFlags = ApplyPrecedenceRules(PolyFlags);
+@@ -534,7 +605,7 @@ void VulkanRenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info,
  				vertex->Color.r = P->Light.x;
  				vertex->Color.g = P->Light.y;
  				vertex->Color.b = P->Light.z;
@@ -3288,7 +3497,86 @@ index 0c7b3bb7..55f330d4 100644
  				vertex->TextureBinds = textureBinds;
  				vertex++;
  			}
-@@ -1437,3 +1491,16 @@ void VulkanRenderDevice::DrawPresentTexture(int width, int height)
+@@ -557,6 +628,7 @@ void VulkanRenderDevice::DrawGouraudPolygon(SceneNode* Frame, TextureInfo& Info,
+ 
+ void VulkanRenderDevice::DrawTile(SceneNode* Frame, TextureInfo& Info, float X, float Y, float XL, float YL, float U, float V, float UL, float VL, float Z, vec4 Color, vec4 Fog, uint32_t PolyFlags)
+ {
++	Commands->FinishFrame();
+ 	PolyFlags = ApplyPrecedenceRules(PolyFlags);
+ 
+ 	if (PolyFlags == PF_SubpixelFont)
+@@ -644,6 +716,7 @@ vec4 VulkanRenderDevice::ApplyInverseGamma(vec4 color)
+ 
+ void VulkanRenderDevice::Draw3DLine(SceneNode* Frame, vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2)
+ {
++	Commands->FinishFrame();
+ 	if (IsOrtho)
+ 	{
+ 		P1.x = (P1.x) / Frame->Zoom + Frame->FX2;
+@@ -689,6 +762,7 @@ void VulkanRenderDevice::Draw3DLine(SceneNode* Frame, vec4 Color, uint32_t LineF
+ 
+ void VulkanRenderDevice::Draw2DLine(SceneNode* Frame, vec4 Color, uint32_t LineFlags, vec3 P1, vec3 P2)
+ {
++	Commands->FinishFrame();
+ 	bool occlude = !!(LineFlags & LINE_DepthCued);
+ 	SetPipeline(RenderPasses->GetLinePipeline(occlude));
+ 	ivec4 textureBinds = GetTextureIndexes(PF_Highlighted, nullptr);
+@@ -713,6 +787,7 @@ void VulkanRenderDevice::Draw2DLine(SceneNode* Frame, vec4 Color, uint32_t LineF
+ 
+ void VulkanRenderDevice::Draw2DPoint(SceneNode* Frame, vec4 Color, uint32_t LineFlags, float X1, float Y1, float X2, float Y2, float Z)
+ {
++	Commands->FinishFrame();
+ 	bool occlude = !!(LineFlags & LINE_DepthCued);
+ 	SetPipeline(RenderPasses->GetPointPipeline(occlude));
+ 	ivec4 textureBinds = GetTextureIndexes(PF_Highlighted, nullptr);
+@@ -743,6 +818,7 @@ void VulkanRenderDevice::Draw2DPoint(SceneNode* Frame, vec4 Color, uint32_t Line
+ 
+ void VulkanRenderDevice::ClearZ()
+ {
++	Commands->FinishFrame();
+ 	DrawBatch(Commands->GetDrawCommands());
+ 
+ 	VkClearAttachment attachment = {};
+@@ -798,6 +874,7 @@ void VulkanRenderDevice::SetHitLocation()
+ 
+ void VulkanRenderDevice::ReadPixels(TextureColor* Pixels)
+ {
++	Commands->FinishFrame();
+ 	auto cmdbuffer = Commands->GetDrawCommands();
+ 
+ 	DrawBatch(cmdbuffer);
+@@ -923,6 +1000,7 @@ void VulkanRenderDevice::ReadPixels(TextureColor* Pixels)
+ 
+ void VulkanRenderDevice::EndFlash()
+ {
++	Commands->FinishFrame();
+ 	if (FlashScale != vec4(0.5f, 0.5f, 0.5f, 0.0f) || FlashFog != vec4(0.0f, 0.0f, 0.0f, 0.0f))
+ 	{
+ 		vec4 color(FlashFog.x, FlashFog.y, FlashFog.z, 1.0f - std::min(FlashScale.x * 2.0f, 1.0f));
+@@ -966,6 +1044,7 @@ void VulkanRenderDevice::EndFlash()
+ 
+ void VulkanRenderDevice::SetSceneNode(SceneNode* Frame)
+ {
++	Commands->FinishFrame();
+ 	auto commands = Commands->GetDrawCommands();
+ 	DrawBatch(commands);
+ 
+@@ -996,12 +1075,14 @@ void VulkanRenderDevice::SetSceneNode(SceneNode* Frame)
+ 
+ void VulkanRenderDevice::PrecacheTexture(TextureInfo& Info, uint32_t PolyFlags)
+ {
++	Commands->FinishFrame();
+ 	PolyFlags = ApplyPrecedenceRules(PolyFlags);
+ 	Textures->GetTexture(&Info, !!(PolyFlags & PF_Masked));
+ }
+ 
+ void VulkanRenderDevice::ClearTextureCache()
+ {
++	Commands->FinishFrame();
+ 	DescriptorSets->ClearCache();
+ 	Textures->ClearCache();
+ 	Uploads->ClearCache();
+@@ -1437,3 +1518,16 @@ void VulkanRenderDevice::DrawPresentTexture(int width, int height)
  		.AddImage(Commands->SwapChain->GetImage(Commands->PresentImageIndex), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0)
  		.Execute(cmdbuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
  }
@@ -3306,7 +3594,7 @@ index 0c7b3bb7..55f330d4 100644
 +	return true;
 +}
 diff --git a/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.h b/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.h
-index d84b42bd..9098aed2 100644
+index d84b42bd..59b1706c 100644
 --- a/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.h
 +++ b/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.h
 @@ -61,6 +61,12 @@ public:
@@ -3322,15 +3610,29 @@ index d84b42bd..9098aed2 100644
  	void RunBloomPass();
  	void BloomStep(VulkanCommandBuffer* cmdbuffer, VulkanPipeline* pipeline, VulkanDescriptorSet* input, VulkanFramebuffer* output, int width, int height, const BloomPushConstants &pushconstants);
  	static float ComputeBlurGaussian(float n, float theta);
-@@ -141,6 +147,7 @@ private:
+@@ -103,6 +109,7 @@ private:
+ 
+ 	VertexReserveInfo ReserveVertices(size_t vcount, size_t icount)
+ 	{
++		Commands->FinishFrame(); // the buffers may still be in use by the frame before
+ 		// If buffers are full, flush and wait for room.
+ 		if (SceneVertexPos + vcount > (size_t)BufferManager::SceneVertexBufferSize || SceneIndexPos + icount > (size_t)BufferManager::SceneIndexBufferSize)
+ 		{
+@@ -141,7 +148,12 @@ private:
  	ivec4 GetTextureIndexes(uint32_t PolyFlags, CachedTexture* tex, bool clamp = false);
  	ivec4 GetTextureIndexes(uint32_t PolyFlags, CachedTexture* tex, CachedTexture* lightmap, CachedTexture* macrotex, CachedTexture* detailtex);
  	void DrawBatch(VulkanCommandBuffer* cmdbuffer);
+-	void SubmitAndWait(bool present, int presentWidth, int presentHeight, bool presentFullscreen);
 +	void SetFixedTextures(uint32_t PolyFlags, CachedTexture* tex, bool clamp, CachedTexture* macrotex, CachedTexture* detailtex, CachedTexture* lightmap);
- 	void SubmitAndWait(bool present, int presentWidth, int presentHeight, bool presentFullscreen);
++	void SubmitAndWait(bool present, int presentWidth, int presentHeight, bool presentFullscreen, bool deferWait = false);
++	friend class CommandBufferManager;
++	void BeginSceneCommands(); // the start of the frame Lock asked for, recorded when the first command is
++	bool LockPending = false;
++	vec4 LockClear = vec4(0.0f);
  
  	vec4 ApplyInverseGamma(vec4 color);
-@@ -150,6 +157,7 @@ private:
+ 
+@@ -150,6 +162,7 @@ private:
  		size_t SceneIndexStart = 0;
  		PipelineState* Pipeline = nullptr;
  		float BlendConstants[4] = {};
@@ -3338,7 +3640,7 @@ index d84b42bd..9098aed2 100644
  	} Batch;
  
  	ScenePushConstants pushconstants = {};
-@@ -184,11 +192,22 @@ inline void VulkanRenderDevice::SetPipeline(PipelineState* pipeline)
+@@ -184,11 +197,22 @@ inline void VulkanRenderDevice::SetPipeline(PipelineState* pipeline)
  
  inline ivec4 VulkanRenderDevice::GetTextureIndexes(uint32_t PolyFlags, CachedTexture* tex, bool clamp)
  {
