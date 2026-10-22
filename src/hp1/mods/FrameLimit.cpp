@@ -7,6 +7,10 @@
 #include <cstdlib>
 #include <thread>
 
+#ifdef __ANDROID__
+extern std::atomic<bool> g_cutsceneActive; // a cutscene holds Harry (android_main.cpp)
+#endif
+
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -18,6 +22,8 @@
 // students stop at a ramp. Without the limit the game runs at the monitor's refresh rate (vsync), or uncapped.
 // TickMods runs once per frame after the console tick, so waiting there for the next frame's start paces the whole loop;
 // the engine's frame time (Engine::CalcTimeElapsed) then includes the wait.
+// Android's FPS limit goes up to 120 (the phone's display), but a cutscene always runs at 60 at most: the slope bug above
+// is in the cutscene walk, so the scenes play exactly as at 60 fps and only the gameplay is smoother.
 namespace HP1::Mods
 {
 	namespace
@@ -81,6 +87,10 @@ namespace HP1::Mods
 		int fps = FrameLimit();
 		if (fps <= 0)
 			return;
+#ifdef __ANDROID__
+		if (fps > 60 && g_cutsceneActive.load())
+			fps = 60;
+#endif
 
 		static Clock::time_point nextFrame;
 		auto frameTime = std::chrono::duration_cast<Clock::duration>(std::chrono::duration<double>(1.0 / fps));

@@ -51,7 +51,7 @@ public class FlipendoActivity extends SDLActivity {
 
     /** The game's frame limit (Settings > FPS limit; the frame limit mod, src/hp1/mods/FrameLimit.cpp). */
     static int fpsLimit = 60;
-    static final int FPS_LIMIT_MIN = 25, FPS_LIMIT_MAX = 60;
+    static final int FPS_LIMIT_MIN = 25, FPS_LIMIT_MAX = 120; // above 60 only outside cutscenes (FrameLimit.cpp)
 
     static native void nativeSetFpsLimit(int fps);
 
@@ -61,7 +61,18 @@ public class FlipendoActivity extends SDLActivity {
             nativeSetFpsLimit(fpsLimit);
         } catch (UnsatisfiedLinkError ignored) {
         }
+        requestDisplayRate();
         if (save) saveScales();
+    }
+
+    /** Asks the display for the limit's refresh rate (a 120 Hz screen otherwise stays at 60 for a game that doesn't say). */
+    void requestDisplayRate() {
+        if (android.os.Build.VERSION.SDK_INT < 30 || mSurface == null) return;
+        try {
+            android.view.Surface surface = mSurface.getHolder().getSurface();
+            if (surface != null && surface.isValid()) surface.setFrameRate(fpsLimit, android.view.Surface.FRAME_RATE_COMPATIBILITY_DEFAULT);
+        } catch (RuntimeException ignored) {
+        }
     }
 
     static native void nativeSetDebugMode(boolean on);
@@ -662,6 +673,7 @@ public class FlipendoActivity extends SDLActivity {
             // Once laid out (and whenever the system bars change it) the surface follows the view's real size
             mSurface.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
                 viewSizeText = (r - l) + "x" + (b - t);
+                requestDisplayRate();
                 if (r - l != or - ol || b - t != ob - ot)
                     resizeSurface();
             });

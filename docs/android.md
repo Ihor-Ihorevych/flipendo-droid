@@ -280,7 +280,7 @@ the culprit on that phone).
 
 ## FPS limit
 
-Settings > Display > **FPS limit** (25-60, steps of 5; default 60) sets the frame limit mod's limit while the game runs
+Settings > Display > **FPS limit** (25-120, steps of 5; default 60; above 60 the app also asks a 120 Hz screen for that refresh rate, and cutscenes always run at 60 at most because the original's cutscene walks break at high frame rates) sets the frame limit mod's limit while the game runs
 (`HP1::Mods::SetFrameLimit`, `src/hp1/mods/FrameLimit.cpp`; overrides `--fps`, `--vanilla` still turns it off). Lower limits
 save battery and heat on slow phones. Kept in the app's preferences (`fpsLimit`).
 
