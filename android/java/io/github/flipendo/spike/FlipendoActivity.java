@@ -100,6 +100,19 @@ public class FlipendoActivity extends SDLActivity {
     static boolean invertWand = false;
     /** Settings > Controls: no cutscene skip (SKIP button, Y held on a pad) and no save button / pad save: play as the game was made. */
     static boolean noSkip = false, noQuickSave = false;
+    /** Settings > Game > Performance log: frame phase timings in the log (for a report from a slow phone). */
+    static boolean perfLog = false;
+
+    static native void nativeSetPerfLog(boolean on);
+
+    void applyPerfLog(boolean on, boolean save) {
+        perfLog = on;
+        try {
+            nativeSetPerfLog(on);
+        } catch (UnsatisfiedLinkError ignored) {
+        }
+        if (save) saveScales();
+    }
 
     void applyAutoJump(boolean on, boolean save) {
         autoJump = on;
@@ -319,7 +332,7 @@ public class FlipendoActivity extends SDLActivity {
     private void saveScales() {
         getSharedPreferences("flipendo", MODE_PRIVATE).edit()
                 .putFloat("renderScale", surfaceScale).putFloat("uiScale", uiScale)
-                .putFloat("fovOffset", fovOffset).putBoolean("debugMode", debugMode).putBoolean("showFps", showFps).putBoolean("autoJump", autoJump).putBoolean("invertWand", invertWand).putBoolean("noSkip", noSkip).putBoolean("noQuickSave", noQuickSave).putBoolean("firstPerson", firstPerson).putInt("fpsLimit", fpsLimit).apply();
+                .putFloat("fovOffset", fovOffset).putBoolean("debugMode", debugMode).putBoolean("showFps", showFps).putBoolean("autoJump", autoJump).putBoolean("invertWand", invertWand).putBoolean("noSkip", noSkip).putBoolean("noQuickSave", noQuickSave).putBoolean("perfLog", perfLog).putBoolean("firstPerson", firstPerson).putInt("fpsLimit", fpsLimit).apply();
     }
 
     /** Resizes the render surface (the engine rebuilds its scene textures and swapchain for the new size). */
@@ -663,6 +676,7 @@ public class FlipendoActivity extends SDLActivity {
         invertWand = prefs.getBoolean("invertWand", false);
         noSkip = prefs.getBoolean("noSkip", false);
         noQuickSave = prefs.getBoolean("noQuickSave", false);
+        applyPerfLog(prefs.getBoolean("perfLog", false), false);
         applyFirstPerson(prefs.getBoolean("firstPerson", false), false);
         applyFpsLimit(prefs.getInt("fpsLimit", 60), false);
         if (mSurface != null) {
@@ -1577,7 +1591,7 @@ public class FlipendoActivity extends SDLActivity {
         // The port's settings panel: the entry the pad is on
         static final int SET_RENDER = 0, SET_UI = 1, SET_FOV = 2, SET_FPS = 3, SET_SEG = 4, SET_JUMP = 5, SET_LANG = 6, SET_MOD = 7,
                 SET_DEBUG = 8, SET_TELEGRAM = 9, SET_DONE = 10, SET_RENDERER = 11, SET_FPS_LIMIT = 12, SET_LAYOUT = 13, SET_HELP = 14, SET_INVERT = 15, SET_SWITCH = 16, SET_FIRST = 17,
-                SET_TAB = 18 /* 18..20: the pages */, SET_NOSKIP = 21, SET_NOSAVE = 22, SET_FIX = 23;
+                SET_TAB = 18 /* 18..20: the pages */, SET_NOSKIP = 21, SET_NOSAVE = 22, SET_FIX = 23, SET_PERF = 24;
         int settingsFocus = -1;
         final java.util.List<android.graphics.RectF> setRects = new java.util.ArrayList<>();
         final java.util.List<Integer> setIds = new java.util.ArrayList<>();
@@ -1615,6 +1629,7 @@ public class FlipendoActivity extends SDLActivity {
             addEntry(rendererBtn, SET_RENDERER);
             addEntry(debugBtn, SET_DEBUG);
             addEntry(fixBtn, SET_FIX);
+            addEntry(perfBtn, SET_PERF);
             addEntry(switchBtn, SET_SWITCH);
         }
 
@@ -1684,6 +1699,7 @@ public class FlipendoActivity extends SDLActivity {
             }
             switch (focused) {
                 case SET_FIX: settingsOpen = false; activity.openGraphicsFix(); break;
+                case SET_PERF: activity.applyPerfLog(!perfLog, true); break;
                 case SET_NOSKIP: noSkip = !noSkip; activity.saveScales(); break;
                 case SET_NOSAVE: noQuickSave = !noQuickSave; activity.saveScales(); break;
                 case SET_FIRST: activity.applyFirstPerson(!firstPerson, true); break;
@@ -1849,7 +1865,7 @@ public class FlipendoActivity extends SDLActivity {
         static final String[] TAB_NAMES = { "Display", "Controls", "Game" };
         int settingsTab;         // the page of the settings panel: 0 Display, 1 Controls, 2 Game
         final android.graphics.RectF[] tabRects = { new android.graphics.RectF(), new android.graphics.RectF(), new android.graphics.RectF() };
-        final android.graphics.RectF noSkipBtn = new android.graphics.RectF(), noSaveBtn = new android.graphics.RectF();
+        final android.graphics.RectF noSkipBtn = new android.graphics.RectF(), noSaveBtn = new android.graphics.RectF(), perfBtn = new android.graphics.RectF();
         String leftSection = "", rightSection = "";
         float secLeftY, secRightY, pageTop;
         // the page's content scrolls inside the viewport (a larger text size makes it taller than the card)
@@ -2025,7 +2041,7 @@ public class FlipendoActivity extends SDLActivity {
         float layoutPageRows(float y0) {
             float h = lh;
             for (android.graphics.RectF r : new android.graphics.RectF[] { fpBtn, fpsBtn, segStick, segDpad, autoJumpBtn, invertBtn, layoutBtn,
-                    languageBtn, modBtn, rendererBtn, debugBtn, fixBtn, switchBtn, noSkipBtn, noSaveBtn }) r.setEmpty();
+                    languageBtn, modBtn, rendererBtn, debugBtn, fixBtn, perfBtn, switchBtn, noSkipBtn, noSaveBtn }) r.setEmpty();
             float rowH = 0.115f * h, rowGap = 0.02f * h;
             float knobR = 0.026f * lu;
             sliderX0 = colL0 + knobR;
@@ -2082,6 +2098,8 @@ public class FlipendoActivity extends SDLActivity {
                 yr += rowH + rowGap;
                 fixBtn.set(colR0, yr, colR1, yr + rowH);
                 yr += rowH + rowGap;
+                perfBtn.set(colR0, yr, colR1, yr + rowH);
+                yr += rowH + rowGap;
                 switchBtn.set(colR0, yr, colR1, yr + rowH);
                 yr += rowH + rowGap;
             }
@@ -2130,6 +2148,8 @@ public class FlipendoActivity extends SDLActivity {
             } else if (fixBtn.contains(x, y)) {
                 settingsOpen = false;
                 activity.openGraphicsFix();
+            } else if (perfBtn.contains(x, y)) {
+                activity.applyPerfLog(!perfLog, true);
             } else if (switchBtn.contains(x, y)) {
                 switchGameTap();
             }
@@ -2335,6 +2355,7 @@ public class FlipendoActivity extends SDLActivity {
                 if (isHp2Game()) drawValueRow(c, debugBtn, "Debug menu", "Level select, story state, spells", "Open", false);
                 else drawSwitchRow(c, debugBtn, "Debug mode", "Level Select in the main menu", debugMode, false);
                 drawValueRow(c, fixBtn, "Graphics fix", "For OpenGL glitches", "Open", false);
+                drawSwitchRow(c, perfBtn, "Performance log", "Frame timings in the log, to send", perfLog, false);
                 drawValueRow(c, switchBtn, isHp2Game() ? "Play Harry Potter 1" : "Play Harry Potter 2", switchAsk ? "Tap again: the game restarts" : "Switch to the other game",
                         switchAsk ? "Tap again" : "Play", switchAsk);
             }

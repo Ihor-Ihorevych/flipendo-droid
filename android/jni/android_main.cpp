@@ -127,6 +127,13 @@ extern "C" JNIEXPORT void JNICALL Java_io_github_flipendo_spike_FlipendoActivity
 }
 
 namespace HP1::Mods { void SetFrameLimit(int fps); } // src/hp1/mods/FrameLimit.cpp
+#include "../../src/knowwonder/KWProf.h"
+
+// Settings > Game > Performance log: the frame phase timings go to the log every 2 seconds (src/knowwonder/KWProf.h)
+extern "C" JNIEXPORT void JNICALL Java_io_github_flipendo_spike_FlipendoActivity_nativeSetPerfLog(JNIEnv*, jclass, jboolean on)
+{
+	KWProf::g_on = on == JNI_TRUE;
+}
 
 // Settings > FPS limit (25-60): the frame limit mod's limit, while the game runs
 extern "C" JNIEXPORT void JNICALL Java_io_github_flipendo_spike_FlipendoActivity_nativeSetFpsLimit(JNIEnv*, jclass, jint fps)

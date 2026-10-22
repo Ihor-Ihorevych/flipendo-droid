@@ -412,11 +412,54 @@ index 4b2aa5c5..ab58c566 100644
  	{
  		FontGlyph glyph = font->GetGlyph(c);
  		x += (float)glyph.USize + spaceX;
+diff --git a/SurrealEngine/Render/RenderScene.cpp b/SurrealEngine/Render/RenderScene.cpp
+index 0d0b3ba3..c3e19316 100644
+--- a/SurrealEngine/Render/RenderScene.cpp
++++ b/SurrealEngine/Render/RenderScene.cpp
+@@ -1,5 +1,6 @@
+ 
+ #include "Precomp.h"
++#include "KWProf.h"
+ #include "RenderSubsystem.h"
+ #include "RenderDevice/RenderDevice.h"
+ #include "GameWindow.h"
+@@ -19,16 +20,19 @@ void RenderSubsystem::DrawScene()
+ 	TextureFrameCounter++;
+ 
+ 	// Make sure all actors are at the right location in the BSP
+-	for (UActor* actor : engine->Level->Actors)
+ 	{
+-		if (actor)
+-			actor->UpdateBspInfo();
++		KWProf::Scope prof_(KWProf::BspInfo);
++		for (UActor* actor : engine->Level->Actors)
++		{
++			if (actor)
++				actor->UpdateBspInfo();
++		}
+ 	}
+ 
+ 	mat4 worldToView = Coords::ViewToRenderDev().ToMatrix() * Coords::Rotation(engine->CameraRotation).Inverse().ToMatrix() * Coords::Location(engine->CameraLocation).ToMatrix();
+-	MainFrame.Process(engine->CameraLocation, worldToView, Coords::Rotation(engine->CameraRotation));
++	{ KWProf::Scope prof_(KWProf::Process); MainFrame.Process(engine->CameraLocation, worldToView, Coords::Rotation(engine->CameraRotation)); }
+ 	MainFrame.Draw();
+-	MainFrame.DrawCoronas();
++	{ KWProf::Scope prof_(KWProf::Coronas); MainFrame.DrawCoronas(); }
+ }
+ 
+ void RenderSubsystem::DrawViewport(UViewportWindow* viewport)
 diff --git a/SurrealEngine/Render/RenderSubsystem.cpp b/SurrealEngine/Render/RenderSubsystem.cpp
-index f3fcef6d..d0bbc9c1 100644
+index f3fcef6d..645df333 100644
 --- a/SurrealEngine/Render/RenderSubsystem.cpp
 +++ b/SurrealEngine/Render/RenderSubsystem.cpp
-@@ -12,6 +12,7 @@
+@@ -1,5 +1,6 @@
+ 
+ #include "Precomp.h"
++#include "KWProf.h"
+ #include "RenderSubsystem.h"
+ #include "RenderDevice/RenderDevice.h"
+ #include "GameWindow.h"
+@@ -12,6 +13,7 @@
  #include "Packages/Engine/Resources/Level/UPolys.h"
  #include "VM/ScriptCall.h"
  #include "Engine.h"
@@ -424,7 +467,7 @@ index f3fcef6d..d0bbc9c1 100644
  
  RenderSubsystem::RenderSubsystem(RenderDevice* renderdevice) : Device(renderdevice)
  {
-@@ -32,7 +33,13 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
+@@ -32,30 +34,50 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
  	vec3 flashFog = vec3(0.0f, 0.0f, 0.0f);
  
  	UPlayerPawn* player = UObject::TryCast<UPlayerPawn>(engine->CameraActor);
@@ -439,10 +482,41 @@ index f3fcef6d..d0bbc9c1 100644
  	{
  		flashScale = player->FlashScale();
  		flashFog = player->FlashFog();
-@@ -56,6 +63,10 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
- 	PostRender();
+ 	}
  
- 	Device->Unlock(true);
+ 	Device->Brightness = engine->client->Brightness;
+-	Device->Lock(vec4(flashScale, 1.0f), vec4(flashFog, 1.0f), vec4(0.0f), nullptr, nullptr);
++	{
++		KWProf::Scope prof_(KWProf::Lock);
++		Device->Lock(vec4(flashScale, 1.0f), vec4(flashFog, 1.0f), vec4(0.0f), nullptr, nullptr);
+ 
+-	ResetCanvas();
+-	PreRender();
++		ResetCanvas();
++		PreRender();
++	}
+ 
+ 	if (engine->LaunchInfo.ue1Version <= 219 || engine->console->bNoDrawWorld() == false)
+ 	{
+ 		DrawScene();
++		KWProf::Scope prof_(KWProf::Overlays);
+ 		RenderOverlays();
+ 		if (engine->LaunchInfo.IsDeusEx())
+ 			PostRenderFlash();
+ 		Device->EndFlash();
+ 	}
+ 
+-	PostRender();
++	{
++		KWProf::Scope prof_(KWProf::Overlays);
++		PostRender();
++	}
+ 
+-	Device->Unlock(true);
++	{
++		KWProf::Scope prof_(KWProf::Unlock);
++		Device->Unlock(true);
++	}
 +
 +	// HP1_SHOTS debug screenshots: ReadPixels needs the frame finished (render pass ended, scene copied for postprocess)
 +	if (engine->LaunchInfo.IsKnowWonder())
@@ -747,18 +821,20 @@ index 36448a66..3f69fb58 100644
  	bool DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly& poly, int pass, UMover* mover, bool translucentPass);
  };
 diff --git a/SurrealEngine/Render/VisibleFrame.cpp b/SurrealEngine/Render/VisibleFrame.cpp
-index 818aa65d..3fc52d24 100644
+index 818aa65d..ace7926e 100644
 --- a/SurrealEngine/Render/VisibleFrame.cpp
 +++ b/SurrealEngine/Render/VisibleFrame.cpp
-@@ -2,6 +2,7 @@
+@@ -1,7 +1,9 @@
+ 
  #include "Precomp.h"
++#include "KWProf.h"
  #include "VisibleFrame.h"
  #include "VisibleCorona.h"
 +#include "VisibleBrush.h"
  #include "RenderSubsystem.h"
  #include "RenderDevice/RenderDevice.h"
  #include "Packages/Engine/UViewport.h"
-@@ -10,6 +11,10 @@
+@@ -10,6 +12,10 @@
  #include "Packages/Engine/Actors/Info/USkyZoneInfo.h"
  #include "Packages/Engine/Actors/Info/ULevelInfo.h"
  #include "Packages/Extension/Windows/TabGroup/URootWindow.h"
@@ -769,7 +845,7 @@ index 818aa65d..3fc52d24 100644
  
  void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const Coords& viewRotation, bool mirrorFlag, int portalDepth, const Array<PortalSpan>& portalSpans, const vec4& portalPlane)
  {
-@@ -19,9 +24,21 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
+@@ -19,9 +25,21 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
  	FrameCounter = engine->render->FrameCounter++;
  	MirrorFlag = mirrorFlag;
  	PortalDepth = portalDepth;
@@ -791,7 +867,7 @@ index 818aa65d..3fc52d24 100644
  	Clipper.numDrawSpans = 0;
  	Clipper.numSurfs = 0;
  	Clipper.numTris = 0;
-@@ -29,6 +46,9 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
+@@ -29,6 +47,9 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
  
  	ViewLocation = vec4(location, 1.0f);
  	ViewZone = FindZoneAt(location);
@@ -801,7 +877,7 @@ index 818aa65d..3fc52d24 100644
  	//ViewZoneMask = ViewZone ? 1ULL << ViewZone : -1;
  	ViewRotation = viewRotation;
  
-@@ -38,9 +58,18 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
+@@ -38,9 +59,18 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
  	Coronas.clear();
  	Portals.clear();
  
@@ -820,7 +896,7 @@ index 818aa65d..3fc52d24 100644
  void VisibleFrame::SetupSceneFrame(const mat4& worldToView)
  {
  	Frame.XB = engine->viewport->ViewportX();
-@@ -106,6 +135,9 @@ void VisibleFrame::ProcessNode(BspNode* node)
+@@ -106,6 +136,9 @@ void VisibleFrame::ProcessNode(BspNode* node)
  	//if ((node->ZoneMask & ViewZoneMask) == 0)
  	//	return;
  
@@ -830,7 +906,7 @@ index 818aa65d..3fc52d24 100644
  	// Skip node if its AABB is not visible
  	if (node->RenderBound != -1 && !Clipper.IsAABBVisible(engine->Level->Model->Bounds[node->RenderBound]))
  	{
-@@ -191,9 +223,18 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -191,9 +224,18 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  
  	VisibleNode info;
  	info.Node = node;
@@ -850,7 +926,7 @@ index 818aa65d..3fc52d24 100644
  	if (PortalDepth < 4)
  	{
  		if ((PolyFlags & (PF_FakeBackdrop | PF_Invisible)) == PF_FakeBackdrop)
-@@ -226,12 +267,26 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -226,12 +268,26 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  		}
  		else if (PolyFlags & PF_Portal)
  		{
@@ -879,7 +955,7 @@ index 818aa65d..3fc52d24 100644
  					Array<PortalSpan> spans = Clipper.CheckPortal(points, numverts);
  					if (!spans.empty())
  					{
-@@ -256,15 +311,25 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -256,15 +312,25 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  		}
  		else if (PolyFlags & PF_Mirrored)
  		{
@@ -907,7 +983,7 @@ index 818aa65d..3fc52d24 100644
  					{
  						p.Nodes.push_back(info);
  						p.Spans.insert(p.Spans.end(), spans.begin(), spans.end());
-@@ -308,6 +373,13 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -308,6 +374,13 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  
  void VisibleFrame::SortTranslucent()
  {
@@ -921,6 +997,22 @@ index 818aa65d..3fc52d24 100644
  	std::sort(Translucents.begin(), Translucents.end(), [](const VisibleTranslucent& a, const VisibleTranslucent& b) { return a.DistSqr < b.DistSqr; });
  }
  
+@@ -340,11 +413,10 @@ int VisibleFrame::FindZoneAt(const vec4& location, BspNode* node, BspNode* nodes
+ 
+ void VisibleFrame::Draw()
+ {
+-	DrawPortals();
+-	DrawOpaqueNodes();
+-	DrawOpaqueActors();
+-	SortTranslucent();
+-	DrawTranslucent();
++	{ KWProf::Scope prof_(KWProf::Portals); DrawPortals(); }
++	{ KWProf::Scope prof_(KWProf::Nodes); DrawOpaqueNodes(); }
++	{ KWProf::Scope prof_(KWProf::Actors); DrawOpaqueActors(); }
++	{ KWProf::Scope prof_(KWProf::Translucent); SortTranslucent(); DrawTranslucent(); }
+ }
+ 
+ void VisibleFrame::DrawCoronas()
 @@ -354,6 +426,12 @@ void VisibleFrame::DrawCoronas()
  	frame2d.WorldToView = mat4::identity();
  	Device->SetSceneNode(&frame2d);
