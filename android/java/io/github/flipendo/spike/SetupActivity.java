@@ -73,26 +73,27 @@ public class SetupActivity extends Activity {
         TextView smaller = uiStepButton("A\u2212", index > 0 ? UI_STEPS[index - 1] : -1f);
         TextView larger = uiStepButton("A+", index < UI_STEPS.length - 1 ? UI_STEPS[index + 1] : -1f);
         TextView value = new TextView(this);
-        value.setTextColor(0xDDFFFFFF);
-        value.setTextSize(14);
+        value.setTextColor(INK_MUTED);
+        value.setTextSize(13);
         value.setGravity(Gravity.CENTER);
-        value.setText("Interface size " + Math.round(UI_STEPS[index] * 100) + "%");
-        row.addView(smaller, new LinearLayout.LayoutParams(dp(48), dp(40)));
+        value.setText(Math.round(UI_STEPS[index] * 100) + "%");
+        value.setContentDescription("Interface size " + Math.round(UI_STEPS[index] * 100) + "%");
+        row.addView(smaller, new LinearLayout.LayoutParams(dp(40), dp(34)));
         LinearLayout.LayoutParams vp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        vp.leftMargin = dp(10);
-        vp.rightMargin = dp(10);
+        vp.leftMargin = dp(8);
+        vp.rightMargin = dp(8);
         row.addView(value, vp);
-        row.addView(larger, new LinearLayout.LayoutParams(dp(48), dp(40)));
+        row.addView(larger, new LinearLayout.LayoutParams(dp(40), dp(34)));
         return row;
     }
 
     private TextView uiStepButton(String label, final float scale) {
         TextView b = new TextView(this);
         b.setText(label);
-        b.setTextSize(15);
+        b.setTextSize(14);
         b.setGravity(Gravity.CENTER);
         b.setTextColor(scale > 0 ? GOLD : 0x55FFFFFF);
-        b.setBackground(rounded(0x1AE8C15A, 20, 0x40E8C15A));
+        b.setBackground(rounded(0x14FFFFFF, 17, 0x26FFFFFF));
         if (scale > 0) {
             b.setFocusable(true);
             b.setOnClickListener(new android.view.View.OnClickListener() {
@@ -115,165 +116,311 @@ public class SetupActivity extends Activity {
         }
         splashUntil = android.os.SystemClock.uptimeMillis() + 2500;
 
-        // The start screen: the name on one side, the launch panel (renderer, "Remember my choice", progress, Play) on the
-        // other; stacked when the screen is too narrow for two columns. Everything in dp/sp, and it scrolls when a short
-        // screen has no room (Play stays reachable).
+        // The start screen: the name and the links along the top, the two games as covers on the left (the one to play lit),
+        // the saved games and the renderer on the right, and Play pinned under them, so it never scrolls away. On a screen
+        // too narrow for two columns the covers go above the rest. Everything in dp/sp (Interface size scales it all).
         android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
         float widthDp = Math.max(dm.widthPixels, dm.heightPixels) / dm.density; // the activity is landscape
         boolean wide = widthDp >= 560;
         LinearLayout root = new LinearLayout(this);
-        root.setOrientation(wide ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
-        root.setGravity(Gravity.CENTER);
-        root.setPadding(dp(28), dp(16), dp(28), dp(16));
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(24), dp(12), dp(24), dp(14));
+        root.setBackground(new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TL_BR, new int[] { NIGHT_TOP, NIGHT_BOTTOM }));
+        root.addView(topBar(), new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        LinearLayout covers = coverShelf(wide);
+        LinearLayout details = launchPanel();
+        LinearLayout footer = footer();
+        LinearLayout.LayoutParams bodyLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);
+        bodyLp.topMargin = dp(12);
         if (wide) {
-            root.addView(brand(true), new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-            LinearLayout.LayoutParams pl = new LinearLayout.LayoutParams(dp(Math.min(380f, widthDp * 0.46f)), LinearLayout.LayoutParams.WRAP_CONTENT);
-            pl.leftMargin = dp(24);
-            root.addView(launchPanel(), pl);
+            LinearLayout body = new LinearLayout(this);
+            body.setOrientation(LinearLayout.HORIZONTAL);
+            body.addView(covers, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.MATCH_PARENT));
+            LinearLayout right = new LinearLayout(this);
+            right.setOrientation(LinearLayout.VERTICAL);
+            android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+            scroll.addView(details);
+            right.addView(scroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+            right.addView(footer, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+            LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f);
+            rl.leftMargin = dp(24);
+            body.addView(right, rl);
+            root.addView(body, bodyLp);
         } else {
-            root.addView(brand(false), new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-            LinearLayout.LayoutParams pl = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            pl.topMargin = dp(16);
-            root.addView(launchPanel(), pl);
+            LinearLayout col = new LinearLayout(this);
+            col.setOrientation(LinearLayout.VERTICAL);
+            col.addView(covers, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(170)));
+            LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            dl.topMargin = dp(8);
+            col.addView(details, dl);
+            android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+            scroll.setVerticalFadingEdgeEnabled(true);
+            scroll.addView(col);
+            root.addView(scroll, bodyLp);
+            root.addView(footer, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         }
-
-        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
-        scroll.setFillViewport(true);
-        scroll.setBackground(new android.graphics.drawable.GradientDrawable(
-                android.graphics.drawable.GradientDrawable.Orientation.TL_BR, new int[] { 0xFF1B1730, 0xFF0B0A12, 0xFF000000 }));
-        scroll.addView(root, new android.widget.FrameLayout.LayoutParams(
-                android.widget.FrameLayout.LayoutParams.MATCH_PARENT, android.widget.FrameLayout.LayoutParams.WRAP_CONTENT));
-        startScreen = scroll;
+        showGame();
+        startScreen = root;
         setContentView(startScreen);
     }
 
-    /** The icon, the name, the tagline and the Telegram channel (a tap opens it). */
-    private LinearLayout brand(boolean wide) {
-        LinearLayout col = new LinearLayout(this);
-        col.setOrientation(LinearLayout.VERTICAL);
-        col.setGravity(Gravity.CENTER);
-        try {
-            android.widget.ImageView icon = new android.widget.ImageView(this);
-            icon.setImageDrawable(getDrawable(getApplicationInfo().icon));
-            int size = dp(wide ? 104 : 72);
-            LinearLayout.LayoutParams ip = new LinearLayout.LayoutParams(size, size);
-            ip.bottomMargin = dp(10);
-            col.addView(icon, ip);
-        } catch (RuntimeException ignored) {
-        }
+    // The start screen's palette: a night sky over the castle, parchment for the text, the candle gold of the in-game settings,
+    // and each game's cover in its own colour (the Philosopher's Stone red, the Chamber's serpent green)
+    static final int NIGHT_TOP = 0xFF1A1F45, NIGHT_BOTTOM = 0xFF0B0E26, PARCHMENT = 0xFFF1E6CC, INK_MUTED = 0xFFA9A7C6,
+            CRIMSON = 0xFF7E1B2A, CRIMSON_DEEP = 0xFF2C0A12, EMERALD = 0xFF145A42, EMERALD_DEEP = 0xFF07231B;
+    private static final android.graphics.Typeface SERIF_BOLD = android.graphics.Typeface.create(android.graphics.Typeface.SERIF, android.graphics.Typeface.BOLD);
+
+    /** The name and its line on the left; the channel, the game folders and the interface size on the right. */
+    private LinearLayout topBar() {
+        LinearLayout bar = new LinearLayout(this);
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
         TextView title = new TextView(this);
-        title.setTextColor(0xFFFFFFFF);
-        title.setTextSize(wide ? 40 : 32);
-        title.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-        title.setGravity(Gravity.CENTER);
+        title.setTextColor(PARCHMENT);
+        title.setTextSize(24);
+        title.setIncludeFontPadding(false);
+        title.setTypeface(SERIF_BOLD);
         title.setText("Flipendo");
-        col.addView(title);
+        LinearLayout names = new LinearLayout(this);
+        names.setOrientation(LinearLayout.VERTICAL);
+        names.addView(title);
         TextView tagline = new TextView(this);
-        tagline.setTextColor(MUTED);
-        tagline.setTextSize(14);
-        tagline.setGravity(Gravity.CENTER);
-        tagline.setText("Harry Potter 1 and 2, on Android");
-        col.addView(tagline);
-        TextView link = new TextView(this);
-        link.setTextColor(0xFF7CC4FF);
-        link.setTextSize(14);
-        link.setGravity(Gravity.CENTER);
-        link.setPadding(dp(16), dp(8), dp(16), dp(8));
-        link.setBackground(rounded(0x1A5EB8FF, 20, 0x405EB8FF));
-        link.setText("Telegram channel");
-        link.setOnClickListener(new android.view.View.OnClickListener() {
+        tagline.setTextColor(INK_MUTED);
+        tagline.setTextSize(13);
+        tagline.setSingleLine(true);
+        tagline.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        tagline.setText("Harry Potter 1 and 2 on Android");
+        tagline.setTextSize(12);
+        names.addView(tagline);
+        bar.addView(names, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        bar.addView(chip("Telegram", 0xFF8CC8FF, new android.view.View.OnClickListener() {
             public void onClick(android.view.View v) {
                 splashUntil = Long.MAX_VALUE; // hold the splash while the channel is open; onResume lets it go
                 startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(CHANNEL_URL)));
             }
-        });
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.topMargin = dp(14);
-        col.addView(link, lp);
-        TextView folders = new TextView(this);
-        folders.setTextColor(GOLD);
-        folders.setTextSize(14);
-        folders.setGravity(Gravity.CENTER);
-        folders.setPadding(dp(16), dp(8), dp(16), dp(8));
-        folders.setBackground(rounded(0x1AE8C15A, 20, 0x40E8C15A));
-        folders.setText("Game folders");
-        folders.setFocusable(true);
-        folders.setOnClickListener(new android.view.View.OnClickListener() {
+        }));
+        LinearLayout.LayoutParams fl = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        fl.leftMargin = dp(8);
+        bar.addView(chip("Game folders", GOLD, new android.view.View.OnClickListener() {
             public void onClick(android.view.View v) {
                 showFolderSettings();
             }
+        }), fl);
+        LinearLayout.LayoutParams ul = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        ul.leftMargin = dp(14);
+        bar.addView(uiSizeRow(), ul);
+        return bar;
+    }
+
+    private TextView chip(String text, int color, android.view.View.OnClickListener click) {
+        TextView c = new TextView(this);
+        c.setText(text);
+        c.setTextColor(color);
+        c.setTextSize(13);
+        c.setGravity(Gravity.CENTER);
+        c.setPadding(dp(14), dp(7), dp(14), dp(7));
+        c.setBackground(rounded(0x14FFFFFF, 18, 0x26FFFFFF));
+        c.setFocusable(true);
+        c.setOnClickListener(click);
+        return c;
+    }
+
+    /** The two games side by side, as covers: a tap picks the one to play. */
+    private LinearLayout coverShelf(boolean wide) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        hp1Pill = cover(false);
+        hp2Pill = cover(true);
+        LinearLayout.LayoutParams a = wide ? new LinearLayout.LayoutParams(dp(142), LinearLayout.LayoutParams.MATCH_PARENT)
+                : new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f);
+        row.addView(hp1Pill, a);
+        LinearLayout.LayoutParams b = wide ? new LinearLayout.LayoutParams(dp(142), LinearLayout.LayoutParams.MATCH_PARENT)
+                : new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f);
+        b.leftMargin = dp(12);
+        row.addView(hp2Pill, b);
+        return row;
+    }
+
+    private android.view.View cover(final boolean hp2) {
+        android.widget.FrameLayout f = new android.widget.FrameLayout(this);
+        f.setBackground(new CoverDrawable(hp2, dp(1)));
+        TextView year = new TextView(this);
+        year.setTextColor(0xB3F1E6CC);
+        year.setTextSize(11);
+        year.setLetterSpacing(0.08f);
+        year.setText(hp2 ? "2002" : "2001");
+        android.widget.FrameLayout.LayoutParams yl = new android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.WRAP_CONTENT, android.widget.FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.START);
+        yl.setMargins(dp(12), dp(10), 0, 0);
+        f.addView(year, yl);
+        LinearLayout text = new LinearLayout(this);
+        text.setOrientation(LinearLayout.VERTICAL);
+        text.setGravity(Gravity.BOTTOM);
+        text.setPadding(dp(12), dp(12), dp(12), dp(14));
+        TextView series = new TextView(this);
+        series.setTextColor(0xCCF1E6CC);
+        series.setTextSize(10);
+        series.setSingleLine(true);
+        series.setTypeface(android.graphics.Typeface.SERIF);
+        series.setText("Harry Potter and the");
+        text.addView(series);
+        TextView name = new TextView(this);
+        name.setTextColor(PARCHMENT);
+        name.setTextSize(15);
+        name.setHyphenationFrequency(android.text.Layout.HYPHENATION_FREQUENCY_NONE);
+        name.setTypeface(SERIF_BOLD);
+        name.setLineSpacing(0f, 0.95f);
+        name.setText(hp2 ? "Chamber of Secrets" : "Philosopher's Stone");
+        text.addView(name);
+        f.addView(text, new android.widget.FrameLayout.LayoutParams(android.widget.FrameLayout.LayoutParams.MATCH_PARENT, android.widget.FrameLayout.LayoutParams.MATCH_PARENT));
+        f.setFocusable(true);
+        f.setContentDescription(hp2 ? "Harry Potter and the Chamber of Secrets" : "Harry Potter and the Philosopher's Stone");
+        f.setOnClickListener(new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) { chooseGame(hp2 ? "hp2" : "hp1"); }
         });
-        LinearLayout.LayoutParams fp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        fp.topMargin = dp(10);
-        col.addView(folders, fp);
-        LinearLayout.LayoutParams uip = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        uip.topMargin = dp(10);
-        col.addView(uiSizeRow(), uip);
-        return col;
+        f.setOnFocusChangeListener(new android.view.View.OnFocusChangeListener() {
+            public void onFocusChange(android.view.View v, boolean focused) { showGame(); }
+        });
+        return f;
+    }
+
+    /** The chosen game's cover is lit with a gold edge, the other one dims; a gamepad's focus is a white edge. */
+    private void styleCover(android.view.View v, boolean selected) {
+        CoverDrawable d = (CoverDrawable) v.getBackground();
+        d.selected = selected;
+        d.focused = v.isFocused();
+        d.invalidateSelf();
+        v.setAlpha(selected ? 1f : 0.55f);
+    }
+
+    /** A game's cover: its colour from top to bottom, a line drawing of what the game is named after (the Stone, a cut gem;
+     *  the Chamber's serpent), darker at the foot for the title, and the edge. */
+    private static final class CoverDrawable extends android.graphics.drawable.Drawable {
+        final boolean hp2;
+        final float px;
+        boolean selected, focused;
+        final android.graphics.Paint paint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        final android.graphics.RectF box = new android.graphics.RectF();
+        final android.graphics.Path path = new android.graphics.Path();
+
+        CoverDrawable(boolean hp2, float px) {
+            this.hp2 = hp2;
+            this.px = px;
+        }
+
+        @Override
+        public void draw(android.graphics.Canvas c) {
+            box.set(getBounds());
+            float r = 14f * px, w = box.width(), h = box.height();
+            paint.setStyle(android.graphics.Paint.Style.FILL);
+            paint.setShader(new android.graphics.LinearGradient(0, box.top, 0, box.bottom,
+                    hp2 ? EMERALD : CRIMSON, hp2 ? EMERALD_DEEP : CRIMSON_DEEP, android.graphics.Shader.TileMode.CLAMP));
+            c.drawRoundRect(box, r, r, paint);
+            paint.setShader(null);
+            c.save();
+            path.reset();
+            path.addRoundRect(box, r, r, android.graphics.Path.Direction.CW);
+            c.clipPath(path);
+            paint.setStyle(android.graphics.Paint.Style.STROKE);
+            paint.setStrokeJoin(android.graphics.Paint.Join.ROUND);
+            paint.setStrokeCap(android.graphics.Paint.Cap.ROUND);
+            // in the upper part, clear of the title at the foot
+            float s = Math.min(w * 0.32f, h * 0.2f), cx = box.left + w * 0.62f, cy = box.top + h * 0.24f;
+            if (!hp2) {
+                paint.setColor(0x66E8C15A);
+                paint.setStrokeWidth(1.6f * px);
+                float tx = s * 0.5f, ty = cy - s * 0.35f, gx = s * 0.85f, mx = s * 0.25f, by = cy + s * 0.95f;
+                path.reset();
+                path.moveTo(cx - tx, ty);
+                path.lineTo(cx + tx, ty);
+                path.lineTo(cx + gx, cy);
+                path.lineTo(cx, by);
+                path.lineTo(cx - gx, cy);
+                path.close();
+                c.drawPath(path, paint);
+                c.drawLine(cx - gx, cy, cx + gx, cy, paint);
+                c.drawLine(cx - tx, ty, cx - mx, cy, paint);
+                c.drawLine(cx - mx, cy, cx, by, paint);
+                c.drawLine(cx + tx, ty, cx + mx, cy, paint);
+                c.drawLine(cx + mx, cy, cx, by, paint);
+                c.drawLine(cx, ty, cx - mx, cy, paint);
+                c.drawLine(cx, ty, cx + mx, cy, paint);
+            } else {
+                paint.setColor(0x55DCE6E0);
+                paint.setStrokeWidth(3f * px);
+                float x0 = cx, y0 = cy - s * 0.75f;
+                path.reset();
+                path.moveTo(x0, y0);
+                path.cubicTo(x0 + s, y0 + s * 0.2f, x0 - s, y0 + s * 0.6f, x0, y0 + s * 0.9f);
+                path.cubicTo(x0 + s * 0.9f, y0 + s * 1.2f, x0 - s * 0.6f, y0 + s * 1.55f, x0 + s * 0.15f, y0 + s * 1.9f);
+                c.drawPath(path, paint);
+                paint.setStyle(android.graphics.Paint.Style.FILL);
+                c.drawCircle(x0, y0, 4.2f * px, paint);
+            }
+            paint.setStyle(android.graphics.Paint.Style.FILL);
+            paint.setShader(new android.graphics.LinearGradient(0, box.top + h * 0.45f, 0, box.bottom, 0x00000000, 0xA6000000,
+                    android.graphics.Shader.TileMode.CLAMP));
+            c.drawRect(box, paint);
+            paint.setShader(null);
+            c.restore();
+            paint.setStyle(android.graphics.Paint.Style.STROKE);
+            paint.setStrokeWidth((selected || focused ? 2.5f : 1f) * px);
+            paint.setColor(focused ? 0xFFFFFFFF : selected ? GOLD : 0x33FFFFFF);
+            float in = paint.getStrokeWidth() / 2f;
+            c.drawRoundRect(box.left + in, box.top + in, box.right - in, box.bottom - in, r, r, paint);
+        }
+
+        @Override
+        public void setAlpha(int alpha) {
+        }
+
+        @Override
+        public void setColorFilter(android.graphics.ColorFilter filter) {
+        }
+
+        @Override
+        public int getOpacity() {
+            return android.graphics.PixelFormat.TRANSLUCENT;
+        }
     }
 
     private TextView vulkanPill, glPill;
     private TextView play;      // starts the game (a normal launch waits for it)
     private boolean playPressed;
 
-    /** The launch panel, a card in the settings panel's style. The renderer is for this and later runs: the same file the
+    private TextView sectionLabel(String text) {
+        TextView t = new TextView(this);
+        t.setTextColor(INK_MUTED);
+        t.setTextSize(13);
+        t.setText(text);
+        return t;
+    }
+
+    /** The details on the right: HP2's saved games, the renderer. The renderer is for this and later runs: the same file the
      *  in-game switch and the automatic fallback write (FlipendoActivity.RENDERER_FILE, read by android_main.cpp). */
     private LinearLayout launchPanel() {
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(20), dp(18), dp(20), dp(20));
-        card.setBackground(rounded(CARD, 20, 0x22FFFFFF));
-
-        // the game: Harry Potter 1 or 2, each with its own folder, saves and settings
-        TextView gameLabel = new TextView(this);
-        gameLabel.setTextColor(GOLD);
-        gameLabel.setTextSize(12);
-        gameLabel.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-        gameLabel.setLetterSpacing(0.12f);
-        gameLabel.setText("GAME");
-        card.addView(gameLabel);
-
-        LinearLayout gameSegments = new LinearLayout(this);
-        gameSegments.setOrientation(LinearLayout.HORIZONTAL);
-        gameSegments.setPadding(dp(4), dp(4), dp(4), dp(4));
-        gameSegments.setBackground(rounded(0x14FFFFFF, 14, 0x22FFFFFF));
-        hp1Pill = gamePill("Harry Potter 1", "hp1");
-        hp2Pill = gamePill("Harry Potter 2", "hp2");
-        gameSegments.addView(hp1Pill, new LinearLayout.LayoutParams(0, dp(44), 1f));
-        LinearLayout.LayoutParams hp2p = new LinearLayout.LayoutParams(0, dp(44), 1f);
-        hp2p.leftMargin = dp(4);
-        gameSegments.addView(hp2Pill, hp2p);
-        LinearLayout.LayoutParams gsp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        gsp.topMargin = dp(8);
-        card.addView(gameSegments, gsp);
-        showGame();
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
 
         // HP2: the saved games (six slots, each with the picture of its level) or a new game
         slotsBox = new LinearLayout(this);
         slotsBox.setOrientation(LinearLayout.VERTICAL);
-        TextView slotsLabel = new TextView(this);
-        slotsLabel.setTextColor(GOLD);
-        slotsLabel.setTextSize(12);
-        slotsLabel.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-        slotsLabel.setLetterSpacing(0.12f);
-        slotsLabel.setText("SAVED GAME");
-        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        slp.topMargin = dp(16);
-        slotsBox.addView(slotsLabel, slp);
+        slotsBox.addView(sectionLabel("Saved game"));
         android.widget.HorizontalScrollView slotsScroll = new android.widget.HorizontalScrollView(this);
         slotsScroll.setHorizontalScrollBarEnabled(false);
+        slotsScroll.setHorizontalFadingEdgeEnabled(true);
         slotsRow = new LinearLayout(this);
         slotsRow.setOrientation(LinearLayout.HORIZONTAL);
         slotsScroll.addView(slotsRow);
         LinearLayout.LayoutParams ssp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        ssp.topMargin = dp(8);
+        ssp.topMargin = dp(6);
         slotsBox.addView(slotsScroll, ssp);
         deleteSave = new TextView(this);
-        deleteSave.setTextColor(0xFFFF8A80);
+        deleteSave.setTextColor(0xFFFF9C92);
         deleteSave.setTextSize(13);
-        deleteSave.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-        deleteSave.setPadding(dp(14), dp(8), dp(14), dp(8));
-        deleteSave.setBackground(rounded(0x14FF5252, 10, 0x55FF5252));
+        deleteSave.setPadding(dp(12), dp(6), dp(12), dp(6));
+        deleteSave.setBackground(rounded(0x10FF5252, 14, 0x40FF5252));
         deleteSave.setFocusable(true);
         deleteSave.setOnClickListener(new android.view.View.OnClickListener() {
             public void onClick(android.view.View v) {
@@ -282,48 +429,42 @@ public class SetupActivity extends Activity {
         });
         LinearLayout.LayoutParams dsp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         dsp.topMargin = dp(8);
+        dsp.bottomMargin = dp(16);
         slotsBox.addView(deleteSave, dsp);
-        card.addView(slotsBox);
-        refreshSlots();
+        col.addView(slotsBox);
 
-        TextView label = new TextView(this);
-        label.setTextColor(GOLD);
-        label.setTextSize(12);
-        label.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-        label.setLetterSpacing(0.12f);
-        label.setText("RENDERER");
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.topMargin = dp(16);
-        card.addView(label, lp);
-
-        // a segmented control: OpenGL ES | Vulkan
+        // the renderer: its name and a segmented control (OpenGL ES | Vulkan) on one line, what it is for under them
+        LinearLayout rendererRow = new LinearLayout(this);
+        rendererRow.setOrientation(LinearLayout.HORIZONTAL);
+        rendererRow.setGravity(Gravity.CENTER_VERTICAL);
+        rendererRow.addView(sectionLabel("Renderer"), new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         LinearLayout segments = new LinearLayout(this);
         segments.setOrientation(LinearLayout.HORIZONTAL);
-        segments.setPadding(dp(4), dp(4), dp(4), dp(4));
+        segments.setPadding(dp(3), dp(3), dp(3), dp(3));
         segments.setBackground(rounded(0x14FFFFFF, 14, 0x22FFFFFF));
         glPill = segment("OpenGL ES", "opengl");
         vulkanPill = segment("Vulkan", "vulkan");
-        segments.addView(glPill, new LinearLayout.LayoutParams(0, dp(44), 1f));
-        LinearLayout.LayoutParams vp = new LinearLayout.LayoutParams(0, dp(44), 1f);
-        vp.leftMargin = dp(4);
+        segments.addView(glPill, new LinearLayout.LayoutParams(dp(124), dp(38)));
+        LinearLayout.LayoutParams vp = new LinearLayout.LayoutParams(dp(92), dp(38));
+        vp.leftMargin = dp(3);
         segments.addView(vulkanPill, vp);
-        LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        sp.topMargin = dp(8);
-        card.addView(segments, sp);
+        rendererRow.addView(segments);
+        col.addView(rendererRow);
 
         TextView hint = new TextView(this);
-        hint.setTextColor(MUTED);
+        hint.setTextColor(INK_MUTED);
         hint.setTextSize(12);
+        hint.setLineSpacing(0f, 1.15f);
         hint.setText("Which one runs better depends on the phone. If the game is slow, looks wrong or does not start, try the other.");
         LinearLayout.LayoutParams hp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         hp.topMargin = dp(8);
-        card.addView(hint, hp);
+        col.addView(hint, hp);
 
         // "Remember my choice": ticked, the renderer picked here stays for later launches; unticked (the default) it is for
         // this launch only, and the next launch goes back to the one from before (restoreRenderer)
         remember = new android.widget.CheckBox(this);
         remember.setText("Remember my choice");
-        remember.setTextColor(0xDDFFFFFF);
+        remember.setTextColor(PARCHMENT);
         remember.setTextSize(14);
         remember.setButtonTintList(android.content.res.ColorStateList.valueOf(GOLD));
         remember.setChecked(getSharedPreferences("setup", MODE_PRIVATE).getBoolean(PREF_KEEP, false));
@@ -337,32 +478,35 @@ public class SetupActivity extends Activity {
             }
         });
         LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        rp.topMargin = dp(12); // clear of the hint above: the box is taller than its text
-        remember.setPadding(dp(8), dp(6), dp(8), dp(6));
-        card.addView(remember, rp);
+        rp.topMargin = dp(10); // clear of the hint above: the box is taller than its text
+        remember.setPadding(dp(8), dp(4), dp(8), dp(4));
+        col.addView(remember, rp);
+        return col;
+    }
 
-        // what the launcher is doing (unpacking, permissions), then Play
+    /** Under the details, always in view: what the launcher is doing (unpacking, permissions) and its progress, then Play. */
+    private LinearLayout footer() {
+        LinearLayout f = new LinearLayout(this);
+        f.setOrientation(LinearLayout.VERTICAL);
+        f.setPadding(0, dp(10), 0, 0);
         status = new TextView(this);
-        status.setTextColor(0xDDFFFFFF);
+        status.setTextColor(PARCHMENT);
         status.setTextSize(13);
         status.setText("");
-        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        tp.topMargin = dp(10);
-        card.addView(status, tp);
+        f.addView(status, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         bar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         bar.setIndeterminate(false);
         bar.setProgressTintList(android.content.res.ColorStateList.valueOf(GOLD));
-        bar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(0x44FFFFFF));
-        LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(8));
+        bar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(0x33FFFFFF));
+        LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(6));
         bp.topMargin = dp(6);
-        card.addView(bar, bp);
+        f.addView(bar, bp);
 
         play = new TextView(this);
-        play.setText("\u25B6  Play");
-        play.setTextSize(18);
+        play.setTextSize(17);
         play.setGravity(Gravity.CENTER);
-        play.setTextColor(0xFF1A1A1A);
+        play.setTextColor(0xFF1C1505);
         play.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
         play.setFocusable(true);
         play.setOnClickListener(new android.view.View.OnClickListener() {
@@ -376,14 +520,32 @@ public class SetupActivity extends Activity {
             public void onFocusChange(android.view.View v, boolean focused) { stylePlay(); }
         });
         stylePlay();
+        updatePlayLabel();
         play.setVisibility(android.view.View.GONE);
-        LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(52));
-        pp.topMargin = dp(12);
-        card.addView(play, pp);
-        return card;
+        f.addView(play, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(50)));
+        return f;
     }
 
-    private TextView hp1Pill, hp2Pill;
+    /** Play says what it will do: HP1 plays, HP2 continues the chosen slot or starts a new game. */
+    private void updatePlayLabel() {
+        if (play == null) {
+            return;
+        }
+        String text = "Play";
+        if (isHp2()) {
+            String start = getSharedPreferences("setup", MODE_PRIVATE).getString(PREF_START, "new");
+            text = "Start a new game";
+            if (start.startsWith("load:")) {
+                try {
+                    text = "Continue slot " + (Integer.parseInt(start.substring(5)) + 1);
+                } catch (NumberFormatException ignored) {
+                }
+            }
+        }
+        play.setText("\u25B6  " + text);
+    }
+
+    private android.view.View hp1Pill, hp2Pill; // the covers
     private LinearLayout slotsBox, slotsRow;
     private TextView deleteSave; // under the slots: deletes the selected saved game
     static final String PREF_START = "hp2Start"; // "new" or "load:N": what Play does in HP2
@@ -407,9 +569,12 @@ public class SetupActivity extends Activity {
 
     private void showGame() {
         boolean two = isHp2();
-        stylePill(hp1Pill, !two);
-        stylePill(hp2Pill, two);
+        if (hp1Pill != null) {
+            styleCover(hp1Pill, !two);
+            styleCover(hp2Pill, two);
+        }
         refreshSlots();
+        updatePlayLabel();
     }
 
     /** Picks the game for this and later launches; the game data is looked for again (its own folder). */
@@ -508,6 +673,7 @@ public class SetupActivity extends Activity {
         boolean two = isHp2();
         slotsBox.setVisibility(two ? android.view.View.VISIBLE : android.view.View.GONE);
         if (!two) {
+            updatePlayLabel();
             return;
         }
         SlotInfo[] slots = readSlots();
@@ -559,6 +725,7 @@ public class SetupActivity extends Activity {
             }
             slotsRow.addView(slotCard(title, sub, pic, slots[i].exists ? "load:" + i : null, start.equals("load:" + i)));
         }
+        updatePlayLabel();
     }
 
     /** Asks, then deletes the selected saved game: its Save<N> file and the slot's info (Slot<N>.txt) in the save folder. */
@@ -608,27 +775,30 @@ public class SetupActivity extends Activity {
     private android.view.View slotCard(String title, String sub, android.graphics.Bitmap pic, final String value, boolean selected) {
         LinearLayout c = new LinearLayout(this);
         c.setOrientation(LinearLayout.VERTICAL);
-        c.setPadding(dp(6), dp(6), dp(6), dp(6));
-        c.setBackground(rounded(0x14FFFFFF, 12, selected ? GOLD : 0x22FFFFFF));
+        c.setPadding(dp(6), dp(6), dp(6), dp(8));
+        c.setBackground(rounded(selected ? 0x1FE8C15A : 0x10FFFFFF, 14, selected ? GOLD : 0x1FFFFFFF));
         android.widget.ImageView image = new android.widget.ImageView(this);
         image.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
-        image.setBackgroundColor(0xFF101018);
+        image.setBackground(rounded(0xFF0E1130, 10, 0));
+        image.setClipToOutline(true);
         if (pic != null) {
             image.setImageBitmap(pic);
         }
-        c.addView(image, new LinearLayout.LayoutParams(dp(132), dp(74)));
+        c.addView(image, new LinearLayout.LayoutParams(dp(112), dp(63)));
         TextView t = new TextView(this);
         t.setText(title);
-        t.setTextColor(selected ? GOLD : 0xFFFFFFFF);
+        t.setTextColor(selected ? GOLD : PARCHMENT);
         t.setTextSize(13);
         t.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-        c.addView(t);
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        tlp.topMargin = dp(6);
+        c.addView(t, tlp);
         TextView s = new TextView(this);
         s.setText(sub);
-        s.setTextColor(MUTED);
+        s.setTextColor(INK_MUTED);
         s.setTextSize(11);
         s.setMaxLines(3);
-        c.addView(s, new LinearLayout.LayoutParams(dp(132), LinearLayout.LayoutParams.WRAP_CONTENT));
+        c.addView(s, new LinearLayout.LayoutParams(dp(112), LinearLayout.LayoutParams.WRAP_CONTENT));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.rightMargin = dp(8);
         c.setLayoutParams(lp);
@@ -693,7 +863,7 @@ public class SetupActivity extends Activity {
     }
 
     private void stylePlay() {
-        play.setBackground(rounded(GOLD, 14, play.isFocused() ? 0xFFFFFFFF : 0));
+        play.setBackground(rounded(GOLD, 25, play.isFocused() ? 0xFFFFFFFF : 0));
     }
 
     static final String PREF_KEEP = "keepRenderer";       // "Remember my choice"
