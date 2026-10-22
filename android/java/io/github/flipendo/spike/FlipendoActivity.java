@@ -87,6 +87,8 @@ public class FlipendoActivity extends SDLActivity {
 
     /** Settings > Invert wand: the wand button's up/down aim (while the spell is held) goes the other way. */
     static boolean invertWand = false;
+    /** Settings > Controls: no cutscene skip (SKIP button, Y held on a pad) and no save button / pad save: play as the game was made. */
+    static boolean noSkip = false, noQuickSave = false;
 
     void applyAutoJump(boolean on, boolean save) {
         autoJump = on;
@@ -306,7 +308,7 @@ public class FlipendoActivity extends SDLActivity {
     private void saveScales() {
         getSharedPreferences("flipendo", MODE_PRIVATE).edit()
                 .putFloat("renderScale", surfaceScale).putFloat("uiScale", uiScale)
-                .putFloat("fovOffset", fovOffset).putBoolean("debugMode", debugMode).putBoolean("showFps", showFps).putBoolean("autoJump", autoJump).putBoolean("invertWand", invertWand).putBoolean("firstPerson", firstPerson).putInt("fpsLimit", fpsLimit).apply();
+                .putFloat("fovOffset", fovOffset).putBoolean("debugMode", debugMode).putBoolean("showFps", showFps).putBoolean("autoJump", autoJump).putBoolean("invertWand", invertWand).putBoolean("noSkip", noSkip).putBoolean("noQuickSave", noQuickSave).putBoolean("firstPerson", firstPerson).putInt("fpsLimit", fpsLimit).apply();
     }
 
     /** Resizes the render surface (the engine rebuilds its scene textures and swapchain for the new size). */
@@ -648,6 +650,8 @@ public class FlipendoActivity extends SDLActivity {
         showFps = prefs.getBoolean("showFps", false);
         applyAutoJump(prefs.getBoolean("autoJump", true), false);
         invertWand = prefs.getBoolean("invertWand", false);
+        noSkip = prefs.getBoolean("noSkip", false);
+        noQuickSave = prefs.getBoolean("noQuickSave", false);
         applyFirstPerson(prefs.getBoolean("firstPerson", false), false);
         applyFpsLimit(prefs.getInt("fpsLimit", 60), false);
         if (mSurface != null) {
@@ -774,7 +778,8 @@ public class FlipendoActivity extends SDLActivity {
         boolean visible(Btn b) {
             if (layoutEdit) return b != skip; // the layout editor shows every control
             if (b == menu || b == gear) return true;
-            if (b == skip) return cutsceneShown; // the skip button exists only in cutscenes
+            if (b == skip) return cutsceneShown && !noSkip; // the skip button exists only in cutscenes (and not with Settings > No cutscene skip)
+            if (b == save && noQuickSave) return false;
             if (cutsceneShown) return false;       // and they leave only the skip, settings and menu buttons
             if (padActive && (b == cast || b == jump || isArrow(b))) return false; // a gamepad is in use
             boolean game = !(menuShown || lessonShown);
@@ -1192,8 +1197,8 @@ public class FlipendoActivity extends SDLActivity {
                     return true;
                 case KeyEvent.KEYCODE_BUTTON_Y:
                     if (cutsceneShown) {
-                        padSkipHold(down); // a cutscene is skipped by holding Y, so a touch on a stick or button skips nothing
-                    } else if (down && !menuShown && !lessonShown) {
+                        if (!noSkip) padSkipHold(down); // a cutscene is skipped by holding Y, so a touch on a stick or button skips nothing
+                    } else if (down && !menuShown && !lessonShown && !noQuickSave) {
                         nativeRequestSave();
                     }
                     return true;
@@ -1312,8 +1317,9 @@ public class FlipendoActivity extends SDLActivity {
 
         /** Y in a cutscene: Space (the skip) only once it has been held for a moment. */
         void padSkipHold(boolean down) {
-            padSkipHeld = down;
+            padSkipHeld = down && !noSkip;
             removeCallbacks(padSkipFire);
+            if (noSkip) return;
             if (down) postDelayed(padSkipFire, PAD_SKIP_HOLD_MS);
         }
 
@@ -1558,33 +1564,45 @@ public class FlipendoActivity extends SDLActivity {
 
         // The port's settings panel: the entry the pad is on
         static final int SET_RENDER = 0, SET_UI = 1, SET_FOV = 2, SET_FPS = 3, SET_SEG = 4, SET_JUMP = 5, SET_LANG = 6, SET_MOD = 7,
-                SET_DEBUG = 8, SET_TELEGRAM = 9, SET_DONE = 10, SET_RENDERER = 11, SET_FPS_LIMIT = 12, SET_LAYOUT = 13, SET_HELP = 14, SET_INVERT = 15, SET_SWITCH = 16, SET_FIRST = 17;
+                SET_DEBUG = 8, SET_TELEGRAM = 9, SET_DONE = 10, SET_RENDERER = 11, SET_FPS_LIMIT = 12, SET_LAYOUT = 13, SET_HELP = 14, SET_INVERT = 15, SET_SWITCH = 16, SET_FIRST = 17,
+                SET_TAB = 18 /* 18..20: the pages */, SET_NOSKIP = 21, SET_NOSAVE = 22;
         int settingsFocus = -1;
         final java.util.List<android.graphics.RectF> setRects = new java.util.ArrayList<>();
         final java.util.List<Integer> setIds = new java.util.ArrayList<>();
+
+        void addEntry(android.graphics.RectF r, int id) {
+            if (r.isEmpty()) return; // not on this page
+            setRects.add(new android.graphics.RectF(r));
+            setIds.add(id);
+        }
 
         void buildSettingsEntries() {
             setRects.clear();
             setIds.clear();
             float h = lh;
-            for (int i = 0; i < SLIDERS; i++) {
-                setRects.add(new android.graphics.RectF(colL0 - 0.01f * h, sliderLabelY[i] - 0.045f * h, colL1 + 0.01f * h, sliderY[i] + 0.03f * h));
-                setIds.add(sliderId(i));
+            for (int i = 0; i < SETTINGS_TABS; i++) addEntry(tabRects[i], SET_TAB + i);
+            if (settingsTab == 0) {
+                for (int i = 0; i < SLIDERS; i++) {
+                    setRects.add(new android.graphics.RectF(colL0 - 0.01f * h, sliderLabelY[i] - 0.045f * h, colL1 + 0.01f * h, sliderY[i] + 0.03f * h));
+                    setIds.add(sliderId(i));
+                }
             }
-            setRects.add(new android.graphics.RectF(fpBtn)); setIds.add(SET_FIRST);
-            setRects.add(new android.graphics.RectF(fpsBtn)); setIds.add(SET_FPS);
-            setRects.add(new android.graphics.RectF(segStick.left, segStick.top, segDpad.right, segDpad.bottom)); setIds.add(SET_SEG);
-            setRects.add(new android.graphics.RectF(autoJumpBtn)); setIds.add(SET_JUMP);
-            if (aimStick() || isHp2Game()) { setRects.add(new android.graphics.RectF(invertBtn)); setIds.add(SET_INVERT); }
-            setRects.add(new android.graphics.RectF(layoutBtn)); setIds.add(SET_LAYOUT);
-            if (languages.size() > 1) { setRects.add(new android.graphics.RectF(languageBtn)); setIds.add(SET_LANG); }
-            if (!isHp2Game()) { setRects.add(new android.graphics.RectF(modBtn)); setIds.add(SET_MOD); }
-            setRects.add(new android.graphics.RectF(debugBtn)); setIds.add(SET_DEBUG);
-            setRects.add(new android.graphics.RectF(helpBtn)); setIds.add(SET_HELP);
-            setRects.add(new android.graphics.RectF(switchBtn)); setIds.add(SET_SWITCH);
-            setRects.add(new android.graphics.RectF(telegramBtn)); setIds.add(SET_TELEGRAM);
-            setRects.add(new android.graphics.RectF(rendererBtn)); setIds.add(SET_RENDERER);
-            setRects.add(new android.graphics.RectF(closeBtn)); setIds.add(SET_DONE);
+            addEntry(fpBtn, SET_FIRST);
+            addEntry(fpsBtn, SET_FPS);
+            if (!segStick.isEmpty()) { setRects.add(new android.graphics.RectF(segStick.left, segStick.top, segDpad.right, segDpad.bottom)); setIds.add(SET_SEG); }
+            addEntry(autoJumpBtn, SET_JUMP);
+            if (aimStick() || isHp2Game()) addEntry(invertBtn, SET_INVERT);
+            addEntry(layoutBtn, SET_LAYOUT);
+            addEntry(noSkipBtn, SET_NOSKIP);
+            addEntry(noSaveBtn, SET_NOSAVE);
+            if (languages.size() > 1) addEntry(languageBtn, SET_LANG);
+            if (!isHp2Game()) addEntry(modBtn, SET_MOD);
+            addEntry(debugBtn, SET_DEBUG);
+            addEntry(helpBtn, SET_HELP);
+            addEntry(switchBtn, SET_SWITCH);
+            addEntry(telegramBtn, SET_TELEGRAM);
+            addEntry(rendererBtn, SET_RENDERER);
+            addEntry(closeBtn, SET_DONE);
         }
 
         int focusedSetting() {
@@ -1627,7 +1645,14 @@ public class FlipendoActivity extends SDLActivity {
             }
             buildSettingsEntries();
             FlipendoActivity activity = (FlipendoActivity) getContext();
-            switch (focusedSetting()) {
+            int focused = focusedSetting();
+            if (focused >= SET_TAB && focused < SET_TAB + SETTINGS_TABS) {
+                setSettingsTab(focused - SET_TAB);
+                return;
+            }
+            switch (focused) {
+                case SET_NOSKIP: noSkip = !noSkip; activity.saveScales(); break;
+                case SET_NOSAVE: noQuickSave = !noQuickSave; activity.saveScales(); break;
                 case SET_FIRST: activity.applyFirstPerson(!firstPerson, true); break;
                 case SET_FPS: showFps = !showFps; fpsFrames = -1; activity.saveScales(); break;
                 case SET_SEG: setDpadMode(!dpadMode); break;
@@ -1787,6 +1812,13 @@ public class FlipendoActivity extends SDLActivity {
         }
 
         boolean settingsOpen;    // the settings panel is up: it takes every touch
+        static final int SETTINGS_TABS = 3;
+        static final String[] TAB_NAMES = { "Display", "Controls", "Game" };
+        int settingsTab;         // the page of the settings panel: 0 Display, 1 Controls, 2 Game
+        final android.graphics.RectF[] tabRects = { new android.graphics.RectF(), new android.graphics.RectF(), new android.graphics.RectF() };
+        final android.graphics.RectF noSkipBtn = new android.graphics.RectF(), noSaveBtn = new android.graphics.RectF();
+        String leftSection = "", rightSection = "";
+        float secLeftY, secRightY, pageTop;
         boolean helpOpen;        // the controls help card over the settings panel
         final android.graphics.RectF panel = new android.graphics.RectF();
         final android.graphics.RectF segStick = new android.graphics.RectF(), segDpad = new android.graphics.RectF();
@@ -1908,56 +1940,7 @@ public class FlipendoActivity extends SDLActivity {
             colR0 = panel.centerX() + pad / 2f;
             colR1 = panel.right - pad;
 
-            // left: Display, three sliders sharing the column's height
-            secDisplayY = contentTop + 0.03f * lh;
-            float knobR = 0.026f * lu;
-            sliderX0 = colL0 + knobR;
-            sliderX1 = colL1 - knobR;
-            // the FPS counter switch at the bottom of the column, the sliders share what is above it
-            // two switches at the bottom of the column, the sliders share what is above them
-            fpsBtn.set(colL0, footerTop - 0.035f * lh - 0.062f * lh, colL1, footerTop - 0.035f * lh);
-            fpBtn.set(colL0, fpsBtn.top - 0.008f * lh - 0.062f * lh, colL1, fpsBtn.top - 0.008f * lh);
-            float slot = (fpBtn.top - 0.015f * lh - (secDisplayY + 0.015f * lh)) / SLIDERS;
-            for (int s = 0; s < SLIDERS; s++) {
-                sliderLabelY[s] = secDisplayY + 0.015f * lh + s * slot + 0.047f * lh;
-                sliderY[s] = sliderLabelY[s] + 0.043f * lh;
-            }
-
-            // right: Controls (movement segments, Auto jump) and Game (Language, Movement mod, Debug mode)
-            float rowH = 0.058f * lh, rowGap = 0.006f * lh;
-            secControlsY = contentTop + 0.03f * lh;
-            float y = secControlsY + 0.025f * lh;
-            segStick.set(colR0, y, (colR0 + colR1) / 2f, y + rowH);
-            segDpad.set((colR0 + colR1) / 2f, y, colR1, y + rowH);
-            y += rowH + rowGap;
-            autoJumpBtn.set(colR0, y, colR1, y + rowH);
-            y += rowH + rowGap;
-            invertBtn.set(colR0, y, colR1, y + rowH);
-            y += rowH + rowGap;
-            layoutBtn.set(colR0, y, colR1, y + rowH);
-            y += rowH + 0.012f * lh;
-            secGameY = y + 0.03f * lh;
-            y = secGameY + 0.02f * lh;
-            if (languages.size() > 1) {
-                languageBtn.set(colR0, y, colR1, y + rowH);
-                y += rowH + rowGap;
-            } else {
-                languageBtn.setEmpty();
-            }
-            if (isHp2Game()) {
-                modBtn.setEmpty(); // the movement mod is HP1's: no row in HP2
-            } else {
-                modBtn.set(colR0, y, colR1, y + rowH); // always: without a mod it imports one from a file
-                y += rowH + rowGap;
-            }
-            debugBtn.set(colR0, y, colR1, y + rowH);
-
-            // footer: the channel on the left, Done on the right
-            float footH = 0.075f * lh;
-            float footY = panel.bottom - 0.03f * lh - footH;
-            telegramBtn.set(colL0, footY, colL0 + 0.36f * pw, footY + footH);
-            closeBtn.set(colR1 - 0.2f * pw, footY, colR1, footY + footH);
-            rendererBtn.set(telegramBtn.right + gap, footY, closeBtn.left - gap, footY + footH); // between the channel and Done
+            layoutSettingsPage();
 
             float ppw = Math.min(0.8f * w, 1.7f * h);
             promptPanel.set((w - ppw) / 2f, 0.22f * h, (w + ppw) / 2f, 0.78f * h);
@@ -1974,6 +1957,80 @@ public class FlipendoActivity extends SDLActivity {
             label.setTextSize(0.03f * u);
             label.setColor(0xFFFFFFFF);
             label.setShadowLayer(4f, 0f, 0f, 0xFF000000);
+        }
+
+        /** The rows of the settings page that is open (onSizeChanged and a tab tap): the rows of the other pages are empty rects. */
+        void layoutSettingsPage() {
+            float h = lh;
+            float pw = panel.width();
+            float gap = 0.02f * pw;
+            float footerTop = panel.bottom - 0.115f * h;
+            // the tabs under the header's hairline
+            float tabH = 0.062f * h, tabW = 0.17f * pw, tabY = dividerY + 0.018f * h;
+            for (int i = 0; i < SETTINGS_TABS; i++) tabRects[i].set(colL0 + i * (tabW + 0.012f * pw), tabY, colL0 + i * (tabW + 0.012f * pw) + tabW, tabY + tabH);
+            pageTop = tabY + tabH + 0.02f * h;
+            for (android.graphics.RectF r : new android.graphics.RectF[] { fpBtn, fpsBtn, segStick, segDpad, autoJumpBtn, invertBtn, layoutBtn,
+                    languageBtn, modBtn, debugBtn, noSkipBtn, noSaveBtn }) r.setEmpty();
+            float rowH = 0.058f * h, rowGap = 0.006f * h;
+            float knobR = 0.026f * lu;
+            sliderX0 = colL0 + knobR;
+            sliderX1 = colL1 - knobR;
+            secLeftY = pageTop + 0.03f * h;
+            secRightY = secLeftY;
+            float y = secLeftY + 0.025f * h;
+            if (settingsTab == 0) {
+                // left: the four sliders share the column; right: the two view switches
+                leftSection = "DISPLAY";
+                rightSection = "VIEW";
+                float slot = (footerTop - 0.03f * h - (secLeftY + 0.015f * h)) / SLIDERS;
+                for (int s = 0; s < SLIDERS; s++) {
+                    sliderLabelY[s] = secLeftY + 0.015f * h + s * slot + 0.047f * h;
+                    sliderY[s] = sliderLabelY[s] + 0.043f * h;
+                }
+                fpBtn.set(colR0, y, colR1, y + rowH);
+                y += rowH + rowGap;
+                fpsBtn.set(colR0, y, colR1, y + rowH);
+            } else if (settingsTab == 1) {
+                // left: how Harry moves; right: what the game decides alone
+                leftSection = "CONTROLS";
+                rightSection = "AS THE GAME INTENDED";
+                segStick.set(colL0, y, (colL0 + colL1) / 2f, y + rowH);
+                segDpad.set((colL0 + colL1) / 2f, y, colL1, y + rowH);
+                y += rowH + rowGap;
+                autoJumpBtn.set(colL0, y, colL1, y + rowH);
+                y += rowH + rowGap;
+                invertBtn.set(colL0, y, colL1, y + rowH);
+                y += rowH + rowGap;
+                layoutBtn.set(colL0, y, colL1, y + rowH);
+                y = secRightY + 0.025f * h;
+                noSkipBtn.set(colR0, y, colR1, y + rowH);
+                y += rowH + rowGap;
+                noSaveBtn.set(colR0, y, colR1, y + rowH);
+            } else {
+                leftSection = "GAME";
+                rightSection = "DEVELOPER";
+                if (languages.size() > 1) {
+                    languageBtn.set(colL0, y, colL1, y + rowH);
+                    y += rowH + rowGap;
+                }
+                if (!isHp2Game()) modBtn.set(colL0, y, colL1, y + rowH); // the movement mod is HP1's: no row in HP2
+                y = secRightY + 0.025f * h;
+                debugBtn.set(colR0, y, colR1, y + rowH);
+            }
+
+            // footer: the channel on the left, Done on the right
+            float footH = 0.075f * h;
+            float footY = panel.bottom - 0.03f * h - footH;
+            telegramBtn.set(colL0, footY, colL0 + 0.36f * pw, footY + footH);
+            closeBtn.set(colR1 - 0.2f * pw, footY, colR1, footY + footH);
+            rendererBtn.set(telegramBtn.right + gap, footY, closeBtn.left - gap, footY + footH); // between the channel and Done
+        }
+
+        void setSettingsTab(int tab) {
+            settingsTab = tab;
+            settingsFocus = -1;
+            layoutSettingsPage();
+            invalidate();
         }
 
         /** The settings panel's layout height and text unit (onSizeChanged): the screen's, or less on a squarer screen. */
@@ -2010,7 +2067,7 @@ public class FlipendoActivity extends SDLActivity {
 
         /** The slider under a touch (menu open only), or -1. */
         int hitSlider(float x, float y) {
-            if (!settingsOpen) return -1;
+            if (!settingsOpen || settingsTab != 0) return -1;
             float u = lu;
             for (int i = 0; i < SLIDERS; i++) {
                 if (Math.abs(y - sliderY[i]) < 0.045f * u && x > sliderX0 - 0.05f * u && x < sliderX1 + 0.05f * u) return i;
@@ -2071,38 +2128,54 @@ public class FlipendoActivity extends SDLActivity {
             line.setColor(0x22FFFFFF);
             line.setStrokeWidth(2f);
             c.drawLine(colL0, dividerY, colR1, dividerY, line);
-            c.drawLine(panel.centerX(), dividerY + 0.03f * h, panel.centerX(), telegramBtn.top - 0.03f * h, line);
 
-            // left column
-            drawSection(c, "DISPLAY", colL0, secDisplayY);
-            drawSliders(c);
-            drawSwitchRow(c, fpBtn, "First person", "Camera in Harry's head while walking", firstPerson, false);
-            drawSwitchRow(c, fpsBtn, "FPS counter", "Frames per second next to the toolbar", showFps, false);
-
-            // right column
-            drawSection(c, "CONTROLS", colR0, secControlsY);
-            drawSegments(c);
-            drawSwitchRow(c, autoJumpBtn, "Auto jump", "Harry jumps by himself at ledges", autoJump, false);
-            drawSwitchRow(c, invertBtn, "Invert wand", "Flip the up/down aim of the wand button while the spell is held", invertWand, false);
-            drawValueRow(c, layoutBtn, "Control layout", "Move and resize the buttons", "Edit", false);
-            drawSection(c, "GAME", colR0, secGameY);
-            if (languages.size() > 1) {
-                String current = languages.get(languageIndex(currentLanguage()))[1];
-                drawValueRow(c, languageBtn, "Language", "Game texts (and voices, where the build has them)", current, langListOpen);
+            // the tabs
+            for (int i = 0; i < SETTINGS_TABS; i++) {
+                android.graphics.RectF t = tabRects[i];
+                boolean on = i == settingsTab;
+                fill.setColor(on ? GOLD : 0x22FFFFFF);
+                c.drawRoundRect(t, t.height() / 2f, t.height() / 2f, fill);
+                rowPaint.setTextAlign(Paint.Align.CENTER);
+                rowPaint.setColor(on ? 0xFF1A1A1A : 0xFFFFFFFF);
+                c.drawText(TAB_NAMES[i], t.centerX(), t.centerY() + rowPaint.getTextSize() * 0.35f, rowPaint);
+                rowPaint.setColor(0xFFFFFFFF);
+                rowPaint.setTextAlign(Paint.Align.LEFT);
             }
-            if (isHp2Game()) {
-                // no movement mod in HP2
-            } else if (mods.isEmpty()) {
-                drawValueRow(c, modBtn, "Movement mod", modAsk
-                        ? "Tap again: pick the mod's zip, the game restarts (unsaved progress is lost)"
-                        : "By AdamJD: camera, climbing, aim. Pick its zip (or .u files)", "Choose file", modAsk);
+            line.setColor(0x22FFFFFF);
+            line.setStrokeWidth(2f);
+            c.drawLine(panel.centerX(), pageTop + 0.01f * h, panel.centerX(), telegramBtn.top - 0.03f * h, line);
+            drawSection(c, leftSection, colL0, secLeftY);
+            drawSection(c, rightSection, colR0, secRightY);
+            if (settingsTab == 0) {
+                drawSliders(c);
+                drawSwitchRow(c, fpBtn, "First person", "Camera in Harry's head while walking", firstPerson, false);
+                drawSwitchRow(c, fpsBtn, "FPS counter", "Frames per second next to the toolbar", showFps, false);
+            } else if (settingsTab == 1) {
+                drawSegments(c);
+                drawSwitchRow(c, autoJumpBtn, "Auto jump", "Harry jumps by himself at ledges", autoJump, false);
+                drawSwitchRow(c, invertBtn, "Invert wand", "Flip the up/down aim of the wand button while the spell is held", invertWand, false);
+                drawValueRow(c, layoutBtn, "Control layout", "Move and resize the buttons", "Edit", false);
+                drawSwitchRow(c, noSkipBtn, "No cutscene skip", "No SKIP button, no hold-Y skip: watch every scene", noSkip, false);
+                drawSwitchRow(c, noSaveBtn, "No quick save", "No save button or pad save: only the game's own save points", noQuickSave, false);
             } else {
-                drawSwitchRow(c, modBtn, "Movement mod",
-                        modAsk ? "Tap again to restart " + (modOn ? "without" : "with") + " it (unsaved progress is lost)" : "By AdamJD: camera, climbing, aim",
-                        modOn, modAsk);
+                if (languages.size() > 1) {
+                    String current = languages.get(languageIndex(currentLanguage()))[1];
+                    drawValueRow(c, languageBtn, "Language", "Game texts (and voices, where the build has them)", current, langListOpen);
+                }
+                if (isHp2Game()) {
+                    // no movement mod in HP2
+                } else if (mods.isEmpty()) {
+                    drawValueRow(c, modBtn, "Movement mod", modAsk
+                            ? "Tap again: pick the mod's zip, the game restarts (unsaved progress is lost)"
+                            : "By AdamJD: camera, climbing, aim. Pick its zip (or .u files)", "Choose file", modAsk);
+                } else {
+                    drawSwitchRow(c, modBtn, "Movement mod",
+                            modAsk ? "Tap again to restart " + (modOn ? "without" : "with") + " it (unsaved progress is lost)" : "By AdamJD: camera, climbing, aim",
+                            modOn, modAsk);
+                }
+                if (isHp2Game()) drawValueRow(c, debugBtn, "Debug menu", "Level select, story state, all spells", "Open", false);
+                else drawSwitchRow(c, debugBtn, "Debug mode", "Level Select in the main menu", debugMode, false);
             }
-            if (isHp2Game()) drawValueRow(c, debugBtn, "Debug menu", "Level select, story state, all spells", "Open", false);
-            else drawSwitchRow(c, debugBtn, "Debug mode", "Level Select in the main menu", debugMode, false);
 
             // footer
             fill.setColor(0x334A9EE8);
@@ -2303,13 +2376,14 @@ public class FlipendoActivity extends SDLActivity {
         }
 
         void key(int keycode, boolean down) {
+            if (noSkip && cutsceneShown && keycode == KeyEvent.KEYCODE_SPACE) return; // Space is the skip: nothing sends it in a cutscene
             if (down) SDLActivity.onNativeKeyDown(keycode); else SDLActivity.onNativeKeyUp(keycode);
         }
 
         void setButton(Btn b, boolean down) {
             if (b == save) {
                 b.down = down;
-                if (down) nativeRequestSave(); // saved by the game thread at its next tick, see onSaved
+                if (down && !noQuickSave) nativeRequestSave(); // saved by the game thread at its next tick, see onSaved
                 return;
             }
             if (b == gear) {
@@ -2514,7 +2588,17 @@ public class FlipendoActivity extends SDLActivity {
                             versionTap();
                             break;
                         }
-                        if (hitSlider(x, y) >= 0) {
+                        int tab = -1;
+                        for (int i = 0; i < SETTINGS_TABS; i++) if (tabRects[i].contains(x, y)) tab = i;
+                        if (tab >= 0) {
+                            setSettingsTab(tab);
+                        } else if (noSkipBtn.contains(x, y)) {
+                            noSkip = !noSkip;
+                            ((FlipendoActivity) getContext()).saveScales();
+                        } else if (noSaveBtn.contains(x, y)) {
+                            noQuickSave = !noQuickSave;
+                            ((FlipendoActivity) getContext()).saveScales();
+                        } else if (hitSlider(x, y) >= 0) {
                             roles.put(id, Role.SLIDER);
                             activeSlider = hitSlider(x, y);
                             pendingRender = surfaceScale;
