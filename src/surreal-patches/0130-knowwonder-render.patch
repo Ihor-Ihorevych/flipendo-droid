@@ -747,7 +747,7 @@ index 36448a66..3f69fb58 100644
  	bool DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly& poly, int pass, UMover* mover, bool translucentPass);
  };
 diff --git a/SurrealEngine/Render/VisibleFrame.cpp b/SurrealEngine/Render/VisibleFrame.cpp
-index 818aa65d..b3f9dd36 100644
+index 818aa65d..3fc52d24 100644
 --- a/SurrealEngine/Render/VisibleFrame.cpp
 +++ b/SurrealEngine/Render/VisibleFrame.cpp
 @@ -2,6 +2,7 @@
@@ -791,16 +791,17 @@ index 818aa65d..b3f9dd36 100644
  	Clipper.numDrawSpans = 0;
  	Clipper.numSurfs = 0;
  	Clipper.numTris = 0;
-@@ -29,6 +46,8 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
+@@ -29,6 +46,9 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
  
  	ViewLocation = vec4(location, 1.0f);
  	ViewZone = FindZoneAt(location);
++	ZoneFilter = (OnlyViewZone && ViewZone > 0 && ViewZone < 64) ? (1ULL << ViewZone) : 0;
 +	if (engine->LaunchInfo.IsHarryPotter2())
 +		HP2::MarkLumosSurfaces(ViewZone);
  	//ViewZoneMask = ViewZone ? 1ULL << ViewZone : -1;
  	ViewRotation = viewRotation;
  
-@@ -38,9 +57,18 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
+@@ -38,9 +58,18 @@ void VisibleFrame::Process(const vec3& location, const mat4& worldToView, const
  	Coronas.clear();
  	Portals.clear();
  
@@ -819,7 +820,17 @@ index 818aa65d..b3f9dd36 100644
  void VisibleFrame::SetupSceneFrame(const mat4& worldToView)
  {
  	Frame.XB = engine->viewport->ViewportX();
-@@ -191,9 +219,18 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -106,6 +135,9 @@ void VisibleFrame::ProcessNode(BspNode* node)
+ 	//if ((node->ZoneMask & ViewZoneMask) == 0)
+ 	//	return;
+ 
++	if (ZoneFilter && (node->ZoneMask & ZoneFilter) == 0)
++		return;
++
+ 	// Skip node if its AABB is not visible
+ 	if (node->RenderBound != -1 && !Clipper.IsAABBVisible(engine->Level->Model->Bounds[node->RenderBound]))
+ 	{
+@@ -191,9 +223,18 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  
  	VisibleNode info;
  	info.Node = node;
@@ -839,7 +850,7 @@ index 818aa65d..b3f9dd36 100644
  	if (PortalDepth < 4)
  	{
  		if ((PolyFlags & (PF_FakeBackdrop | PF_Invisible)) == PF_FakeBackdrop)
-@@ -226,12 +263,26 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -226,12 +267,26 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  		}
  		else if (PolyFlags & PF_Portal)
  		{
@@ -868,7 +879,7 @@ index 818aa65d..b3f9dd36 100644
  					Array<PortalSpan> spans = Clipper.CheckPortal(points, numverts);
  					if (!spans.empty())
  					{
-@@ -256,15 +307,25 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -256,15 +311,25 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  		}
  		else if (PolyFlags & PF_Mirrored)
  		{
@@ -896,7 +907,7 @@ index 818aa65d..b3f9dd36 100644
  					{
  						p.Nodes.push_back(info);
  						p.Spans.insert(p.Spans.end(), spans.begin(), spans.end());
-@@ -308,6 +369,13 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
+@@ -308,6 +373,13 @@ void VisibleFrame::ProcessNodeSurface(BspNode* node, bool front)
  
  void VisibleFrame::SortTranslucent()
  {
@@ -910,7 +921,7 @@ index 818aa65d..b3f9dd36 100644
  	std::sort(Translucents.begin(), Translucents.end(), [](const VisibleTranslucent& a, const VisibleTranslucent& b) { return a.DistSqr < b.DistSqr; });
  }
  
-@@ -354,6 +422,12 @@ void VisibleFrame::DrawCoronas()
+@@ -354,6 +426,12 @@ void VisibleFrame::DrawCoronas()
  	frame2d.WorldToView = mat4::identity();
  	Device->SetSceneNode(&frame2d);
  
@@ -923,7 +934,15 @@ index 818aa65d..b3f9dd36 100644
  	for (VisibleCorona &corona : Coronas)
  		corona.Draw(this);
  }
-@@ -403,14 +477,16 @@ void VisibleFrame::DrawPortals()
+@@ -395,6 +473,7 @@ void VisibleFrame::DrawPortals()
+ 				Coords::Location(portal.SkyZone->Location()).ToMatrix();
+ 
+ 			VisibleFrame skyframe;
++			skyframe.OnlyViewZone = true;
+ 			skyframe.Process(portal.SkyZone->Location(), skyToView, ViewRotation * Coords::Rotation(portal.SkyZone->Rotation()), MirrorFlag, PortalDepth + 1, portal.Spans);
+ 			Device->SetSceneNode(&skyframe.Frame);
+ 			skyframe.Draw();
+@@ -403,14 +482,16 @@ void VisibleFrame::DrawPortals()
  		else if (portal.WarpZone)
  		{
  			// Warp camera
@@ -942,7 +961,7 @@ index 818aa65d..b3f9dd36 100644
  			vec3 p = WarpLocationToOtherSide(portal.WarpZone, plane.xyz() * -plane.w);
  			vec3 n = WarpNormalToOtherSide(portal.WarpZone, vec3(node->PlaneX, node->PlaneY, node->PlaneZ));
  			vec4 portalPlane(n, -dot(p,n));
-@@ -425,15 +501,35 @@ void VisibleFrame::DrawPortals()
+@@ -425,15 +506,35 @@ void VisibleFrame::DrawPortals()
  		}
  		else // Mirror
  		{
@@ -983,7 +1002,7 @@ index 818aa65d..b3f9dd36 100644
  			Device->SetSceneNode(&mirrorframe.Frame);
  			mirrorframe.Draw();
  			Device->ClearZ();
-@@ -444,6 +540,8 @@ void VisibleFrame::DrawPortals()
+@@ -444,6 +545,8 @@ void VisibleFrame::DrawPortals()
  	Device->SetSceneNode(&Frame);
  	for (VisiblePortal& portal : Portals)
  	{
@@ -993,7 +1012,7 @@ index 818aa65d..b3f9dd36 100644
  		{
  			VisibleNode visnode(info);
 diff --git a/SurrealEngine/Render/VisibleFrame.h b/SurrealEngine/Render/VisibleFrame.h
-index 435b42ab..c992a02c 100644
+index 435b42ab..dba18d69 100644
 --- a/SurrealEngine/Render/VisibleFrame.h
 +++ b/SurrealEngine/Render/VisibleFrame.h
 @@ -16,6 +16,10 @@ public:
@@ -1007,7 +1026,14 @@ index 435b42ab..c992a02c 100644
  	RenderDevice* Device = nullptr;
  
  	SceneNode Frame;
-@@ -27,6 +31,7 @@ public:
+@@ -24,9 +28,14 @@ public:
+ 	Coords ViewRotation = {};
+ 	int ViewZone = 0;
+ 	//uint64_t ViewZoneMask = 0;
++	// A sky zone frame walks only the BSP subtrees that reach its own zone (the node ZoneMask): the sky is a sealed box,
++	// nothing outside it can be seen from its camera. 0: the whole tree.
++	bool OnlyViewZone = false;
++	uint64_t ZoneFilter = 0;
  	int FrameCounter = 0;
  	bool MirrorFlag = false;
  	int PortalDepth = 0;
@@ -1016,7 +1042,7 @@ index 435b42ab..c992a02c 100644
  	Array<VisibleNode> OpaqueNodes;
  	Array<VisibleActor> Actors;
 diff --git a/SurrealEngine/Render/VisibleMesh.cpp b/SurrealEngine/Render/VisibleMesh.cpp
-index 9a14d426..51e6147b 100644
+index 9a14d426..77e2265f 100644
 --- a/SurrealEngine/Render/VisibleMesh.cpp
 +++ b/SurrealEngine/Render/VisibleMesh.cpp
 @@ -12,6 +12,7 @@
@@ -1048,7 +1074,7 @@ index 9a14d426..51e6147b 100644
  		{
  			// Find attachment triangle location in the world:
  			const vec3& v0 = attachmentTris[0];
-@@ -142,6 +155,7 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, UActor* lightLoca
+@@ -142,19 +155,50 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, UActor* lightLoca
  	if (actor->bUnlit() || actor->Region().ZoneNumber == 0) polyflags |= PF_Unlit;
  
  	bool needTranslucentPass = false;
@@ -1056,7 +1082,42 @@ index 9a14d426..51e6147b 100644
  
  	UZoneInfo* zoneActor = engine->GetZoneActor(actor->Region().ZoneNumber);
  
-@@ -155,6 +169,7 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, UActor* lightLoca
+ 	VertexLight vertexLight;
+ 	lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor);
+ 
++	// A vertex is shared by several triangles: its position, normal, light and fog are worked out once per draw
++	// (stamped with the draw), not again for every triangle that uses it
++	static Array<vec3> cachedPoints, cachedNormals;
++	static Array<vec4> cachedFog;
++	static Array<vec3> cachedLight[4];
++	static Array<uint32_t> pointStamp, lightStamp[4];
++	static uint32_t drawStamp = 0;
++	size_t cacheSize = (size_t)mesh->FrameVerts;
++	if (pointStamp.size() < cacheSize)
++	{
++		cachedPoints.resize(cacheSize);
++		cachedNormals.resize(cacheSize);
++		cachedFog.resize(cacheSize);
++		pointStamp.resize(cacheSize, 0);
++		for (int k = 0; k < 4; k++)
++		{
++			cachedLight[k].resize(cacheSize);
++			lightStamp[k].resize(cacheSize, 0);
++		}
++	}
++	if (++drawStamp == 0)
++	{
++		drawStamp = 1;
++		std::fill(pointStamp.begin(), pointStamp.end(), 0u);
++		for (int k = 0; k < 4; k++)
++			std::fill(lightStamp[k].begin(), lightStamp[k].end(), 0u);
++	}
++
+ 	GouraudVertex vertices[3];
++	size_t triVerts[3];
+ 	for (const MeshTri& tri : mesh->Tris)
+ 	{
+ 		if (tri.TextureIndex >= mesh->Textures.size())
  			continue;
  
  		uint32_t renderflags = tri.PolyFlags | polyflags;
@@ -1064,15 +1125,68 @@ index 9a14d426..51e6147b 100644
  		UTexture* tex = (renderflags & PF_Environment) ? engine->render->Mesh.envmap : engine->render->Mesh.textures[tri.TextureIndex];
  		if (!tex)
  			continue;
-@@ -229,6 +244,7 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, UActor* lightLoca
- 			vertices[i].Fog = vertexLight.GetVertexFog(vertices[i].Point);
+@@ -183,6 +227,14 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, UActor* lightLoca
+ 		for (int i = 0; i < 3; i++)
+ 		{
+ 			size_t vindex = tri.Indices[i];
++			triVerts[i] = vindex;
++			vertices[i].UV = { tri.UV[i].x * uscale, tri.UV[i].y * vscale };
++			if (vindex < cacheSize && pointStamp[vindex] == drawStamp)
++			{
++				vertices[i].Point = cachedPoints[vindex];
++				normals[i] = cachedNormals[vindex];
++				continue;
++			}
+ 			size_t vindex0 = vindex + vertexOffsets[0];
+ 			size_t vindex1 = vindex + vertexOffsets[1];
+ 
+@@ -208,8 +260,14 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, UActor* lightLoca
+ 			}
+ 
+ 			vertices[i].Point = (ObjectToWorld * vec4(vertex, 1.0f)).xyz();
+-			vertices[i].UV = { tri.UV[i].x * uscale, tri.UV[i].y * vscale };
+ 			normals[i] = normalize(ObjectNormalToWorld * normal);
++			if (vindex < cacheSize)
++			{
++				cachedPoints[vindex] = vertices[i].Point;
++				cachedNormals[vindex] = normals[i];
++				cachedFog[vindex] = vertexLight.GetVertexFog(vertices[i].Point);
++				pointStamp[vindex] = drawStamp;
++			}
+ 		}
+ 
+ 		if (renderflags & PF_Environment)
+@@ -223,12 +281,27 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, UActor* lightLoca
+ 			}
+ 		}
+ 
++		bool unlit = !!(renderflags & PF_Unlit), twoSided = !!(renderflags & PF_TwoSided);
++		int variant = (unlit ? 1 : 0) | (twoSided ? 2 : 0);
+ 		for (int i = 0; i < 3; i++)
+ 		{
+-			vertices[i].Light = vertexLight.GetVertexLight(vertices[i].Point, normals[i], !!(renderflags & PF_Unlit), !!(renderflags & PF_TwoSided));
+-			vertices[i].Fog = vertexLight.GetVertexFog(vertices[i].Point);
++			size_t vindex = triVerts[i];
++			if (vindex >= cacheSize)
++			{
++				vertices[i].Light = vertexLight.GetVertexLight(vertices[i].Point, normals[i], unlit, twoSided);
++				vertices[i].Fog = vertexLight.GetVertexFog(vertices[i].Point);
++				continue;
++			}
++			if (lightStamp[variant][vindex] != drawStamp)
++			{
++				cachedLight[variant][vindex] = vertexLight.GetVertexLight(vertices[i].Point, normals[i], unlit, twoSided);
++				lightStamp[variant][vindex] = drawStamp;
++			}
++			vertices[i].Light = cachedLight[variant][vindex];
++			vertices[i].Fog = cachedFog[vindex];
  		}
  
 +		KW::ApplyOpacityVertices(opacity, vertices, 3);
  		renderflags |= PF_RenderFog;
  
  		frame->Device->DrawGouraudPolygon(&frame->Frame, texinfo, vertices, 3, renderflags);
-@@ -456,6 +472,7 @@ bool VisibleMesh::DrawLodMeshFace(VisibleFrame* frame, UActor* actor, UActor* li
+@@ -456,6 +529,7 @@ bool VisibleMesh::DrawLodMeshFace(VisibleFrame* frame, UActor* actor, UActor* li
  	lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor);
  
  	bool needTranslucentPass = false;
@@ -1080,7 +1194,7 @@ index 9a14d426..51e6147b 100644
  
  	GouraudVertex vertices[3];
  	for (const MeshFace& face : faces)
-@@ -469,6 +486,7 @@ bool VisibleMesh::DrawLodMeshFace(VisibleFrame* frame, UActor* actor, UActor* li
+@@ -469,6 +543,7 @@ bool VisibleMesh::DrawLodMeshFace(VisibleFrame* frame, UActor* actor, UActor* li
  			continue;
  
  		uint32_t renderflags = material.PolyFlags | polyFlags;
@@ -1088,7 +1202,7 @@ index 9a14d426..51e6147b 100644
  		UTexture* tex = (renderflags & PF_Environment) ? engine->render->Mesh.envmap : engine->render->Mesh.textures[material.TextureIndex];
  
  		// skip if no texture
-@@ -548,6 +566,7 @@ bool VisibleMesh::DrawLodMeshFace(VisibleFrame* frame, UActor* actor, UActor* li
+@@ -548,6 +623,7 @@ bool VisibleMesh::DrawLodMeshFace(VisibleFrame* frame, UActor* actor, UActor* li
  			vertices[i].Fog = vertexLight.GetVertexFog(vertices[i].Point);
  		}
  
@@ -1096,7 +1210,7 @@ index 9a14d426..51e6147b 100644
  		renderflags |= PF_RenderFog;
  
  		frame->Device->DrawGouraudPolygon(&frame->Frame, texinfo, vertices, 3, renderflags);
-@@ -558,6 +577,12 @@ bool VisibleMesh::DrawLodMeshFace(VisibleFrame* frame, UActor* actor, UActor* li
+@@ -558,6 +634,12 @@ bool VisibleMesh::DrawLodMeshFace(VisibleFrame* frame, UActor* actor, UActor* li
  
  bool VisibleMesh::DrawSkeletalMesh(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, USkeletalMesh* mesh, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, bool translucentPass)
  {
