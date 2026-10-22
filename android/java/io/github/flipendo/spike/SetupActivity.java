@@ -45,10 +45,10 @@ public class SetupActivity extends Activity {
     static final String CHANNEL_URL = "https://t.me/flipendodroid";
 
     /** The launcher's size: every size here is in dp / sp, so the screen's density scaled by this makes the whole launcher larger
-     *  (text, buttons, boxes) at once. Steps of the "Interface size" control; the default is 150%. */
+     *  (text, buttons, boxes) at once. Steps of the "Interface size" control; the default is 125%. */
     static final String PREF_UI = "launcherScale";
     static final float[] UI_STEPS = { 1.0f, 1.25f, 1.5f, 1.75f, 2.0f, 2.5f };
-    static final float UI_DEFAULT = 1.5f;
+    static final float UI_DEFAULT = 1.25f;
 
     private static float savedUiScale(android.content.Context c) {
         return c.getSharedPreferences("setup", MODE_PRIVATE).getFloat(PREF_UI, UI_DEFAULT);
