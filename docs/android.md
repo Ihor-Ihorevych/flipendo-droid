@@ -460,12 +460,38 @@ button charges and casts, the jump button (right mouse) cycles the three spells,
   physics fixes. Saves stay per launcher slot (`HP2::TickQueuedSave` writes `Save<slot>`, `LOADGAME` reads it). The patches were rebuilt by a three-way merge of the patched trees.
 - **Settings in three pages** (Display, Controls, Game) and two new switches: **No cutscene skip** and **No quick save**.
 - **FPS limit up to 120**: the app asks the display for the rate; cutscenes run at 60 at most (the original's cutscene walks break at high frame rates).
-- **Larger settings:** the panel's text, rows and padding are bigger and the page scrolls; Done is a large button at the top right, the channel and the controls help are icons beside it, and the renderer, graphics fix and the other game moved into the Game page.
-- **Launcher size:** Interface size (A−, A+: 100 to 250%, default 125%) scales the whole launcher (every size there is in dp / sp, so its density is scaled; `launcherScale` in the `setup` preferences). The "Remember my choice" box no longer overlaps the hint above it.
-- **First person:** it stays on while a spell is held (HP1's `PlayerAiming` state; only `PlayerWalking` kept it before, so every cast jumped to the third person camera). The log names any other state that takes the camera back.
-- **New launcher look:** a night-blue start screen; the two games are covers (the Philosopher's Stone red with a cut gem, the Chamber of Secrets green with a serpent), the chosen one lit with a gold edge; the saved games and the renderer on the right, and Play pinned under them so it never scrolls away. Play says what it does (Continue slot N, Start a new game).
-- **Faster outdoors:** the sky is drawn by walking only the BSP subtrees that reach the sky zone (the node ZoneMask; the sky is a sealed box), not the whole level a second time: 3.3 ms of a 22 ms frame down to 0.5-1 ms on the Hogwarts grounds (Dimensity 8300). A vertex mesh's vertices are positioned and lit once per draw, not once per triangle using them.
-- **Where the CPU goes** (measured 2026-10-22 with frame phase timers on the HP2 grounds, 45 FPS, render scale 100%; simpleperf is blocked on that Xiaomi build): everything but sound runs on the game thread (about 100% of one core, the other seven idle). Per frame: game logic (scripts, physics) 4.1 ms, BSP walk and surface occlusion clipping 3.8 ms, the sky's walk 3.3 ms (now 0.5-1), other meshes 2.5 ms (mostly one draw call per triangle), skeletal mesh lighting 1.7 ms (mostly picking the lights per mesh, a faithful port; the per-vertex part is 0.5 ms, splitting it over cores gained nothing), present 1.4 ms, BSP surfaces 1.4 ms. Lower render scales don't help: the GPU is not the limit. What would: a render thread overlapping the game logic with the drawing (a large change, one frame more input latency), and batching mesh triangles into fewer draw calls.
-- **Performance log** (Settings > Game): turns on frame phase timers (`src/knowwonder/KWProf.h`); every 2 s the log gets a `PROF` line with the milliseconds per frame of the game logic, the BSP walk, the sky and portals, the surfaces, the actors and the present, so a slow phone's log shows where its frame goes (the log report has it).
-- **Performance hint:** the game thread tells Android (APerformanceHint, found at run time, API 33+) how long its frames take, so the scheduler keeps it on a fast core and raises the clocks in time (53 FPS instead of 45 on the Hogwarts grounds on a Dimensity 8300; the game thread was on a big core already there, other phones may differ).
-- **Vulkan runs a frame ahead:** the frame is submitted and the CPU goes on with the next one while the GPU draws it; the wait for the GPU (`CommandBufferManager::FinishFrame`) comes with the first thing of the next frame that needs what the GPU is using (the command pool, the vertex and staging buffers, the descriptor sets, the delete list), after the logic and the visibility walk. 27 -> 48 FPS on the Hogwarts grounds on a Mali-G615 (OpenGL ES: 52). Before, `Unlock` waited for the GPU every frame (21 ms of a 37 ms frame).
+
+## 0.4.1
+
+Speed, a new look and a longer settings panel.
+
+**Speed**
+- **Vulkan runs a frame ahead.** `Unlock` used to wait for the GPU after every frame (21 ms of a 37 ms frame), so the CPU and the GPU took turns. Now the
+  frame is submitted and the CPU goes on with the next one; the wait for the GPU (`CommandBufferManager::FinishFrame`) comes with the first thing of the next frame
+  that needs what the GPU is using (the command pool, the vertex and staging buffers, the descriptor sets, the delete list), after the game logic and the
+  visibility walk. 27 to 48 FPS on the Hogwarts grounds on a Mali-G615 (OpenGL ES: 52). OpenGL ES is still the default and still a little faster. Level changes,
+  cutscenes and returning from the background on Vulkan have had little testing: if a picture breaks there, switch the renderer back.
+- **Performance hint.** The game thread tells Android (APerformanceHint, found at run time, API 33+) how long its frames take, so the scheduler keeps it on a fast
+  core and raises the clocks in time (53 FPS instead of 45 on the grounds on a Dimensity 8300; the thread was on a big core there already, other phones may differ).
+- **The sky is cheaper.** Its frame walks only the BSP subtrees that reach the sky zone (the node `ZoneMask`; the sky is a sealed box), not the whole level a second
+  time: 3.3 ms of a 22 ms frame down to 0.5-1 ms outdoors. A vertex mesh's vertices are positioned once per draw, not once per triangle that uses them.
+- **Performance log** (Settings > Game). Frame phase timers (`src/knowwonder/KWProf.h`): every 2 s the log gets a `PROF` line with the milliseconds per frame of
+  the game logic, the BSP walk, the sky and portals, the surfaces, the actors and the present, so a slow phone's log shows where its frame goes (the log report has it).
+- **Where the CPU goes** (measured with those timers on the HP2 grounds, 45 FPS, render scale 100%; simpleperf is blocked on that Xiaomi build): everything but sound
+  runs on the game thread (about one core, the other seven idle). Per frame: game logic 4.1 ms, BSP walk and occlusion clipping 3.8-4.5 ms, the sky 3.3 ms (now
+  0.5-1), other meshes 2.5 ms, skeletal mesh lighting 1.7 ms, present 1.4 ms, BSP surfaces 1.4 ms; the render device calls are 2.9 ms of a 19 ms frame, so a
+  render thread would gain 15% at best and was left out. Lower render scales do not help on OpenGL ES (the CPU is the limit), they do on Vulkan (the GPU takes
+  20 ms there at 100%).
+
+**Look**
+- **New launcher.** A night-blue start screen; the two games are covers (the Philosopher's Stone red with a cut gem, the Chamber of Secrets green with a serpent),
+  the chosen one lit with a gold edge; the saved games and the renderer on the right, and Play pinned under them so it never scrolls away. Play says what it does
+  (Continue slot N, Start a new game).
+- **Interface size** in the launcher (A-, A+: 100 to 250%, default 125%) scales the whole launcher (every size there is in dp / sp, so the density is scaled;
+  `launcherScale` in the `setup` preferences). The "Remember my choice" box no longer overlaps the hint above it.
+- **Larger settings.** The panel's text, rows and padding are bigger and the page scrolls; Done is a large button at the top right, the channel and the controls help
+  are icons beside it, and the renderer, graphics fix and the other game moved into the Game page.
+
+**Fixes**
+- **First person stays on while a spell is held.** HP1's Harry goes to the `PlayerAiming` state for as long as the spell is held, and only `PlayerWalking` kept
+  the camera in his head, so every cast jumped to the third person camera. The log names any other state that takes the camera back.
