@@ -20,6 +20,7 @@ Flipendo keeps a strict line between the **faithful port** and **additions**:
 | `FrameLimit.cpp` | HP1, HP2 | on at 60 fps (`--fps=<n>`; `--fps=0` or `--vanilla` disables) | waits at the end of each frame's tick so the game runs at most n frames a second: HP1's per-frame movement breaks at high frame rates ([original_bugs.md](re/hp1/original_bugs.md)) |
 | `PathFixes.cpp` | HP1 | on (`--vanilla` disables) | adds reach specs the original maps are missing, so `Pawn.FindPath` finds the route the designers meant: Lev_Tut3b's HPath_F3 → baseStation1, Peeves' exit after the duel ([original_bugs.md](re/hp1/original_bugs.md)) |
 | `TextureOverrides.cpp` | HP1, HP2 | on (`--vanilla` disables) | draws a texture from `Textures/<package>/<group>/<name>.dds` in the game folder when that file exists (DXT1/3/5, the layout D3D11Drv texture packs such as the ESRGAN Upscale Pack use); realtime and procedural textures are left alone. Vulkan only |
+| `ImprovedMovement.cpp` | HP1 | on (`--vanilla` or `--classic-movement` disables) | HP2's controls, after AdamJD's Mouse Fix and Strafing mod: Left / Right strafe (the mouse turns, in the air too), Harry keeps moving while a spell is held (the mouse aims it up and down; he can jump with it or start one in the air, but doesn't climb until it is cast), the mouse looks up and down while Harry moves, not only standing still, a ledge caught mid-jump is climbed at once, and AdamJD's smaller tweaks: half the sideways air control, slower blends, the idle while sliding with no input, spells hitting a pawn within 128 at once ([controls.md](re/hp1/controls.md)) |
 | `LaunchSkips.cpp` | HP1, HP2 | splash skip on (`--vanilla` disables, `--skip-splash` forces it); intro skip off (`--skip-intro`, HP1) | skip the logo/title splash screens (HP2: the EA and WB splashes before its front end); skip the New Game storybook |
 
 ## Writing a mod
@@ -53,7 +54,12 @@ Rules:
 - No `// IDA` tags in a mod (nothing is reversed); say in a comment which script code it relies on.
 
 Helpers in `HP1Mods.h`: `ObjectProperty` / `BoolProperty` read script properties by name, `SpacePressed` reports a
-key press since the last tick, `DrawPrompt` draws a small hint line in the corner.
+key press since the last tick, `DrawPrompt` draws a small hint line in the corner. `WrapScriptFunction` puts a native
+in place of one of a class's script functions (its own or one of its states', for every object of the class from then
+on) and hands back the script function, which the native can still run with `Frame::Call`: a mod that has to change a
+value in the middle of a script's frame does it around the script instead of copying it (`ImprovedMovement.cpp` wraps
+Harry's `PlayerMove`, `ProcessMove`, `Mount` and `DoJump`). Install it from `TickMods` only when the mod is on, so
+`--vanilla` runs the scripts untouched.
 
 Work through the game's own script state (properties, script functions) where you can, so a mod stays a thin
 layer over vanilla behaviour. To find what to touch, read the game's scripts, extracted with KnowWonder's
