@@ -37,6 +37,7 @@ A note that says "HP2 not checked" means exactly that: don't assume HP2 is the s
 | Note | Topic |
 |---|---|
 | [spells.md](hp1/spells.md) | spell targeting and casting, the spell lesson and its rendering |
+| [controls.md](hp1/controls.md) | turning and strafing (the Left / Right bindings, PlayerMove), moving while aiming (fTimeToStop), the reticle's pitch, the camera's mouse look only while Harry stands still |
 | [cutscenes.md](hp1/cutscenes.md) | CutScene command lists, how cutscenes move Harry, Lev_Tut1's scenes and merchants |
 | [menus.md](hp1/menus.md) | the menu book (title menu, pause, storybook: bIsOpen, bGamePlaying), level titles from Dobby.int / HPMenu.int |
 | [collectibles.md](hp1/collectibles.md) | wizard cards (IDs, where each of the 24 is), chests and their contents, beans |

@@ -5,6 +5,9 @@
 
 class UObject;
 class UCanvas;
+class UClass;
+class UFunction;
+class ExpressionValue;
 
 // Additions on top of the original game (see docs/modding.md).
 namespace HP1::Mods
@@ -17,6 +20,12 @@ namespace HP1::Mods
 	// Script state helpers: a property of a script object by name, or nullptr if the object or property is missing.
 	using KW::ObjectProperty; // src/knowwonder/KWActor.cpp
 	using KW::BoolProperty;
+
+	// Replaces a script function of the class (of its state, or its own with state nullptr) with a native handler
+	// (args: one ExpressionValue per parameter) and returns the script function, which the handler can still run with
+	// Frame::Call. nullptr, and nothing replaced, if the state or function is missing or already native. Package
+	// files are left alone, so saves don't depend on it.
+	UFunction* WrapScriptFunction(UClass* cls, const char* state, const char* function, void (*handler)(UObject* self, ExpressionValue* args));
 
 	// Space went down since the last tick (from the window's key events, so it works in menus and in game).
 	bool SpacePressed();
@@ -46,4 +55,7 @@ namespace HP1::Mods
 
 	// FastForward.cpp
 	float FastForwardTimeScale();
+
+	// ImprovedMovement.cpp
+	void TickImprovedMovement();
 }
