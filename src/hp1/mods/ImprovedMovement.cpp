@@ -20,7 +20,8 @@
 //
 // - Left / Right strafe instead of turning; the mouse still turns Harry.
 // - Harry keeps moving while a spell is held: forward / back, strafing and turning with the mouse. The spell aims up
-//   and down with the mouse alone, as in HP2. He jumps with the spell held too, but doesn't climb.
+//   and down with the mouse alone, as in HP2. He jumps with the spell held too, and can start one in the air, but
+//   doesn't climb.
 // - Moving the mouse up and down looks up and down while Harry moves too, not only while he stands still.
 //
 // It works through the game's own scripts (HarryPotter.Harry, HPBase.BaseCam / Target; docs/re/hp1/controls.md),
@@ -44,7 +45,8 @@
 //   so a jump pressed while aiming is lost); the wrapper does it as PlayerWalking does: DoJump, then clears it. In the air the wand stays
 //   up and the main channel plays DoJump's jump, then 'fall' (playeraiming's AnimEnd is empty), the air control is
 //   PlayerWalking's (aStrafe * 0.16 against playeraiming's 0.4, which only bosses meet) and landing plays
-//   PlayerWalking's Landed sound.
+//   PlayerWalking's Landed sound (its volume comes from fTimeInAir, which PlayerWalking's ProcessFalling counts; the
+//   wrapper counts it while aiming). Harry.AltFire refuses to start aiming while Harry falls; its wrapper lets it.
 // - Harry.UpdateRotation returns at once while Harry falls, so nothing turns him in the air; after either PlayerMove
 //   the extra turns him by the mouse as UpdateRotation would (aTurn * 0.24, clamped to turnRate, 24 or 32 a second).
 // - Moving into a ledge raises Mount (the ledge grab) and a gap can raise DoJump (auto jump); while aiming the
@@ -84,6 +86,7 @@ namespace HP1::Mods
 		UFunction* AimingProcessMove = nullptr;
 		UFunction* HarryMount = nullptr;
 		UFunction* HarryDoJump = nullptr;
+		UFunction* HarryAltFire = nullptr;
 
 		// Set by the PlayerMove wrappers for the ProcessMove its script calls: aStrafe and Harry's right axis.
 		float PendingStrafe = 0.0f;
@@ -280,6 +283,29 @@ namespace HP1::Mods
 
 		bool WasInAir = false;
 
+		// PlayerWalking.ProcessFalling (called by PlayerWalking's PlayerTick, before PlayerMove): fTimeInAir and fFallingZ,
+		// which PlayLandedSound takes the volume from
+		void ProcessFalling(UPlayerPawn* harry, float deltaTime)
+		{
+			float* timeInAir = Prop<float>(harry, "fTimeInAir");
+			float* fallingZ = Prop<float>(harry, "fFallingZ");
+			uint8_t* lastPhysics = Prop<uint8_t>(harry, "eLastPhysState");
+			if (!timeInAir || !fallingZ || !lastPhysics)
+				return;
+			if (harry->Physics() == PHYS_Falling)
+			{
+				if (*lastPhysics != PHYS_Falling)
+					*fallingZ = harry->Location().z;
+				*timeInAir += deltaTime;
+			}
+			else
+			{
+				SetBoolProperty(harry, "bPlayedFallSound", false);
+				*timeInAir = 0.0f;
+			}
+			*lastPhysics = harry->Physics();
+		}
+
 		// playeraiming's animation while the extra moves Harry
 		void AimingAnims(UPlayerPawn* harry)
 		{
@@ -302,12 +328,6 @@ namespace HP1::Mods
 				if (!jumping && anim != NameString("fall"))
 					KW::PlayAnim(harry, NameString("fall"), true, 1.0f, 0.2f, 0.0f, EAnimType::AT_Combine, NameString());
 				return;
-			}
-			if (WasInAir)
-			{
-				// Landed (PlayerPawn's; playeraiming has none) has no sound, PlayerWalking's plays this
-				WasInAir = false;
-				CallEvent(harry, NameString("PlayLandedSound"));
 			}
 
 			vec3 accel = harry->Acceleration();
@@ -363,6 +383,14 @@ namespace HP1::Mods
 			BeforePlayerMove(harry);
 			if (moving)
 			{
+				if (WasInAir && harry->Physics() == PHYS_Walking)
+				{
+					// Landed (PlayerPawn's; playeraiming has none) has no sound, PlayerWalking's plays this. Before
+					// ProcessFalling clears fTimeInAir, as Landed comes before PlayerTick.
+					WasInAir = false;
+					CallEvent(harry, NameString("PlayLandedSound"));
+				}
+				ProcessFalling(harry, args[0].ToFloat());
 				if (float* timeToStop = Prop<float>(harry, "fTimeToStop"))
 					*timeToStop = 1.0f;
 				if (harry->Physics() == PHYS_Falling)
@@ -390,6 +418,19 @@ namespace HP1::Mods
 				Frame::Call(HarryDoJump, self, {});
 				SetBoolProperty(harry, "bPressedJump", false);
 			}
+		}
+
+		void NAltFire(UObject* self, ExpressionValue* args)
+		{
+			// The original returns while Harry falls (and goes to playeraiming, which changes no physics, otherwise)
+			UPlayerPawn* harry = static_cast<UPlayerPawn*>(self);
+			bool inAir = Active() && harry->Physics() == PHYS_Falling && NoSpecialMode(harry) &&
+				harry->GetStateName() == NameString("PlayerWalking");
+			if (inAir)
+				harry->Physics() = PHYS_Walking;
+			CallOriginal(HarryAltFire, self, args);
+			if (inAir)
+				harry->Physics() = PHYS_Falling;
 		}
 
 		void NMount(UObject* self, ExpressionValue* args)
@@ -422,6 +463,7 @@ namespace HP1::Mods
 			AimingProcessMove = WrapScriptFunction(cls, "playeraiming", "ProcessMove", &NAimingProcessMove);
 			HarryMount = WrapScriptFunction(cls, nullptr, "Mount", &NMount);
 			HarryDoJump = WrapScriptFunction(cls, nullptr, "DoJump", &NDoJump);
+			HarryAltFire = WrapScriptFunction(cls, nullptr, "AltFire", &NAltFire);
 		}
 
 		// Out of playeraiming (cast, or left some other way: a cutscene, a hit): the wand comes down, and once 'cast'

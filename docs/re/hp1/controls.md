@@ -35,7 +35,7 @@ goes back to `PlayerWalking`. The spell leaves on the `cast` animation's notify 
 moving (`aForward * X + aStrafe * Y`). Turning works as in walking (`aTurn * 0.24`, `UpdateRotation`).
 `playeraiming.ProcessMove` sets `Acceleration` and returns before any animation code, and `AnimEnd` is empty, so
 nothing changes the animation while aiming. Its jump (`if ( bPressedJump ) DoJump();`, as in `PlayerWalking`) is
-commented out, and `PlayerWalking`'s `BeginState` clears `bPressedJump`, so a jump pressed while aiming is lost; the air
+commented out, and `PlayerWalking`'s `BeginState` clears `bPressedJump`, so a jump pressed while aiming is lost; `PlayerWalking.ProcessFalling`, which counts `fTimeInAir` (the landing sound's volume), isn't called either; the air
 control is `aStrafe * 0.4` against `PlayerWalking`'s 0.16. Nothing in `playeraiming` stops a ledge grab (`Mount`) or an
 auto jump (`DoJump`) either; outside the boss fights the original never meets them, since Harry stands still while he
 aims.
