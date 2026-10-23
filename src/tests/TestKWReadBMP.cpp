@@ -37,7 +37,8 @@ namespace
 		for (int y = 0; y < height; y++)
 		{
 			size_t fileRow = topDown ? y : height - 1 - y;
-			memcpy(f.data() + dataOffset + stride * fileRow, rows[y].data(), rows[y].size());
+			if (!rows[y].empty()) // an empty row's data() may be null, which memcpy may not be given
+				memcpy(f.data() + dataOffset + stride * fileRow, rows[y].data(), rows[y].size());
 		}
 		return f;
 	}
