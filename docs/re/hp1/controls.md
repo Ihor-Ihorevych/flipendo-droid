@@ -17,7 +17,9 @@ instead, and the mouse does nothing: KnowWonder commented the mouse out of that 
 - Falling, `bLockedOnTarget` (bosses) or `bFixedFaceDirection`: `aStrafe *= 0.16`, `aTurn = 0`. Left and Right strafe,
   nothing turns; `ProcessAccel` points Harry at the boss.
 
-`aForward` is scaled by 0.08 in both. `Harry.UpdateRotation` returns at once while Harry falls, so nothing turns him
+Both keys at once cancel in the original engine (each held key adds its speed to the axis); SurrealEngine's
+`Engine::InputCommand` keeps one key per axis, so in Flipendo the key pressed last wins. `aForward` is scaled by 0.08
+in both. `Harry.UpdateRotation` returns at once while Harry falls, so nothing turns him
 in the air (in any state). `bKeepStationary` zeroes `aForward` and `aStrafe` (Harry can still turn),
 `bReverseInput` (the troll chase) flips them, `bScreenRelativeMovement` moves along the camera's axes. `TweenToRunning`
 and `PlayRunning` already pick `runback`, `StrafeRight` or `StrafeLeft` when the acceleration points more than about 41

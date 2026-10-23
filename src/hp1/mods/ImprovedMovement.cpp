@@ -23,6 +23,8 @@
 //   and down with the mouse alone, as in HP2. He jumps with the spell held too, and can start one in the air, but
 //   doesn't climb.
 // - Moving the mouse up and down looks up and down while Harry moves too, not only while he stands still.
+// - AdamJD's smaller tweaks: half the sideways air control, slower blends at the end of an animation, the idle (not the
+//   run) while Harry slides with no input, and spells that hit a creature at once from up close.
 //
 // It works through the game's own scripts (HarryPotter.Harry, HPBase.BaseCam / Target; docs/re/hp1/controls.md),
 // wrapping some of Harry's functions (WrapScriptFunction):
@@ -55,6 +57,12 @@
 //   from the ground (Mounting picks climb32 or climb64 by the height). The original's FallingMount waits until Harry
 //   has fallen to 82 below the ledge (or landed) and pulls him up from there with climb96end; from 80 up that is
 //   at once anyway (MaxMountHeight is 96.5).
+// - Air control: PlayerWalking.PlayerMove gives aStrafe * 0.16 in the air, playeraiming 0.4; AdamJD's 0.08 for both.
+// - Blends: PlayerWalking's AnimEnd starts the next animation with TweenToWaiting(0.2) / TweenToWalking(0.1) /
+//   TweenToRunning(0.1); AdamJD's 0.4. TweenToRunning and PlayRunning play 'run' when there is no acceleration
+//   (Harry still sliding, Left and Right both held); AdamJD's 'breath' (TweenToWaiting here).
+// - Auto hit, from HP2 (AdamJD's baseWand.CastSpell): Harry's spell at a pawn less than 128 from the wand hits it as
+//   it leaves the wand (the spell's ProcessTouch), where the projectile could start inside the pawn and never touch it.
 // - BaseCam's Standardstate (GeneralStationaryModeCamera) and HPBase.CamTarget only follow the mouse's SmoothMouseY
 //   while Harry is stationary, which the camera works out from HarrysPreviousPosition; while he moves they level the
 //   view (and keep the camera at least at his eye height). After Harry's move the camera is given his new position,
@@ -90,6 +98,11 @@ namespace HP1::Mods
 		UFunction* HarryMount = nullptr;
 		UFunction* HarryDoJump = nullptr;
 		UFunction* HarryAltFire = nullptr;
+		UFunction* WalkingAnimEnd = nullptr;
+		UFunction* HarryTweenToRunning = nullptr;
+		UFunction* HarryPlayRunning = nullptr;
+		UFunction* HarryTweenToWaiting = nullptr;
+		UFunction* WandCastSpell = nullptr;
 
 		// Set by the PlayerMove wrappers for the ProcessMove its script calls: aStrafe and Harry's right axis.
 		float PendingStrafe = 0.0f;
@@ -368,6 +381,8 @@ namespace HP1::Mods
 		{
 			UPlayerPawn* harry = static_cast<UPlayerPawn*>(self);
 			BeforePlayerMove(harry);
+			if (Active() && harry->Physics() == PHYS_Falling && NoSpecialMode(harry))
+				harry->aStrafe() *= 0.5f; // PlayerWalking's 0.16 to 0.08
 			CallOriginal(WalkingPlayerMove, self, args);
 			AirTurn(harry, args[0].ToFloat());
 			AfterPlayerMove(harry);
@@ -397,7 +412,7 @@ namespace HP1::Mods
 				if (float* timeToStop = Prop<float>(harry, "fTimeToStop"))
 					*timeToStop = 1.0f;
 				if (harry->Physics() == PHYS_Falling)
-					harry->aStrafe() *= 0.4f;
+					harry->aStrafe() *= 0.2f; // playeraiming's 0.4 to 0.08
 			}
 			CallOriginal(AimingPlayerMove, self, args);
 			AirTurn(harry, args[0].ToFloat());
@@ -436,6 +451,77 @@ namespace HP1::Mods
 				harry->Physics() = PHYS_Falling;
 		}
 
+		bool InWalkingAnimEnd = false;
+
+		bool PlainFeel(UPlayerPawn* harry)
+		{
+			return Active() && NoSpecialMode(harry);
+		}
+
+		bool NoAcceleration(UPlayerPawn* harry)
+		{
+			vec3 accel = harry->Acceleration();
+			return accel.x == 0.0f && accel.y == 0.0f;
+		}
+
+		void NWalkingAnimEnd(UObject* self, ExpressionValue* args)
+		{
+			InWalkingAnimEnd = true;
+			CallOriginal(WalkingAnimEnd, self, args);
+			InWalkingAnimEnd = false;
+		}
+
+		// TweenToRunning / TweenToWaiting (TweenToWalking calls TweenToRunning) from PlayerWalking's AnimEnd
+		void SlowBlend(UPlayerPawn* harry, ExpressionValue& tweenTime)
+		{
+			if (InWalkingAnimEnd && PlainFeel(harry))
+				tweenTime.Store(ExpressionValue::FloatValue(0.4f));
+		}
+
+		void NTweenToWaiting(UObject* self, ExpressionValue* args)
+		{
+			SlowBlend(static_cast<UPlayerPawn*>(self), args[0]);
+			CallOriginal(HarryTweenToWaiting, self, args);
+		}
+
+		void NTweenToRunning(UObject* self, ExpressionValue* args)
+		{
+			UPlayerPawn* harry = static_cast<UPlayerPawn*>(self);
+			SlowBlend(harry, args[0]);
+			if (PlainFeel(harry) && NoAcceleration(harry))
+				CallEvent(harry, NameString("TweenToWaiting"), { ExpressionValue::FloatValue(args[0].ToFloat()) });
+			else
+				CallOriginal(HarryTweenToRunning, self, args);
+		}
+
+		void NPlayRunning(UObject* self, ExpressionValue* args)
+		{
+			UPlayerPawn* harry = static_cast<UPlayerPawn*>(self);
+			// AdamJD's PlayRunning is TweenToRunning(0); the idle gets TweenToWaiting's own blend instead of a cut
+			if (PlainFeel(harry) && NoAcceleration(harry))
+				CallEvent(harry, NameString("TweenToWaiting"), { ExpressionValue::FloatValue(0.2f) });
+			else
+				CallOriginal(HarryPlayRunning, self, args);
+		}
+
+		UClass* HarryClass = nullptr;
+
+		void NCastSpell(UObject* self, ExpressionValue* args)
+		{
+			UActor* target = UObject::TryCast<UActor>(args[0].ToObject());
+			CallOriginal(WandCastSpell, self, args);
+			UActor* wand = static_cast<UActor*>(self);
+			UActor* caster = wand->Owner();
+			if (!Active() || !caster || !HarryClass || !caster->IsA(HarryClass->Name) || !target || !target->IsA(NameString("Pawn")))
+				return;
+			vec3 d = wand->Location() - target->Location();
+			if (dot(d, d) >= 128.0f * 128.0f)
+				return;
+			UActor* spell = UObject::TryCast<UActor>(ObjectProperty(wand, "LastCastedSpell"));
+			if (spell && !spell->bDeleteMe())
+				CallEvent(spell, NameString("ProcessTouch"), { ExpressionValue::ObjectValue(target), ExpressionValue::VectorValue(target->Location()) });
+		}
+
 		void NMount(UObject* self, ExpressionValue* args)
 		{
 			UPlayerPawn* harry = static_cast<UPlayerPawn*>(self);
@@ -457,7 +543,7 @@ namespace HP1::Mods
 				CallOriginal(HarryDoJump, self, args);
 		}
 
-		UClass* HarryClass = nullptr;
+		UClass* WandClass = nullptr;
 	}
 
 	void TickImprovedMovement()
@@ -476,6 +562,16 @@ namespace HP1::Mods
 			HarryMount = WrapScriptFunction(cls, nullptr, "Mount", &NMount);
 			HarryDoJump = WrapScriptFunction(cls, nullptr, "DoJump", &NDoJump);
 			HarryAltFire = WrapScriptFunction(cls, nullptr, "AltFire", &NAltFire);
+			WalkingAnimEnd = WrapScriptFunction(cls, "PlayerWalking", "AnimEnd", &NWalkingAnimEnd);
+			HarryTweenToRunning = WrapScriptFunction(cls, nullptr, "TweenToRunning", &NTweenToRunning);
+			HarryPlayRunning = WrapScriptFunction(cls, nullptr, "PlayRunning", &NPlayRunning);
+			HarryTweenToWaiting = WrapScriptFunction(cls, nullptr, "TweenToWaiting", &NTweenToWaiting);
+		}
+		UClass* wandClass = engine->packages->FindClass("HPBase.baseWand");
+		if (wandClass && wandClass != WandClass)
+		{
+			WandClass = wandClass;
+			WandCastSpell = WrapScriptFunction(wandClass, nullptr, "CastSpell", &NCastSpell);
 		}
 
 		// Out of playeraiming (cast, or left some other way: a cutscene, a hit): the wand comes down, and once 'cast'
