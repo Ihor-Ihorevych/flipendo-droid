@@ -33,8 +33,11 @@ goes back to `PlayerWalking`. The spell leaves on the `cast` animation's notify 
 `PlayerMove` counts it down by `DeltaTime` first, so Harry stops the frame aiming starts. Locked on a boss he keeps
 moving (`aForward * X + aStrafe * Y`). Turning works as in walking (`aTurn * 0.24`, `UpdateRotation`).
 `playeraiming.ProcessMove` sets `Acceleration` and returns before any animation code, and `AnimEnd` is empty, so
-nothing changes the animation while aiming. Nothing in `playeraiming` stops a ledge grab (`Mount`) or an auto jump
-(`DoJump`) either; outside the boss fights the original never meets them, since Harry stands still while he aims.
+nothing changes the animation while aiming. Its jump (`if ( bPressedJump ) DoJump();`, as in `PlayerWalking`) is
+commented out, and `PlayerWalking`'s `BeginState` clears `bPressedJump`, so a jump pressed while aiming is lost; the air
+control is `aStrafe * 0.4` against `PlayerWalking`'s 0.16. Nothing in `playeraiming` stops a ledge grab (`Mount`) or an
+auto jump (`DoJump`) either; outside the boss fights the original never meets them, since Harry stands still while he
+aims.
 
 `HPBase.Target` (the reticle, `rectarget`) pitches the aim with the mouse (`SmoothMouseY` past 256, by `/ 8`) and with
 the forward and back keys (`aForMove`, the raw `aBaseY`, past 64: 256 a tick), between -8000 and 12000. The keys are

@@ -20,7 +20,7 @@
 //
 // - Left / Right strafe instead of turning; the mouse still turns Harry.
 // - Harry keeps moving while a spell is held: forward / back, strafing and turning with the mouse. The spell aims up
-//   and down with the mouse alone, as in HP2. He doesn't climb or jump while a spell is held.
+//   and down with the mouse alone, as in HP2. He jumps with the spell held too, but doesn't climb.
 // - Moving the mouse up and down looks up and down while Harry moves too, not only while he stands still.
 //
 // It works through the game's own scripts (HarryPotter.Harry, HPBase.BaseCam / Target; docs/re/hp1/controls.md),
@@ -40,9 +40,14 @@
 //   The release plays 'cast' on the whole body (AT_Replace, which clears every channel) and waits for it; meanwhile
 //   the run goes on in one transient channel per thigh. The next animation the game plays (AT_Replace) clears them.
 //   HarryAnimType, which the game's own animation functions pass on and save games keep, is left alone.
+// - playeraiming.ProcessMove has PlayerWalking's jump commented out (PlayerWalking's BeginState clears bPressedJump,
+//   so a jump pressed while aiming is lost); the wrapper does it as PlayerWalking does: DoJump, then clears it. In the air the wand stays
+//   up and the main channel plays DoJump's jump, then 'fall' (playeraiming's AnimEnd is empty), the air control is
+//   PlayerWalking's (aStrafe * 0.16 against playeraiming's 0.4, which only bosses meet) and landing plays
+//   PlayerWalking's Landed sound.
 // - Moving into a ledge raises Mount (the ledge grab) and a gap can raise DoJump (auto jump); while aiming the
 //   wrappers drop both, so Harry stops at the ledge or walks off the edge (the original's AltFire refuses to start
-//   aiming in the air). In the air he plays PlayInAir's 'fall' until he lands.
+//   aiming in the air).
 // - BaseCam's Standardstate (GeneralStationaryModeCamera) and HPBase.CamTarget only follow the mouse's SmoothMouseY
 //   while Harry is stationary, which the camera works out from HarrysPreviousPosition; while he moves they level the
 //   view (and keep the camera at least at his eye height). After Harry's move the camera is given his new position,
@@ -244,19 +249,43 @@ namespace HP1::Mods
 			}
 		}
 
+		void WandUp(UPlayerPawn* harry)
+		{
+			UActor* channel = SpineChannel(harry);
+			if (channel && channel->AnimSequence() != NameString("wave"))
+				KW::PlayAnim(channel, NameString("wave"), true, 1.0f, 0.2f, 0.0f, EAnimType::AT_Replace, NameString());
+		}
+
+		bool WasInAir = false;
+
 		// playeraiming's animation while the extra moves Harry
 		void AimingAnims(UPlayerPawn* harry)
 		{
 			bool release = harry->AnimSequence() == NameString("cast");
 			if (harry->Physics() != PHYS_Walking)
 			{
-				// Walked off an edge with the spell held. Landed (PlayerPawn's, playeraiming has none) plays
-				// PlayLanded; back on the ground the wand comes up again below.
-				PutWandBack(harry);
+				// Jumped or walked off an edge with the spell held: the wand stays up, the body plays DoJump's
+				// jump2 / jump, then 'fall', as PlayerWalking's AnimEnd would (PlayInAir's loopanim, played here
+				// AT_Combine so it keeps the wand)
+				WasInAir = true;
 				StopLegs(harry);
-				if (!release && harry->AnimSequence() != NameString("fall"))
-					CallEvent(harry, NameString("PlayInAir"));
+				if (release)
+				{
+					PutWandBack(harry);
+					return;
+				}
+				WandUp(harry);
+				NameString anim = harry->AnimSequence();
+				bool jumping = (anim == NameString("jump") || anim == NameString("jump2")) && !harry->bAnimFinished();
+				if (!jumping && anim != NameString("fall"))
+					KW::PlayAnim(harry, NameString("fall"), true, 1.0f, 0.2f, 0.0f, EAnimType::AT_Combine, NameString());
 				return;
+			}
+			if (WasInAir)
+			{
+				// Landed (PlayerPawn's; playeraiming has none) has no sound, PlayerWalking's plays this
+				WasInAir = false;
+				CallEvent(harry, NameString("PlayLandedSound"));
 			}
 
 			vec3 accel = harry->Acceleration();
@@ -275,9 +304,7 @@ namespace HP1::Mods
 
 			if (moving)
 			{
-				UActor* channel = SpineChannel(harry);
-				if (channel && channel->AnimSequence() != NameString("wave"))
-					KW::PlayAnim(channel, NameString("wave"), true, 1.0f, 0.2f, 0.0f, EAnimType::AT_Replace, NameString());
+				WandUp(harry);
 				NameString legs = RunAnim(harry, accel);
 				if (harry->AnimSequence() != legs)
 					KW::PlayAnim(harry, legs, true, 1.0f, 0.2f, 0.0f, EAnimType::AT_Combine, NameString());
@@ -311,10 +338,12 @@ namespace HP1::Mods
 			UPlayerPawn* harry = static_cast<UPlayerPawn*>(self);
 			bool moving = MovingWhileAiming(harry);
 			BeforePlayerMove(harry);
-			if (moving && harry->Physics() == PHYS_Walking)
+			if (moving)
 			{
 				if (float* timeToStop = Prop<float>(harry, "fTimeToStop"))
 					*timeToStop = 1.0f;
+				if (harry->Physics() == PHYS_Falling)
+					harry->aStrafe() *= 0.4f;
 			}
 			CallOriginal(AimingPlayerMove, self, args);
 			if (moving)
@@ -329,6 +358,14 @@ namespace HP1::Mods
 		{
 			AddStrafe(args[1]);
 			CallOriginal(AimingProcessMove, self, args);
+			UPlayerPawn* harry = static_cast<UPlayerPawn*>(self);
+			// Not during the release: jump2 would replace 'cast', which the state waits for (the jump is lost, as in the
+			// original)
+			if (MovingWhileAiming(harry) && BoolProperty(harry, "bPressedJump") && harry->AnimSequence() != NameString("cast"))
+			{
+				Frame::Call(HarryDoJump, self, {});
+				SetBoolProperty(harry, "bPressedJump", false);
+			}
 		}
 
 		void NMount(UObject* self, ExpressionValue* args)
@@ -368,6 +405,7 @@ namespace HP1::Mods
 		UPlayerPawn* player = engine->viewport ? engine->viewport->Actor() : nullptr;
 		if (player && HarryClass && player->IsA(HarryClass->Name) && !Aiming(player))
 		{
+			WasInAir = false;
 			PutWandBack(player);
 			if (player->AnimSequence() != NameString("cast"))
 				StopLegs(player);
