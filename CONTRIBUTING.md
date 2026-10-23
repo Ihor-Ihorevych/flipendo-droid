@@ -70,6 +70,13 @@ build-mac/SurrealEngine.app/Contents/MacOS/SurrealEngine --autolaunch --logfile=
 
 The game renders at the display's native (Retina) resolution.
 
+### Tests
+
+`ctest --test-dir <build folder>` runs the unit tests (`FlipendoTests`, built with the game when no `--target` is
+given) and `python3 tools/check_repo.py` the repository rules; CI runs both on every pull request. With HP1 installed,
+`tools/smoke_test.py <copy of the game folder>` plays a few scripted runs and checks them
+([docs/development.md](docs/development.md#tests)).
+
 ### Developer flags
 
 | Flag | What it does |
