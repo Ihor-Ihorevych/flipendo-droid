@@ -50,8 +50,11 @@
 // - Harry.UpdateRotation returns at once while Harry falls, so nothing turns him in the air; after either PlayerMove
 //   the extra turns him by the mouse as UpdateRotation would (aTurn * 0.24, clamped to turnRate, 24 or 32 a second).
 // - Moving into a ledge raises Mount (the ledge grab) and a gap can raise DoJump (auto jump); while aiming the
-//   wrappers drop both, so Harry stops at the ledge or walks off the edge (the original's AltFire refuses to start
-//   aiming in the air).
+//   wrappers drop both, so Harry stops at the ledge or walks off the edge.
+// - Mantling, after AdamJD's mod: a ledge grabbed in the air less than 80 up is climbed at once, the way Mount climbs
+//   from the ground (Mounting picks climb32 or climb64 by the height). The original's FallingMount waits until Harry
+//   has fallen to 82 below the ledge (or landed) and pulls him up from there with climb96end; from 80 up that is
+//   at once anyway (MaxMountHeight is 96.5).
 // - BaseCam's Standardstate (GeneralStationaryModeCamera) and HPBase.CamTarget only follow the mouse's SmoothMouseY
 //   while Harry is stationary, which the camera works out from HarrysPreviousPosition; while he moves they level the
 //   view (and keep the camera at least at his eye height). After Harry's move the camera is given his new position,
@@ -435,8 +438,17 @@ namespace HP1::Mods
 
 		void NMount(UObject* self, ExpressionValue* args)
 		{
-			if (!MovingWhileAiming(static_cast<UPlayerPawn*>(self)))
-				CallOriginal(HarryMount, self, args);
+			UPlayerPawn* harry = static_cast<UPlayerPawn*>(self);
+			if (MovingWhileAiming(harry))
+				return;
+			// Mount's ground branch (bFallingMount off, Mounting); Mounting's BeginState sets PHYS_Projectile
+			bool mantle = Active() && harry->Physics() == PHYS_Falling && NoSpecialMode(harry) &&
+				args[0].ToVector().z < 80.0f;
+			if (mantle)
+				harry->Physics() = PHYS_Walking;
+			CallOriginal(HarryMount, self, args);
+			if (mantle && harry->Physics() == PHYS_Walking)
+				harry->Physics() = PHYS_Falling;
 		}
 
 		void NDoJump(UObject* self, ExpressionValue* args)

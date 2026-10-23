@@ -45,6 +45,16 @@ the forward and back keys (`aForMove`, the raw `aBaseY`, past 64: 256 a tick), b
 ignored while `bNoMove` is set, which is cleared once `aForMove` is 0. Left and right only turn the aim on a boss
 (`TargetYaw`, by the mouse); otherwise the reticle follows Harry's rotation.
 
+## Ledges
+
+The physics raise `Harry.Mount(ledge - Location)` for a ledge at most `MaxMountHeight` (96.5) up, on the ground and in
+the air ([physics.md](../engine/physics.md)). On the ground `Mounting` climbs at once with `climb32` (less than 48 up),
+`climb64` (less than 80) or `climb96start` then `climb96end`. In the air (`bFallingMount`) `FallingMount` holds
+`climb96end`'s first frame and waits until Harry has fallen to 82 below the ledge (moving him there at once if he is
+lower) or has landed, then `Mounting` plays `climb96end` from there. A jump that catches a ledge's top half drops
+Harry onto the hang point first. AdamJD's mod sends a mid-air grab straight to `Mounting`, which picks the climb by the
+height the ground's way (with `climb96end` from 80 to 98).
+
 ## The camera and the mouse's Y axis
 
 `Harry.UpdateRotation` zeroes `aLookUp` in `PlayerMove` ("make harry steady"), so the mouse never pitches Harry. The
