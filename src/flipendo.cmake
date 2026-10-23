@@ -3,3 +3,4 @@
 include(${CMAKE_CURRENT_LIST_DIR}/knowwonder/knowwonder.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/hp1/hp1.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/hp2/hp2.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/tests/tests.cmake)
