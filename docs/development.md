@@ -48,7 +48,8 @@ set times, plus crash reports and the script debugger: [debug-tools.md](debug-to
 
 ## Tests
 
-`.github/workflows/ci.yml` runs on every push to `master` and every pull request, without the games' files:
+`.github/workflows/ci.yml` runs on every push (a fork's branches too, before their pull request) and every pull request,
+without the games' files:
 
 - `tools/check_repo.py`: the rules in [`CLAUDE.md`](../CLAUDE.md) a script can check. Every patch in
   `src/surreal-patches/` starts with its `routes.txt` description and changes only files routed to it, no added engine

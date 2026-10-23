@@ -1,12 +1,12 @@
-# Every push to master and every pull request: the repository rules (tools/check_repo.py) and the engine patches
-# applying to the pinned SurrealEngine, the game and the unit tests (src/tests/) built and run on Windows, Linux and
-# macOS, and the unit tests again under AddressSanitizer and UBSan. None of it needs the games' files; the tests that
-# do run locally (tools/smoke_test.py).
+# Every push (any branch, so a fork's branch is checked before its pull request) and every pull request: the repository
+# rules (tools/check_repo.py) and the engine patches applying to the pinned SurrealEngine, the game and the unit tests
+# (src/tests/) built and run on Windows, Linux and macOS, and the unit tests again under AddressSanitizer and UBSan.
+# None of it needs the games' files; the tests that do run locally (tools/smoke_test.py).
 name: CI
 
 on:
   push:
-    branches: [master]
+    branches: ['**']
   pull_request:
   workflow_dispatch:
 
