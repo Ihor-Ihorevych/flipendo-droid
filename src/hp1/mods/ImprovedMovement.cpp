@@ -45,6 +45,8 @@
 //   up and the main channel plays DoJump's jump, then 'fall' (playeraiming's AnimEnd is empty), the air control is
 //   PlayerWalking's (aStrafe * 0.16 against playeraiming's 0.4, which only bosses meet) and landing plays
 //   PlayerWalking's Landed sound.
+// - Harry.UpdateRotation returns at once while Harry falls, so nothing turns him in the air; after either PlayerMove
+//   the extra turns him by the mouse as UpdateRotation would (aTurn * 0.24, clamped to turnRate, 24 or 32 a second).
 // - Moving into a ledge raises Mount (the ledge grab) and a gap can raise DoJump (auto jump); while aiming the
 //   wrappers drop both, so Harry stops at the ledge or walks off the edge (the original's AltFire refuses to start
 //   aiming in the air).
@@ -137,6 +139,26 @@ namespace HP1::Mods
 				if (vec3* previous = Prop<vec3>(cam, "HarrysPreviousPosition"))
 					*previous = harry->Location();
 			}
+		}
+
+		// In the air, with the mouse: Harry.UpdateRotation's yaw (it returns at once while falling). Air control uses the
+		// facing PlayerMove started with, so it follows the turn from the next frame.
+		void AirTurn(UPlayerPawn* harry, float deltaTime)
+		{
+			if (!Active() || harry->Physics() != PHYS_Falling || !NoSpecialMode(harry))
+				return;
+			float turn = harry->SmoothMouseX() * 0.24f;
+			if (float* turnRate = Prop<float>(harry, "turnRate"))
+				turn = std::clamp(turn, -*turnRate, *turnRate);
+			vec3 accel = harry->Acceleration();
+			int yaw = (int)((dot(accel, accel) == 0.0f ? 32.0f : 24.0f) * deltaTime * turn);
+			if (yaw == 0)
+				return;
+			harry->ViewRotation().Yaw += yaw;
+			harry->DesiredRotation().Yaw = harry->ViewRotation().Yaw;
+			Rotator rotation = harry->Rotation();
+			rotation.Yaw = harry->ViewRotation().Yaw;
+			harry->SetRotation(rotation);
 		}
 
 		// NewAccel is PlayerMove's own variable (the VM passes a variable by reference); ProcessMove is the last thing
@@ -324,6 +346,7 @@ namespace HP1::Mods
 			UPlayerPawn* harry = static_cast<UPlayerPawn*>(self);
 			BeforePlayerMove(harry);
 			CallOriginal(WalkingPlayerMove, self, args);
+			AirTurn(harry, args[0].ToFloat());
 			AfterPlayerMove(harry);
 		}
 
@@ -346,6 +369,7 @@ namespace HP1::Mods
 					harry->aStrafe() *= 0.4f;
 			}
 			CallOriginal(AimingPlayerMove, self, args);
+			AirTurn(harry, args[0].ToFloat());
 			if (moving)
 			{
 				SetBoolProperty(ObjectProperty(harry, "rectarget"), "bNoMove", true);

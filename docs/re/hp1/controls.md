@@ -17,7 +17,8 @@ instead, and the mouse does nothing: KnowWonder commented the mouse out of that 
 - Falling, `bLockedOnTarget` (bosses) or `bFixedFaceDirection`: `aStrafe *= 0.16`, `aTurn = 0`. Left and Right strafe,
   nothing turns; `ProcessAccel` points Harry at the boss.
 
-`aForward` is scaled by 0.08 in both. `bKeepStationary` zeroes `aForward` and `aStrafe` (Harry can still turn),
+`aForward` is scaled by 0.08 in both. `Harry.UpdateRotation` returns at once while Harry falls, so nothing turns him
+in the air (in any state). `bKeepStationary` zeroes `aForward` and `aStrafe` (Harry can still turn),
 `bReverseInput` (the troll chase) flips them, `bScreenRelativeMovement` moves along the camera's axes. `TweenToRunning`
 and `PlayRunning` already pick `runback`, `StrafeRight` or `StrafeLeft` when the acceleration points more than about 41
 degrees away from Harry's facing (`Dir Dot X < 0.75`), which only the boss fights reach. `PlayRunning` also halves
