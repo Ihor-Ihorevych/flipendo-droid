@@ -7,22 +7,25 @@ import java.io.FileOutputStream;
 import java.util.HashMap;
 
 /**
- * The app's texts in English (the keys), Russian, Ukrainian and Belarusian. The launcher (SetupActivity, its own process)
+ * The app's texts in English (the keys), Russian, Ukrainian, Belarusian, Georgian and Latvian. The launcher (SetupActivity, its own process)
  * and the game's overlay (FlipendoActivity) both use it: the choice is a file in the app's files folder, which both read.
  * A text without a translation stays English.
  */
 final class Tr {
-    static final String[] CODES = { "en", "ru", "uk", "be" };
-    static final String[] NAMES = { "English", "Слобожанський", "Українська", "Беларуская" };
+    static final String[] CODES = { "en", "ru", "uk", "be", "ka", "lv" };
+    static final String[] NAMES = { "English", "Слобожанський", "Українська", "Беларуская", "ქართული", "Latviešu" };
 
-    /** The order the languages are listed in: English, Ukrainian, Belarusian, Russian (indexes into CODES). */
-    static final int[] ORDER = { 0, 2, 3, 1 };
+    /** The order the languages are listed in: English, Ukrainian, Belarusian, Georgian, Latvian, Russian (indexes into CODES). */
+    static final int[] ORDER = { 0, 2, 3, 4, 5, 1 };
 
     static String[] orderedNames() {
         String[] names = new String[ORDER.length];
         for (int i = 0; i < ORDER.length; i++) names[i] = NAMES[ORDER[i]];
         return names;
     }
+
+    /** The languages T has columns for (English included); the later ones are in T2. */
+    private static final int T_LANGS = 4;
 
     private static int lang = 0;
     private static HashMap<String, String> map;
@@ -31,7 +34,7 @@ final class Tr {
         return new File(c.getFilesDir(), "ui_lang");
     }
 
-    /** Reads the saved language; without one, the phone's: Russian, Ukrainian or Belarusian if it speaks one of them. */
+    /** Reads the saved language; without one, the phone's: Russian, Ukrainian, Belarusian, Georgian or Latvian if it speaks one of them. */
     static void init(Context c) {
         lang = 0;
         map = null;
@@ -76,7 +79,11 @@ final class Tr {
         if (lang == 0) return en;
         if (map == null) {
             map = new HashMap<>();
-            for (String[] row : T) map.put(row[0], row[lang]);
+            if (lang < T_LANGS) {
+                for (String[] row : T) map.put(row[0], row[lang]);
+            } else {
+                for (String[] row : T2) map.put(row[0], row[lang - T_LANGS + 1]);
+            }
         }
         String text = map.get(en);
         return text != null ? text : en;
@@ -220,6 +227,10 @@ final class Tr {
         { "Renderer", "Рендерер", "Рендерер", "Рэндэр" },
         { "Which one runs better depends on the phone. If the game is slow, looks wrong or does not start, try the other.", "Какой вариант работает лучше, зависит от телефона. Если игра тормозит, выглядит неправильно или не запускается, попробуйте другой.", "Який варіант працює краще, залежить від телефона. Якщо гра гальмує, виглядає неправильно або не запускається, спробуйте інший.", "Які варыянт працуе лепш, залежыць ад тэлефона. Калі гульня тармозіць, выглядае няправільна або не запускаецца, паспрабуйце іншы." },
         { "Remember my choice", "Запомнить мой выбор", "Запам'ятати мій вибір", "Запомніць мой выбар" },
+        { "HD textures", "HD-текстуры", "HD-текстури", "HD-тэкстуры" },
+        { "Sharper walls, doors, characters, the main menu and the storybooks (ESRGAN upscale pack, about 1.3 GB on the phone). Needs a lot of memory: untick it if the game stutters or closes.", "Более чёткие стены, двери, персонажи, главное меню и книги-истории (набор ESRGAN, около 1,3 ГБ на телефоне). Требует много памяти: снимите галочку, если игра тормозит или закрывается.", "Чіткіші стіни, двері, персонажі, головне меню та книги-історії (набір ESRGAN, близько 1,3 ГБ на телефоні). Потребує багато пам'яті: зніміть галочку, якщо гра гальмує або закривається.", "Больш чыткія сцены, дзверы, персанажы, галоўнае меню і кнігі-гісторыі (набор ESRGAN, каля 1,3 ГБ на тэлефоне). Патрабуе шмат памяці: здыміце птушку, калі гульня тармозіць або закрываецца." },
+        { "Installing textures ", "Установка текстур ", "Встановлення текстур ", "Усталяванне тэкстур " },
+        { "Removing the HD textures ", "Удаление HD-текстур ", "Видалення HD-текстур ", "Выдаленне HD-тэкстур " },
         { "Play", "Играть", "Грати", "Гуляць" },
         { "Start a new game", "Начать новую игру", "Почати нову гру", "Пачаць новую гульню" },
         { "Continue slot ", "Продолжить: слот ", "Продовжити: слот ", "Працягнуць: слот " },
@@ -299,5 +310,229 @@ final class Tr {
         { "Installing Harry Potter 2 failed: ", "Не удалось установить Гарри Поттера 2: ", "Не вдалося встановити Гаррі Поттера 2: ", "Не атрымалася ўсталяваць Гары Потэра 2: " },
         { "Installing game data ", "Установка данных игры ", "Встановлення даних гри ", "Усталяванне даных гульні " },
         { "Installing the game data failed: ", "Не удалось установить данные игры: ", "Не вдалося встановити дані гри: ", "Не атрымалася ўсталяваць даныя гульні: " },
+    };
+
+    /** Georgian and Latvian: { English, Georgian, Latvian }. */
+    private static final String[][] T2 = {
+        { "Off (the normal picture)", "გამორთულია (ჩვეულებრივი სურათი)", "Izslēgts (parastais attēls)" },
+        { "Without the lightmap (the walls are visible, but not lit)", "ლაითმაპის გარეშე (კედლები ჩანს, მაგრამ განათებული არ არის)", "Bez apgaismojuma kartes (sienas redzamas, bet neapgaismotas)" },
+        { "Without macro, detail and fog layers", "მაკრო, დეტალებისა და ნისლის შრეების გარეშე", "Bez makro, detalizācijas un miglas slāņiem" },
+        { "Lightmap with a plain bilinear filter", "განათების რუკა ჩვეულებრივი ბილინეარული ფილტრით", "Apgaismojuma karte ar parasto bilineāro filtru" },
+        { "Textures without mip levels", "ტექსტურები მიპ-დონეების გარეშე", "Tekstūras bez mip līmeņiem" },
+        { "Plain bilinear filter for every texture", "ჩვეულებრივი ბილინეარული ფილტრი ყველა ტექსტურისთვის", "Parastais bilineārais filtrs visām tekstūrām" },
+        { "Lightmap read at level 0 (textureLod)", "განათების რუკა იკითხება 0 დონეზე (textureLod)", "Apgaismojuma karte tiek lasīta 0. līmenī (textureLod)" },
+        { "Lightmap read by texel (texelFetch)", "განათების რუკა იკითხება ტექსელებით (texelFetch)", "Apgaismojuma karte tiek lasīta pa tekseļiem (texelFetch)" },
+        { "Test: show the lightmap only", "ტესტი: მხოლოდ განათების რუკის ჩვენება", "Tests: rādīt tikai apgaismojuma karti" },
+        { "Test: show the lightmap coordinates", "ტესტი: განათების რუკის კოორდინატების ჩვენება", "Tests: rādīt apgaismojuma kartes koordinātas" },
+        { "Graphics fix (the game restarts)", "გრაფიკის გამოსწორება (თამაში გადაიტვირთება)", "Grafikas labojums (spēle tiks pārstartēta)" },
+        { "No file picker on this phone", "ამ ტელეფონზე ფაილების არჩევა მიუწვდომელია", "Šajā tālrunī nav failu izvēles" },
+        { "No folder picker on this phone", "ამ ტელეფონზე საქაღალდეების არჩევა მიუწვდომელია", "Šajā tālrunī nav mapju izvēles" },
+        { "That place can't be read as a folder: pick a folder in the phone's storage", "ეს ადგილი საქაღალდედ ვერ იკითხება: აირჩიეთ საქაღალდე ტელეფონის მეხსიერებაში", "Šo vietu nevar nolasīt kā mapi: izvēlieties mapi tālruņa atmiņā" },
+        { "Importing the dubbing...", "გახმოვანების იმპორტი...", "Dublāžas imports..." },
+        { "Dubbing imported: restarting with it", "გახმოვანება იმპორტირებულია: ხელახლა იწყება მასთან ერთად", "Dublāža importēta: pārstartēju ar to" },
+        { "Importing the mod...", "მოდის იმპორტი...", "Moda imports..." },
+        { "Mod imported: restarting with it", "მოდი იმპორტირებულია: ხელახლა იწყება მასთან ერთად", "Mods importēts: pārstartēju ar to" },
+        { "Game saved (slot ", "თამაში შენახულია (სლოტი ", "Spēle saglabāta (slots " },
+        { "Vulkan doesn't work on this phone: switching to OpenGL ES", "Vulkan ამ ტელეფონზე არ მუშაობს: გადავრთავ OpenGL ES-ზე", "Vulkan šajā tālrunī nedarbojas: pārslēdzos uz OpenGL ES" },
+        { "Go to level…", "გადასვლა დონეზე…", "Doties uz līmeni…" },
+        { "Set story state…", "სიუჟეტის მდგომარეობის დაყენება…", "Iestatīt sižeta stāvokli…" },
+        { "Give all spells", "ყველა შელოცვის მიცემა", "Iedot visas burvestības" },
+        { "God mode (on / off)", "ღმერთის რეჟიმი (ჩართ. / გამორთ.)", "Dieva režīms (iesl. / izsl.)" },
+        { "Fly", "ფრენა", "Lidot" },
+        { "Ghost (fly through walls)", "აჩრდილი (კედლებში გავლით ფრენა)", "Spoks (lidot cauri sienām)" },
+        { "Walk again", "ისევ სიარული", "Atkal staigāt" },
+        { "HP2 debug", "HP2-ის გამართვა", "HP2 atkļūdošana" },
+        { "No maps found in ", "რუკები ვერ მოიძებნა აქ: ", "Kartes nav atrastas šeit: " },
+        { "Go to level", "გადასვლა დონეზე", "Doties uz līmeni" },
+        { "Story state (applies on the next level load)", "სიუჟეტის მდგომარეობა (ძალაში შევა შემდეგი დონის ჩატვირთვისას)", "Sižeta stāvoklis (stāsies spēkā nākamajā līmeņa ielādē)" },
+        { "Language", "ენა", "Valoda" },
+        { "✓ Current", "✓ მიმდინარე", "✓ Pašreizējā" },
+        { "Choose folder  ›", "საქაღალდის არჩევა  ›", "Izvēlēties mapi  ›" },
+        { "Restart in it  ›", "გადატვირთვა მასში  ›", "Pārstartēt tajā  ›" },
+        { "Picking another language restarts the game (unsaved progress is lost)", "სხვა ენის არჩევა თამაშს გადატვირთავს (შეუნახავი პროგრესი დაიკარგება)", "Citas valodas izvēle pārstartē spēli (nesaglabātais progress tiks zaudēts)" },
+        { "Fixed camera level", "დონე ფიქსირებული კამერით", "Līmenis ar fiksētu kameru" },
+        { "The game fixes the camera here and the movement mod aims along it,", "თამაში აქ კამერას აფიქსირებს, მოძრაობის მოდი კი მის გასწვრივ დამიზნებს,", "Spēle šeit fiksē kameru, un kustību mods mērķē pa to," },
+        { "so you can't aim. Switch the mod off? The game saves,", "ამიტომ დამიზნება შეუძლებელია. გამოვრთოთ მოდი? თამაში შეინახება,", "tāpēc mērķēt nevar. Izslēgt modu? Spēle saglabās," },
+        { "restarts and loads this save by itself.", "გადაიტვირთება და ამ შენახვას თვითონ ჩატვირთავს.", "pārstartēsies un pati ielādēs šo saglabājumu." },
+        { "Switch off and restart", "გამორთვა და გადატვირთვა", "Izslēgt un pārstartēt" },
+        { "Keep the mod", "მოდის დატოვება", "Atstāt modu" },
+        { "Could not save: the mod stays on", "შენახვა ვერ მოხერხდა: მოდი რჩება ჩართული", "Neizdevās saglabāt: mods paliek ieslēgts" },
+        { "Display", "ეკრანი", "Ekrāns" },
+        { "Controls", "მართვა", "Vadība" },
+        { "Game", "თამაში", "Spēle" },
+        { "DISPLAY", "ეკრანი", "EKRĀNS" },
+        { "VIEW", "ხედი", "SKATS" },
+        { "CONTROLS", "მართვა", "VADĪBA" },
+        { "AS THE GAME INTENDED", "ისე, როგორც თამაშის ავტორებს სურდათ", "KĀ SPĒLE IECERĒTA" },
+        { "GAME", "თამაში", "SPĒLE" },
+        { "MORE", "მეტი", "VAIRĀK" },
+        { "Settings", "პარამეტრები", "Iestatījumi" },
+        { "First person", "პირველი პირის ხედი", "Skats pirmajā personā" },
+        { "Camera in Harry's head while walking", "კამერა ჰარის თავში სიარულისას", "Kamera Harija galvā ejot" },
+        { "FPS counter", "FPS მრიცხველი", "FPS skaitītājs" },
+        { "Frames per second by the toolbar", "კადრები წამში პანელთან", "Kadri sekundē pie rīkjoslas" },
+        { "Auto jump", "ავტოხტომა", "Automātiskā lēkšana" },
+        { "Harry jumps by himself at ledges", "ჰარი თავად ახტება კიდეებთან", "Harijs pats lec pie dzegām" },
+        { "Invert wand", "ჯოხის ინვერსია", "Apgriezt zizli" },
+        { "Flip the wand's up/down aim", "ჯოხის დამიზნების აღმა/დაღმა შებრუნება", "Apgriež zizļa mērķēšanu augšup/lejup" },
+        { "Control layout", "ღილაკების განლაგება", "Pogu izkārtojums" },
+        { "Move and resize the buttons", "გადაიტანეთ ღილაკები და შეცვალეთ მათი ზომა", "Pārvietojiet pogas un mainiet to izmēru" },
+        { "Edit", "შეცვლა", "Mainīt" },
+        { "No cutscene skip", "როლიკების გამოტოვების გარეშე", "Bez starpsižetu izlaišanas" },
+        { "No SKIP button, no hold-Y skip", "SKIP ღილაკისა და Y-ს დაჭერით გამოტოვების გარეშე", "Nav SKIP pogas un izlaišanas, turot Y" },
+        { "No quick save", "სწრაფი შენახვის გარეშე", "Bez ātrās saglabāšanas" },
+        { "No save button, no pad save", "შენახვის ღილაკისა და გეიმპადით შენახვის გარეშე", "Nav saglabāšanas pogas un saglabāšanas ar spēļu paliktni" },
+        { "Wand sensitivity", "ჯოხის მგრძნობელობა", "Zizļa jutība" },
+        { "How fast the wand stick turns the camera", "რა სიჩქარით ატრიალებს ჯოხის სტიკი კამერას", "Cik ātri zizļa kursorsvira pagriež kameru" },
+        { "Texts and voices", "ტექსტები და გახმოვანება", "Teksti un balsis" },
+        { "Movement mod", "მოძრაობის მოდი", "Kustību mods" },
+        { "Tap again: pick its zip, the game restarts", "შეეხეთ ხელახლა: აირჩიეთ მისი zip, თამაში გადაიტვირთება", "Pieskarieties vēlreiz: izvēlieties tā zip, spēle pārstartēsies" },
+        { "By AdamJD: camera, climbing, aim", "ავტორი AdamJD: კამერა, ცოცვა, დამიზნება", "No AdamJD: kamera, kāpšana, mērķēšana" },
+        { "Choose file", "ფაილის არჩევა", "Izvēlēties failu" },
+        { "Tap again: restart without it", "შეეხეთ ხელახლა: გადატვირთვა მის გარეშე", "Pieskarieties vēlreiz: pārstartēt bez tā" },
+        { "Tap again: restart with it", "შეეხეთ ხელახლა: გადატვირთვა მასთან ერთად", "Pieskarieties vēlreiz: pārstartēt ar to" },
+        { "Tap again: restart with ", "შეეხეთ ხელახლა: გადატვირთვა ამით: ", "Pieskarieties vēlreiz: pārstartēt ar " },
+        { "Try the other if the game is slow or odd", "სცადეთ მეორე, თუ თამაში ნელია ან უცნაურად მუშაობს", "Izmēģiniet otru, ja spēle ir lēna vai dīvaina" },
+        { " (auto)", " (ავტო)", " (auto)" },
+        { "Debug menu", "გამართვის მენიუ", "Atkļūdošanas izvēlne" },
+        { "Level select, story state, spells", "დონის არჩევა, სიუჟეტის მდგომარეობა, შელოცვები", "Līmeņa izvēle, sižeta stāvoklis, burvestības" },
+        { "Open", "გახსნა", "Atvērt" },
+        { "Debug mode", "გამართვის რეჟიმი", "Atkļūdošanas režīms" },
+        { "Level Select in the main menu", "დონის არჩევა მთავარ მენიუში", "Līmeņa izvēle galvenajā izvēlnē" },
+        { "Graphics fix", "გრაფიკის გამოსწორება", "Grafikas labojums" },
+        { "For OpenGL glitches", "OpenGL-ის გაუმართაობისას", "OpenGL kļūmju gadījumā" },
+        { "Performance log", "წარმადობის ჟურნალი", "Veiktspējas žurnāls" },
+        { "Frame timings in the log, to send", "კადრების დროები ჟურნალში, გასაგზავნად", "Kadru laiki žurnālā, lai nosūtītu" },
+        { "Play Harry Potter 1", "ჰარი პოტერი 1-ის თამაში", "Spēlēt Hariju Poteru 1" },
+        { "Play Harry Potter 2", "ჰარი პოტერი 2-ის თამაში", "Spēlēt Hariju Poteru 2" },
+        { "Tap again: the game restarts", "შეეხეთ ხელახლა: თამაში გადაიტვირთება", "Pieskarieties vēlreiz: spēle pārstartēsies" },
+        { "Switch to the other game", "მეორე თამაშზე გადართვა", "Pārslēgties uz otru spēli" },
+        { "Tap again", "შეეხეთ ხელახლა", "Pieskarieties vēlreiz" },
+        { "How to play", "როგორ ვითამაშოთ", "Kā spēlēt" },
+        { "Left thumb", "მარცხენა ცერა თითი", "Kreisais īkšķis" },
+        { "Drag anywhere on the left half to walk (or the arrow pad, if Settings > Controls has it)", "გადაათრიეთ თითი ეკრანის მარცხენა ნახევარზე სასიარულოდ (ან ისრების პანელი, თუ ჩართულია პარამეტრები > მართვა)", "Velciet jebkur kreisajā pusē, lai ietu (vai bultiņu paliktnis, ja tas ir ieslēgts sadaļā Iestatījumi > Vadība)" },
+        { "Right thumb", "მარჯვენა ცერა თითი", "Labais īkšķis" },
+        { "Drag to look around. In menus the finger is the mouse: tap, drag the sliders", "გადაათრიეთ თითი, რომ მიიხედ-მოიხედოთ. მენიუებში თითი თაგვის ფუნქციას ასრულებს: შეეხეთ, გადაადგილეთ სლაიდერები", "Velciet, lai apskatītos apkārt. Izvēlnēs pirksts aizstāj peli: pieskarieties, velciet slīdņus" },
+        { "Wand button", "ჯოხის ღილაკი", "Zizļa poga" },
+        { "Cast the spell. In a spell lesson draw the symbol with your finger", "შელოცვის გამოყენება. შელოცვების გაკვეთილზე დახატეთ სიმბოლო თითით", "Izmantot burvestību. Burvestību stundā uzzīmējiet simbolu ar pirkstu" },
+        { "Jump button", "ხტომის ღილაკი", "Lēciena poga" },
+        { "Jump (Auto jump does it at ledges). The same key skips a cutscene", "ხტომა (ავტოხტომა ამას კიდეებთან თავად აკეთებს). იგივე ღილაკი როლიკს ტოვებს", "Lēciens (automātiskā lēkšana to dara pie dzegām). Tā pati poga izlaiž starpsižetu" },
+        { "Toolbar", "პანელი", "Rīkjosla" },
+        { "Settings, save anywhere (the book) and the pause menu (Esc). Hold Esc to send the logs", "პარამეტრები, შენახვა ნებისმიერ ადგილას (წიგნი) და პაუზის მენიუ (Esc). გეჭიროთ Esc ჟურნალების გასაგზავნად", "Iestatījumi, saglabāšana jebkur (grāmata) un pauzes izvēlne (Esc). Turiet Esc, lai nosūtītu žurnālus" },
+        { "Settings > Control layout: drag the buttons where you want them, and resize them", "პარამეტრები > ღილაკების განლაგება: გადაიტანეთ ღილაკები სასურველ ადგილას და შეცვალეთ მათი ზომა", "Iestatījumi > Pogu izkārtojums: velciet pogas, kur vēlaties, un mainiet to izmēru" },
+        { "Two-finger tap", "შეხება ორი თითით", "Pieskāriens ar diviem pirkstiem" },
+        { "Tap the screen with two fingers: drink a Wiggenweld potion", "შეეხეთ ეკრანს ორი თითით: დალიეთ ვიგენველდის წამალი", "Pieskarieties ekrānam ar diviem pirkstiem: izdzert Vīgenvelda dziru" },
+        { "Gamepad", "გეიმპადი", "Spēļu paliktnis" },
+        { "A jump, X wand, Y save, B menu, a stick click drinks the potion. Hold Y to skip a cutscene", "A — ხტომა, X — ჯოხი, Y — შენახვა, B — მენიუ, სტიკზე დაჭერა — წამალი. გეჭიროთ Y როლიკის გამოსატოვებლად", "A — lēciens, X — zizlis, Y — saglabāt, B — izvēlne, kursorsviras nospiešana — dzira. Turiet Y, lai izlaistu starpsižetu" },
+        { "A jump, X wand, Y save, B menu. Hold Y to skip a cutscene", "A — ხტომა, X — ჯოხი, Y — შენახვა, B — მენიუ. გეჭიროთ Y როლიკის გამოსატოვებლად", "A — lēciens, X — zizlis, Y — saglabāt, B — izvēlne. Turiet Y, lai izlaistu starpsižetu" },
+        { "Touch anywhere to close", "შეეხეთ ნებისმიერ ადგილას დასახურად", "Pieskarieties jebkur, lai aizvērtu" },
+        { "Floating stick", "მცურავი სტიკი", "Peldošā kursorsvira" },
+        { "Arrow buttons", "ისრის ღილაკები", "Bultiņu pogas" },
+        { "Render scale", "რენდერის მასშტაბი", "Renderēšanas mērogs" },
+        { "Subtitles and HUD size", "სუბტიტრებისა და ინტერფეისის ზომა", "Subtitru un saskarnes izmērs" },
+        { "Field of view", "ხედვის არე", "Redzes lauks" },
+        { "FPS limit", "FPS ლიმიტი", "FPS ierobežojums" },
+        { "  (default)", "  (ნაგულისხმევი)", "  (noklusējums)" },
+        { "Arrow pad", "ისრების პანელი", "Bultiņu paliktnis" },
+        { "Drag a control to move it", "გადაათრიეთ ელემენტი მის გადასატანად", "Velciet elementu, lai to pārvietotu" },
+        { "  ·  size ", "  ·  ზომა ", "  ·  izmērs " },
+        { "Reset", "საწყისზე დაბრუნება", "Atiestatīt" },
+        { "Hold Y", "გეჭიროთ Y", "Turiet Y" },
+        { "SKIP ›", "გამოტოვება ›", "IZLAIST ›" },
+        { "Interface size ", "ინტერფეისის ზომა ", "Saskarnes izmērs " },
+        { "Harry Potter 1 and 2 on Android", "ჰარი პოტერი 1 და 2 Android-ზე", "Harijs Poters 1 un 2 operētājsistēmā Android" },
+        { "Game folders", "თამაშების საქაღალდეები", "Spēļu mapes" },
+        { "Harry Potter and the", "ჰარი პოტერი და", "Harijs Poters un" },
+        { "Chamber of Secrets", "საიდუმლო ოთახი", "Noslēpumu kambaris" },
+        { "Philosopher's Stone", "ფილოსოფიური ქვა", "Gudrības akmens" },
+        { "Harry Potter and the Chamber of Secrets", "ჰარი პოტერი და საიდუმლო ოთახი", "Harijs Poters un Noslēpumu kambaris" },
+        { "Harry Potter and the Philosopher's Stone", "ჰარი პოტერი და ფილოსოფიური ქვა", "Harijs Poters un Gudrības akmens" },
+        { "Saved game", "შენახული თამაში", "Saglabātā spēle" },
+        { "Renderer", "რენდერერი", "Renderētājs" },
+        { "Which one runs better depends on the phone. If the game is slow, looks wrong or does not start, try the other.", "რომელი მუშაობს უკეთ, ტელეფონზეა დამოკიდებული. თუ თამაში ნელია, არასწორად გამოიყურება ან არ იწყება, სცადეთ მეორე.", "Kurš darbojas labāk, atkarīgs no tālruņa. Ja spēle ir lēna, izskatās nepareizi vai nesākas, izmēģiniet otru." },
+        { "Remember my choice", "ჩემი არჩევანის დამახსოვრება", "Atcerēties manu izvēli" },
+        { "HD textures", "HD ტექსტურები", "HD tekstūras" },
+        { "Sharper walls, doors, characters, the main menu and the storybooks (ESRGAN upscale pack, about 1.3 GB on the phone). Needs a lot of memory: untick it if the game stutters or closes.", "უფრო მკაფიო კედლები, კარები, პერსონაჟები, მთავარი მენიუ და წიგნები (ESRGAN პაკეტი, დაახლოებით 1,3 გბ ტელეფონზე). საჭიროებს ბევრ მეხსიერებას: მოხსენით ნიშანი, თუ თამაში ჩერდება ან იხურება.", "Asākas sienas, durvis, tēli, galvenā izvēlne un stāstu grāmatas (ESRGAN paka, apmēram 1,3 GB tālrunī). Vajag daudz atmiņas: noņemiet atzīmi, ja spēle aizķeras vai aizveras." },
+        { "Installing textures ", "ტექსტურების დაყენება ", "Tekstūru instalēšana " },
+        { "Removing the HD textures ", "HD ტექსტურების წაშლა ", "HD tekstūru noņemšana " },
+        { "Play", "თამაშის დაწყება", "Spēlēt" },
+        { "Start a new game", "ახალი თამაშის დაწყება", "Sākt jaunu spēli" },
+        { "Continue slot ", "გაგრძელება: სლოტი ", "Turpināt: slots " },
+        { "Delete the saved game in slot ", "შენახული თამაშის წაშლა სლოტში ", "Dzēst saglabāto spēli slotā " },
+        { "New game", "ახალი თამაში", "Jauna spēle" },
+        { "Start from the beginning", "თავიდან დაწყება", "Sākt no sākuma" },
+        { "Slot ", "სლოტი ", "Slots " },
+        { "Empty", "ცარიელია", "Tukšs" },
+        { "Delete the saved game?", "წაიშალოს შენახული თამაში?", "Dzēst saglabāto spēli?" },
+        { " of Harry Potter 2 will be deleted for good.", " თამაშში «ჰარი პოტერი 2» სამუდამოდ წაიშლება.", " spēlē «Harijs Poters 2» tiks neatgriezeniski dzēsts." },
+        { "Delete", "წაშლა", "Dzēst" },
+        { "Cancel", "გაუქმება", "Atcelt" },
+        { "Allow \"All files access\" for Flipendo, then come back.", "მიანიჭეთ Flipendo-ს «წვდომა ყველა ფაილზე», შემდეგ დაბრუნდით.", "Atļaujiet Flipendo «piekļuvi visiem failiem», pēc tam atgriezieties." },
+        { "Allow access to the phone's storage for Flipendo: it reads the game from there.", "მიანიჭეთ Flipendo-ს წვდომა ტელეფონის მეხსიერებაზე: თამაში იქიდან იკითხება.", "Atļaujiet Flipendo piekļuvi tālruņa atmiņai: spēle tiek lasīta no turienes." },
+        { "Flipendo needs access to the phone's storage to read the game. Open the app again to allow it.", "Flipendo-ს თამაშის წასაკითხად ტელეფონის მეხსიერებაზე წვდომა სჭირდება. გახსენით აპლიკაცია ხელახლა, რომ ნება დართოთ.", "Flipendo ir nepieciešama piekļuve tālruņa atmiņai, lai lasītu spēli. Atveriet lietotni vēlreiz, lai to atļautu." },
+        { "Switching the mod failed: ", "მოდის გადართვა ვერ მოხერხდა: ", "Neizdevās pārslēgt modu: " },
+        { "Installing the edition ", "გამოშვების ინსტალაცია ", "Izdevuma instalēšana " },
+        { "Flipendo for Android ", "Flipendo Android-ისთვის ", "Flipendo operētājsistēmai Android " },
+        { "No folder picker on this phone: copy the game to ", "ამ ტელეფონზე საქაღალდეების არჩევა მიუწვდომელია: დააკოპირეთ თამაში აქ: ", "Šajā tālrunī nav mapju izvēles: nokopējiet spēli uz " },
+        { " instead", " ამის ნაცვლად", " tā vietā" },
+        { "HARRY POTTER 2: CHAMBER OF SECRETS", "ჰარი პოტერი 2: საიდუმლო ოთახი", "HARIJS POTERS 2: NOSLĒPUMU KAMBARIS" },
+        { "HARRY POTTER 1: PHILOSOPHER'S STONE", "ჰარი პოტერი 1: ფილოსოფიური ქვა", "HARIJS POTERS 1: GUDRĪBAS AKMENS" },
+        { "  (default place)", "  (ნაგულისხმევი ადგილი)", "  (noklusējuma vieta)" },
+        { "No game in ", "თამაში არ არის აქ: ", "Nav spēles šeit: " },
+        { " (looked for System/", " (ვეძებეთ System/", " (meklēju System/" },
+        { " there and one or two folders deeper)", " იქ და ერთი-ორი საქაღალდით ქვემოთ)", " tur un vienu vai divas mapes dziļāk)" },
+        { "Not found yet. Looked in ", "ჯერ არ მოიძებნა. ვეძებეთ აქ: ", "Vēl nav atrasts. Meklēju šeit: " },
+        { "Choose folder", "საქაღალდის არჩევა", "Izvēlēties mapi" },
+        { "Use default", "ნაგულისხმევის გამოყენება", "Izmantot noklusējumu" },
+        { "Done", "მზადაა", "Gatavs" },
+        { "Where each game is on this phone. Pick the folder you copied from the PC (the one with System, Maps, ", "სად არის თითოეული თამაში ამ ტელეფონზე. აირჩიეთ საქაღალდე, რომელიც კომპიუტერიდან დააკოპირეთ (სადაც არის System, Maps, ", "Kur šajā tālrunī atrodas katra spēle. Izvēlieties mapi, ko nokopējāt no datora (to, kurā ir System, Maps, " },
+        { "Textures and Sounds); a folder one or two levels above it works too. The games are independent: ", "Textures და Sounds); ერთი-ორი დონით ზემოთ მდებარე საქაღალდეც გამოდგება. თამაშები ერთმანეთისგან დამოუკიდებელია: ", "Textures un Sounds); der arī mape vienu vai divus līmeņus augstāk. Spēles ir neatkarīgas: " },
+        { "either one starts without the other's files.", "ნებისმიერი მათგანი იწყება მეორის ფაილების გარეშე.", "jebkura startē bez otras spēles failiem." },
+        { "That place can't be read as a folder: pick one on the phone or an SD card", "ეს ადგილი საქაღალდედ ვერ იკითხება: აირჩიეთ საქაღალდე ტელეფონზე ან SD ბარათზე", "Šo vietu nevar nolasīt kā mapi: izvēlieties mapi tālrunī vai SD kartē" },
+        { "Harry Potter 2", "ჰარი პოტერი 2", "Harijs Poters 2" },
+        { "Harry Potter 1", "ჰარი პოტერი 1", "Harijs Poters 1" },
+        { " not found)", " ვერ მოიძებნა)", " nav atrasts)" },
+        { "(a place the app can't read as a folder)", "(ადგილი, რომელსაც აპლიკაცია საქაღალდედ ვერ კითხულობს)", "(vieta, ko lietotne nevar nolasīt kā mapi)" },
+        { "Game data not found", "თამაშის მონაცემები ვერ მოიძებნა", "Spēles dati nav atrasti" },
+        { "Copy the game folder from your PC (the one that contains System, Maps, Textures, Sounds and Music) to the phone, ", "დააკოპირეთ თამაშის საქაღალდე კომპიუტერიდან (სადაც არის System, Maps, Textures, Sounds და Music) ტელეფონზე, ", "Nokopējiet spēles mapi no datora (to, kurā ir System, Maps, Textures, Sounds un Music) uz tālruni, " },
+        { "into Internal storage / FlipendoHP, then tap Check again.\n\n", "შიდა მეხსიერებაში / FlipendoHP, შემდეგ შეეხეთ «ხელახლა შემოწმება».\n\n", "iekšējā atmiņā / FlipendoHP, pēc tam pieskarieties «Pārbaudīt vēlreiz».\n\n" },
+        { "Already copied it somewhere else? Tap Choose folder and pick it (or the folder it is in).", "უკვე სხვაგან დააკოპირეთ? შეეხეთ «საქაღალდის არჩევა» და მიუთითეთ ის (ან საქაღალდე, რომელშიც ის დევს).", "Jau nokopējāt citur? Pieskarieties «Izvēlēties mapi» un norādiet to (vai mapi, kurā tā atrodas)." },
+        { "Check again", "ხელახლა შემოწმება", "Pārbaudīt vēlreiz" },
+        { "Send logs", "ჟურნალების გაგზავნა", "Nosūtīt žurnālus" },
+        { "This isn't the game folder", "ეს თამაშის საქაღალდე არ არის", "Šī nav spēles mape" },
+        { "There is no game in ", "თამაში არ არის აქ: ", "Spēles nav šeit: " },
+        { " (looked for System/HP.exe there and one or two folders deeper).\n\n", " (ვეძებეთ System/HP.exe იქ და ერთი-ორი საქაღალდით ქვემოთ).\n\n", " (meklēju System/HP.exe tur un vienu vai divas mapes dziļāk).\n\n" },
+        { "Pick the folder you copied from the PC: it contains System, Maps, Textures, Sounds and Music. ", "აირჩიეთ საქაღალდე, რომელიც კომპიუტერიდან დააკოპირეთ: მასში არის System, Maps, Textures, Sounds და Music. ", "Izvēlieties mapi, ko nokopējāt no datora: tajā ir System, Maps, Textures, Sounds un Music. " },
+        { "Or copy the game into Internal storage / ", "ან დააკოპირეთ თამაში შიდა მეხსიერებაში / ", "Vai nokopējiet spēli iekšējā atmiņā / " },
+        { " and tap Check again.", " და შეეხეთ «ხელახლა შემოწმება».", " un pieskarieties «Pārbaudīt vēlreiz»." },
+        { "Choose another folder", "სხვა საქაღალდის არჩევა", "Izvēlēties citu mapi" },
+        { "The game stopped (", "თამაში გაჩერდა (", "Spēle apstājās (" },
+        { "The game crashed last time (", "თამაში წინა ჯერზე გაითიშა (", "Spēle pagājušoreiz avarēja (" },
+        { "Something went wrong", "რაღაც არასწორად წავიდა", "Kaut kas nogāja greizi" },
+        { "\n\nPlease send the logs: they help fix it. Pick an app to send them with (Telegram, mail, ...), ", "\n\nგთხოვთ, გამოგზავნეთ ჟურნალები: ისინი პრობლემის გამოსწორებაში გვეხმარება. აირჩიეთ აპლიკაცია გასაგზავნად (Telegram, ელფოსტა, ...), ", "\n\nLūdzu, nosūtiet žurnālus: tie palīdz to novērst. Izvēlieties lietotni, ar kuru tos nosūtīt (Telegram, e-pasts, ...), " },
+        { "or share them in t.me/flipendodroid. A copy is also saved in Download.", "ან გააზიარეთ t.me/flipendodroid-ზე. ასლი ასევე შენახულია საქაღალდეში Download.", "vai kopīgojiet tos t.me/flipendodroid. Kopija tiek saglabāta arī mapē Download." },
+        { "Play anyway", "მაინც თამაში", "Spēlēt tāpat" },
+        { "The game folder has no Sounds folder", "თამაშის საქაღალდეში Sounds საქაღალდე არ არის", "Spēles mapē nav mapes Sounds" },
+        { "No sound files of the game in ", "თამაშის ხმოვანი ფაილები არ არის აქ: ", "Nav spēles skaņas failu šeit: " },
+        { ": choose the dubbing's Sounds folder (AllDialog.uax and the others)", ": აირჩიეთ გახმოვანების Sounds საქაღალდე (AllDialog.uax და დანარჩენი)", ": izvēlieties dublāžas mapi Sounds (AllDialog.uax un pārējie)" },
+        { "These sound files are the same as the game's: nothing to change", "ეს ხმოვანი ფაილები თამაშისას ემთხვევა: შესაცვლელი არაფერია", "Šie skaņas faili ir tādi paši kā spēles: nav ko mainīt" },
+        { "Could not keep the dubbing in the app's files", "გახმოვანების აპლიკაციის ფაილებში შენახვა ვერ მოხერხდა", "Neizdevās saglabāt dublāžu lietotnes failos" },
+        { "Could not read the folder: ", "საქაღალდის წაკითხვა ვერ მოხერხდა: ", "Neizdevās nolasīt mapi: " },
+        { "Installing the dubbing ", "გახმოვანების ინსტალაცია ", "Dublāžas instalēšana " },
+        { "Restoring ", "აღდგენა ", "Atjaunošana " },
+        { "Installing the Russian translation ", "რუსული თარგმანის ინსტალაცია ", "Krievu tulkojuma instalēšana " },
+        { "Could not open ", "გახსნა ვერ მოხერხდა: ", "Neizdevās atvērt " },
+        { " is not a zip archive or a .u package", " არ არის zip არქივი ან .u პაკეტი", " nav zip arhīvs vai .u pakotne" },
+        { "No .u packages in what you picked: choose the mod's zip (or its .u files)", "არჩეულში .u პაკეტები არ არის: აირჩიეთ მოდის zip (ან მისი .u ფაილები)", "Izvēlētajā nav .u pakotņu: izvēlieties moda zip (vai tā .u failus)" },
+        { "These packages are not the game's own: ", "ეს პაკეტები თამაშს არ ეკუთვნის: ", "Šīs pakotnes nepieder spēlei: " },
+        { ". Choose a mod that replaces the game's scripts (HarryPotter.u, HPBase.u, ...).", ". აირჩიეთ მოდი, რომელიც თამაშის სკრიპტებს ანაცვლებს (HarryPotter.u, HPBase.u, ...).", ". Izvēlieties modu, kas aizstāj spēles skriptus (HarryPotter.u, HPBase.u, ...)." },
+        { "Could not keep the mod in the app's files", "მოდის აპლიკაციის ფაილებში შენახვა ვერ მოხერხდა", "Neizdevās saglabāt modu lietotnes failos" },
+        { "Could not read the file: ", "ფაილის წაკითხვა ვერ მოხერხდა: ", "Neizdevās nolasīt failu: " },
+        { "Switching to ", "გადართვა: ", "Pārslēgšanās uz " },
+        { "Installing the mod ", "მოდის ინსტალაცია ", "Moda instalēšana " },
+        { "Installing Harry Potter 2 ", "ჰარი პოტერი 2-ის ინსტალაცია ", "Harija Potera 2 instalēšana " },
+        { "Installing Harry Potter 2 failed: ", "ჰარი პოტერი 2-ის ინსტალაცია ვერ მოხერხდა: ", "Neizdevās instalēt Hariju Poteru 2: " },
+        { "Installing game data ", "თამაშის მონაცემების ინსტალაცია ", "Spēles datu instalēšana " },
+        { "Installing the game data failed: ", "თამაშის მონაცემების ინსტალაცია ვერ მოხერხდა: ", "Neizdevās instalēt spēles datus: " },
     };
 }

@@ -676,6 +676,31 @@ public class FlipendoActivity extends SDLActivity {
         }
     }
 
+    /**
+     * Draws into the camera cutout's strip too (the black bar at the side of some phones in landscape). SDL asks for the same
+     * mode but only edits the attributes it got, which the window never applies; setAttributes does.
+     */
+    private void allowDrawUnderCutout() {
+        if (android.os.Build.VERSION.SDK_INT >= 28) {
+            android.view.WindowManager.LayoutParams lp = getWindow().getAttributes();
+            int mode = android.os.Build.VERSION.SDK_INT >= 30
+                ? android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                : android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+            if (lp.layoutInDisplayCutoutMode != mode) {
+                lp.layoutInDisplayCutoutMode = mode;
+                getWindow().setAttributes(lp);
+            }
+        }
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            allowDrawUnderCutout();
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         Tr.init(this); // the language chosen in the launcher
@@ -685,6 +710,7 @@ public class FlipendoActivity extends SDLActivity {
         }
         super.onCreate(savedInstanceState);
         getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        allowDrawUnderCutout();
         // The player's scales (menu sliders), then render at a reduced fixed surface size: the compositor scales it up.
         android.content.SharedPreferences prefs = getSharedPreferences("flipendo", MODE_PRIVATE);
         dpadMode = prefs.getBoolean("dpad", false);

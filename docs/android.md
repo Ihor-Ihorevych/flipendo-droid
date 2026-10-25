@@ -167,6 +167,25 @@ The script compares the installs and ships the files they share once, and the fi
 
 Unpacking replaces files that are already in the game folder when the APK's data changes (a stamp over the contents decides), except everything under `save/`.
 
+## Texture packs (HD storybook pages, main menu art)
+
+The `texture-overrides` mod draws `Textures/<package>/<group>/<name>.dds` from the game folder, so a texture pack is just game data. The self pack takes them as options (`--textures` can be given several times, later folders win):
+
+```sh
+android/build-apk.sh --selfpack "C:/Games/HP" ... --textures texture-packs/esrgan --textures texture-packs/storybook-hd --menu-art texture-packs/menu-art
+```
+
+- `--textures <dir>`: a folder with a `Textures/` tree: the ESRGAN upscale pack for the Philosopher's Stone (2537 files, 1.25 GB) and the HD storybook pages (`Textures/StoryBookTest/Default/*.dds`).
+- `--menu-art <dir>`: the main menu upscale pack, one folder per language (`Textures/MenuArt/Logo1/2.dds`, and `moontitle1-6.dds` for the languages whose logo is part of the moon picture). The APK carries the English folder ("Harry Potter and the Philosopher's Stone" in the pack) and the Russian one.
+
+Both go into the APK as `assets/texpacks/` (`common/`, `menuart/en`, `menuart/ru`), not into the game data: the player may play from a folder they picked (`Game folders`), not the one the self pack unpacks into. `SetupActivity.applyTexturePacks` copies them into the folder in use on every launch where the APK's data or the language changed (`.flipendo-texpacks` records it), the menu art of the chosen language (`ru*` = Russian) replacing the other one's, so the Russian `moontitle*.dds` never show on the English menu. The launcher's **HD textures** checkbox (`hdTextures` in the `setup` preferences, on by default, shown only when the APK has `assets/texpacks`) switches the copy on and off. The texture overrides work on both renderers (the OpenGL ES device calls `HP1::LoadTextureOverride` in `GLUploadManager::UploadTexture` too); the log says `Texture overrides: N .dds files in <folder>`: 0 means the folder in use has none.
+
+`texture-packs/` is git-ignored: the packs are third-party works, never committed.
+
+## Camera cutout strip
+
+On some phones a black bar stayed at the side in landscape (the camera cutout's strip). SDL asks for `layoutInDisplayCutoutMode = ALWAYS` but only edits the window's attributes without applying them; `FlipendoActivity.allowDrawUnderCutout` calls `setAttributes` (ALWAYS on Android 11+, SHORT_EDGES on 9-10), in `onCreate` and whenever the window gets focus.
+
 ## Movement mod (AdamJD)
 
 Since 0.4.2B the mod is on by default and the Settings row that switched it is gone (the Devil's Snare prompt still turns it off once).
@@ -552,3 +571,9 @@ Merged with Flipendo again (upstream 47801a2: mod ids and `--mod` / `--no-mod` /
 - **The engine patches conflicted** (`0002`, `0010`, `0130`) and were rebuilt by a three-way merge of the patched trees (base, ours and upstream each applied to SurrealEngine 8d61ae5). Where upstream does what an earlier merge of ours did by hand, upstream's version won: the singular function skip (a side table instead of an object flag), the centred canvas text, and the loading screen hold (the `LoadingScreenHold` mod replaces our wait in `KWView.cpp`). Ours stayed in `--renderer`, the full-screen loading canvas and the Android patches.
 - `FrameLimit.cpp` asked the mod's old `Enabled()`; it now asks `IsOn("frame-limit")`.
 - Not played on a phone yet: the loading screen and the HP2 Aragog fight (singular skip) are the places to look.
+
+## 0.4.3
+
+- **HD textures (self pack):** the ESRGAN upscale pack for the Philosopher's Stone (walls, doors, characters, skins), the HD storybook pages (coloured again) and the upscaled main menu art, one set per language (English, Russian). They are drawn by the `texture-overrides` mod, now on both renderers (the OpenGL ES device calls the same hook as Vulkan) and in the folder the player actually plays from. The launcher has an **HD textures** checkbox (on by default, only in an APK that carries the packs); unticking it takes the files out of the game folder again (`.flipendo-texpacks.list`). Details: [Texture packs](#texture-packs-hd-storybook-pages-main-menu-art). The plain APK carries no packs (they are third-party works); drop a `Textures/<package>/<group>/<name>.dds` tree into the game folder to use them there.
+- **Black strip at the side on phones with a camera cutout** (landscape): the window now really asks to draw under the cutout (`FlipendoActivity.allowDrawUnderCutout`).
+- Georgian and Latvian for the launcher and the overlay (`Tr.java`).

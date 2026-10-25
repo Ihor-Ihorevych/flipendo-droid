@@ -27,5 +27,7 @@ __pycache__/
 /logs-*.zip
 /*logs*.zip
 /movement*.zip
+/texture-packs/
+/*.7z
 /Sounds-Rus*/
 *.u

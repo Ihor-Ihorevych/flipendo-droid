@@ -544,7 +544,47 @@ public class SetupActivity extends Activity {
         rp.topMargin = dp(10); // clear of the hint above: the box is taller than its text
         remember.setPadding(dp(8), dp(4), dp(8), dp(4));
         col.addView(remember, rp);
+
+        // HD textures: only where the APK carries the packs (the self pack); the launcher puts them into the game folder, or takes them out
+        if (carriesTexturePacks()) {
+            android.widget.CheckBox hd = new android.widget.CheckBox(this);
+            hd.setText(tr("HD textures"));
+            hd.setTextColor(PARCHMENT);
+            hd.setTextSize(14);
+            hd.setButtonTintList(android.content.res.ColorStateList.valueOf(GOLD));
+            hd.setChecked(hdTexturesWanted(this));
+            hd.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
+                public void onCheckedChanged(android.widget.CompoundButton b, boolean on) {
+                    getSharedPreferences("setup", MODE_PRIVATE).edit().putBoolean(PREF_HD, on).apply();
+                }
+            });
+            hd.setPadding(dp(8), dp(4), dp(8), dp(4));
+            col.addView(hd, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+            TextView hdHint = new TextView(this);
+            hdHint.setTextColor(INK_MUTED);
+            hdHint.setTextSize(12);
+            hdHint.setLineSpacing(0f, 1.15f);
+            hdHint.setText(tr("Sharper walls, doors, characters, the main menu and the storybooks (ESRGAN upscale pack, about 1.3 GB on the phone). Needs a lot of memory: untick it if the game stutters or closes."));
+            LinearLayout.LayoutParams hhp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            hhp.leftMargin = dp(8);
+            col.addView(hdHint, hhp);
+        }
         return col;
+    }
+
+    static final String PREF_HD = "hdTextures"; // tr("HD textures"): on by default where the APK carries the packs
+
+    static boolean hdTexturesWanted(android.content.Context context) {
+        return context.getSharedPreferences("setup", MODE_PRIVATE).getBoolean(PREF_HD, true);
+    }
+
+    private boolean carriesTexturePacks() {
+        try {
+            String[] names = getAssets().list("texpacks");
+            return names != null && names.length > 0;
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     /** Under the details, always in view: what the launcher is doing (unpacking, permissions) and its progress, then Play. */
@@ -1162,6 +1202,12 @@ public class SetupActivity extends Activity {
                         }
                     }
                     modWish.delete();
+                    // texture packs go into the folder in use (the Russian menu art with a Russian language)
+                    try {
+                        applyTexturePacks(found, chosenLanguage(SetupActivity.this).startsWith("ru"), hdTexturesWanted(SetupActivity.this));
+                    } catch (IOException e) {
+                        android.util.Log.e("flipendo", "the texture packs failed: " + e);
+                    }
                 }
                 // the game's pictures (thumbnails, save snaps, textures) stay out of the phone's gallery
                 if (found != null) {
@@ -2591,6 +2637,86 @@ public class SetupActivity extends Activity {
             done++;
         }
         writeSmallFile(new File(gameDir, LANG_MARKER), code);
+    }
+
+    /**
+     * Texture packs (the texture-overrides mod draws Textures/<package>/<group>/<name>.dds from the game folder): assets/texpacks/common
+     * goes into the game folder as it is, and the main menu art of the game's language (menuart/ru for the Russian editions, else en)
+     * replaces the previous language's, so one language's extra files (the Russian moontitle*.dds) never show in another. A self pack
+     * carries them; for the game folder in use, whichever the player picked.
+     */
+    private void applyTexturePacks(File gameDir, boolean russian, boolean enabled) throws IOException {
+        List<String> common = new ArrayList<>();
+        collect("texpacks/common", common);
+        String set = russian ? "ru" : "en";
+        List<String> art = new ArrayList<>();
+        collect("texpacks/menuart/" + set, art);
+        if (common.isEmpty() && art.isEmpty()) {
+            return; // this APK carries no texture packs
+        }
+        File marker = new File(gameDir, ".flipendo-texpacks");
+        File manifest = new File(gameDir, ".flipendo-texpacks.list"); // the files put in, relative to the game folder
+        if (!enabled) {
+            // switched off: what was put in comes out again
+            String list = readSmallFile(manifest);
+            if (list != null) {
+                String[] lines = list.split("\n");
+                int n = 0;
+                for (String relative : lines) {
+                    say(tr("Removing the HD textures ") + (n + 1) + " / " + lines.length, n, lines.length);
+                    if (!relative.isEmpty()) {
+                        new File(gameDir, relative).delete();
+                    }
+                    n++;
+                }
+            }
+            manifest.delete();
+            marker.delete();
+            return;
+        }
+        // done already for this APK's data and this language (the assets are compressed: no cheap size check per file)
+        String state = readStamp() + "|" + set;
+        if (state.equals(readSmallFile(marker)) && !art.isEmpty() && new File(findIgnoringCase(findIgnoringCase(gameDir, "Textures"), "MenuArt"),
+                art.get(0).substring(art.get(0).lastIndexOf('/') + 1)).isFile()) {
+            return;
+        }
+        byte[] buffer = new byte[1 << 20];
+        File textures = findIgnoringCase(gameDir, "Textures");
+        int total = common.size() + art.size();
+        int done = 0;
+        java.util.Set<String> commonArt = new java.util.HashSet<>(); // the common packs' own main menu art (lower case names)
+        StringBuilder installed = new StringBuilder();
+        for (String path : common) {
+            String relative = path.substring("texpacks/common/Textures/".length());
+            if (relative.toLowerCase(java.util.Locale.ROOT).startsWith("menuart/")) {
+                commonArt.add(relative.substring("menuart/".length()).toLowerCase(java.util.Locale.ROOT));
+            }
+            File target = new File(textures, relative);
+            installed.append(textures.getName()).append('/').append(relative).append('\n');
+            say(tr("Installing textures ") + (done + 1) + " / " + total + "\n" + target.getName(), done, total);
+            copyAsset(path, target, buffer);
+            done++;
+        }
+        File menuArt = findIgnoringCase(textures, "MenuArt");
+        File[] old = menuArt.listFiles();
+        if (old != null) {
+            for (File f : old) {
+                // a leftover of the other language: not in this set, and not one the common packs (rewritten above) bring
+                if (f.getName().toLowerCase(java.util.Locale.ROOT).endsWith(".dds") && !art.contains("texpacks/menuart/" + set + "/" + f.getName())
+                        && !commonArt.contains(f.getName().toLowerCase(java.util.Locale.ROOT))) {
+                    f.delete();
+                }
+            }
+        }
+        for (String path : art) {
+            File target = new File(menuArt, path.substring(path.lastIndexOf('/') + 1));
+            installed.append(textures.getName()).append('/').append(menuArt.getName()).append('/').append(target.getName()).append('\n');
+            say(tr("Installing textures ") + (done + 1) + " / " + total + "\n" + target.getName(), done, total);
+            copyAsset(path, target, buffer);
+            done++;
+        }
+        writeSmallFile(manifest, installed.toString());
+        writeSmallFile(marker, state);
     }
 
     private static String normalizeMod(String id) {

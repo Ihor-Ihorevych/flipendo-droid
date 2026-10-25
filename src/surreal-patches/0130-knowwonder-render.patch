@@ -2513,30 +2513,34 @@ index 81144e57..0e0a8d43 100644
 +
 +#endif
 diff --git a/SurrealEngine/RenderDevice/OpenGL/GLUploadManager.cpp b/SurrealEngine/RenderDevice/OpenGL/GLUploadManager.cpp
-index a7d42da7..5a08fa12 100644
+index a7d42da7..8daef16d 100644
 --- a/SurrealEngine/RenderDevice/OpenGL/GLUploadManager.cpp
 +++ b/SurrealEngine/RenderDevice/OpenGL/GLUploadManager.cpp
-@@ -1,8 +1,12 @@
+@@ -1,8 +1,15 @@
  
 +#include <fstream>
  #include "Precomp.h"
  #include "GLUploadManager.h"
  #include "GLRenderDevice.h"
  #include "GLCachedTexture.h"
++#include "Engine.h"
++#include "HP1.h"
++#include "Packages/Engine/Resources/Textures/UTexture.h"
 +#ifdef __ANDROID__
 +#include <unistd.h>
 +#endif
  
  GLUploadManager::GLUploadManager(GLRenderDevice* renderer) : renderer(renderer)
  {
-@@ -17,6 +21,19 @@ bool GLUploadManager::SupportsTextureFormat(TextureFormat Format) const
+@@ -17,8 +24,36 @@ bool GLUploadManager::SupportsTextureFormat(TextureFormat Format) const
  	return GLTextureUploader::GetUploader(Format);
  }
  
+-void GLUploadManager::UploadTexture(GLCachedTexture* tex, const TextureInfo& Info, bool masked)
 +#ifdef __ANDROID__
 +// Settings > Graphics fix: the choice is the first line of this file
 +static bool GraphicsFixIs(const char* wanted)
-+{
+ {
 +	std::ifstream file("/sdcard/FlipendoHP/.flipendo-gltest");
 +	std::string choice;
 +	std::getline(file, choice);
@@ -2546,10 +2550,27 @@ index a7d42da7..5a08fa12 100644
 +}
 +#endif
 +
- void GLUploadManager::UploadTexture(GLCachedTexture* tex, const TextureInfo& Info, bool masked)
- {
++void GLUploadManager::UploadTexture(GLCachedTexture* tex, const TextureInfo& texinfo, bool masked)
++{
++	// Texture overrides (src/hp1/mods/TextureOverrides.cpp, HP1 and HP2): upload a replacement image instead of the
++	// package's, as the Vulkan device does. The scene keeps using texinfo (USize/VSize) for UVs.
++	TextureInfo overrideInfo;
++	Array<UnrealMipmap> overrideMips;
++	if (engine->LaunchInfo.IsKnowWonder() && HP1::LoadTextureOverride(texinfo.Texture, overrideInfo.Format, overrideMips))
++	{
++		overrideInfo.Texture = texinfo.Texture;
++		overrideInfo.CacheID = texinfo.CacheID;
++		overrideInfo.Mips = overrideMips.data();
++		overrideInfo.NumMips = (int)overrideMips.size();
++		overrideInfo.USize = overrideMips[0].Width;
++		overrideInfo.VSize = overrideMips[0].Height;
++	}
++	const TextureInfo& Info = overrideMips.empty() ? texinfo : overrideInfo;
++
  	int width = Info.USize;
-@@ -52,6 +69,11 @@ void GLUploadManager::UploadTexture(GLCachedTexture* tex, const TextureInfo& Inf
+ 	int height = Info.VSize;
+ 	int mipcount = Info.NumMips;
+@@ -52,6 +87,11 @@ void GLUploadManager::UploadTexture(GLCachedTexture* tex, const TextureInfo& Inf
  	// We fix this by creating 1 or 2 additional mipmap levels that are empty.
  
  	int minSize = Info.Format == TextureFormat::BC1 || (Info.Format >= TextureFormat::BC2 && Info.Format <= TextureFormat::BC6H) ? 4 : 0;
@@ -2561,7 +2582,7 @@ index a7d42da7..5a08fa12 100644
  
  	if (!tex->Texture)
  	{
-@@ -75,6 +97,23 @@ void GLUploadManager::UploadTexture(GLCachedTexture* tex, const TextureInfo& Inf
+@@ -75,6 +115,23 @@ void GLUploadManager::UploadTexture(GLCachedTexture* tex, const TextureInfo& Inf
  
  		tex->Texture = std::make_shared<GLTexture2D>();
  		glBindTexture(GL_TEXTURE_2D, tex->Texture->Handle);
@@ -2585,7 +2606,7 @@ index a7d42da7..5a08fa12 100644
  		int mipwidth = width;
  		int mipheight = height;
  		for (int miplevel = 0; miplevel < mipcount; miplevel++)
-@@ -85,6 +124,7 @@ void GLUploadManager::UploadTexture(GLCachedTexture* tex, const TextureInfo& Inf
+@@ -85,6 +142,7 @@ void GLUploadManager::UploadTexture(GLCachedTexture* tex, const TextureInfo& Inf
  			mipheight = std::max(mipheight >> 1, 1);
  		}
  		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, std::max(mipcount - 1, 0));
@@ -2593,7 +2614,7 @@ index a7d42da7..5a08fa12 100644
  	}
  
  	if (uploader)
-@@ -97,6 +137,9 @@ void GLUploadManager::UploadTexture(GLCachedTexture* tex, const TextureInfo& Inf
+@@ -97,6 +155,9 @@ void GLUploadManager::UploadTexture(GLCachedTexture* tex, const TextureInfo& Inf
  
  void GLUploadManager::UploadTextureRect(GLCachedTexture* tex, const TextureInfo& Info, int x, int y, int w, int h)
  {
@@ -2603,7 +2624,7 @@ index a7d42da7..5a08fa12 100644
  	GLTextureUploader* uploader = GLTextureUploader::GetUploader(Info.Format);
  	if (!uploader || Info.NumMips < 1 || x < 0 || y < 0 || w <= 0 || h <= 0 || x + w > Info.Mips[0].Width || y + h > Info.Mips[0].Height || Info.Mips[0].Data.empty())
  		return;
-@@ -121,8 +164,18 @@ void GLUploadManager::UploadTextureRect(GLCachedTexture* tex, const TextureInfo&
+@@ -121,8 +182,18 @@ void GLUploadManager::UploadTextureRect(GLCachedTexture* tex, const TextureInfo&
  
  void GLUploadManager::UploadData(GLTexture2D* image, const TextureInfo& Info, bool masked, GLTextureUploader* uploader, int dummyMipmapCount, int minSize)
  {

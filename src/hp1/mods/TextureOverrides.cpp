@@ -47,8 +47,7 @@ namespace HP1::Mods
 				std::string key = Lower(path.lexically_relative(root).replace_extension().generic_string());
 				files.emplace(key, path);
 			}
-			if (!files.empty())
-				LogMessage("Texture overrides: " + std::to_string(files.size()) + " .dds files in " + root.string());
+			LogMessage("Texture overrides: " + std::to_string(files.size()) + " .dds files in " + root.string());
 			return files;
 		}
 

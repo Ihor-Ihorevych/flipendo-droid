@@ -9,6 +9,8 @@
 #                                                 one self pack with both languages; Settings > Language switches them in game
 #   android/build-apk.sh --selfpack "C:/Games/HP" --mod movement=movement.zip
 #                                                 the self pack also carries a mod (replacement .u packages) that Settings can switch
+#   android/build-apk.sh --selfpack "C:/Games/HP" --textures texture-packs/storybook-hd --menu-art texture-packs/menu-art
+#                                                 .dds texture packs (Textures/<package>/<group>/<name>.dds, the texture-overrides mod); menu art per language
 #   android/build-apk.sh --selfpack "C:/Games/HP" --hp2 "<HP2 folder>" [--hp2-texts "<harry2 folder>"]   ... HP2 in the self pack too
 #   android/build-apk.sh --install                ... and install the plain APK on the connected phone (adb)
 # The self pack contains copyrighted game data: for your own phone only, never publish or share it.
@@ -26,6 +28,8 @@ HP2TEXTS=""    # --hp2-texts: HP2's Russian text files (the harry2 folder of the
 HP2EDITIONS=() # "code=folder|name": an HP2 release whose voices and texts are an edition the player can choose (--hp2-edition)
 LANGS=()     # "code=game folder": more languages for --selfpack (the in-game language switch)
 MODS=()      # "id=zip": script mods the app can switch on and off (Settings > Movement mod)
+TEXTURES=()  # --textures (repeatable, later ones win): folders with a Textures/ tree of .dds overrides for the self pack (ESRGAN pack, HD storybook pages)
+MENUART=""   # --menu-art: the main menu upscale pack, one folder per language, each with Textures/MenuArt/*.dds
 VOICES=()    # "code=Sounds folder": a dubbing for --selfpack, an edition that is the base install with its Sounds replaced
 while [ $# -gt 0 ]; do
 	case "$1" in
@@ -37,6 +41,8 @@ while [ $# -gt 0 ]; do
 		--selfpack-ru) shift; SELFPACKS+=("$(cygpath -u "${1:?--selfpack-ru needs the game folder}")|flipendo-droid-selfpack-ru.apk") ;;
 		--lang) shift; LANGS+=("$(echo "${1:?--lang needs code=game folder (e.g. ru=D:/HP-Russian)}" | sed 's|=.*||')=$(cygpath -u "$(echo "$1" | sed 's|^[^=]*=||')")") ;;
 		--mod) shift; MODS+=("${1:?--mod needs id=mod.zip (e.g. movement=movement.zip)}") ;;
+		--textures) shift; TEXTURES+=("$(cygpath -u "${1:?--textures needs a folder with Textures/}")") ;;
+		--menu-art) shift; MENUART="$(cygpath -u "${1:?--menu-art needs the folder with one subfolder per language}")" ;;
 		--voice) shift; VOICES+=("$(echo "${1:?--voice needs code=Sounds folder (e.g. ru-softclub=Sounds-Rus-Softclub)}" | sed 's|=.*||')=$(cygpath -u "$(echo "$1" | sed 's|^[^=]*=||')")") ;;
 		*) echo "unknown argument: $1" >&2; exit 1 ;;
 	esac
@@ -258,6 +264,26 @@ for entry in "${SELFPACKS[@]}"; do
 		unset base_files lang_dir is_diff
 	else
 		game_files "$SELFPACK" | (cd "$SELFPACK" && tar --null -cf - --files-from=-) | (cd "$STAGE" && tar xf -)
+	fi
+	# texture packs (the texture-overrides mod draws Textures/<package>/<group>/<name>.dds): assets/texpacks/, which the launcher
+	# copies into whichever game folder is in use (SetupActivity.applyTexturePacks): common/ always, the menu art of the game's language
+	if [ "$NAME" = flipendo-droid-selfpack.apk ] && { [ ${#TEXTURES[@]} -gt 0 ] || [ -n "$MENUART" ]; }; then
+		TEXPACKS="$A/data_stage/assets/texpacks"
+		mkdir -p "$TEXPACKS"
+		if [ ${#TEXTURES[@]} -gt 0 ]; then
+			mkdir -p "$TEXPACKS/common/Textures"
+			for t in "${TEXTURES[@]}"; do
+				cp -r "$t/Textures/." "$TEXPACKS/common/Textures/"
+			done
+			echo "texture packs: $(find "$TEXPACKS/common" -type f | wc -l) files, $(du -sm "$TEXPACKS/common" | cut -f1) MB"
+		fi
+		if [ -n "$MENUART" ]; then
+			# the pack names the base language after the game; Russian is the one with the Cyrillic logos
+			mkdir -p "$TEXPACKS/menuart/en" "$TEXPACKS/menuart/ru"
+			cp "$MENUART/Harry Potter and the Philosopher's Stone/Textures/MenuArt"/*.dds "$TEXPACKS/menuart/en/"
+			cp "$MENUART/Russian/Textures/MenuArt"/*.dds "$TEXPACKS/menuart/ru/"
+			echo "menu art: en, ru"
+		fi
 	fi
 	if [ ${#MODS[@]} -gt 0 ] && [ "$NAME" = flipendo-droid-selfpack.apk ]; then
 		mkdir -p "$A/data_stage/assets/mods"
