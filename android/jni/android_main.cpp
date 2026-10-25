@@ -519,6 +519,9 @@ extern "C" __attribute__((visibility("default"))) int SDL_main(int argc, char** 
 		// the Russian text translation is installed in that folder (SetupActivity): its Cyrillic needs drawn glyphs
 		if (access((gameDir + "/.flipendo-text").c_str(), F_OK) == 0)
 			args.push_back("--cyrillic");
+		// The engine's own copy of AdamJD's controls (Improved movement, HP1) stays off: the movement mod (on by default, its
+		// packages: SetupActivity installs it) is the one that is used.
+		args.push_back("--classic-movement");
 		__android_log_print(ANDROID_LOG_INFO, "flipendo", "game folder: %s", gameDir.c_str());
 		args.push_back(gameDir);
 		// The renderer: Vulkan unless .flipendo-renderer says opengl (Settings > Renderer), or Vulkan failed on this phone

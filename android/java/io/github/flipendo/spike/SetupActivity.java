@@ -1143,11 +1143,13 @@ public class SetupActivity extends Activity {
                     } catch (IOException e) {
                         android.util.Log.e("flipendo", "the dubbing failed: " + e);
                     }
-                    // the mod to have: the in-game wish, else what is installed
+                    // the mod to have: the in-game wish (the Devil's Snare prompt asks for "none" once), else the movement mod, which is on
+                    // by default (the first one this APK carries or has imported; none if there is none)
                     File modWish = new File(FlipendoActivity.GAME_DIR, MOD_WANT);
                     String modWanted = readSmallFile(modWish);
                     if (modWanted == null || modWanted.isEmpty()) {
-                        modWanted = readSmallFile(new File(found, MOD_MARKER));
+                        List<String[]> available = readMods(SetupActivity.this);
+                        modWanted = !available.isEmpty() ? available.get(0)[0] : readSmallFile(new File(found, MOD_MARKER));
                     }
                     try {
                         applyMod(found, modWanted, new byte[1 << 20]);

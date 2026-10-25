@@ -1021,35 +1021,9 @@ public class FlipendoActivity extends SDLActivity {
         // installed the wand is aimed with a stick on the right (in the mod, holding CAST aims and lets the camera move).
         final java.util.List<String[]> mods = SetupActivity.readMods(getContext());
         final boolean modOn;
-        boolean modAsk;
-        long modAskTime;
-
         {
             String id = SetupActivity.readSmallFile(new File(((FlipendoActivity) getContext()).gameDir(), SetupActivity.MOD_MARKER));
             modOn = id != null && !id.isEmpty() && !id.equals("none");
-        }
-
-        /** First tap asks to confirm; a second tap within 5 s switches the mod and restarts the game. */
-        void modTap() {
-            long now = android.os.SystemClock.uptimeMillis();
-            if (modAsk && now - modAskTime < 5000) {
-                modAsk = false;
-                if (mods.isEmpty()) {
-                    ((FlipendoActivity) getContext()).pickModFile(); // no mod yet: import one, then restart with it
-                } else {
-                    ((FlipendoActivity) getContext()).switchMod(modOn ? "none" : mods.get(0)[0]);
-                }
-                invalidate();
-                return;
-            }
-            modAsk = true;
-            modAskTime = now;
-            postDelayed(new Runnable() { public void run() {
-                if (modAsk && android.os.SystemClock.uptimeMillis() - modAskTime >= 5000) {
-                    modAsk = false;
-                    invalidate();
-                }
-            } }, 5100);
         }
 
         // The renderer (android_main.cpp reads .flipendo-renderer): Vulkan, or OpenGL ES chosen here or picked by the engine
@@ -1647,7 +1621,6 @@ public class FlipendoActivity extends SDLActivity {
             addEntry(noSaveBtn, SET_NOSAVE);
             addEntry(wandSensBtn, SET_WANDSENS);
             if (languages.size() > 1) addEntry(languageBtn, SET_LANG);
-            if (!isHp2Game()) addEntry(modBtn, SET_MOD);
             addEntry(rendererBtn, SET_RENDERER);
             addEntry(debugBtn, SET_DEBUG);
             addEntry(fixBtn, SET_FIX);
@@ -1734,7 +1707,6 @@ public class FlipendoActivity extends SDLActivity {
                 case SET_HELP: helpOpen = true; break;
                 case SET_SWITCH: switchGameTap(); break;
                 case SET_LANG: languageTap(); break;
-                case SET_MOD: if (!isHp2Game()) modTap(); break;
                 case SET_DEBUG:
                     if (isHp2Game()) { settingsOpen = false; activity.openHp2Debug(); } else activity.applyDebugMode(!debugMode, true);
                     break;
@@ -2131,10 +2103,6 @@ public class FlipendoActivity extends SDLActivity {
                     languageBtn.set(colL0, yl, colL1, yl + rowH);
                     yl += rowH + rowGap;
                 }
-                if (!isHp2Game()) {
-                    modBtn.set(colL0, yl, colL1, yl + rowH); // the movement mod is HP1's: no row in HP2
-                    yl += rowH + rowGap;
-                }
                 rendererBtn.set(colL0, yl, colL1, yl + rowH);
                 yl += rowH + rowGap;
                 debugBtn.set(colR0, yr, colR1, yr + rowH);
@@ -2184,8 +2152,6 @@ public class FlipendoActivity extends SDLActivity {
                 } else {
                     activity.applyDebugMode(!debugMode, true);
                 }
-            } else if (!isHp2Game() && modBtn.contains(x, y)) {
-                modTap();
             } else if (languages.size() > 1 && languageBtn.contains(x, y)) {
                 languageTap();
             } else if (rendererBtn.contains(x, y)) {
@@ -2389,16 +2355,6 @@ public class FlipendoActivity extends SDLActivity {
                 if (languages.size() > 1) {
                     String current = languages.get(languageIndex(currentLanguage()))[1];
                     drawValueRow(c, languageBtn, tr("Language"), tr("Texts and voices"), current, langListOpen);
-                }
-                if (isHp2Game()) {
-                    // no movement mod in HP2
-                } else if (mods.isEmpty()) {
-                    drawValueRow(c, modBtn, tr("Movement mod"), modAsk ? tr("Tap again: pick its zip, the game restarts") : tr("By AdamJD: camera, climbing, aim"),
-                            tr("Choose file"), modAsk);
-                } else {
-                    drawSwitchRow(c, modBtn, tr("Movement mod"),
-                            modAsk ? (modOn ? tr("Tap again: restart without it") : tr("Tap again: restart with it")) : tr("By AdamJD: camera, climbing, aim"),
-                            modOn, modAsk);
                 }
                 drawValueRow(c, rendererBtn, tr("Renderer"), rendererAsk ? tr("Tap again: restart with ") + rendererLabel(!rendererGL) : tr("Try the other if the game is slow or odd"),
                         rendererLabel(rendererGL) + (rendererAuto ? tr(" (auto)") : ""), rendererAsk);

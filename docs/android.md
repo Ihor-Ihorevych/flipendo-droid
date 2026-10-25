@@ -169,6 +169,8 @@ Unpacking replaces files that are already in the game folder when the APK's data
 
 ## Movement mod (AdamJD)
 
+Since 0.4.2B the mod is on by default and the Settings row that switched it is gone (the Devil's Snare prompt still turns it off once).
+
 A community mod that improves HP1's movement, camera and climbing and lets Harry cast while moving. It is a set of replacement script packages (`HPBase.u`, `HarryPotter.u`, `Hub2-5.u`, `Tut1.u`), i.e. modified game scripts: they are **never committed** (`.gitignore` has `/movement*.zip` and `*.u`), and an APK that carries them is for your own phone only, like the game data itself. The mod's author is AdamJD; get the zip from the mod's own page and build with:
 
 ```sh
@@ -532,3 +534,13 @@ Chamber of Secrets fixes, the Philosopher's Stone opening and loading screen, fo
 **Not fixed yet**
 - Chamber of Secrets, first Rictusempra room: the firecrab/platform puzzle still needs a play test with the new logs (`SpellTouch done` shows what the crab does).
 - The Slytherin common room's gates are closed until the puzzle opens them: they block Harry and spells, as designed (seen from the debug menu's level jump).
+
+## 0.4.2B
+
+Merged with Flipendo again (upstream 81336c4, the same SurrealEngine; no conflicts in the engine patches).
+
+- **Flipendo's "Improved movement" for the Philosopher's Stone came with the merge and is switched off** (`--classic-movement`, always): on the phone it was unusable. The
+  movement mod (AdamJD's packages) is the one that is used: **it is on by default** (the first mod the APK carries, or one imported from a file; a plain APK without one
+  plays the original controls) and **Settings > Game > Movement mod is gone**. The Devil's Snare prompt ("Switch off and restart", for the level where the mod can't
+  aim) still turns it off once; the next start has it on again.
+- Flipendo's CI, unit tests (`src/tests/`) and `tools/check_repo.py` / `tools/smoke_test.py` came with the merge; nothing in them runs on the phone.
