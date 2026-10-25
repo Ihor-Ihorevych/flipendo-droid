@@ -14,7 +14,12 @@
 #include "Package/PackageManager.h"
 #include "Packages/Core/UClass.h"
 #include "Math/coords.h"
+#include "Utils/Logger.h"
+#include "Packages/Engine/Actors/Brush/UMover.h"
+#include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
+#include "Packages/Engine/UViewport.h"
 #include <random>
+#include <chrono>
 
 // The natives that move or trace actors, on KnowWonder's own movement and collision (KWMove.h, KWCheck.h), so script
 // and physics agree on what blocks what. Registered when KnowWonder's physics runs (KW::UseKWPhysics).
@@ -70,6 +75,43 @@ namespace KW
 		hit.Location = vec3(0.0f);
 		hit.Normal = vec3(0.0f);
 		SingleLineCheck(hit, actor, TraceEnd, TraceStart.value_or(actor->Location()), traceActors ? 23 : 6, Extent.value_or(vec3(0.0f)));
+		// The aim camera can sit inside a gate mover (the camera only collides with the level and with actors that block
+		// it): a ray starting there is not stopped by that mover, or the cursor lands on the camera, behind Harry.
+		if (hit.Time <= 0.0f && hit.Actor && UObject::TryCast<UMover>(hit.Actor) && actor->IsA("SpellCursor"))
+		{
+			hit = CheckResult();
+			hit.Location = vec3(0.0f);
+			hit.Normal = vec3(0.0f);
+			SingleLineCheck(hit, actor, TraceEnd, TraceStart.value_or(actor->Location()), (traceActors ? 23 : 6) & ~TRACE_Movers, Extent.value_or(vec3(0.0f)));
+		}
+		if (actor->IsA("SpellCursor")) // the aim ray, 2-3 times a second: what it runs into, and where Harry is
+		{
+			static std::chrono::steady_clock::time_point lastRay;
+			auto now = std::chrono::steady_clock::now();
+			if (now - lastRay > std::chrono::milliseconds(400))
+			{
+				lastRay = now;
+				vec3 from = TraceStart.value_or(actor->Location());
+				std::string what = "free";
+				if (hit.Time < 1.0f)
+				{
+					what = "hit " + (hit.Actor ? hit.Actor->Name.ToString() + " (" + hit.Actor->Class->Name.ToString() + ")" : std::string("nothing")) + " at " + std::to_string(hit.Location.x) + "," + std::to_string(hit.Location.y) + "," + std::to_string(hit.Location.z);
+					if (hit.Model && hit.Item >= 0 && hit.Item < (int)hit.Model->Nodes.size())
+					{
+						const BspNode& node = hit.Model->Nodes[hit.Item];
+						char hex[48] = "";
+						uint32_t polyFlags = (node.Surf >= 0 && node.Surf < (int)hit.Model->Surfaces.size()) ? hit.Model->Surfaces[node.Surf].PolyFlags : 0;
+						snprintf(hex, sizeof(hex), " surf %d polyflags 0x%x nodeflags 0x%x", node.Surf, polyFlags, (unsigned)node.NodeFlags);
+						what += hex;
+					}
+					if (UMover* mover = hit.Actor ? UObject::TryCast<UMover>(hit.Actor) : nullptr)
+						what += " [mover key " + std::to_string((int)mover->KeyNum()) + (mover->bInterpolating() ? " moving" : " still") + "]";
+				}
+				UPlayerPawn* player = engine->viewport ? engine->viewport->Actor() : nullptr;
+				std::string harry = player ? " | Harry at " + std::to_string(player->Location().x) + "," + std::to_string(player->Location().y) + "," + std::to_string(player->Location().z) + " yaw " + std::to_string(player->Rotation().Yaw) : std::string();
+				LogMessage("CursorRay from " + std::to_string(from.x) + "," + std::to_string(from.y) + "," + std::to_string(from.z) + " to " + std::to_string(TraceEnd.x) + "," + std::to_string(TraceEnd.y) + "," + std::to_string(TraceEnd.z) + " " + what + harry);
+			}
+		}
 		ReturnValue = hit.Actor;
 		HitLocation = hit.Location;
 		HitNormal = hit.Normal;

@@ -24,6 +24,7 @@
 #include "Packages/Engine/Resources/Level/UPolys.h"
 #include "Math/coords.h"
 #include "Utils/Logger.h"
+#include <chrono>
 #include <cmath>
 #include <random>
 
@@ -266,6 +267,63 @@ namespace KW
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Walls, landing
+
+	// What a move ran into, for the log: the actor (the level for the world) and, for a BSP surface, its number and PolyFlags.
+	static std::string DescribeHit(const CheckResult& hit)
+	{
+		std::string what = hit.Actor ? hit.Actor->Name.ToString() + " (" + hit.Actor->Class->Name.ToString() + ")" : std::string("nothing");
+		if (hit.Model && hit.Item >= 0 && hit.Item < (int)hit.Model->Nodes.size())
+		{
+			int surf = hit.Model->Nodes[hit.Item].Surf;
+			char hex[16] = "0";
+			if (surf >= 0 && surf < (int)hit.Model->Surfaces.size())
+				snprintf(hex, sizeof(hex), "%x", hit.Model->Surfaces[surf].PolyFlags);
+			what += " bsp surf " + std::to_string(surf) + " polyflags 0x" + hex + " nodeflags 0x" + std::to_string((unsigned)hit.Model->Nodes[hit.Item].NodeFlags);
+			// the polygon itself: its texture and its bounds in the world (a brush actor's model is placed by its transform)
+			{
+				const BspNode& node = hit.Model->Nodes[hit.Item];
+				mat4 toWorld = mat4::identity();
+				if (hit.Actor && hit.Actor->Brush() == hit.Model)
+					toWorld = ModelFrame::Brush(hit.Actor).LocalToWorld;
+				vec3 lo(1e9f), hi(-1e9f);
+				for (int i = 0; i < node.NumVertices && node.VertPool + i < (int)hit.Model->Vertices.size(); i++)
+				{
+					int pointIndex = hit.Model->Vertices[node.VertPool + i].Vertex;
+					if (pointIndex < 0 || pointIndex >= (int)hit.Model->Points.size())
+						continue;
+					const vec3& v = hit.Model->Points[pointIndex];
+					vec3 w;
+					for (int k = 0; k < 3; k++)
+						w[k] = toWorld.matrix[0 + k] * v.x + toWorld.matrix[4 + k] * v.y + toWorld.matrix[8 + k] * v.z + toWorld.matrix[12 + k];
+					for (int k = 0; k < 3; k++)
+					{
+						lo[k] = std::min(lo[k], w[k]);
+						hi[k] = std::max(hi[k], w[k]);
+					}
+				}
+				if (surf >= 0 && surf < (int)hit.Model->Surfaces.size() && hit.Model->Surfaces[surf].Material)
+					what += " texture " + hit.Model->Surfaces[surf].Material->Name.ToString();
+				what += " poly world " + std::to_string(lo.x) + "," + std::to_string(lo.y) + "," + std::to_string(lo.z) + " .. " + std::to_string(hi.x) + "," + std::to_string(hi.y) + "," + std::to_string(hi.z);
+			}
+		}
+		return what;
+	}
+
+	// The player stopped by something: at most once a second for the same thing (an invisible wall shows up here).
+	static void LogPlayerBlocked(UPawn* pawn, const CheckResult& hit)
+	{
+		static std::string last;
+		static std::chrono::steady_clock::time_point lastTime;
+		if (!IsPlayerPawn(pawn))
+			return;
+		std::string what = DescribeHit(hit);
+		auto now = std::chrono::steady_clock::now();
+		if (what == last && now - lastTime < std::chrono::seconds(1))
+			return;
+		last = what;
+		lastTime = now;
+		LogMessage("PlayerBlocked by " + what + " at " + std::to_string(pawn->Location().x) + "," + std::to_string(pawn->Location().y) + "," + std::to_string(pawn->Location().z) + " normal " + std::to_string(hit.Normal.x) + "," + std::to_string(hit.Normal.y) + "," + std::to_string(hit.Normal.z));
+	}
 
 	// No HitWall against pawns. A pawn steering into the wall (towards Destination, flat when walking, within
 	// MinHitWall) gets HitWall only if its script probes it (falling: always); otherwise its move ends (MoveTimer -1,
@@ -834,6 +892,7 @@ namespace KW
 			}
 			else if (std::abs(hit.Normal.z) >= 0.2f || dot(delta, delta) * hit.Time <= 144.0f)
 			{
+				LogPlayerBlocked(pawn, hit);
 				ProcessHitWall(pawn, hit.Normal, hit.Actor);
 				if (pawn->bDeleteMe())
 					return;
@@ -1681,6 +1740,11 @@ namespace KW
 			MoveBy(actor, actor->Velocity() * deltaTime, hit);
 			if (hit.Time < 1.0f && !actor->bDeleteMe() && !actor->bJustTeleported())
 			{
+				if (actor->IsA("baseSpell")) // what a spell flew into (an invisible wall shows up here)
+				{
+					std::string what = DescribeHit(hit);
+					LogMessage("SpellHitWall " + actor->Name.ToString() + " hit " + what + " at " + std::to_string(actor->Location().x) + "," + std::to_string(actor->Location().y) + "," + std::to_string(actor->Location().z));
+				}
 				CallEvent(actor, EventName::HitWall, { ExpressionValue::VectorValue(hit.Normal), ExpressionValue::ObjectValue(hit.Actor) });
 				if (actor->bDeleteMe())
 					return;

@@ -989,3 +989,34 @@ namespace KW
 		}
 	}
 }
+
+namespace KW
+{
+	// The spell cursor's world Trace (Camera -> end, no actors) hit something: say what, at most once a second and when
+	// it changes. A hit short of the target stops the cursor before it reaches a creature, so an invisible blocker shows up.
+	void LogCursorTrace(UActor* self, const vec3& start, const vec3& end, const CollisionHit& hit)
+	{
+		static std::string last;
+		static std::chrono::steady_clock::time_point lastTime;
+		if (!self || !self->IsA("SpellCursor"))
+			return;
+		std::string what = hit.Actor ? hit.Actor->Name.ToString() + " (" + hit.Actor->Class->Name.ToString() + ")" : std::string("nothing");
+		if (hit.Node)
+		{
+			ULevel* level = self->XLevel();
+			uint32_t flags = (level && level->Model && hit.Node->Surf >= 0 && hit.Node->Surf < (int)level->Model->Surfaces.size()) ? level->Model->Surfaces[hit.Node->Surf].PolyFlags : 0;
+			char hex[16];
+			snprintf(hex, sizeof(hex), "%x", flags);
+			what += " bsp surf " + std::to_string(hit.Node->Surf) + " polyflags 0x" + hex;
+		}
+		auto now = std::chrono::steady_clock::now();
+		if (now - lastTime < std::chrono::milliseconds(400))
+			return;
+		last = what;
+		lastTime = now;
+		vec3 at = start + (end - start) * hit.Fraction;
+		UPlayerPawn* player = engine->viewport ? engine->viewport->Actor() : nullptr;
+		std::string harry = player ? " | Harry at " + std::to_string(player->Location().x) + "," + std::to_string(player->Location().y) + "," + std::to_string(player->Location().z) + " yaw " + std::to_string(player->Rotation().Yaw) : std::string();
+		LogMessage("CursorRay from " + std::to_string(start.x) + "," + std::to_string(start.y) + "," + std::to_string(start.z) + " to " + std::to_string(end.x) + "," + std::to_string(end.y) + "," + std::to_string(end.z) + (hit.Fraction >= 1.0f ? " free" : " hit " + what + " at " + std::to_string(at.x) + "," + std::to_string(at.y) + "," + std::to_string(at.z)) + " (fraction " + std::to_string(hit.Fraction) + ")" + harry);
+	}
+}

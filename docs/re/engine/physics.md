@@ -319,6 +319,13 @@ blocking flags) only touched movers. Lev_Tut1b's block puzzle (`GridMover`, `sta
 pushed `MoveIncrement` away from the bumper (the Flipendo spell, `Mover.IsRelevant` -> `baseSpell.IsRelevantToMover`):
 the block never moved.
 
+HP2: a Mover moving into an actor that blocks neither actors nor players (`bBlockActors` and `bBlockPlayers` both false,
+like a resting `Jellybean`) is not stopped by it. Ch2Skurge's `LumosFloor` mover (`Mover0`, `MoverEncroachType` 3) slides
+along a floor with a `GreenPurpleCheckerBean` on it; with the plain rule the bean stopped the sweep at 3 % ("Mover
+Mover0 blocked at key 1 ... by GreenPurpleCheckerBean6", playtest 2026-10-25) and the floor stayed solid, so the secret
+star under it couldn't be reached. `Mover.EncroachingOn` destroys loose pickups and returns false, so the original
+doesn't stop for them. Not checked in HP2's own `IsBlockedBy` (only HP1's is read).
+
 `AActor::physProjectile` [HP1 0x103F2AB0] raises `HitWall(Hit.Normal, Hit.Actor)` after any blocking hit, actors
 included (not after a teleport or Destroy). SurrealEngine only raised it for world hits; with the block now stopping
 the spell, the spell has to explode there (`Projectile.HitWall` -> `Explode`), or it stays against the block and

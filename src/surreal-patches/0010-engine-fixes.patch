@@ -1796,7 +1796,7 @@ index 908adb98..c32ef3f2 100644
  		{
  			Array->CopyArray(Ptr, rvalue.Ptr);
 diff --git a/SurrealEngine/VM/Frame.cpp b/SurrealEngine/VM/Frame.cpp
-index 1e7b3c96..5b2b74a4 100644
+index 1e7b3c96..b747df9c 100644
 --- a/SurrealEngine/VM/Frame.cpp
 +++ b/SurrealEngine/VM/Frame.cpp
 @@ -1,5 +1,6 @@
@@ -1858,7 +1858,33 @@ index 1e7b3c96..5b2b74a4 100644
  		return ExpressionValue::NothingValue();
  	}
  
-@@ -318,12 +333,19 @@ ExpressionValue Frame::Call(UFunction* func, UObject* instance, const ArrayView<
+@@ -307,6 +322,25 @@ ExpressionValue Frame::Call(UFunction* func, UObject* instance, const ArrayView<
+ 	}
+ 	else
+ 	{
++		// A singular function is skipped while it already runs on the same object (a spell's Touch that moves an actor
++		// into itself again would recurse until "Infinite script recursion")
++		struct SingularGuard
++		{
++			UObject* object = nullptr;
++			~SingularGuard()
++			{
++				if (object)
++					object->Flags = (ObjectFlags)((uint32_t)object->Flags & ~(uint32_t)ObjectFlags::InSingularFunc);
++			}
++		} singularGuard;
++		if (AllFlags(func->FuncFlags, FunctionFlags::Singular))
++		{
++			if (((uint32_t)instance->Flags & (uint32_t)ObjectFlags::InSingularFunc) != 0)
++				return ExpressionValue::NothingValue();
++			instance->Flags |= ObjectFlags::InSingularFunc;
++			singularGuard.object = instance;
++		}
++
+ 		Frame frame(instance, func, 0, false);
+ 
+ 		// Store args in function frame local variables
+@@ -318,12 +352,19 @@ ExpressionValue Frame::Call(UFunction* func, UObject* instance, const ArrayView<
  			{
  				if (argindex < args.size())
  				{
@@ -1879,7 +1905,7 @@ index 1e7b3c96..5b2b74a4 100644
  				}
  
  				argindex++;
-@@ -377,7 +399,13 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, const Arra
+@@ -377,7 +418,13 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, const Arra
  			}
  			else if (argindex < args.size())
  			{
@@ -1894,7 +1920,7 @@ index 1e7b3c96..5b2b74a4 100644
  			}
  			else
  			{
-@@ -387,11 +415,16 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, const Arra
+@@ -387,11 +434,16 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, const Arra
  		}
  	}
  
@@ -1913,7 +1939,7 @@ index 1e7b3c96..5b2b74a4 100644
  
  	if (callback)
  	{
-@@ -497,6 +530,25 @@ void Frame::GotoLabel(const NameString& label)
+@@ -497,6 +549,25 @@ void Frame::GotoLabel(const NameString& label)
  			if (labelIndex != -1)
  			{
  				Func = state;
@@ -1939,7 +1965,7 @@ index 1e7b3c96..5b2b74a4 100644
  				StatementIndex = labelIndex;
  				LatentState = LatentRunState::Continue;
  				return;
-@@ -519,8 +571,19 @@ ExpressionEvalResult Frame::Run()
+@@ -519,8 +590,19 @@ ExpressionEvalResult Frame::Run()
  
  	ActiveCallStackFrame activeFrame(this);
  
@@ -1961,7 +1987,7 @@ index 1e7b3c96..5b2b74a4 100644
  
  	if (RunState == FrameRunState::StepInto)
  	{
-@@ -528,18 +591,28 @@ ExpressionEvalResult Frame::Run()
+@@ -528,18 +610,28 @@ ExpressionEvalResult Frame::Run()
  		Break();
  	}
  
@@ -1993,7 +2019,7 @@ index 1e7b3c96..5b2b74a4 100644
  
  		if (instructionsRetired >= maxInstructions)
  		{
-@@ -557,7 +630,7 @@ ExpressionEvalResult Frame::Run()
+@@ -557,7 +649,7 @@ ExpressionEvalResult Frame::Run()
  			Break();
  		}
  
@@ -2002,7 +2028,7 @@ index 1e7b3c96..5b2b74a4 100644
  		//ExpressionEvalResult result = ExpressionEvaluator::Eval(statement, Object, Object, Variables);
  		ExpressionEvalResult result = RunExpr(statement, Object, Object, Variables);
  		if (!Func)
-@@ -567,14 +640,21 @@ ExpressionEvalResult Frame::Run()
+@@ -567,14 +659,21 @@ ExpressionEvalResult Frame::Run()
  		case StatementResult::Next:
  			break;
  		case StatementResult::Jump:
@@ -2026,7 +2052,7 @@ index 1e7b3c96..5b2b74a4 100644
  				if (index != -1)
  				{
  					StatementIndex = index;
-@@ -592,10 +672,24 @@ ExpressionEvalResult Frame::Run()
+@@ -592,10 +691,24 @@ ExpressionEvalResult Frame::Run()
  							if (labelIndex != -1)
  							{
  								Func = state;
@@ -2051,7 +2077,7 @@ index 1e7b3c96..5b2b74a4 100644
  						}
  					}
  					if (!found)
-@@ -638,7 +732,7 @@ ExpressionEvalResult Frame::Run()
+@@ -638,7 +751,7 @@ ExpressionEvalResult Frame::Run()
  				ThrowException("Iterator statement without an iterator in " + Object->Name.ToString() + "." + Func->Name.ToString());
  			Iterators.push_back(std::move(result.Iter));
  			Iterators.back()->StartStatementIndex = curStatementIndex + 1;
@@ -2060,7 +2086,7 @@ index 1e7b3c96..5b2b74a4 100644
  			if (Iterators.back()->Next())
  				StatementIndex = Iterators.back()->StartStatementIndex;
  			else
-@@ -658,8 +752,7 @@ ExpressionEvalResult Frame::Run()
+@@ -658,8 +771,7 @@ ExpressionEvalResult Frame::Run()
  			Iterators.pop_back();
  			break;
  		case StatementResult::AccessedNone:
@@ -2070,7 +2096,7 @@ index 1e7b3c96..5b2b74a4 100644
  			break;
  		}
  
-@@ -674,18 +767,23 @@ ExpressionEvalResult Frame::Run()
+@@ -674,18 +786,23 @@ ExpressionEvalResult Frame::Run()
  
  void Frame::ProcessSwitch(const ExpressionValue& condition)
  {
@@ -2098,7 +2124,7 @@ index 1e7b3c96..5b2b74a4 100644
  		}
  		else
  		{
-@@ -1020,7 +1118,8 @@ ExpressionEvalResult Frame::RunExpr(Expression* statementExpr, UObject* self, UO
+@@ -1020,7 +1137,8 @@ ExpressionEvalResult Frame::RunExpr(Expression* statementExpr, UObject* self, UO
  					}
  					else
  					{

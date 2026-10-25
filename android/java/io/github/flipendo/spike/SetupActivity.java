@@ -45,10 +45,15 @@ public class SetupActivity extends Activity {
     static final String CHANNEL_URL = "https://t.me/flipendodroid";
 
     /** The launcher's size: every size here is in dp / sp, so the screen's density scaled by this makes the whole launcher larger
-     *  (text, buttons, boxes) at once. Steps of the "Interface size" control; the default is 125%. */
+     *  (text, buttons, boxes) at once. Steps of the "Interface size" control; the default is 100%. */
     static final String PREF_UI = "launcherScale";
     static final float[] UI_STEPS = { 1.0f, 1.25f, 1.5f, 1.75f, 2.0f, 2.5f };
-    static final float UI_DEFAULT = 1.25f;
+    static final float UI_DEFAULT = 1.0f;
+
+    /** A launcher text in the chosen language (Tr: English is the key; the in-game overlay uses the same table). */
+    static String tr(String en) {
+        return Tr.tr(en);
+    }
 
     private static float savedUiScale(android.content.Context c) {
         return c.getSharedPreferences("setup", MODE_PRIVATE).getFloat(PREF_UI, UI_DEFAULT);
@@ -58,6 +63,7 @@ public class SetupActivity extends Activity {
     protected void attachBaseContext(android.content.Context base) {
         android.content.res.Configuration config = new android.content.res.Configuration(base.getResources().getConfiguration());
         config.densityDpi = Math.round(config.densityDpi * savedUiScale(base));
+        Tr.init(base);
         super.attachBaseContext(base.createConfigurationContext(config));
     }
 
@@ -77,7 +83,7 @@ public class SetupActivity extends Activity {
         value.setTextSize(13);
         value.setGravity(Gravity.CENTER);
         value.setText(Math.round(UI_STEPS[index] * 100) + "%");
-        value.setContentDescription("Interface size " + Math.round(UI_STEPS[index] * 100) + "%");
+        value.setContentDescription(tr("Interface size ") + Math.round(UI_STEPS[index] * 100) + "%");
         row.addView(smaller, new LinearLayout.LayoutParams(dp(40), dp(34)));
         LinearLayout.LayoutParams vp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         vp.leftMargin = dp(8);
@@ -93,7 +99,7 @@ public class SetupActivity extends Activity {
         b.setTextSize(14);
         b.setGravity(Gravity.CENTER);
         b.setTextColor(scale > 0 ? GOLD : 0x55FFFFFF);
-        b.setBackground(rounded(0x14FFFFFF, 17, 0x26FFFFFF));
+        b.setBackground(roundedFocus(0x14FFFFFF, 17, 0x26FFFFFF));
         if (scale > 0) {
             b.setFocusable(true);
             b.setOnClickListener(new android.view.View.OnClickListener() {
@@ -184,13 +190,34 @@ public class SetupActivity extends Activity {
         title.setText("Flipendo");
         LinearLayout names = new LinearLayout(this);
         names.setOrientation(LinearLayout.VERTICAL);
-        names.addView(title);
+        // the name, and the version beside it in gold: one tap on it is an easter egg (the link of the game picked below)
+        LinearLayout titleRow = new LinearLayout(this);
+        titleRow.setOrientation(LinearLayout.HORIZONTAL);
+        titleRow.setGravity(Gravity.CENTER_VERTICAL);
+        titleRow.addView(title);
+        TextView versionChip = new TextView(this);
+        versionChip.setText("v" + LogReport.version(this));
+        versionChip.setTextColor(GOLD);
+        versionChip.setTextSize(12);
+        versionChip.setSingleLine(true);
+        versionChip.setPadding(dp(10), dp(3), dp(10), dp(3));
+        versionChip.setBackground(roundedFocus(0x22E8C15A, 12, 0x66E8C15A));
+        versionChip.setFocusable(true);
+        versionChip.setOnClickListener(new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) {
+                versionTap();
+            }
+        });
+        LinearLayout.LayoutParams vcl = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        vcl.leftMargin = dp(10);
+        titleRow.addView(versionChip, vcl);
+        names.addView(titleRow);
         TextView tagline = new TextView(this);
         tagline.setTextColor(INK_MUTED);
         tagline.setTextSize(13);
         tagline.setSingleLine(true);
         tagline.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        tagline.setText("Harry Potter 1 and 2 on Android");
+        tagline.setText(tr("Harry Potter 1 and 2 on Android"));
         tagline.setTextSize(12);
         names.addView(tagline);
         bar.addView(names, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
@@ -202,15 +229,50 @@ public class SetupActivity extends Activity {
         }));
         LinearLayout.LayoutParams fl = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         fl.leftMargin = dp(8);
-        bar.addView(chip("Game folders", GOLD, new android.view.View.OnClickListener() {
+        bar.addView(chip(tr("Game folders"), GOLD, new android.view.View.OnClickListener() {
             public void onClick(android.view.View v) {
                 showFolderSettings();
             }
         }), fl);
+        LinearLayout.LayoutParams ll = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        ll.leftMargin = dp(8);
+        bar.addView(chip(tr("Language") + ": " + Tr.NAMES[Tr.index()], PARCHMENT, new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) {
+                new android.app.AlertDialog.Builder(SetupActivity.this)
+                        .setTitle(tr("Language"))
+                        .setItems(Tr.orderedNames(), new android.content.DialogInterface.OnClickListener() {
+                            public void onClick(android.content.DialogInterface d, int which) {
+                                Tr.save(SetupActivity.this, Tr.ORDER[which]); // the game's overlay reads the same file
+                                Tr.init(SetupActivity.this);
+                                recreate();
+                            }
+                        }).show();
+            }
+        }), ll);
         LinearLayout.LayoutParams ul = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         ul.leftMargin = dp(14);
         bar.addView(uiSizeRow(), ul);
         return bar;
+    }
+
+    private boolean eggPending;
+
+    /** One tap on the version: a toast with a line of the game picked on the start screen, and two seconds later its easter egg link. */
+    private void versionTap() {
+        if (eggPending) return;
+        eggPending = true;
+        final boolean hp2 = isHp2();
+        android.widget.Toast.makeText(this, hp2 ? "КАКОГО ДЬЯВОЛА ТЫ ЗДЕСЬ ШУМИШЬ" : "Я должен был наложить здесь кирпичей, профессор Макгоннагал", android.widget.Toast.LENGTH_SHORT).show();
+        ui.postDelayed(new Runnable() {
+            public void run() {
+                eggPending = false;
+                splashUntil = Long.MAX_VALUE; // hold the splash while the link is open; onResume lets it go
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(hp2 ? FlipendoActivity.Overlay.EGG_HP2_URL : FlipendoActivity.Overlay.EGG_HP1_URL)));
+                } catch (RuntimeException ignored) {
+                }
+            }
+        }, 2000);
     }
 
     private TextView chip(String text, int color, android.view.View.OnClickListener click) {
@@ -220,7 +282,7 @@ public class SetupActivity extends Activity {
         c.setTextSize(13);
         c.setGravity(Gravity.CENTER);
         c.setPadding(dp(14), dp(7), dp(14), dp(7));
-        c.setBackground(rounded(0x14FFFFFF, 18, 0x26FFFFFF));
+        c.setBackground(roundedFocus(0x14FFFFFF, 18, 0x26FFFFFF));
         c.setFocusable(true);
         c.setOnClickListener(click);
         return c;
@@ -263,7 +325,7 @@ public class SetupActivity extends Activity {
         series.setTextSize(10);
         series.setSingleLine(true);
         series.setTypeface(android.graphics.Typeface.SERIF);
-        series.setText("Harry Potter and the");
+        series.setText(tr("Harry Potter and the"));
         text.addView(series);
         TextView name = new TextView(this);
         name.setTextColor(PARCHMENT);
@@ -271,11 +333,11 @@ public class SetupActivity extends Activity {
         name.setHyphenationFrequency(android.text.Layout.HYPHENATION_FREQUENCY_NONE);
         name.setTypeface(SERIF_BOLD);
         name.setLineSpacing(0f, 0.95f);
-        name.setText(hp2 ? "Chamber of Secrets" : "Philosopher's Stone");
+        name.setText(hp2 ? tr("Chamber of Secrets") : tr("Philosopher's Stone"));
         text.addView(name);
         f.addView(text, new android.widget.FrameLayout.LayoutParams(android.widget.FrameLayout.LayoutParams.MATCH_PARENT, android.widget.FrameLayout.LayoutParams.MATCH_PARENT));
         f.setFocusable(true);
-        f.setContentDescription(hp2 ? "Harry Potter and the Chamber of Secrets" : "Harry Potter and the Philosopher's Stone");
+        f.setContentDescription(hp2 ? tr("Harry Potter and the Chamber of Secrets") : tr("Harry Potter and the Philosopher's Stone"));
         f.setOnClickListener(new android.view.View.OnClickListener() {
             public void onClick(android.view.View v) { chooseGame(hp2 ? "hp2" : "hp1"); }
         });
@@ -406,7 +468,7 @@ public class SetupActivity extends Activity {
         // HP2: the saved games (six slots, each with the picture of its level) or a new game
         slotsBox = new LinearLayout(this);
         slotsBox.setOrientation(LinearLayout.VERTICAL);
-        slotsBox.addView(sectionLabel("Saved game"));
+        slotsBox.addView(sectionLabel(tr("Saved game")));
         android.widget.HorizontalScrollView slotsScroll = new android.widget.HorizontalScrollView(this);
         slotsScroll.setHorizontalScrollBarEnabled(false);
         slotsScroll.setHorizontalFadingEdgeEnabled(true);
@@ -420,7 +482,7 @@ public class SetupActivity extends Activity {
         deleteSave.setTextColor(0xFFFF9C92);
         deleteSave.setTextSize(13);
         deleteSave.setPadding(dp(12), dp(6), dp(12), dp(6));
-        deleteSave.setBackground(rounded(0x10FF5252, 14, 0x40FF5252));
+        deleteSave.setBackground(roundedFocus(0x10FF5252, 14, 0x40FF5252));
         deleteSave.setFocusable(true);
         deleteSave.setOnClickListener(new android.view.View.OnClickListener() {
             public void onClick(android.view.View v) {
@@ -437,7 +499,7 @@ public class SetupActivity extends Activity {
         LinearLayout rendererRow = new LinearLayout(this);
         rendererRow.setOrientation(LinearLayout.HORIZONTAL);
         rendererRow.setGravity(Gravity.CENTER_VERTICAL);
-        rendererRow.addView(sectionLabel("Renderer"), new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        rendererRow.addView(sectionLabel(tr("Renderer")), new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         LinearLayout segments = new LinearLayout(this);
         segments.setOrientation(LinearLayout.HORIZONTAL);
         segments.setPadding(dp(3), dp(3), dp(3), dp(3));
@@ -455,15 +517,15 @@ public class SetupActivity extends Activity {
         hint.setTextColor(INK_MUTED);
         hint.setTextSize(12);
         hint.setLineSpacing(0f, 1.15f);
-        hint.setText("Which one runs better depends on the phone. If the game is slow, looks wrong or does not start, try the other.");
+        hint.setText(tr("Which one runs better depends on the phone. If the game is slow, looks wrong or does not start, try the other."));
         LinearLayout.LayoutParams hp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         hp.topMargin = dp(8);
         col.addView(hint, hp);
 
-        // "Remember my choice": ticked, the renderer picked here stays for later launches; unticked (the default) it is for
+        // tr("Remember my choice"): ticked, the renderer picked here stays for later launches; unticked (the default) it is for
         // this launch only, and the next launch goes back to the one from before (restoreRenderer)
         remember = new android.widget.CheckBox(this);
-        remember.setText("Remember my choice");
+        remember.setText(tr("Remember my choice"));
         remember.setTextColor(PARCHMENT);
         remember.setTextSize(14);
         remember.setButtonTintList(android.content.res.ColorStateList.valueOf(GOLD));
@@ -531,13 +593,13 @@ public class SetupActivity extends Activity {
         if (play == null) {
             return;
         }
-        String text = "Play";
+        String text = tr("Play");
         if (isHp2()) {
             String start = getSharedPreferences("setup", MODE_PRIVATE).getString(PREF_START, "new");
-            text = "Start a new game";
+            text = tr("Start a new game");
             if (start.startsWith("load:")) {
                 try {
-                    text = "Continue slot " + (Integer.parseInt(start.substring(5)) + 1);
+                    text = tr("Continue slot ") + (Integer.parseInt(start.substring(5)) + 1);
                 } catch (NumberFormatException ignored) {
                 }
             }
@@ -665,7 +727,7 @@ public class SetupActivity extends Activity {
         return file != null ? android.graphics.BitmapFactory.decodeFile(file.getPath()) : null;
     }
 
-    /** The slots row: New game, then slots 1..6 (a game's own picture and level, or "Empty"). */
+    /** The slots row: New game, then slots 1..6 (a game's own picture and level, or tr("Empty")). */
     private void refreshSlots() {
         if (slotsBox == null) {
             return;
@@ -702,26 +764,26 @@ public class SetupActivity extends Activity {
 
         // the button for the selected saved game
         if (start.startsWith("load:")) {
-            deleteSave.setText("Delete the saved game in slot " + (Integer.parseInt(start.substring(5)) + 1));
+            deleteSave.setText(tr("Delete the saved game in slot ") + (Integer.parseInt(start.substring(5)) + 1));
             deleteSave.setVisibility(android.view.View.VISIBLE);
         } else {
             deleteSave.setVisibility(android.view.View.GONE);
         }
 
         slotsRow.removeAllViews();
-        slotsRow.addView(slotCard("New game", "Start from the beginning", null, "new", start.equals("new")));
+        slotsRow.addView(slotCard(tr("New game"), tr("Start from the beginning"), null, "new", start.equals("new")));
         for (int i = 0; i < 6; i++) {
-            String title = "Slot " + (i + 1);
+            String title = tr("Slot ") + (i + 1);
             String sub;
             android.graphics.Bitmap pic = null;
             if (slots[i].exists) {
-                sub = slots[i].map.isEmpty() ? "Saved game" : slots[i].map;
+                sub = slots[i].map.isEmpty() ? tr("Saved game") : slots[i].map;
                 if (slots[i].time > 0) {
                     sub += "\n" + android.text.format.DateFormat.format("d MMM, HH:mm", slots[i].time * 1000L);
                 }
                 pic = thumbnail(game, slots[i].map);
             } else {
-                sub = "Empty";
+                sub = tr("Empty");
             }
             slotsRow.addView(slotCard(title, sub, pic, slots[i].exists ? "load:" + i : null, start.equals("load:" + i)));
         }
@@ -741,16 +803,16 @@ public class SetupActivity extends Activity {
             return;
         }
         new android.app.AlertDialog.Builder(this)
-                .setTitle("Delete the saved game?")
-                .setMessage("Slot " + (slot + 1) + " of Harry Potter 2 will be deleted for good.")
-                .setPositiveButton("Delete", new android.content.DialogInterface.OnClickListener() {
+                .setTitle(tr("Delete the saved game?"))
+                .setMessage(tr("Slot ") + (slot + 1) + tr(" of Harry Potter 2 will be deleted for good."))
+                .setPositiveButton(tr("Delete"), new android.content.DialogInterface.OnClickListener() {
                     public void onClick(android.content.DialogInterface d, int which) {
                         deleteSlot(slot);
                         getSharedPreferences("setup", MODE_PRIVATE).edit().remove(PREF_START).apply(); // the newest save, or a new game
                         refreshSlots();
                     }
                 })
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton(tr("Cancel"), null)
                 .show();
     }
 
@@ -776,7 +838,7 @@ public class SetupActivity extends Activity {
         LinearLayout c = new LinearLayout(this);
         c.setOrientation(LinearLayout.VERTICAL);
         c.setPadding(dp(6), dp(6), dp(6), dp(8));
-        c.setBackground(rounded(selected ? 0x1FE8C15A : 0x10FFFFFF, 14, selected ? GOLD : 0x1FFFFFFF));
+        c.setBackground(roundedFocus(selected ? 0x1FE8C15A : 0x10FFFFFF, 14, selected ? GOLD : 0x1FFFFFFF));
         android.widget.ImageView image = new android.widget.ImageView(this);
         image.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
         image.setBackground(rounded(0xFF0E1130, 10, 0));
@@ -866,7 +928,7 @@ public class SetupActivity extends Activity {
         play.setBackground(rounded(GOLD, 25, play.isFocused() ? 0xFFFFFFFF : 0));
     }
 
-    static final String PREF_KEEP = "keepRenderer";       // "Remember my choice"
+    static final String PREF_KEEP = "keepRenderer";       // tr("Remember my choice")
     static final String PREF_RESTORE = "restoreRenderer"; // a one-launch choice is in the file: what to put back ("" = none)
     private android.widget.CheckBox remember;
     private boolean restored;
@@ -941,16 +1003,26 @@ public class SetupActivity extends Activity {
         }
         if (!hasStorageAccess(this)) {
             if (Build.VERSION.SDK_INT >= 30) {
-                status.setText("Allow \"All files access\" for Flipendo, then come back.");
+                status.setText(tr("Allow \"All files access\" for Flipendo, then come back."));
                 if (!askedPermission) {
                     askedPermission = true;
-                    startActivity(new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                            Uri.parse("package:" + getPackageName())));
+                    try {
+                        startActivity(new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                                Uri.parse("package:" + getPackageName())));
+                    } catch (RuntimeException e) {
+                        // an Android TV often has no per-app page: the general list, and if even that is missing, the way to grant it by hand
+                        try {
+                            startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
+                        } catch (RuntimeException e2) {
+                            status.setText("This device has no \"All files access\" screen. Allow it from a computer: adb shell appops set "
+                                    + getPackageName() + " MANAGE_EXTERNAL_STORAGE allow");
+                        }
+                    }
                 }
             } else {
                 // Android 10: no "All files access" (isExternalStorageManager is Android 11; calling it crashed the app at
                 // once, POCO X3): the storage permission, with the legacy whole-storage view from the manifest
-                status.setText("Allow access to the phone's storage for Flipendo: it reads the game from there.");
+                status.setText(tr("Allow access to the phone's storage for Flipendo: it reads the game from there."));
                 if (!askedPermission) {
                     askedPermission = true;
                     requestPermissions(new String[] { android.Manifest.permission.READ_EXTERNAL_STORAGE,
@@ -986,7 +1058,7 @@ public class SetupActivity extends Activity {
                 onResume(); // go on as if the player had come back from the settings
             } else {
                 askedPermission = false; // ask again the next time the app comes to the front
-                status.setText("Flipendo needs access to the phone's storage to read the game. Open the app again to allow it.");
+                status.setText(tr("Flipendo needs access to the phone's storage to read the game. Open the app again to allow it."));
             }
         }
     }
@@ -1080,7 +1152,7 @@ public class SetupActivity extends Activity {
                         applyMod(found, modWanted, new byte[1 << 20]);
                     } catch (IOException e) {
                         android.util.Log.e("flipendo", "switching the mod failed: " + e);
-                        say("Switching the mod failed: " + e.getMessage(), 0, 1);
+                        say(tr("Switching the mod failed: ") + e.getMessage(), 0, 1);
                         try {
                             Thread.sleep(6000);
                         } catch (InterruptedException ignored) {
@@ -1385,7 +1457,7 @@ public class SetupActivity extends Activity {
         for (String relative : files) {
             File target = findSound(game, relative);
             File saved = new File(backup, relative);
-            say("Installing the edition " + (done + 1) + " / " + files.size() + "\n" + relative, done, files.size());
+            say(tr("Installing the edition ") + (done + 1) + " / " + files.size() + "\n" + relative, done, files.size());
             if (target.exists() && !saved.exists()) {
                 saved.getParentFile().mkdirs();
                 target.renameTo(saved);
@@ -1450,6 +1522,16 @@ public class SetupActivity extends Activity {
         return Math.round(v * getResources().getDisplayMetrics().density);
     }
 
+    /** Like rounded(), and with a white ring while a remote or gamepad has the focus (a TV has no touch to show what is selected). */
+    private android.graphics.drawable.Drawable roundedFocus(int color, float radiusDp, int strokeColor) {
+        android.graphics.drawable.StateListDrawable states = new android.graphics.drawable.StateListDrawable();
+        android.graphics.drawable.GradientDrawable focused = rounded(color, radiusDp, 0xFFFFFFFF);
+        focused.setStroke(dp(2), 0xFFFFFFFF);
+        states.addState(new int[] { android.R.attr.state_focused }, focused);
+        states.addState(new int[0], rounded(color, radiusDp, strokeColor));
+        return states;
+    }
+
     private android.graphics.drawable.GradientDrawable rounded(int color, float radiusDp, int strokeColor) {
         android.graphics.drawable.GradientDrawable d = new android.graphics.drawable.GradientDrawable();
         d.setColor(color);
@@ -1495,7 +1577,7 @@ public class SetupActivity extends Activity {
         titleView.setPadding(dp(12), 0, dp(12), 0);
         header.addView(titleView, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         TextView app = new TextView(this);
-        app.setText("Flipendo for Android " + LogReport.version(this));
+        app.setText(tr("Flipendo for Android ") + LogReport.version(this));
         app.setTextColor(MUTED);
         app.setTextSize(13);
         header.addView(app);
@@ -1608,8 +1690,8 @@ public class SetupActivity extends Activity {
         try {
             startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), hp2 ? REQUEST_PICK_HP2 : REQUEST_PICK_HP1);
         } catch (RuntimeException e) {
-            android.widget.Toast.makeText(this, "No folder picker on this phone: copy the game to "
-                    + (hp2 ? HP2_DIR : FlipendoActivity.GAME_DIR) + " instead", android.widget.Toast.LENGTH_LONG).show();
+            android.widget.Toast.makeText(this, tr("No folder picker on this phone: copy the game to ")
+                    + (hp2 ? HP2_DIR : FlipendoActivity.GAME_DIR) + tr(" instead"), android.widget.Toast.LENGTH_LONG).show();
         }
     }
 
@@ -1630,7 +1712,7 @@ public class SetupActivity extends Activity {
         name.setTextSize(12);
         name.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
         name.setLetterSpacing(0.12f);
-        name.setText(hp2 ? "HARRY POTTER 2: CHAMBER OF SECRETS" : "HARRY POTTER 1: PHILOSOPHER'S STONE");
+        name.setText(hp2 ? tr("HARRY POTTER 2: CHAMBER OF SECRETS") : tr("HARRY POTTER 1: PHILOSOPHER'S STONE"));
         row.addView(name);
 
         TextView where = new TextView(this);
@@ -1639,13 +1721,13 @@ public class SetupActivity extends Activity {
         where.setLineSpacing(0, 1.1f);
         if (found != null) {
             where.setTextColor(0xFF9BE39B);
-            where.setText(found.getPath() + (picked == null || !new File(picked).equals(found) ? "  (default place)" : ""));
+            where.setText(found.getPath() + (picked == null || !new File(picked).equals(found) ? tr("  (default place)") : ""));
         } else if (picked != null) {
             where.setTextColor(0xFFFF8A80);
-            where.setText("No game in " + picked + " (looked for System/" + (hp2 ? "Game.exe" : "HP.exe") + " there and one or two folders deeper)");
+            where.setText(tr("No game in ") + picked + tr(" (looked for System/") + (hp2 ? "Game.exe" : "HP.exe") + tr(" there and one or two folders deeper)"));
         } else {
             where.setTextColor(MUTED);
-            where.setText("Not found yet. Looked in " + fallback + ".");
+            where.setText(tr("Not found yet. Looked in ") + fallback + ".");
         }
         LinearLayout.LayoutParams wp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         wp.topMargin = dp(6);
@@ -1653,7 +1735,7 @@ public class SetupActivity extends Activity {
 
         LinearLayout buttons = new LinearLayout(this);
         buttons.setOrientation(LinearLayout.HORIZONTAL);
-        TextView choose = pill("Choose folder", false, new android.view.View.OnClickListener() {
+        TextView choose = pill(tr("Choose folder"), false, new android.view.View.OnClickListener() {
             public void onClick(android.view.View v) {
                 pickFolderFor(hp2);
             }
@@ -1662,7 +1744,7 @@ public class SetupActivity extends Activity {
         choose.setPadding(dp(16), dp(8), dp(16), dp(8));
         buttons.addView(choose);
         if (picked != null) {
-            TextView reset = pill("Use default", false, new android.view.View.OnClickListener() {
+            TextView reset = pill(tr("Use default"), false, new android.view.View.OnClickListener() {
                 public void onClick(android.view.View v) {
                     getSharedPreferences("setup", MODE_PRIVATE).edit().remove(hp2 ? PREF_GAME_DIR_HP2 : PREF_GAME_DIR).apply();
                     foldersChanged = true;
@@ -1689,7 +1771,7 @@ public class SetupActivity extends Activity {
         android.widget.FrameLayout screen = new android.widget.FrameLayout(this);
         screen.setBackgroundColor(0xFF000000);
         screen.setPadding(dp(16), dp(16), dp(16), dp(16));
-        LinearLayout card = cardWithHeader(screen, "Game folders");
+        LinearLayout card = cardWithHeader(screen, tr("Game folders"));
 
         android.widget.ScrollView scroll = new android.widget.ScrollView(this);
         LinearLayout body = new LinearLayout(this);
@@ -1698,9 +1780,9 @@ public class SetupActivity extends Activity {
         intro.setTextColor(0xDDFFFFFF);
         intro.setTextSize(14);
         intro.setLineSpacing(0, 1.15f);
-        intro.setText("Where each game is on this phone. Pick the folder you copied from the PC (the one with System, Maps, "
-                + "Textures and Sounds); a folder one or two levels above it works too. The games are independent: "
-                + "either one starts without the other's files.");
+        intro.setText(tr("Where each game is on this phone. Pick the folder you copied from the PC (the one with System, Maps, ")
+                + tr("Textures and Sounds); a folder one or two levels above it works too. The games are independent: ")
+                + tr("either one starts without the other's files."));
         body.addView(intro);
         for (int i = 0; i < 2; i++) {
             LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -1713,7 +1795,7 @@ public class SetupActivity extends Activity {
         LinearLayout footer = new LinearLayout(this);
         footer.setOrientation(LinearLayout.HORIZONTAL);
         footer.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
-        footer.addView(pill("Done", true, new android.view.View.OnClickListener() {
+        footer.addView(pill(tr("Done"), true, new android.view.View.OnClickListener() {
             public void onClick(android.view.View v) {
                 closeFolderSettings();
             }
@@ -1758,8 +1840,8 @@ public class SetupActivity extends Activity {
             try {
                 startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), REQUEST_PICK_FOLDER);
             } catch (RuntimeException e) {
-                android.widget.Toast.makeText(SetupActivity.this, "No folder picker on this phone: copy the game to "
-                        + FlipendoActivity.GAME_DIR + " instead", android.widget.Toast.LENGTH_LONG).show();
+                android.widget.Toast.makeText(SetupActivity.this, tr("No folder picker on this phone: copy the game to ")
+                        + FlipendoActivity.GAME_DIR + tr(" instead"), android.widget.Toast.LENGTH_LONG).show();
             }
         }
     };
@@ -1792,10 +1874,10 @@ public class SetupActivity extends Activity {
             if (resultCode == RESULT_OK && data != null) {
                 String picked = treeUriToPath(data.getData());
                 if (picked == null) {
-                    android.widget.Toast.makeText(this, "That place can't be read as a folder: pick one on the phone or an SD card", android.widget.Toast.LENGTH_LONG).show();
+                    android.widget.Toast.makeText(this, tr("That place can't be read as a folder: pick one on the phone or an SD card"), android.widget.Toast.LENGTH_LONG).show();
                 } else if (findGameFor(two, new File(picked), 2) == null) {
-                    android.widget.Toast.makeText(this, "No " + (two ? "Harry Potter 2" : "Harry Potter 1") + " in " + picked
-                            + " (System/" + (two ? "Game.exe" : "HP.exe") + " not found)", android.widget.Toast.LENGTH_LONG).show();
+                    android.widget.Toast.makeText(this, "No " + (two ? tr("Harry Potter 2") : tr("Harry Potter 1")) + " in " + picked
+                            + " (System/" + (two ? "Game.exe" : "HP.exe") + tr(" not found)"), android.widget.Toast.LENGTH_LONG).show();
                 } else {
                     getSharedPreferences("setup", MODE_PRIVATE).edit().putString(two ? PREF_GAME_DIR_HP2 : PREF_GAME_DIR, picked).apply();
                     foldersChanged = true;
@@ -1809,7 +1891,7 @@ public class SetupActivity extends Activity {
         }
         String path = treeUriToPath(data.getData());
         if (path == null) {
-            showWrongFolder("(a place the app can't read as a folder)");
+            showWrongFolder(tr("(a place the app can't read as a folder)"));
             return;
         }
         // remembered even when it's the wrong one: the next start says so instead of asking from scratch
@@ -1823,20 +1905,20 @@ public class SetupActivity extends Activity {
 
     /** There is no game on the phone yet: say where to put it, or let the player pick the folder it is in. */
     private void showMissingGame() {
-        showCard("Game data not found",
-                "Copy the game folder from your PC (the one that contains System, Maps, Textures, Sounds and Music) to the phone, "
-                        + "into Internal storage / FlipendoHP, then tap Check again.\n\n"
-                        + "Already copied it somewhere else? Tap Choose folder and pick it (or the folder it is in).",
-                "Choose folder", pickFolder, "Check again", checkAgain, "Send logs", sendLogs);
+        showCard(tr("Game data not found"),
+                tr("Copy the game folder from your PC (the one that contains System, Maps, Textures, Sounds and Music) to the phone, ")
+                        + tr("into Internal storage / FlipendoHP, then tap Check again.\n\n")
+                        + tr("Already copied it somewhere else? Tap Choose folder and pick it (or the folder it is in)."),
+                tr("Choose folder"), pickFolder, tr("Check again"), checkAgain, tr("Send logs"), sendLogs);
     }
 
     /** The folder the player picked has no game in it. */
     private void showWrongFolder(String path) {
-        showCard("This isn't the game folder",
-                "There is no game in " + path + " (looked for System/HP.exe there and one or two folders deeper).\n\n"
-                        + "Pick the folder you copied from the PC: it contains System, Maps, Textures, Sounds and Music. "
-                        + "Or copy the game into Internal storage / " + (isHp2() ? "FlipendoHP2" : "FlipendoHP") + " and tap Check again.",
-                "Choose another folder", pickFolder, "Check again", checkAgain, "Send logs", sendLogs);
+        showCard(tr("This isn't the game folder"),
+                tr("There is no game in ") + path + tr(" (looked for System/HP.exe there and one or two folders deeper).\n\n")
+                        + tr("Pick the folder you copied from the PC: it contains System, Maps, Textures, Sounds and Music. ")
+                        + tr("Or copy the game into Internal storage / ") + (isHp2() ? "FlipendoHP2" : "FlipendoHP") + tr(" and tap Check again."),
+                tr("Choose another folder"), pickFolder, tr("Check again"), checkAgain, tr("Send logs"), sendLogs);
     }
 
     /** Set when the game stopped on its own (FlipendoActivity.onGameStopped) or the last run of the app crashed. */
@@ -1847,7 +1929,7 @@ public class SetupActivity extends Activity {
         String stopped = getIntent().getStringExtra("stopped");
         if (stopped != null) {
             String fatal = LogReport.lastFatal();
-            return "The game stopped (" + stopped + ")." + (fatal != null ? "\n\n" + fatal : "");
+            return tr("The game stopped (") + stopped + ")." + (fatal != null ? "\n\n" + fatal : "");
         }
         if (Build.VERSION.SDK_INT >= 30) {
             long acknowledged = getSharedPreferences("setup", MODE_PRIVATE).getLong("ack", 0);
@@ -1857,7 +1939,7 @@ public class SetupActivity extends Activity {
                 if (info.getTimestamp() > acknowledged
                         && (reason == ApplicationExitInfo.REASON_CRASH_NATIVE || reason == ApplicationExitInfo.REASON_CRASH
                         || reason == ApplicationExitInfo.REASON_ANR || reason == ApplicationExitInfo.REASON_INITIALIZATION_FAILURE)) {
-                    return "The game crashed last time (" + LogReport.exitReason(reason) + ").";
+                    return tr("The game crashed last time (") + LogReport.exitReason(reason) + ").";
                 }
             }
         }
@@ -1866,11 +1948,11 @@ public class SetupActivity extends Activity {
 
     /** The game crashed or stopped: say so, and offer to send the logs right away (the share sheet opens by itself, once). */
     private void showProblem(String text) {
-        showCard("Something went wrong",
-                text + "\n\nPlease send the logs: they help fix it. Pick an app to send them with (Telegram, mail, ...), "
-                        + "or share them in t.me/flipendodroid. A copy is also saved in Download.",
-                "Send logs", sendLogs,
-                "Play anyway", new android.view.View.OnClickListener() {
+        showCard(tr("Something went wrong"),
+                text + tr("\n\nPlease send the logs: they help fix it. Pick an app to send them with (Telegram, mail, ...), ")
+                        + tr("or share them in t.me/flipendodroid. A copy is also saved in Download."),
+                tr("Send logs"), sendLogs,
+                tr("Play anyway"), new android.view.View.OnClickListener() {
                     public void onClick(android.view.View v) {
                         getSharedPreferences("setup", MODE_PRIVATE).edit().putLong("ack", System.currentTimeMillis()).apply();
                         backToStart();
@@ -2037,7 +2119,7 @@ public class SetupActivity extends Activity {
         }
         File sounds = gameDir != null ? soundsDir(gameDir) : null;
         if (sounds == null || !sounds.isDirectory()) {
-            return "The game folder has no Sounds folder";
+            return tr("The game folder has no Sounds folder");
         }
         List<String> files = new ArrayList<>();
         listFiles(source, "", files);
@@ -2066,19 +2148,19 @@ public class SetupActivity extends Activity {
                 kept++;
             }
             if (known == 0) {
-                return "No sound files of the game in " + folder + ": choose the dubbing's Sounds folder (AllDialog.uax and the others)";
+                return tr("No sound files of the game in ") + folder + tr(": choose the dubbing's Sounds folder (AllDialog.uax and the others)");
             }
             if (kept == 0) {
-                return "These sound files are the same as the game's: nothing to change";
+                return tr("These sound files are the same as the game's: nothing to change");
             }
             deleteTree(voices);
             voices.getParentFile().mkdirs();
             if (!temp.renameTo(voices)) {
-                return "Could not keep the dubbing in the app's files";
+                return tr("Could not keep the dubbing in the app's files");
             }
             return null;
         } catch (IOException e) {
-            return "Could not read the folder: " + e.getMessage();
+            return tr("Could not read the folder: ") + e.getMessage();
         } finally {
             deleteTree(temp);
         }
@@ -2126,7 +2208,7 @@ public class SetupActivity extends Activity {
                     done++;
                     continue; // already there
                 }
-                say("Installing the dubbing " + (done + 1) + " / " + files.size() + "\n" + relative, done, files.size());
+                say(tr("Installing the dubbing ") + (done + 1) + " / " + files.size() + "\n" + relative, done, files.size());
                 File backup = new File(backups, relative);
                 if (target.exists() && !backup.exists()) {
                     copyFile(target, backup, buffer);
@@ -2142,7 +2224,7 @@ public class SetupActivity extends Activity {
             List<String> originals = new ArrayList<>();
             listFiles(backups, "", originals);
             for (String relative : originals) {
-                say("Restoring " + relative, 0, 1);
+                say(tr("Restoring ") + relative, 0, 1);
                 copyFile(new File(backups, relative), findSound(sounds, relative), buffer);
             }
             deleteTree(backups);
@@ -2244,7 +2326,7 @@ public class SetupActivity extends Activity {
         int done = 0;
         for (String path : files) {
             String name = path.substring(path.lastIndexOf('/') + 1);
-            say("Installing the Russian translation " + (done + 1) + " / " + files.size() + "\n" + name, done, files.size());
+            say(tr("Installing the Russian translation ") + (done + 1) + " / " + files.size() + "\n" + name, done, files.size());
             File target = findIgnoringCase(system, name);
             File backup = new File(backups, target.getName());
             if (target.exists() && !backup.exists()) {
@@ -2282,7 +2364,7 @@ public class SetupActivity extends Activity {
             File system = systemDir(gameDir);
             byte[] buffer = new byte[1 << 16];
             for (File original : originals) {
-                say("Restoring " + original.getName(), 0, 1);
+                say(tr("Restoring ") + original.getName(), 0, 1);
                 copyFile(original, findIgnoringCase(system, original.getName()), buffer);
                 original.delete();
             }
@@ -2361,7 +2443,7 @@ public class SetupActivity extends Activity {
                 String name = displayName(context, uri);
                 try (InputStream in = context.getContentResolver().openInputStream(uri)) {
                     if (in == null) {
-                        return "Could not open " + name;
+                        return tr("Could not open ") + name;
                     }
                     if (name.toLowerCase().endsWith(".u")) {
                         packages += keepPackage(name, in, temp, system, unknown, buffer);
@@ -2379,24 +2461,24 @@ public class SetupActivity extends Activity {
                         }
                     }
                     if (!anyEntry) {
-                        return name + " is not a zip archive or a .u package";
+                        return name + tr(" is not a zip archive or a .u package");
                     }
                 }
             }
             if (packages == 0) {
-                return unknown.isEmpty() ? "No .u packages in what you picked: choose the mod's zip (or its .u files)"
-                        : "These packages are not the game's own: " + android.text.TextUtils.join(", ", unknown)
-                        + ". Choose a mod that replaces the game's scripts (HarryPotter.u, HPBase.u, ...).";
+                return unknown.isEmpty() ? tr("No .u packages in what you picked: choose the mod's zip (or its .u files)")
+                        : tr("These packages are not the game's own: ") + android.text.TextUtils.join(", ", unknown)
+                        + tr(". Choose a mod that replaces the game's scripts (HarryPotter.u, HPBase.u, ...).");
             }
             writeSmallFile(new File(temp, MOD_LABEL), "Movement mod (your file)");
             File target = new File(mods, IMPORTED_MOD);
             deleteTree(target);
             if (!temp.renameTo(target)) {
-                return "Could not keep the mod in the app's files";
+                return tr("Could not keep the mod in the app's files");
             }
             return null;
         } catch (IOException e) {
-            return "Could not read the file: " + e.getMessage();
+            return tr("Could not read the file: ") + e.getMessage();
         } finally {
             deleteTree(temp);
         }
@@ -2501,7 +2583,7 @@ public class SetupActivity extends Activity {
         int done = 0;
         for (String path : files) {
             String relative = path.substring(LANG_DIR.length() + 1 + code.length() + 1);
-            say("Switching to " + label + " " + (done + 1) + " / " + files.size() + "\n" + relative, done, files.size());
+            say(tr("Switching to ") + label + " " + (done + 1) + " / " + files.size() + "\n" + relative, done, files.size());
             copyAsset(path, new File(gameDir, relative), buffer);
             done++;
         }
@@ -2573,7 +2655,7 @@ public class SetupActivity extends Activity {
             File[] originals = new File(backups, current).listFiles();
             if (originals != null) {
                 for (File original : originals) {
-                    say("Restoring " + original.getName(), 0, 1);
+                    say(tr("Restoring ") + original.getName(), 0, 1);
                     copyFile(original, findIgnoringCase(system, original.getName()), buffer);
                 }
             }
@@ -2583,7 +2665,7 @@ public class SetupActivity extends Activity {
             int done = 0;
             for (String[] p : files) {
                 String name = p[0];
-                say("Installing the mod " + (done + 1) + " / " + files.size() + "\n" + name, done, files.size());
+                say(tr("Installing the mod ") + (done + 1) + " / " + files.size() + "\n" + name, done, files.size());
                 File target = findIgnoringCase(system, name);
                 File backup = new File(new File(backups, wanted), target.getName());
                 if (target.exists() && !backup.exists()) {
@@ -2636,7 +2718,7 @@ public class SetupActivity extends Activity {
                     continue;
                 }
                 File out = new File(gameDir, relative);
-                say("Installing Harry Potter 2 " + done + " / " + files.size() + "\n" + relative, done, files.size());
+                say(tr("Installing Harry Potter 2 ") + done + " / " + files.size() + "\n" + relative, done, files.size());
                 if (out.exists() && relative.toLowerCase().startsWith("save/")) {
                     continue; // the player's saves stay
                 }
@@ -2645,7 +2727,7 @@ public class SetupActivity extends Activity {
             writeSmallFile(marker, stamp);
         } catch (IOException e) {
             android.util.Log.e("flipendo", "installing Harry Potter 2 failed: " + e);
-            say("Installing Harry Potter 2 failed: " + e.getMessage(), 0, 1);
+            say(tr("Installing Harry Potter 2 failed: ") + e.getMessage(), 0, 1);
             try {
                 Thread.sleep(8000);
             } catch (InterruptedException ignored) {
@@ -2694,7 +2776,7 @@ public class SetupActivity extends Activity {
                         continue;
                     }
                     File out = new File(gameDir, relative);
-                    say("Installing game data " + (done + 1) + " / " + files.size() + "\n" + relative, done, files.size());
+                    say(tr("Installing game data ") + (done + 1) + " / " + files.size() + "\n" + relative, done, files.size());
                     // saves of the player are never replaced; everything else is the APK's version
                     boolean keep = out.exists() && relative.toLowerCase().startsWith("save/");
                     if (!keep) {
@@ -2724,7 +2806,7 @@ public class SetupActivity extends Activity {
             }
         } catch (IOException e) {
             android.util.Log.e("flipendo", "installing game data failed: " + e);
-            say("Installing the game data failed: " + e.getMessage(), 0, 1);
+            say(tr("Installing the game data failed: ") + e.getMessage(), 0, 1);
             try {
                 Thread.sleep(8000);
             } catch (InterruptedException ignored) {

@@ -390,7 +390,7 @@ index e3c87b45..cafa042c 100644
  		return;
  
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
-index ced1b745..27a841a9 100644
+index ced1b745..d3874707 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
 @@ -8,9 +8,25 @@
@@ -441,7 +441,16 @@ index ced1b745..27a841a9 100644
  	// What is a reasonable size for this grid? what did UE1 do?
  	int offset[] = { 0, 1, -1 };
  	bool found = false;
-@@ -422,7 +444,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
+@@ -309,6 +331,8 @@ UObject* UActor::Trace(vec3& hitLocation, vec3& hitNormal, const vec3& traceEnd,
+ 	}
+ 
+ 	CollisionHit hit = XLevel()->Collision.TraceFirstHit(traceStart, traceEnd, this, extent, flags);
++	if (engine->LaunchInfo.IsKnowWonder()) // what stops the spell cursor's trace (src/knowwonder/KWDebug.cpp)
++		KW::LogCursorTrace(this, traceStart, traceEnd, hit);
+ 	hitNormal = hit.Normal;
+ 	hitLocation = traceStart + (traceEnd - traceStart) * hit.Fraction;
+ 	return hit.Actor;
+@@ -422,7 +446,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
  				if (hit.Actor)
  				{
  					bool isBlocking;
@@ -452,7 +461,7 @@ index ced1b745..27a841a9 100644
  						isBlocking = hit.Actor->bBlockPlayers() && bBlockPlayers();
  					else
  						isBlocking = hit.Actor->bBlockActors() && bBlockActors();
-@@ -529,7 +553,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
+@@ -529,7 +555,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
  		{
  			// We can't touch stuff we are blocked by
  			bool isBlocking;

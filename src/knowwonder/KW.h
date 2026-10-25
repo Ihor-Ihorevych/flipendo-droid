@@ -107,6 +107,8 @@ namespace KW
 
 	// LightmapBuilder (BSP light maps, src/knowwonder/KWLightmap.cpp). SetAmbientLight: the zone ambient a light map starts with.
 	vec3 LightmapAmbient(UZoneInfo* zone);
+	// The spell cursor's world Trace hit something short of its end: logged (src/knowwonder/KWDebug.cpp).
+	void LogCursorTrace(UActor* self, const vec3& start, const vec3& end, const CollisionHit& hit);
 	// AddStaticLights/AddDynamicLights, instead of LightEffect::Run: a light's reach per lumel (0..1, shadow included)
 	// with LightSource and LightRadiusInner. Returns false for the light effects left to SurrealEngine.
 	bool LightmapIllumination(UActor* light, int size, const vec3* locations, const vec3& base, const vec3& normal, const float* shadowmap, float* result);

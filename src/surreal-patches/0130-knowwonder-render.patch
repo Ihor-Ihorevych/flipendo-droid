@@ -230,7 +230,7 @@ index 3b522523..80f6309e 100644
  		FontGlyph glyph = Font->GetGlyph(c);
  		x += glyph.USize;
 diff --git a/SurrealEngine/Render/RenderCanvas.cpp b/SurrealEngine/Render/RenderCanvas.cpp
-index 4b2aa5c5..ab58c566 100644
+index 4b2aa5c5..18f2cba6 100644
 --- a/SurrealEngine/Render/RenderCanvas.cpp
 +++ b/SurrealEngine/Render/RenderCanvas.cpp
 @@ -8,12 +8,15 @@
@@ -319,8 +319,8 @@ index 4b2aa5c5..ab58c566 100644
 +	Device->Brightness = engine->client->Brightness;
 +	Device->Lock(vec4(0.5f, 0.5f, 0.5f, 1.0f), vec4(0.0f, 0.0f, 0.0f, 1.0f), vec4(0.0f), nullptr, nullptr);
 +	ResetCanvas();
-+	if (engine->LaunchInfo.IsKnowWonder()) // console/menus in a centred 4:3 area (src/knowwonder/KWCanvas.cpp)
-+		KW::SetCanvasArea(Canvas.Frame, Canvas.uiscale, true);
++	if (engine->LaunchInfo.IsKnowWonder()) // the loading screen fills the whole screen (its parchment is scaled to the canvas), not the centred 4:3 menu area
++		KW::SetCanvasArea(Canvas.Frame, Canvas.uiscale, false);
 +	Device->SetSceneNode(&Canvas.Frame);
 +	CallEvent(engine->console, "DrawLevelInfo", { ExpressionValue::ObjectValue(engine->canvas), ExpressionValue::StringValue(levelEnterText) });
 +	if (engine->LaunchInfo.IsKnowWonder())
@@ -358,7 +358,7 @@ index 4b2aa5c5..ab58c566 100644
  		{
  			FontGlyph glyph = font->GetGlyph(c);
  
-@@ -288,6 +327,13 @@ void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<std::stri
+@@ -288,6 +327,20 @@ void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<std::stri
  
  void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY, float& curX, float& curY, float& curXL, float& curYL, bool newlineAtEnd, const std::string& text, uint32_t polyflags, bool center, float spaceX, float spaceY, float clipX, float clipY, bool noDraw)
  {
@@ -369,10 +369,63 @@ index 4b2aa5c5..ab58c566 100644
 +		color.a = 1.0f; // GDI ignores DrawColor's alpha; HP2's cutscene text color has A=0, which would make it additive
 +	}
 +
++	// KnowWonder centres a line between OrgX and OrgX + ClipX and ignores CurX for it (the loading screen sets CurX .35 for its
++	// Y only, and a column starting there was off to the right)
++	if (center && engine->LaunchInfo.IsKnowWonder())
++		curX = 0.0f;
++	const float regionX = 0.0f;
++	const float wrapWidth = clipX;
++
  	float totalWidth = 0.0f;
  	float totalHeight = 0.0f;
  
-@@ -381,6 +427,12 @@ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY,
+@@ -303,7 +356,7 @@ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY,
+ 			{
+ 				float centerX = 0;
+ 				if (center)
+-					centerX = std::round((clipX - lineWidth) * 0.5f);
++					centerX = std::round((wrapWidth - lineWidth) * 0.5f);
+ 				if (!noDraw)
+ 					DrawTextBlockRange(orgX + curX + centerX, orgY + curY, textBlocks, lineBegin, pos, font, color, polyflags, spaceX);
+ 				curY += lineHeight;
+@@ -311,7 +364,7 @@ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY,
+ 				totalWidth = std::max(totalWidth, lineWidth);
+ 			}
+ 
+-			curX = 0;
++			curX = regionX;
+ 			lineBegin = pos + 1;
+ 			lineWidth = 0.0f;
+ 			lineHeight = 0.0f;
+@@ -319,15 +372,15 @@ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY,
+ 		else
+ 		{
+ 			vec2 blockSize = GetTextSize(font, textBlocks[pos], spaceX, spaceY);
+-			if (lineWidth + blockSize.x > clipX)
++			if (lineWidth + blockSize.x > wrapWidth)
+ 			{
+ 				float centerX = 0;
+ 				if (center)
+-					centerX = std::round((clipX - lineWidth) * 0.5f);
++					centerX = std::round((wrapWidth - lineWidth) * 0.5f);
+ 				if (!noDraw)
+ 					DrawTextBlockRange(orgX + curX + centerX, orgY + curY, textBlocks, lineBegin, pos, font, color, polyflags, spaceX);
+ 
+-				curX = 0;
++				curX = regionX;
+ 				curY += lineHeight;
+ 				totalHeight += lineHeight;
+ 				totalWidth = std::max(totalWidth, lineWidth);
+@@ -358,7 +411,7 @@ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY,
+ 	{
+ 		float centerX = 0;
+ 		if (center)
+-			centerX = std::round((clipX - lineWidth) * 0.5f);
++			centerX = std::round((wrapWidth - lineWidth) * 0.5f);
+ 		if (!noDraw)
+ 			DrawTextBlockRange(orgX + curX + centerX, orgY + curY, textBlocks, lineBegin, textBlocks.size(), font, color, polyflags, spaceX);
+ 		curX += centerX + lineWidth;
+@@ -381,6 +434,12 @@ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY,
  
  void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float orgY, float curX, float curY, const std::string& text, uint32_t polyflags, bool checkHotKey, float clipX, float clipY, bool center)
  {
@@ -385,7 +438,7 @@ index 4b2aa5c5..ab58c566 100644
  	FontGlyph uglyph = font->GetGlyph('_');
  	int uwidth = uglyph.USize;
  	int uheight = uglyph.VSize;
-@@ -397,7 +449,7 @@ void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float
+@@ -397,7 +456,7 @@ void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float
  
  	bool foundAmpersand = false;
  	int maxY = 0;
@@ -394,7 +447,7 @@ index 4b2aa5c5..ab58c566 100644
  	{
  		if (checkHotKey && c == '&' && !foundAmpersand)
  		{
-@@ -457,7 +509,7 @@ void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float
+@@ -457,7 +516,7 @@ void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float
  
  			Rectf dest = Rectf::xywh(orgX + curX + centerX, orgY + curY, (float)glyph.USize, (float)glyph.VSize);
  			Rectf src = Rectf::xywh((float)glyph.StartU, (float)glyph.StartV, (float)glyph.USize, (float)glyph.VSize);
@@ -403,7 +456,7 @@ index 4b2aa5c5..ab58c566 100644
  
  			curX += glyph.USize;
  			maxY = std::max(maxY, glyph.VSize);
-@@ -528,7 +580,7 @@ vec2 RenderSubsystem::GetTextSize(UFont* font, const std::string& text, float sp
+@@ -528,7 +587,7 @@ vec2 RenderSubsystem::GetTextSize(UFont* font, const std::string& text, float sp
  {
  	float x = 0.0f;
  	float y = 0.0f;

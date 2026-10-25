@@ -1,5 +1,6 @@
 #include "Precomp.h"
 #include "KW.h"
+#include "KWGame.h"
 #include "KWActor.h"
 #include "KWCheck.h"
 #include "Math/coords.h"
@@ -460,7 +461,14 @@ namespace KW
 		if (other->Brush())
 			return self->bCollideWorld() && (isPlayer(self) ? other->bBlockPlayers() : other->bBlockActors());
 		if (self->Brush())
+		{
+			// HP2: an actor that blocks neither actors nor players (a resting jellybean) doesn't stop a mover: Ch2Skurge's
+			// Lumos floor slides along a floor with a bean on it, and Mover.EncroachingOn destroys loose pickups anyway
+			// (NOT yet verified against HP2's IsBlockedBy: that function is only checked in HP1)
+			if (IsHP2() && !other->bBlockActors() && !other->bBlockPlayers())
+				return false;
 			return other->bCollideWorld() && (isPlayer(other) ? self->bBlockPlayers() : self->bBlockActors());
+		}
 		return blocksMe(other, self) && blocksMe(self, other);
 	}
 

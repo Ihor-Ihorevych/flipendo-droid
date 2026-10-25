@@ -114,6 +114,17 @@ namespace KW
 
 		while (mover->bInterpolating() && deltaTime > 0.0f)
 		{
+			if (physAlpha <= 0.0f && deltaTime > 0.0f) // a move starts: which mover, to which key, from where
+			{
+				static UMover* lastMover = nullptr;
+				static int lastKey = -1;
+				if (lastMover != mover || lastKey != key)
+				{
+					lastMover = mover;
+					lastKey = key;
+					LogMessage("Mover " + mover->Name.ToString() + " (tag " + mover->Tag().ToString() + ") starts moving to key " + std::to_string(key) + " from " + std::to_string(mover->Location().x) + "," + std::to_string(mover->Location().y) + "," + std::to_string(mover->Location().z));
+				}
+			}
 			// Fall: the velocity along the zone's gravity, plus gravity. What it falls is added to the current key and to
 			// OldPos, so the rest of the move happens at the new height. Not ported: AActor::FindBase when it can't fall.
 			bool fell = false;
@@ -191,6 +202,7 @@ namespace KW
 				if (time < 1.0f)
 				{
 					mover->bInterpolating() = false; // blocked: GridMover's Tick sees this and finishes the move
+					LogMessage("Mover " + mover->Name.ToString() + " blocked at key " + std::to_string(key) + " (alpha " + std::to_string(physAlpha) + ") by " + (hit.Actor ? hit.Actor->Name.ToString() : std::string("the world")) + " time " + std::to_string(hit.Time));
 					if (IsHP2())
 					{
 						mover->Value<vec3>(p.HitPosition) = hit.Location;

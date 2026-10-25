@@ -1,5 +1,6 @@
 #include "Precomp.h"
 #include "KW.h"
+#include "KWGame.h"
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Packages/Engine/UViewport.h"
@@ -9,6 +10,7 @@
 #include "Utils/StrTools.h"
 #include <cmath>
 #include <chrono>
+#include <thread>
 #ifdef __ANDROID__
 #include <atomic>
 extern std::atomic<float> g_fovOffset; // android/jni/android_main.cpp
@@ -151,5 +153,16 @@ namespace KW
 			return;
 		LoadingFromLevel = false;
 		engine->render->DrawLevelInfo(levelInfo->LevelEnterText());
+		if (!IsHP1())
+			return;
+		// Not in the original: a fast load would flash the screen by, so keep redrawing it (every frame, which also
+		// fills every swapchain image) for MinLoadingScreenSeconds before the rest of the level loads.
+		const float MinLoadingScreenSeconds = 3.5f;
+		auto start = std::chrono::steady_clock::now();
+		while (std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count() < MinLoadingScreenSeconds)
+		{
+			engine->render->DrawLevelInfo(levelInfo->LevelEnterText());
+			std::this_thread::sleep_for(std::chrono::milliseconds(16));
+		}
 	}
 }

@@ -484,7 +484,6 @@ extern "C" __attribute__((visibility("default"))) int SDL_main(int argc, char** 
 		SDL_SetHint(SDL_HINT_ENABLE_SCREEN_KEYBOARD, "0"); // no soft keyboard: all input comes from the touch overlay
 		args.push_back("--autolaunch");
 		args.push_back("--skip-splash");
-		args.push_back("--skip-intro");
 		// Default: the main menu. For development, a file with a map name starts that level instead
 		// (adb shell "echo Lev2_Inc_A > /sdcard/FlipendoHP/start_level.txt"; delete the file to get the menu back).
 		{

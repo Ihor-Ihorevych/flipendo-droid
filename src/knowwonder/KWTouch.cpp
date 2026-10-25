@@ -1,6 +1,8 @@
 #include "Precomp.h"
 #include "KW.h"
 #include "VM/ScriptCall.h"
+#include "Utils/Logger.h"
+#include "Packages/Core/UClass.h"
 #include "Packages/Engine/Actors/Pawn/UPawn.h"
 
 // Touch between two actors (docs/re/engine/physics.md "Touch"). KnowWonder's AActor::BeginTouch links and notifies one
@@ -87,9 +89,13 @@ namespace KW
 	// IDA Engine.dll: ?BeginTouch@AActor@@QAEXPAV1@@Z [HP1 0x10379FE0]
 	void BeginTouch(UActor* actor, UActor* other)
 	{
+		if (actor->IsA("baseSpell") && other->IsA("Pawn")) // what a spell touches (Flipendo going through a creature)
+			LogMessage("SpellTouch " + actor->Name.ToString() + " touches " + other->Name.ToString() + " (" + other->Class->Name.ToString() + ") bProjTarget " + std::to_string((int)other->bProjTarget()) + " blockActors " + std::to_string((int)other->bBlockActors()) + " blockPlayers " + std::to_string((int)other->bBlockPlayers()));
 		if (!TouchOneSide(actor, other))
 			return;
 		TouchOneSide(other, actor);
+		if (actor->IsA("baseSpell") && other->IsA("Pawn")) // and what the touch did to the creature
+			LogMessage("SpellTouch done: " + actor->Name.ToString() + (actor->bDeleteMe() ? " (spell gone)" : " (spell still flying)") + ", " + other->Name.ToString() + " state " + other->GetStateName().ToString() + " physics " + std::to_string((int)other->Physics()) + " velocity " + std::to_string(other->Velocity().x) + "," + std::to_string(other->Velocity().y) + "," + std::to_string(other->Velocity().z));
 
 		// The original keeps the destroyed actor in Other's array until ULevel::CleanupDestroyed clears references to
 		// destroyed actors at the end of the tick, without UnTouch. SurrealEngine has no such pass: clear it now.

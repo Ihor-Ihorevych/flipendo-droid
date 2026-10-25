@@ -138,7 +138,15 @@ namespace KW
 		USkeletalMesh* mesh = UObject::TryCast<USkeletalMesh>(pawn->Mesh());
 		vec3 origin, x, y, z;
 		if (!mesh || !SkeletalWeaponFrame(pawn, mesh, origin, x, y, z))
+		{
+			static std::string reported;
+			if (mesh && pawn->Weapon() && reported != mesh->Name.ToString()) // a mesh with no weapon bone: the wand's effects start at the origin
+			{
+				reported = mesh->Name.ToString();
+				LogMessage("No weapon frame for " + pawn->Name.ToString() + " on mesh " + reported + ": WeaponBoneIndex " + std::to_string((int)mesh->WeaponBoneIndex) + ", " + std::to_string((int)mesh->RefSkeleton.size()) + " bones");
+			}
 			return false;
+		}
 
 		static PropertyDataOffset weaponLoc, weaponRot;
 		if (weaponLoc.DataOffset == ~(size_t)0)
