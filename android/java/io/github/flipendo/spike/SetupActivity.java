@@ -545,8 +545,8 @@ public class SetupActivity extends Activity {
         remember.setPadding(dp(8), dp(4), dp(8), dp(4));
         col.addView(remember, rp);
 
-        // HD textures: only where the APK carries the packs (the self pack); the launcher puts them into the game folder, or takes them out
-        if (carriesTexturePacks()) {
+        // HD textures: the self pack carries the packs; any other APK asks for the pack's zip when the box is ticked (once)
+        {
             android.widget.CheckBox hd = new android.widget.CheckBox(this);
             hd.setText(tr("HD textures"));
             hd.setTextColor(PARCHMENT);
@@ -556,6 +556,9 @@ public class SetupActivity extends Activity {
             hd.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
                 public void onCheckedChanged(android.widget.CompoundButton b, boolean on) {
                     getSharedPreferences("setup", MODE_PRIVATE).edit().putBoolean(PREF_HD, on).apply();
+                    if (on && !carriesTexturePacks() && getSharedPreferences("setup", MODE_PRIVATE).getString(PREF_HD_ZIP, null) == null) {
+                        pickHdZip(b);
+                    }
                 }
             });
             hd.setPadding(dp(8), dp(4), dp(8), dp(4));
@@ -564,7 +567,7 @@ public class SetupActivity extends Activity {
             hdHint.setTextColor(INK_MUTED);
             hdHint.setTextSize(12);
             hdHint.setLineSpacing(0f, 1.15f);
-            hdHint.setText(tr("Sharper walls, doors, characters, the main menu and the storybooks (ESRGAN upscale pack, about 1.3 GB on the phone). Needs a lot of memory: untick it if the game stutters or closes."));
+            hdHint.setText(tr(carriesTexturePacks() ? "Sharper walls, doors, characters, the main menu and the storybooks (ESRGAN upscale pack, about 1.3 GB on the phone). Needs a lot of memory: untick it if the game stutters or closes." : "Choose the zip of an HD texture pack (the ESRGAN upscale pack: a zip with a Textures folder in it). It is unpacked into the game folder on Play, about 1.3 GB; untick the box to take it out again."));
             LinearLayout.LayoutParams hhp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
             hhp.leftMargin = dp(8);
             col.addView(hdHint, hhp);
@@ -574,9 +577,37 @@ public class SetupActivity extends Activity {
 
     static final String PREF_HD = "hdTextures"; // tr("HD textures"): on by default where the APK carries the packs
 
+    static final String PREF_HD_ZIP = "hdZip"; // an APK without packs: the zip the player chose (a content:// URI)
+    private static final int REQUEST_PICK_HD = 13;
+
     static boolean hdTexturesWanted(android.content.Context context) {
-        return context.getSharedPreferences("setup", MODE_PRIVATE).getBoolean(PREF_HD, true);
+        // on by default where the APK carries the packs; elsewhere only once a zip is chosen
+        boolean carried;
+        try {
+            String[] names = context.getAssets().list("texpacks");
+            carried = names != null && names.length > 0;
+        } catch (IOException e) {
+            carried = false;
+        }
+        return context.getSharedPreferences("setup", MODE_PRIVATE).getBoolean(PREF_HD, carried);
     }
+
+    private void pickHdZip(final android.widget.CompoundButton box) {
+        try {
+            Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            pick.addCategory(Intent.CATEGORY_OPENABLE);
+            pick.setType("*/*");
+            pick.putExtra(Intent.EXTRA_MIME_TYPES, new String[] { "application/zip", "application/x-zip-compressed", "application/octet-stream" });
+            pick.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+            startActivityForResult(pick, REQUEST_PICK_HD);
+        } catch (RuntimeException e) {
+            box.setChecked(false);
+            android.widget.Toast.makeText(this, tr("No file picker on this phone"), android.widget.Toast.LENGTH_LONG).show();
+        }
+        hdBox = box;
+    }
+
+    private android.widget.CompoundButton hdBox;
 
     private boolean carriesTexturePacks() {
         try {
@@ -1207,6 +1238,11 @@ public class SetupActivity extends Activity {
                         applyTexturePacks(found, chosenLanguage(SetupActivity.this).startsWith("ru"), hdTexturesWanted(SetupActivity.this));
                     } catch (IOException e) {
                         android.util.Log.e("flipendo", "the texture packs failed: " + e);
+                        say(e.getMessage() != null ? e.getMessage() : tr("HD textures"), 0, 1);
+                        try {
+                            Thread.sleep(6000);
+                        } catch (InterruptedException ignored) {
+                        }
                     }
                 }
                 // the game's pictures (thumbnails, save snaps, textures) stay out of the phone's gallery
@@ -1918,6 +1954,23 @@ public class SetupActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_PICK_HD) {
+            Uri zip = resultCode == RESULT_OK && data != null ? data.getData() : null;
+            if (zip == null) {
+                if (hdBox != null) {
+                    hdBox.setChecked(false); // nothing chosen: the box goes back to off
+                }
+                return;
+            }
+            try {
+                getContentResolver().takePersistableUriPermission(zip, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            } catch (RuntimeException ignored) {
+                // all files access still lets the read work for this launch
+            }
+            getSharedPreferences("setup", MODE_PRIVATE).edit().putString(PREF_HD_ZIP, zip.toString()).putBoolean(PREF_HD, true).apply();
+            android.widget.Toast.makeText(this, displayName(this, zip) + tr(" will be unpacked when you press Play"), android.widget.Toast.LENGTH_LONG).show();
+            return;
+        }
         if (requestCode == REQUEST_PICK_HP1 || requestCode == REQUEST_PICK_HP2) {
             boolean two = requestCode == REQUEST_PICK_HP2;
             if (resultCode == RESULT_OK && data != null) {
@@ -2640,6 +2693,74 @@ public class SetupActivity extends Activity {
     }
 
     /**
+     * An APK without packs: unpacks the zip the player chose (PREF_HD_ZIP) into the game folder, straight from the picker's stream
+     * (no copy of the zip on the phone). Every .dds below a Textures folder in the zip goes to Textures/<the rest of its path>;
+     * the files are listed in the manifest, so unticking the box takes them out again. Done once per zip (the marker).
+     */
+    private void importTextureZip(File gameDir, File marker, File manifest) throws IOException {
+        String uriText = getSharedPreferences("setup", MODE_PRIVATE).getString(PREF_HD_ZIP, null);
+        if (uriText == null || ("zip:" + uriText).equals(readSmallFile(marker))) {
+            return;
+        }
+        Uri uri = Uri.parse(uriText);
+        File textures = findIgnoringCase(gameDir, "Textures");
+        StringBuilder installed = new StringBuilder();
+        String old = readSmallFile(manifest);
+        if (old != null) {
+            installed.append(old);
+        }
+        byte[] buffer = new byte[1 << 20];
+        int count = 0;
+        try (InputStream in = getContentResolver().openInputStream(uri)) {
+            if (in == null) {
+                throw new IOException(tr("Could not open ") + displayName(this, uri));
+            }
+            java.util.zip.ZipInputStream zip = new java.util.zip.ZipInputStream(new java.io.BufferedInputStream(in, 1 << 16));
+            java.util.zip.ZipEntry entry;
+            while ((entry = zip.getNextEntry()) != null) {
+                String[] parts = entry.getName().replace('\\', '/').split("/");
+                int at = -1;
+                for (int i = 0; i < parts.length - 1 && at < 0; i++) {
+                    if (parts[i].equalsIgnoreCase("Textures")) {
+                        at = i;
+                    }
+                }
+                // a .dds at least a package folder deep (Textures/<package>/.../<name>.dds)
+                if (entry.isDirectory() || at < 0 || parts.length - at < 3 || !parts[parts.length - 1].toLowerCase(java.util.Locale.ROOT).endsWith(".dds")) {
+                    continue;
+                }
+                StringBuilder relative = new StringBuilder();
+                for (int i = at + 1; i < parts.length; i++) {
+                    if (parts[i].isEmpty() || parts[i].equals("..")) {
+                        relative = null;
+                        break;
+                    }
+                    relative.append(i > at + 1 ? "/" : "").append(parts[i]);
+                }
+                if (relative == null) {
+                    continue;
+                }
+                say(tr("Installing textures ") + (count + 1) + "\n" + parts[parts.length - 1], count, count + 1);
+                File target = new File(textures, relative.toString());
+                target.getParentFile().mkdirs();
+                try (OutputStream os = new FileOutputStream(target)) {
+                    int n;
+                    while ((n = zip.read(buffer)) > 0) {
+                        os.write(buffer, 0, n);
+                    }
+                }
+                installed.append(textures.getName()).append('/').append(relative).append('\n');
+                count++;
+            }
+        }
+        if (count == 0) {
+            throw new IOException(displayName(this, uri) + tr(" has no Textures folder with .dds files in it"));
+        }
+        writeSmallFile(manifest, installed.toString());
+        writeSmallFile(marker, "zip:" + uriText);
+    }
+
+    /**
      * Texture packs (the texture-overrides mod draws Textures/<package>/<group>/<name>.dds from the game folder): assets/texpacks/common
      * goes into the game folder as it is, and the main menu art of the game's language (menuart/ru for the Russian editions, else en)
      * replaces the previous language's, so one language's extra files (the Russian moontitle*.dds) never show in another. A self pack
@@ -2651,11 +2772,13 @@ public class SetupActivity extends Activity {
         String set = russian ? "ru" : "en";
         List<String> art = new ArrayList<>();
         collect("texpacks/menuart/" + set, art);
-        if (common.isEmpty() && art.isEmpty()) {
-            return; // this APK carries no texture packs
-        }
         File marker = new File(gameDir, ".flipendo-texpacks");
         File manifest = new File(gameDir, ".flipendo-texpacks.list"); // the files put in, relative to the game folder
+        boolean carried = !common.isEmpty() || !art.isEmpty();
+        if (!carried && enabled) {
+            importTextureZip(gameDir, marker, manifest);
+            return;
+        }
         if (!enabled) {
             // switched off: what was put in comes out again
             String list = readSmallFile(manifest);
