@@ -38,7 +38,7 @@ namespace HP1::Mods
 		{
 			int runtime = runtimeLimit.load();
 			if (runtime >= 0)
-				return Enabled() ? runtime : 0;
+				return IsOn("frame-limit") ? runtime : 0;
 			static int fps = -1;
 			if (fps < 0)
 			{
