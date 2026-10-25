@@ -10,7 +10,7 @@ them, kept as patch files so a newer SurrealEngine rarely conflicts.
 | Patch | What |
 |---|---|
 | `src/surreal-patches/0001-game-detection.patch` | HP1 `System/HP.exe` hashes (UK 1.1, EN retail SafeDisc, community No-CD, Russian retail and No-CD), also under the long exe names some releases use; why a folder isn't a game |
-| `src/surreal-patches/0002-launcher-flags.patch` | `--autolaunch`, `--logfile`, the flags the HP1 code reads |
+| `src/surreal-patches/0002-launcher-flags.patch` | `--autolaunch`, `--logfile`, the flags the HP1 code reads; `--list-mods` prints `HP1::ModsList()` and exits |
 | `src/surreal-patches/0003-cursor-focus.patch` | cursor recentering and raw input only while the game window has focus; window icons the right way up; macOS: `ShowFullscreen` shows the window first and only toggles when it isn't fullscreen yet, and mouse buttons go into the key state `GetKeyState` reads (HP2's `GetCurrentKeyState`; the middle button gets its own handlers) |
 | `src/surreal-patches/0010-engine-fixes.patch` | fixes to SurrealEngine bugs that aren't specific to one game (VM, properties, ini (UTF-16 files), packages, GetLanguage, fonts, crash reports, audio device) |
 | `src/surreal-patches/0100-knowwonder-core.patch` | build (`src/flipendo.cmake`), natives registration, engine loop (input, console, saves, view), missing data messages |
@@ -77,7 +77,7 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Collision/TopLevel/TraceTest.cpp`, `OverlapTest.cpp`, `CollisionSystem.cpp` | CT_Box trace/overlap/hash extents |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `HP1::PawnMoveToward`, `HP1::PawnPhysicsTime`, `HP1::PawnPhysicsRotation` |
 | `Packages/Engine/Actors/Pawn/UPlayerPawn.cpp` | `HP1::PawnPhysicsRotation` |
-| `UE1GameDatabase.h`, `GameApp.cpp` | exe hashes, `--autolaunch` / `--logfile`; `--level=<map>` loads the map as `--url` does |
+| `UE1GameDatabase.h`, `GameApp.cpp` | exe hashes, `--autolaunch` / `--logfile`; `--level=<map>` loads the map as `--url` does; `--list-mods` (`HP1::ModsList`) |
 | `SurrealWidgets/.../win32_display_window.cpp` | cursor recentering and raw mouse/keyboard input need foreground focus (0004; raw input is RIDEV_INPUTSINK, so moving the mouse in another app turned the camera); the icon bitmap is top-down (it was drawn upside down) |
 | `Packages/Engine/Actors/UActor_Phys.cpp`, `UActor_PhysRolling.cpp` | `HP1::PhysicsChecksLeftWorld` (zone-0 FellOutOfWorld only while walking) |
 | `Packages/Engine/Actors/UActor_PhysWalking.cpp` | player slides along actors it hits (no pushable decoration); `HP1::PawnMount` before the step up |

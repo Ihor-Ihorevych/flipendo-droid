@@ -53,7 +53,7 @@ The 2001 release is getting hard to run. SafeDisc copy protection doesn't work o
 - **Modern renderer.** Vulkan, Direct3D 11/12 or OpenGL instead of Direct3D 7.
 - **No disc, no SafeDisc, no compatibility patches.** Point it at the installed game folder.
 - **The same game.** Nothing is remade or altered. Optional extras (skippable cutscenes and storybooks, fast forward) can all
-  be switched off with `--vanilla`.
+  be switched off with `--vanilla`, or one at a time with `--no-mod=<id>`.
 - **Fixable.** Bugs in the original engine get fixed in source ([list](docs/re/hp1/original_bugs.md)).
 - **Windows, Linux and macOS.**
 
@@ -156,29 +156,32 @@ build-linux/SurrealEngine ~/Games/HarryPotter
 
 | Option | What it does |
 |---|---|
-| `--skip-splash` | skip the logo screens (already the default; this one works with `--vanilla` too) |
-| `--skip-intro` | New Game goes straight to the first level |
+| `--skip-splash` | skip the logo screens (already the default; this one works with `--vanilla` too, like `--mod=splash-skip`) |
+| `--skip-intro` | New Game goes straight to the first level (same as `--mod=intro-skip`) |
 | `--vanilla` | turn off every extra the original doesn't have |
+| `--no-mod=<id,...>`, `--mod=<id,...>` | turn single extras off or on, e.g. `--no-mod=improved-movement` or `--vanilla --mod=fast-forward` |
+| `--list-mods` | list the extras with their ids and whether they are on |
 | `--logfile=flipendo.log` | write a log file (attach it to bug reports) |
 
 ## Extras and mods
 
 Most are for Philosopher's Stone (HP1); the Games column says which also work in Chamber of Secrets (HP2), whose own
 cutscene skip (Enter) is part of the original game. The faithful port and the additions are kept apart: an extra never
-changes how the game plays unless it is switched on, and `--vanilla` switches all of them off.
+changes how the game plays unless it is switched on, and `--vanilla` switches all of them off. `--no-mod=<id>` switches
+one off, `--mod=<id>` one on (ids below, or `--list-mods`).
 
-| Extra | Games | Default | What it does |
-|---|---|---|---|
-| Cutscene skip | HP1 | on | "Press Space to skip" during cutscenes |
-| Storybook skip | HP1 | on | "Press Space to skip" in storybooks (New Game intro, chapter interludes) |
-| Fast forward | HP1, HP2 | on | hold Shift to play 2.5x as fast |
-| Discord status | HP1 | on | friends on Discord see which level you're in and Gryffindor's house points; `--no-discord` turns it off |
-| 60 FPS cap | HP1, HP2 | on | the game runs at most 60 frames a second, as the original was played (some of its movement goes wrong at high frame rates); `--fps=<n>` for another limit, `--fps=0` for none |
-| Improved movement | HP1 | on | HP2's controls: Left / Right strafe and the mouse turns (in the air too), Harry keeps moving while you hold a spell (the mouse aims it; he can jump with it or start one in the air, and climbs again once it is cast), the mouse looks up and down while you move, a ledge caught mid-jump is climbed at once, and AdamJD's smaller tweaks (even diagonal air control, softer blends, spells that hit a creature at once from up close). Saves work with it on or off; `--classic-movement` turns it off |
-| Map fixes | HP1 | on | fixes broken paths in the original maps (Peeves now flies off after the Lev_Tut3b duel instead of drifting through the walls) |
-| Texture packs | HP1, HP2 | on | `.dds` files in `Textures/<package>/<group>/<name>.dds` replace the game's textures: the layout of the DirectX 11 renderer's texture packs, such as the ESRGAN Upscale Pack (unpack it into the game folder) |
-| Splash skip | HP1, HP2 | on | no logo screens at start: HP1 opens on the main menu, HP2 on its start menu |
-| Intro skip | HP1 | off | `--skip-intro`: New Game goes straight to the first level |
+| Extra | Id | Games | Default | What it does |
+|---|---|---|---|---|
+| Cutscene skip | `cutscene-skip` | HP1 | on | "Press Space to skip" during cutscenes |
+| Storybook skip | `storybook-skip` | HP1 | on | "Press Space to skip" in storybooks (New Game intro, chapter interludes) |
+| Fast forward | `fast-forward` | HP1, HP2 | on | hold Shift to play 2.5x as fast |
+| Discord status | `discord` | HP1 | on | friends on Discord see which level you're in and Gryffindor's house points |
+| 60 FPS cap | `frame-limit` | HP1, HP2 | on | the game runs at most 60 frames a second, as the original was played (some of its movement goes wrong at high frame rates); `--fps=<n>` for another limit, `--fps=0` for none |
+| Improved movement | `improved-movement` | HP1 | on | HP2's controls: Left / Right strafe and the mouse turns (in the air too), Harry keeps moving while you hold a spell (the mouse aims it; he can jump with it or start one in the air, and climbs again once it is cast), the mouse looks up and down while you move, a ledge caught mid-jump is climbed at once, and AdamJD's smaller tweaks (even diagonal air control, softer blends, spells that hit a creature at once from up close). Saves work with it on or off |
+| Map fixes | `path-fixes` | HP1 | on | fixes broken paths in the original maps (Peeves now flies off after the Lev_Tut3b duel instead of drifting through the walls) |
+| Texture packs | `texture-overrides` | HP1, HP2 | on | `.dds` files in `Textures/<package>/<group>/<name>.dds` replace the game's textures: the layout of the DirectX 11 renderer's texture packs, such as the ESRGAN Upscale Pack (unpack it into the game folder) |
+| Splash skip | `splash-skip` | HP1, HP2 | on | no logo screens at start: HP1 opens on the main menu, HP2 on its start menu |
+| Intro skip | `intro-skip` | HP1 | off | New Game goes straight to the first level |
 
 More is coming (an in-game page to switch these, more extras): see the [roadmap](ROADMAP.md#extras-for-hp1-srchp1mods),
 and [docs/modding.md](docs/modding.md) to write a mod today.

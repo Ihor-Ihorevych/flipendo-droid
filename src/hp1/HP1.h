@@ -26,6 +26,9 @@ namespace HP1
 	// HP2's front end (src/hp2/HP2FrontEnd.cpp), before Game.exe's EA and WB splashes: whether to skip them
 	// (src/hp1/mods/LaunchSkips.cpp).
 	bool ModsSkipSplash();
+	// --list-mods (GameApp, before the launcher; any game): every mod (src/hp1/mods/HP1Mods.cpp ModList) with its
+	// games, its default and whether this command line turns it on.
+	std::string ModsList();
 	// RenderSubsystem::PostRender, after the HUD and the console/menus.
 	void PostRenderMods(UCanvas* canvas);
 	// Vulkan UploadManager::UploadTexture: a replacement image for the texture (Textures/<package>/<group>/<name>.dds,

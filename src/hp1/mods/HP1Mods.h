@@ -1,7 +1,9 @@
 #pragma once
 #include "KW.h"
 
+#include <functional>
 #include <string>
+#include <vector>
 
 class UObject;
 class UCanvas;
@@ -12,10 +14,26 @@ class ExpressionValue;
 // Additions on top of the original game (see docs/modding.md).
 namespace HP1::Mods
 {
-	// False when the game runs with --vanilla: default-on mods stay off.
-	bool Enabled();
-	// The command line has this flag (e.g. "--skip-intro").
-	bool HasFlag(const char* flag);
+	// One line of the mod list (HP1Mods.cpp, docs/modding.md): the id --mod= / --no-mod= take, whether it is on
+	// without either, and the older flags kept working (nullptr for none).
+	struct ModInfo
+	{
+		const char* Id;
+		bool DefaultOn;
+		const char* Games;
+		const char* OnFlag;
+		const char* OffFlag;
+		const char* Summary;
+	};
+	const std::vector<ModInfo>& ModList();
+
+	// Whether the mod with this id (ModList) runs, from the command line once.
+	bool IsOn(const char* id);
+
+	// IsOn's rule on plain values, strongest first: the id in offList (--no-mod=<ids>), in onList (--mod=<ids>), the
+	// mod's OffFlag, its OnFlag, "all" in offList or --vanilla, "all" in onList, then DefaultOn. Lists are comma
+	// separated.
+	bool ResolveMod(const ModInfo& mod, const std::function<bool(const std::string&)>& hasFlag, const std::string& onList, const std::string& offList);
 
 	// Script state helpers: a property of a script object by name, or nullptr if the object or property is missing.
 	using KW::ObjectProperty; // src/knowwonder/KWActor.cpp

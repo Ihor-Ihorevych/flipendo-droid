@@ -7,7 +7,7 @@
 // Launch shortcuts:
 //   splash skip    on by default (--vanilla shows them; --skip-splash skips them even then): HP1 goes straight to the
 //                  main menu (no EA/KnowWonder/title splash screens), HP2 to its front end (no EA and WB splashes)
-//   --skip-intro   opt-in: New Game goes straight to Lev_Tut1 (no storybook; HP1)
+//   intro-skip     opt-in (--mod=intro-skip or --skip-intro): New Game goes straight to Lev_Tut1 (no storybook; HP1)
 
 namespace HP1::Mods
 {
@@ -16,7 +16,7 @@ namespace HP1::Mods
 	// book's own script switches to the main menu on its next tick.
 	bool SkipSplash()
 	{
-		return Enabled() || HasFlag("--skip-splash");
+		return IsOn("splash-skip");
 	}
 
 	static void TickSkipSplash()
@@ -37,7 +37,7 @@ namespace HP1::Mods
 	// Storybook interludes without a URL (triggered from inside levels) are left alone.
 	static void TickSkipIntro()
 	{
-		static const bool skip = HasFlag("--skip-intro");
+		static const bool skip = IsOn("intro-skip");
 		if (!skip)
 			return;
 		UObject* page = ObjectProperty(ObjectProperty(engine->console, "menuBook"), "StoryBookPage");

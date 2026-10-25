@@ -77,7 +77,7 @@ namespace HP1::Mods
 	{
 		bool Active()
 		{
-			return Enabled() && !HasFlag("--classic-movement");
+			return IsOn("improved-movement");
 		}
 
 		template<typename T> T* Prop(UObject* obj, const char* name)

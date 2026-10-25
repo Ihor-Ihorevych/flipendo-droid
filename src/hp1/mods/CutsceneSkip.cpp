@@ -120,7 +120,7 @@ namespace HP1::Mods
 
 	void TickCutsceneSkip(float realElapsed)
 	{
-		if (!Enabled() || !engine->LevelInfo)
+		if (!IsOn("cutscene-skip") || !engine->LevelInfo)
 			return;
 
 		UObject* cutscene = ActiveCutscene();
@@ -153,7 +153,7 @@ namespace HP1::Mods
 
 	void DrawCutsceneSkip(UCanvas* canvas)
 	{
-		if (Enabled() && ActiveCutscene())
+		if (IsOn("cutscene-skip") && ActiveCutscene())
 			DrawPrompt(canvas, Skipping ? "Skipping..." : "Press Space to skip");
 	}
 }

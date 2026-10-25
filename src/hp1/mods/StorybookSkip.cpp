@@ -22,7 +22,7 @@ namespace HP1::Mods
 
 	void TickStorybookSkip()
 	{
-		if (!Enabled() || !SpacePressed())
+		if (!IsOn("storybook-skip") || !SpacePressed())
 			return;
 		UObject* page = ActiveStorybook();
 		if (!page)
@@ -37,7 +37,7 @@ namespace HP1::Mods
 
 	void DrawStorybookSkip(UCanvas* canvas)
 	{
-		if (Enabled() && ActiveStorybook())
+		if (IsOn("storybook-skip") && ActiveStorybook())
 			DrawPrompt(canvas, "Press Space to skip");
 	}
 }

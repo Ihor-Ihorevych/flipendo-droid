@@ -87,7 +87,7 @@ namespace HP1::Mods
 	{
 		static ULevel* checkedLevel = nullptr;
 		ULevel* level = engine->Level;
-		if (!Enabled() || !level || level == checkedLevel)
+		if (!IsOn("path-fixes") || !level || level == checkedLevel)
 			return;
 		checkedLevel = level;
 
