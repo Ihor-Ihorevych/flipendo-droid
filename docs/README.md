@@ -21,7 +21,7 @@ same engine, on a PC and on Android (HP2 is still being polished). The documents
 
 | Document | What's in it |
 |---|---|
-| [development.md](development.md) | code layout, ground rules, reference material, debug tools |
+| [development.md](development.md) | code layout, ground rules, reference material, debug tools, tests and CI |
 | [one-engine.md](one-engine.md) | how code is split between `src/knowwonder/` (both games), `src/hp1/` and `src/hp2/` so that no behaviour exists twice |
 | [engine-hooks.md](engine-hooks.md) | how Flipendo patches SurrealEngine, the patch set, every hook by file, updating SurrealEngine |
 

@@ -172,6 +172,9 @@ The steps (audit, scripts, IDA, HP2 check, registration, tag, rerun the audits):
 - **Starting the game for the user to playtest by hand:** always full screen (`CLAUDE.local.md`), never the small window. Never
   kill or restart a game the user is playing; test in a second instance (`HP1_BACKGROUND=1`, its own `HP1_LOG`,
   `--slot=5` so their save slot is left alone), and rebuild only once they have quit (the exe is locked).
+- Tests (`docs/development.md#tests`): `FlipendoTests` (`src/tests/`, no game data; `ctest --test-dir build`) and
+  `tools/check_repo.py` run in CI on every push and pull request; `tools/smoke_test.py ../eagames/hp1-work` runs
+  scripted games locally. Add a unit test with a change to code that works on plain values.
 - Debug env vars and `HP1_EXEC` commands (screenshots, keys, mouse, waypoints, traces, dumps, fixed camera, `@set` /
   `@get` / `@teleport` / `@trigger` / `@travel` ...): `docs/debug-tools.md`, code in `src/knowwonder/KWDebug.cpp`.
   Every automated run uses `HP1_BACKGROUND=1`; screenshots only with `HP1_SHOTS` (never capture the desktop).

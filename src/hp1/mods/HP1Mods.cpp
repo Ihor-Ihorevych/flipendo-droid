@@ -2,6 +2,12 @@
 #include "HP1.h"
 #include "HP1Mods.h"
 #include "Packages/Core/UObject.h"
+#include "Packages/Core/UClass.h"
+#include "Packages/Core/UState.h"
+#include "Packages/Core/UFunction.h"
+#include "VM/NativeFunc.h"
+#include "VM/ExpressionValue.h"
+#include "GC/GC.h"
 #include "Utils/CommandLine.h"
 #include "Packages/Engine/UCanvas.h"
 #include "Packages/Engine/UConsole.h"
@@ -33,6 +39,40 @@ namespace HP1::Mods
 	{
 		SpacePressedNow = SpaceQueued;
 		SpaceQueued = false;
+	}
+
+	UFunction* WrapScriptFunction(UClass* cls, const char* stateName, const char* functionName, void (*handler)(UObject* self, ExpressionValue* args))
+	{
+		if (!cls)
+			return nullptr;
+		UState* state = stateName ? cls->GetState(NameString(stateName)) : nullptr;
+		if (stateName && !state)
+			return nullptr;
+		std::map<NameString, UFunction*>& functions = state ? state->Functions : cls->Functions;
+		auto it = functions.find(NameString(functionName));
+		if (it == functions.end() || AllFlags(it->second->FuncFlags, FunctionFlags::Native))
+			return nullptr;
+		UFunction* original = it->second;
+
+		// A native as Frame::CallNative runs it: found by name and state or class (NativeStruct), its frame one
+		// ExpressionValue per property (what UFunction::Load sets up for natives loaded from a package)
+		auto wrapper = GC::Alloc<UFunction>(original->Name, original->Class, original->Flags);
+		wrapper->StructParent = original->StructParent; // Frame::GetName: Harry.PlayerWalking.PlayerMove in call stacks
+		wrapper->BaseStruct = original->BaseStruct;
+		wrapper->Line = original->Line;
+		wrapper->Properties = original->Properties;
+		wrapper->ParmsSize = original->ParmsSize;
+		wrapper->NumParms = original->NumParms;
+		wrapper->ReturnValueOffset = original->ReturnValueOffset;
+		wrapper->FuncFlags = original->FuncFlags | FunctionFlags::Native;
+		wrapper->NativeStruct = state ? static_cast<UStruct*>(state) : cls;
+		wrapper->NativeFuncIndex = 0;
+		wrapper->IsNativeFunc = true;
+		wrapper->StructAlignment = alignof(ExpressionValue);
+		wrapper->StructSize = wrapper->Properties.size() * sizeof(ExpressionValue);
+		NativeFunctions::NativeByName[{ original->Name, wrapper->NativeStruct->Name }] = handler;
+		it->second = wrapper;
+		return original;
 	}
 
 	bool SpacePressed()
@@ -96,6 +136,7 @@ namespace HP1
 		Mods::TickCutsceneSkip(realElapsed);
 		Mods::TickDiscordPresence(realElapsed);
 		Mods::TickPathFixes();
+		Mods::TickImprovedMovement();
 		Mods::TickFrameLimit();
 #ifdef __ANDROID__
 		TickTouchDefaults();
