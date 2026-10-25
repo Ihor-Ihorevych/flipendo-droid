@@ -28,6 +28,8 @@
 // - Resolutions: GetRes lists the common modes up to the desktop size and the options page's IsSupportedResolution
 //   (script: HP1's FEOptionsPage allows 512x384..1024x768, HP2's FESoundVideoPage 640x480..1024x768) is replaced with
 //   a native that accepts anything from 640x480 up.
+//
+// Also UCanvas::WrappedPrint's placement of centred text (CenteredTextLineX), which SurrealEngine does differently.
 
 #ifdef __ANDROID__
 #include <atomic>
@@ -85,6 +87,15 @@ namespace KW
 			MenuLeftPixels = left;
 			MenuUIScale = uiscale;
 		}
+	}
+
+	// Canvas.bCenter: every line is centred on CurX (as an int, half the line's int width to the left), not within ClipX;
+	// it still wraps at ClipX, and CurX is back where it was after each line. HP1's loading screen (HPConsole.DrawLevelInfo)
+	// sets OrgX 0.15, ClipX 0.7 and CurX 0.35 of the frame, so its text is centred on the screen. The caller adds OrgX.
+	// IDA Engine.dll: ?WrappedPrint@UCanvas@@AAAXW4ERenderStyle@@AAH1PAVUFont@@HPBG@Z [HP1 0x10387C50]
+	float CenteredTextLineX(float curX, float lineWidth)
+	{
+		return (float)(int)(curX - (float)((int)lineWidth / 2));
 	}
 
 	void MenuMousePosition(float& x, float& y)

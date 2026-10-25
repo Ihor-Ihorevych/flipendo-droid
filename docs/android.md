@@ -544,3 +544,11 @@ Merged with Flipendo again (upstream 81336c4, the same SurrealEngine; no conflic
   plays the original controls) and **Settings > Game > Movement mod is gone**. The Devil's Snare prompt ("Switch off and restart", for the level where the mod can't
   aim) still turns it off once; the next start has it on again.
 - Flipendo's CI, unit tests (`src/tests/`) and `tools/check_repo.py` / `tools/smoke_test.py` came with the merge; nothing in them runs on the phone.
+
+## Merge of upstream 47801a2 (after 0.4.2B)
+
+Merged with Flipendo again (upstream 47801a2: mod ids and `--mod` / `--no-mod` / `--list-mods`, singular functions, centred canvas text, HP2 bounce on movers, the loading screen hold mod).
+
+- **The engine patches conflicted** (`0002`, `0010`, `0130`) and were rebuilt by a three-way merge of the patched trees (base, ours and upstream each applied to SurrealEngine 8d61ae5). Where upstream does what an earlier merge of ours did by hand, upstream's version won: the singular function skip (a side table instead of an object flag), the centred canvas text, and the loading screen hold (the `LoadingScreenHold` mod replaces our wait in `KWView.cpp`). Ours stayed in `--renderer`, the full-screen loading canvas and the Android patches.
+- `FrameLimit.cpp` asked the mod's old `Enabled()`; it now asks `IsOn("frame-limit")`.
+- Not played on a phone yet: the loading screen and the HP2 Aragog fight (singular skip) are the places to look.

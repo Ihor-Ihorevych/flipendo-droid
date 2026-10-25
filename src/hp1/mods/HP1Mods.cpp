@@ -9,28 +9,137 @@
 #include "VM/ExpressionValue.h"
 #include "GC/GC.h"
 #include "Utils/CommandLine.h"
+#include "Utils/Logger.h"
 #include "Packages/Engine/UCanvas.h"
 #include "Packages/Engine/UConsole.h"
 #include "Packages/Engine/Resources/UFont.h"
 #include "Native/NCanvas.h"
 #include "Engine.h"
 
+#include <cstdio>
+#include <cstring>
+
 namespace HP1::Mods
 {
-	bool Enabled()
+	const std::vector<ModInfo>& ModList()
 	{
-		static int enabled = -1;
-		if (enabled < 0)
-			enabled = HasFlag("--vanilla") ? 0 : 1;
-		return enabled != 0;
+		static const std::vector<ModInfo> mods = {
+			{ "cutscene-skip", true, "HP1", nullptr, nullptr, "Space skips cutscenes" },
+			{ "storybook-skip", true, "HP1", nullptr, nullptr, "Space skips storybooks" },
+			{ "discord", true, "HP1", nullptr, "--no-discord", "Discord Rich Presence" },
+			{ "fast-forward", true, "HP1, HP2", nullptr, nullptr, "hold Shift to run 2.5x as fast" },
+			{ "frame-limit", true, "HP1, HP2", nullptr, nullptr, "at most --fps=<n> (60) frames a second" },
+			{ "path-fixes", true, "HP1", nullptr, nullptr, "reach specs the original maps are missing" },
+			{ "texture-overrides", true, "HP1, HP2", nullptr, nullptr, "Textures/<package>/<group>/<name>.dds packs" },
+			{ "improved-movement", true, "HP1", nullptr, "--classic-movement", "HP2's controls: strafe, move while aiming" },
+			{ "splash-skip", true, "HP1, HP2", "--skip-splash", nullptr, "no logo screens at start" },
+			{ "intro-skip", false, "HP1", "--skip-intro", nullptr, "New Game goes straight to Lev_Tut1" },
+			{ "loading-screen-hold", true, "HP1", nullptr, nullptr, "the loading screen stays up at least 3.5 s" },
+		};
+		return mods;
 	}
 
-	bool HasFlag(const char* flag)
+	static bool InList(const std::string& list, const std::string& id)
 	{
-		return commandline && commandline->HasArg("", flag);
+		size_t start = 0;
+		while (start <= list.size())
+		{
+			size_t end = list.find(',', start);
+			if (end == std::string::npos)
+				end = list.size();
+			if (list.compare(start, end - start, id) == 0)
+				return true;
+			start = end + 1;
+		}
+		return false;
 	}
 
+	bool ResolveMod(const ModInfo& mod, const std::function<bool(const std::string&)>& hasFlag, const std::string& onList, const std::string& offList)
+	{
+		if (InList(offList, mod.Id))
+			return false;
+		if (InList(onList, mod.Id))
+			return true;
+		if (mod.OffFlag && hasFlag(mod.OffFlag))
+			return false;
+		if (mod.OnFlag && hasFlag(mod.OnFlag))
+			return true;
+		if (InList(offList, "all") || hasFlag("--vanilla"))
+			return false;
+		if (InList(onList, "all"))
+			return true;
+		return mod.DefaultOn;
+	}
 
+	static bool ResolveFromCommandLine(const ModInfo& mod)
+	{
+		auto hasFlag = [](const std::string& flag) { return commandline && commandline->HasArg("", flag); };
+		std::string onList = commandline ? commandline->GetArg("", "--mod", "") : "";
+		std::string offList = commandline ? commandline->GetArg("", "--no-mod", "") : "";
+		return ResolveMod(mod, hasFlag, onList, offList);
+	}
+
+	// An id in --mod= / --no-mod= that names no mod is logged once, so a typo doesn't pass silently
+	static void WarnUnknownIds(const std::string& flag)
+	{
+		std::string list = commandline ? commandline->GetArg("", flag, "") : "";
+		size_t start = 0;
+		while (!list.empty() && start <= list.size())
+		{
+			size_t end = list.find(',', start);
+			if (end == std::string::npos)
+				end = list.size();
+			std::string id = list.substr(start, end - start);
+			bool known = id == "all";
+			for (const ModInfo& mod : ModList())
+				known = known || id == mod.Id;
+			if (!known)
+				LogMessage(flag + ": no mod named '" + id + "' (--list-mods lists them)");
+			start = end + 1;
+		}
+	}
+
+	bool IsOn(const char* id)
+	{
+		static std::vector<bool> on;
+		if (on.empty())
+		{
+			for (const ModInfo& mod : ModList())
+				on.push_back(ResolveFromCommandLine(mod));
+			WarnUnknownIds("--mod");
+			WarnUnknownIds("--no-mod");
+		}
+		const std::vector<ModInfo>& mods = ModList();
+		for (size_t i = 0; i < mods.size(); i++)
+		{
+			if (std::strcmp(mods[i].Id, id) == 0)
+				return on[i];
+		}
+		LogMessage(std::string("Mods::IsOn: no mod named '") + id + "'");
+		return false;
+	}
+
+}
+
+namespace HP1
+{
+	std::string ModsList()
+	{
+		using namespace Mods;
+		std::string text = "Mods: --mod=<id,...> turns them on, --no-mod=<id,...> off (all: every mod), --vanilla turns off every one not named\n";
+		for (const ModInfo& mod : ModList())
+		{
+			char line[256];
+			std::snprintf(line, sizeof(line), "  %-18s %-9s default %-3s now %-3s %s\n", mod.Id, mod.Games,
+				mod.DefaultOn ? "on" : "off", ResolveFromCommandLine(mod) ? "on" : "off", mod.Summary);
+			text += line;
+		}
+		return text;
+	}
+}
+
+namespace HP1::Mods
+{
 	// Set by a Space key-down (HP1::ModsKeyDown), consumed by the next TickMods.
 	static bool SpaceQueued = false;
 	static bool SpacePressedNow = false;
@@ -130,6 +239,7 @@ namespace HP1
 			return;
 		}
 		Mods::UpdateSpace();
+		Mods::TickLoadingScreenHold();
 		Mods::TickLaunchSkips();
 		LevelStartTick();
 		Mods::TickStorybookSkip();

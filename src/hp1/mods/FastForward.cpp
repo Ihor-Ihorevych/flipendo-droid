@@ -13,7 +13,7 @@ namespace HP1::Mods
 
 	float FastForwardTimeScale()
 	{
-		if (!Enabled() || !engine->window)
+		if (!IsOn("fast-forward") || !engine->window)
 			return 1.0f;
 		return engine->window->GetKeyState(IK_Shift) ? FastForwardSpeed : 1.0f;
 	}

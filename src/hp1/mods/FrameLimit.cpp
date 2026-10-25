@@ -49,7 +49,7 @@ namespace HP1::Mods
 					if (!arg.empty())
 						fps = std::max(std::atoi(arg.c_str()), 0);
 				}
-				if (!Enabled())
+				if (!IsOn("frame-limit"))
 					fps = 0;
 			}
 			return fps;

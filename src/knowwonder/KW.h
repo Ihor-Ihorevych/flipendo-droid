@@ -126,6 +126,8 @@ namespace KW
 	float CanvasUIScale(int viewportHeight);
 	// RenderSubsystem::ResetCanvas / PostRender: full-width canvas (HUD), or the centred 4:3 area (console/menus).
 	void SetCanvasArea(SceneNode& frame, float uiscale, bool menuArea);
+	// RenderSubsystem::DrawText: where a line of centred text (Canvas.bCenter) starts, OrgX left out (src/knowwonder/KWCanvas.cpp).
+	float CenteredTextLineX(float curX, float lineWidth);
 	// Engine::OnWindowMouseMove: OS mouse position (pixels) to menu canvas units, for HPConsole's WindowsMouseX/Y.
 	void MenuMousePosition(float& x, float& y);
 	void MenuToPixels(float& x, float& y); // the inverse: a point of the menu canvas to viewport pixels
@@ -140,6 +142,9 @@ namespace KW
 	// Console.FadeoutTime), LoadMapLevelInfo once the new LevelInfo is loaded (Console.DrawLevelInfo) (src/knowwonder/KWView.cpp).
 	void LoadMapFadeOut();
 	void LoadMapLevelInfo(ULevelInfo* levelInfo);
+	// How many seconds ago LoadMapLevelInfo last drew the loading screen, once (then negative until the next one). For
+	// the mods (src/hp1/mods/LoadingScreenHold.cpp).
+	float TakeLoadingScreenAge();
 
 	// USurrealAudioDevice::Update, in place of UpdateMusic (src/knowwonder/KWSound.cpp): Galaxy's music update (song
 	// changes with fades, looping unless bDontLoopSong, bSongFinished). Returns the music volume (0-1) to set.

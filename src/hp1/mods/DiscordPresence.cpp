@@ -456,7 +456,7 @@ namespace HP1::Mods
 		if (!started)
 		{
 			started = true;
-			if (!Enabled() || HasFlag("--no-discord"))
+			if (!IsOn("discord"))
 				return;
 			std::string appId = commandline ? commandline->GetArg("", "--discord-app", DefaultAppId) : DefaultAppId;
 			if (appId.empty())

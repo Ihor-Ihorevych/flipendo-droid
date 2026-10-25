@@ -168,7 +168,8 @@ The steps (audit, scripts, IDA, HP2 check, registration, tag, rerun the audits):
 - Runs: `build/Release/SurrealEngine.exe --autolaunch --logfile=build/hp1_run.log [args] ../eagames/hp1-work`
   (local wrapper in `CLAUDE.local.md`). `--level=<map>` starts a level with the story flow and the state a player carries in (playtesting; `--url` only
   loads the map), `--skip-splash` goes straight to the main menu, `--skip-intro` skips the New Game storybook,
-  `--vanilla` disables the default-on mods (`src/hp1/mods/`).
+  `--vanilla` disables the default-on mods (`src/hp1/mods/`), `--no-mod=<id,...>` / `--mod=<id,...>` single ones
+  (`--list-mods`).
 - **Starting the game for the user to playtest by hand:** always full screen (`CLAUDE.local.md`), never the small window. Never
   kill or restart a game the user is playing; test in a second instance (`HP1_BACKGROUND=1`, its own `HP1_LOG`,
   `--slot=5` so their save slot is left alone), and rebuild only once they have quit (the exe is locked).

@@ -111,7 +111,7 @@ namespace HP1
 	bool LoadTextureOverride(UTexture* texture, TextureFormat& format, Array<UnrealMipmap>& mips)
 	{
 		using namespace Mods;
-		if (!Enabled() || !texture || !texture->package || texture->bRealtime() || texture->bParametric() || texture->Class->Name != "Texture")
+		if (!IsOn("texture-overrides") || !texture || !texture->package || texture->bRealtime() || texture->bParametric() || texture->Class->Name != "Texture")
 			return false;
 		const auto& files = OverrideFiles();
 		if (files.empty())

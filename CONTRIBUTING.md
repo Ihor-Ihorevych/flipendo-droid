@@ -85,7 +85,7 @@ given) and `python3 tools/check_repo.py` the repository rules; CI runs both on e
 | `--logfile=<path>` | stream the log to a file (survives crashes) |
 | `--level=<map>` | start in a level as a player reaches it in the story: story flow, earlier cards, average beans and house points, save slot 0 (`--slot=<0-5>` for another) ([docs/debug-tools.md](docs/debug-tools.md#starting-a-level---level)); use this for playtesting |
 | `--url=<map>` | only load a level, with a new game's state and outside the story flow (the flying lesson and the Quidditch matches then run as their menu versions) |
-| `--skip-splash`, `--skip-intro`, `--vanilla` | as in the [README](README.md#launch-options) |
+| `--skip-splash`, `--skip-intro`, `--vanilla`, `--mod=`, `--no-mod=`, `--list-mods` | as in the [README](README.md#launch-options) |
 
 The debug environment variables (screenshots, actor dumps, fixed cameras, scripted input) are in
 [docs/debug-tools.md](docs/debug-tools.md).

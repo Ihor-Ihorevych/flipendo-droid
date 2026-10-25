@@ -10,7 +10,7 @@ them, kept as patch files so a newer SurrealEngine rarely conflicts.
 | Patch | What |
 |---|---|
 | `src/surreal-patches/0001-game-detection.patch` | HP1 `System/HP.exe` hashes (UK 1.1, EN retail SafeDisc, community No-CD, Russian retail and No-CD), also under the long exe names some releases use; why a folder isn't a game |
-| `src/surreal-patches/0002-launcher-flags.patch` | `--autolaunch`, `--logfile`, the flags the HP1 code reads |
+| `src/surreal-patches/0002-launcher-flags.patch` | `--autolaunch`, `--logfile`, the flags the HP1 code reads; `--list-mods` prints `HP1::ModsList()` and exits |
 | `src/surreal-patches/0003-cursor-focus.patch` | cursor recentering and raw input only while the game window has focus; window icons the right way up; macOS: `ShowFullscreen` shows the window first and only toggles when it isn't fullscreen yet, and mouse buttons go into the key state `GetKeyState` reads (HP2's `GetCurrentKeyState`; the middle button gets its own handlers) |
 | `src/surreal-patches/0010-engine-fixes.patch` | fixes to SurrealEngine bugs that aren't specific to one game (VM, properties, ini (UTF-16 files), packages, GetLanguage, fonts, crash reports, audio device) |
 | `src/surreal-patches/0100-knowwonder-core.patch` | build (`src/flipendo.cmake`), natives registration, engine loop (input, console, saves, view), missing data messages |
@@ -72,12 +72,13 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Engine.cpp` (Run, Exec) | HP2: `HP2::TickQueuedSave` after the level ticks (a save the player queued with `bQueuedToSaveGame`; it ends the frame), `HP2::SaveCommand` for `LOADGAME <n>` (`src/hp2/HP2Save.cpp`) |
 | `Render/RenderSubsystem.cpp` | `KW::OnFrameRendered` after `Unlock` (`HP1_SHOTS` debug screenshots; `ReadPixels` needs the finished frame) |
 | `Render/RenderCanvas.cpp`, `RenderSubsystem.h` | `KW::CanvasUIScale` (float `uiscale`), `KW::SetCanvasArea` (full-width HUD, 4:3 console/menus; HP1 and HP2); `DrawClippedActor` relative to the canvas area |
+| `Render/RenderCanvas.cpp` (DrawText) | centred text (Canvas.bCenter) is centred on CurX with `KW::CenteredTextLineX`, as KnowWonder's `UCanvas::WrappedPrint` (HP1 and HP2; [re/engine/fonts.md](re/engine/fonts.md#centred-text-canvasbcenter)) |
 | `Render/RenderCanvas.cpp` (DrawText, DrawTextClipped), `Packages/Engine/Resources/UFont.*` | fonts made by `KW::CreateNativeFont` (`UFont::SetNativeGlyphs`, `IsNative`, `src/knowwonder/KWNativeFont.cpp`) draw premultiplied in the DrawColor whatever the style, its alpha taken as 1, like HP1's GDI text |
 | `Engine.cpp` | `HP1::ViewFovAngle` after PlayerCalcView (Hor+ FOV); trim `\|` input subcommands; `SET Input` takes the rest of the line (multi-word aliases; no alias unbinds); `getres` → `KW::AvailableResolutions`; `isfullscreen` (WinDrv's viewport command, any game: True / False); `KW::MenuMousePosition` in `OnWindowMouseMove` |
 | `Collision/TopLevel/TraceTest.cpp`, `OverlapTest.cpp`, `CollisionSystem.cpp` | CT_Box trace/overlap/hash extents |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `HP1::PawnMoveToward`, `HP1::PawnPhysicsTime`, `HP1::PawnPhysicsRotation` |
 | `Packages/Engine/Actors/Pawn/UPlayerPawn.cpp` | `HP1::PawnPhysicsRotation` |
-| `UE1GameDatabase.h`, `GameApp.cpp` | exe hashes, `--autolaunch` / `--logfile`; `--level=<map>` loads the map as `--url` does |
+| `UE1GameDatabase.h`, `GameApp.cpp` | exe hashes, `--autolaunch` / `--logfile`; `--level=<map>` loads the map as `--url` does; `--list-mods` (`HP1::ModsList`) |
 | `SurrealWidgets/.../win32_display_window.cpp` | cursor recentering and raw mouse/keyboard input need foreground focus (0004; raw input is RIDEV_INPUTSINK, so moving the mouse in another app turned the camera); the icon bitmap is top-down (it was drawn upside down) |
 | `Packages/Engine/Actors/UActor_Phys.cpp`, `UActor_PhysRolling.cpp` | `HP1::PhysicsChecksLeftWorld` (zone-0 FellOutOfWorld only while walking) |
 | `Packages/Engine/Actors/UActor_PhysWalking.cpp` | player slides along actors it hits (no pushable decoration); `HP1::PawnMount` before the step up |
@@ -109,6 +110,7 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Package/IniFile.cpp` | indexed keys (`Aliases[0]=`) are compared literally when updating a file, like the loader stores them (splitting the index threw, then blanked them) |
 | `Packages/Core/UObject.cpp` | `ScriptArray` copy/move constructors keep `Type` (copying an array, e.g. `int(Gesture.Points)`, crashed); `GotoState` clears disabled events (Core.dll's GotoState rebuilds the probe mask, so `Disable('Tick')` only lasts until the next state change; HP1's spell lesson hung on the second judging round); `Load` reads a set bit of the saved probe mask as enabled and `Save` writes it so (a mask of 0, from older saves, disables nothing) (it disabled every probe of a map actor until its first GotoState; Lev2_RemChase's intro cutscene ignored its trigger) |
 | `VM/Bytecode.h` | `FindLabelIndex` on a state with no statements returns -1 |
+| `VM/Frame.cpp` (Call) | Any game: a singular function is skipped while a singular function runs on the same object, as UE1's UObject::ProcessInternal; HP2's Aragog fight ([re/engine/scripting.md](re/engine/scripting.md#script-recursion-limit)) |
 | `VM/Frame.cpp` (Run) | Any game: more than 250 nested script calls is the script error "Infinite script recursion (250 calls) detected", as UE1's UObject::ProcessInternal, instead of overflowing the native stack; HP2's `harry.Summon` calls itself |
 | `VM/Frame.cpp` | `goto` to a label that doesn't exist logs "GotoLabel (x): Label not found" and stops the state code (UE1's UObject::GotoLabel) instead of a fatal error; HP1's `gargoyle.lookaround` does it (Lev4_Sneak, Lev3_Lumos) |
 | `VM/Frame.cpp` | Any game: "Accessed None" (also "when calling") is logged with its callstack once per script expression, not on every hit: since SurrealEngine runs statements on `Frame::RunExpr` it reports None inside sub-expressions too, and HP1's `BaseCam.CheckPosition` reads `PossibleVictim.Name` every frame when its trace hits nothing |

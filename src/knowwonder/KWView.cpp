@@ -147,22 +147,24 @@ namespace KW
 	// draws the parchment with the level's title and objective (docs/re/hp1/menus.md). Only with a viewport: the
 	// startup map is loaded by UGameEngine::Init before it opens the first viewport, so it never shows one.
 	// IDA Engine.dll: ?LoadMap@UGameEngine@@UAEPAVULevel@@ABVFURL@@PAVUPendingLevel@@PBV?$TMap@VFString@@V1@@@AAVFString@@@Z [HP1 0x1039C3D0] (after LoadObject LevelInfo0; FindFunctionChecked on the console)
+	static std::chrono::steady_clock::time_point LoadingScreenShown;
+	static bool LoadingScreenPending = false;
+
 	void LoadMapLevelInfo(ULevelInfo* levelInfo)
 	{
 		if (!LoadingFromLevel || !levelInfo || !engine->console || !engine->viewport)
 			return;
 		LoadingFromLevel = false;
 		engine->render->DrawLevelInfo(levelInfo->LevelEnterText());
-		if (!IsHP1())
-			return;
-		// Not in the original: a fast load would flash the screen by, so keep redrawing it (every frame, which also
-		// fills every swapchain image) for MinLoadingScreenSeconds before the rest of the level loads.
-		const float MinLoadingScreenSeconds = 3.5f;
-		auto start = std::chrono::steady_clock::now();
-		while (std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count() < MinLoadingScreenSeconds)
-		{
-			engine->render->DrawLevelInfo(levelInfo->LevelEnterText());
-			std::this_thread::sleep_for(std::chrono::milliseconds(16));
-		}
+		LoadingScreenShown = std::chrono::steady_clock::now();
+		LoadingScreenPending = true;
+	}
+
+	float TakeLoadingScreenAge()
+	{
+		if (!LoadingScreenPending)
+			return -1.0f;
+		LoadingScreenPending = false;
+		return std::chrono::duration<float>(std::chrono::steady_clock::now() - LoadingScreenShown).count();
 	}
 }
