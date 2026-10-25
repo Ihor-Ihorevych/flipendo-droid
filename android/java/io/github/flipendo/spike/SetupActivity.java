@@ -262,6 +262,7 @@ public class SetupActivity extends Activity {
         if (eggPending) return;
         eggPending = true;
         final boolean hp2 = isHp2();
+        VersionSound.play(this);
         android.widget.Toast.makeText(this, hp2 ? "КАКОГО ДЬЯВОЛА ТЫ ЗДЕСЬ ШУМИШЬ" : "Я должен был наложить здесь кирпичей, профессор Макгоннагал", android.widget.Toast.LENGTH_SHORT).show();
         ui.postDelayed(new Runnable() {
             public void run() {

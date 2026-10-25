@@ -496,9 +496,9 @@ Speed, a new look and a longer settings panel.
 - **First person stays on while a spell is held.** HP1's Harry goes to the `PlayerAiming` state for as long as the spell is held, and only `PlayerWalking` kept
   the camera in his head, so every cast jumped to the third person camera. The log names any other state that takes the camera back.
 
-## 0.4.2
+## 0.4.2A
 
-Chamber of Secrets fixes, the Philosopher's Stone opening and loading screen, four languages, TV support.
+Chamber of Secrets fixes, the Philosopher's Stone opening and loading screen, four languages, TV support, a sound on the version tap.
 
 **Fixed**
 - **Aragog's fight no longer breaks.** After a few casts the controls died (no turning, no casting, Harry running left on his own). The web spell moved a sticky web onto
@@ -523,7 +523,7 @@ Chamber of Secrets fixes, the Philosopher's Stone opening and loading screen, fo
 - **Android TV**: the launcher is on the TV home screen with a banner, the touch screen is not required, every launcher button shows a white ring where the remote or
   gamepad is, and a TV without an "All files access" page gets the way to grant it with adb. Playing still needs a gamepad.
 - **The version** is a gold chip beside the name in the launcher and sits at the very bottom of the settings. One tap on it shows a line of the game and, two seconds
-  later, opens its easter egg link (the direction code in play still works).
+  later, opens its easter egg link (the direction code in play still works); a sound (`res/raw/version_sound.mp3`, 2.6 s) plays with the toast.
 - The launcher's default interface size is 100 % (it was 125 %).
 
 **For bug reports** (log lines): `CursorRay` (the aim ray and what it hits), `SpellTouch` and `SpellHitWall` (what a spell touched or flew into), `PlayerBlocked`

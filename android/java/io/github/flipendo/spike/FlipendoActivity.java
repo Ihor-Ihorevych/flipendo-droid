@@ -2655,6 +2655,7 @@ public class FlipendoActivity extends SDLActivity {
         void versionTap() {
             if (eggPending) return;
             eggPending = true;
+            VersionSound.play(getContext());
             android.widget.Toast.makeText(getContext(), isHp2Game() ? "КАКОГО ДЬЯВОЛА ТЫ ЗДЕСЬ ШУМИШЬ" : "Я должен был наложить здесь кирпичей, профессор Макгоннагал", android.widget.Toast.LENGTH_SHORT).show();
             postDelayed(new Runnable() {
                 public void run() {
