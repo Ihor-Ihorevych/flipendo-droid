@@ -405,7 +405,7 @@ button charges and casts, the jump button (right mouse) cycles the three spells,
 - **HP2 debug menu:** God mode (health topped up every frame), Fly, Ghost, Walk again. Fly and Ghost set `AirSpeed` and `AccelRate` first:
   HP2's Harry has `AirSpeed = 0`, which capped the flying speed at 0. `/sdcard/FlipendoHP/hp2_debug.txt` (one command per line: `level <map>`,
   `state GSTATE...`, `spells`, `god`, `fly`, `ghost`, `walk`) is taken once by the game, for testing without the dialogs.
-- **Easter eggs:** five quick taps on the version text in the settings header, or a direction code, open a link (per game).
+- **Easter eggs:** one tap on the version text (at the very bottom of the settings, or the gold version beside the name in the launcher) shows a toast with a line of the game, and two seconds later opens its link; a direction code in play opens the same link.
 
 ## 0.3.5
 
@@ -487,7 +487,7 @@ Speed, a new look and a longer settings panel.
 - **New launcher.** A night-blue start screen; the two games are covers (the Philosopher's Stone red with a cut gem, the Chamber of Secrets green with a serpent),
   the chosen one lit with a gold edge; the saved games and the renderer on the right, and Play pinned under them so it never scrolls away. Play says what it does
   (Continue slot N, Start a new game).
-- **Interface size** in the launcher (A-, A+: 100 to 250%, default 125%) scales the whole launcher (every size there is in dp / sp, so the density is scaled;
+- **Interface size** in the launcher (A-, A+: 100 to 250%, default 100%) scales the whole launcher (every size there is in dp / sp, so the density is scaled;
   `launcherScale` in the `setup` preferences). The "Remember my choice" box no longer overlaps the hint above it.
 - **Larger settings.** The panel's text, rows and padding are bigger and the page scrolls; Done is a large button at the top right, the channel and the controls help
   are icons beside it, and the renderer, graphics fix and the other game moved into the Game page.
@@ -495,3 +495,40 @@ Speed, a new look and a longer settings panel.
 **Fixes**
 - **First person stays on while a spell is held.** HP1's Harry goes to the `PlayerAiming` state for as long as the spell is held, and only `PlayerWalking` kept
   the camera in his head, so every cast jumped to the third person camera. The log names any other state that takes the camera back.
+
+## 0.4.2
+
+Chamber of Secrets fixes, the Philosopher's Stone opening and loading screen, four languages, TV support.
+
+**Fixed**
+- **Aragog's fight no longer breaks.** After a few casts the controls died (no turning, no casting, Harry running left on his own). The web spell moved a sticky web onto
+  itself again and again until the game's script gave up ("Infinite script recursion"), and each failure left the fight half-set. SurrealEngine never skipped a
+  *singular* script function while it already ran on the same object, as the original does; now it does (`Frame::Call`, `0010-engine-fixes.patch`, any game).
+- **Aiming in the Slytherin common room (the room-turning puzzle).** Next to the iron gates the aim camera sits inside a gate, and every aim ray "hit" the gate
+  at distance zero, so the cursor landed on the camera, behind Harry. The cursor's ray is no longer stopped by a mover it starts inside.
+- **The secret floor of the second Skurge trial (the Lumos floor).** A jellybean lying in the floor's path stopped the sliding floor at 3 % of its move, so it stayed
+  solid and the star below could not be reached. A mover is no longer stopped by an actor that blocks neither actors nor players. *Still to be confirmed in play.*
+- **The Philosopher's Stone opening is back.** New Game plays the storybook again (the Android start always skipped it).
+- **Loading screens.** The Philosopher's Stone loading screen stays up for at least 3.5 s, fills the whole screen (it was a 4:3 picture in the middle), and its text
+  is centred and wraps inside the parchment instead of running off the right edge (long Russian titles were cut). Centred text in both games uses the same rule.
+- **Quitting a game returns to the launcher** (it closed the whole app).
+- **Skip** is an icon, not the word, so it fits in every language and on the gamepad (it also said "Hold Y").
+- **Wand control in the Philosopher's Stone is the same as in the Chamber of Secrets**: the same size and place, the same small ring, and it turns the camera like a
+  stick (with the movement mod it was higher with a big ring; that stays only on the broom).
+
+**New**
+- **Wand sensitivity** (Settings > Controls): 25 % to 300 % of how fast the wand stick turns the camera.
+- **Languages for the launcher and the in-game settings**: English, Українська, Беларуская and Слобожанський (Russian), chosen with a chip in the launcher's top bar;
+  without a choice the phone's language is used. About 200 texts (`Tr.java`); the game's own texts and voices have their own switch, as before.
+- **Android TV**: the launcher is on the TV home screen with a banner, the touch screen is not required, every launcher button shows a white ring where the remote or
+  gamepad is, and a TV without an "All files access" page gets the way to grant it with adb. Playing still needs a gamepad.
+- **The version** is a gold chip beside the name in the launcher and sits at the very bottom of the settings. One tap on it shows a line of the game and, two seconds
+  later, opens its easter egg link (the direction code in play still works).
+- The launcher's default interface size is 100 % (it was 125 %).
+
+**For bug reports** (log lines): `CursorRay` (the aim ray and what it hits), `SpellTouch` and `SpellHitWall` (what a spell touched or flew into), `PlayerBlocked`
+(what stopped Harry, with its texture and bounds), `Mover ... starts moving` and `Mover ... blocked at key` (a mover's moves and what stops them).
+
+**Not fixed yet**
+- Chamber of Secrets, first Rictusempra room: the firecrab/platform puzzle still needs a play test with the new logs (`SpellTouch done` shows what the crab does).
+- The Slytherin common room's gates are closed until the puzzle opens them: they block Harry and spells, as designed (seen from the debug menu's level jump).
