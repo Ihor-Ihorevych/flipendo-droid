@@ -34,6 +34,7 @@ namespace HP1::Mods
 			{ "improved-movement", true, "HP1", nullptr, "--classic-movement", "HP2's controls: strafe, move while aiming" },
 			{ "splash-skip", true, "HP1, HP2", "--skip-splash", nullptr, "no logo screens at start" },
 			{ "intro-skip", false, "HP1", "--skip-intro", nullptr, "New Game goes straight to Lev_Tut1" },
+			{ "loading-screen-hold", true, "HP1", nullptr, nullptr, "the loading screen stays up at least 3.5 s" },
 		};
 		return mods;
 	}
@@ -238,6 +239,7 @@ namespace HP1
 			return;
 		}
 		Mods::UpdateSpace();
+		Mods::TickLoadingScreenHold();
 		Mods::TickLaunchSkips();
 		LevelStartTick();
 		Mods::TickStorybookSkip();

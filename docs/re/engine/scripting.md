@@ -138,6 +138,14 @@ not captured.") and PrivetDr's intro stayed black. `Frame::ProcessSwitch` now ig
 
 `UObject::ProcessInternal` (HP1 Core 0x101431A0) counts nested script calls; past 250 it logs "Infinite script
 recursion (250 calls) detected" as critical, and `FFrame::Serialize` (0x10131A10) sends a critical message to
-`GError`, so the game stops with that error. Singular functions (FUNC_Singular) are skipped while they already run.
+`GError`, so the game stops with that error. Singular functions (FUNC_Singular) are skipped while they already run:
+before the body, ProcessInternal tests the object's flags against the function's FUNC_Singular bit (0x20) and returns at
+once if it is set, else sets it on the object for the call and clears it afterwards. So the flag is per object, not per
+function: while any singular function runs on an object, every singular call on that object is skipped (any game; events
+come through ProcessEvent into the same ProcessInternal). The skipped call's result is left as it was. SurrealEngine never
+skipped them; `Frame::Call` now keeps the running objects in a side table (not in `UObject::Flags`, which SurrealEngine
+loads unmasked from package files and writes into saves) and returns the return type's default for a skipped call
+(`0010-engine-fixes.patch`). HP2 needs it: `Projectile.Touch` is singular, and the Aragog fight's web spell touches a web
+that its own Touch moves onto it (seen in an Android fork's playtest, 2026-10-24).
 HP2's `harry.Summon(ClassName)` calls itself (not `Super.Summon`), so the `summon` cheat ends the game this way in
 the original too.

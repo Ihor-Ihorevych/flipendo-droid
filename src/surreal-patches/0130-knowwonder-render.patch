@@ -230,7 +230,7 @@ index 3b522523..80f6309e 100644
  		FontGlyph glyph = Font->GetGlyph(c);
  		x += glyph.USize;
 diff --git a/SurrealEngine/Render/RenderCanvas.cpp b/SurrealEngine/Render/RenderCanvas.cpp
-index 4b2aa5c5..55b1394a 100644
+index 4b2aa5c5..8a52626f 100644
 --- a/SurrealEngine/Render/RenderCanvas.cpp
 +++ b/SurrealEngine/Render/RenderCanvas.cpp
 @@ -8,12 +8,15 @@
@@ -355,7 +355,7 @@ index 4b2aa5c5..55b1394a 100644
  		{
  			FontGlyph glyph = font->GetGlyph(c);
  
-@@ -288,6 +326,12 @@ void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<std::stri
+@@ -288,6 +326,23 @@ void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<std::stri
  
  void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY, float& curX, float& curY, float& curXL, float& curYL, bool newlineAtEnd, const std::string& text, uint32_t polyflags, bool center, float spaceX, float spaceY, float clipX, float clipY, bool noDraw)
  {
@@ -365,10 +365,79 @@ index 4b2aa5c5..55b1394a 100644
 +		color.a = 1.0f; // GDI ignores DrawColor's alpha; HP2's cutscene text color has A=0, which would make it additive
 +	}
 +
++	// KnowWonder centres each line on CurX and puts CurX back after it (src/knowwonder/KWCanvas.cpp)
++	const bool centerOnCurX = center && engine->LaunchInfo.IsKnowWonder();
++	const float lineCenter = curX;
++	auto lineStartX = [&](float lineWidth)
++	{
++		if (centerOnCurX)
++			return KW::CenteredTextLineX(lineCenter, lineWidth);
++		return center ? curX + std::round((clipX - lineWidth) * 0.5f) : curX;
++	};
++	const float nextLineX = centerOnCurX ? lineCenter : 0.0f;
++
  	float totalWidth = 0.0f;
  	float totalHeight = 0.0f;
  
-@@ -381,6 +425,12 @@ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY,
+@@ -301,17 +356,14 @@ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY,
+ 		{
+ 			if (pos != lineBegin)
+ 			{
+-				float centerX = 0;
+-				if (center)
+-					centerX = std::round((clipX - lineWidth) * 0.5f);
+ 				if (!noDraw)
+-					DrawTextBlockRange(orgX + curX + centerX, orgY + curY, textBlocks, lineBegin, pos, font, color, polyflags, spaceX);
++					DrawTextBlockRange(orgX + lineStartX(lineWidth), orgY + curY, textBlocks, lineBegin, pos, font, color, polyflags, spaceX);
+ 				curY += lineHeight;
+ 				totalHeight += lineHeight;
+ 				totalWidth = std::max(totalWidth, lineWidth);
+ 			}
+ 
+-			curX = 0;
++			curX = nextLineX;
+ 			lineBegin = pos + 1;
+ 			lineWidth = 0.0f;
+ 			lineHeight = 0.0f;
+@@ -321,13 +373,10 @@ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY,
+ 			vec2 blockSize = GetTextSize(font, textBlocks[pos], spaceX, spaceY);
+ 			if (lineWidth + blockSize.x > clipX)
+ 			{
+-				float centerX = 0;
+-				if (center)
+-					centerX = std::round((clipX - lineWidth) * 0.5f);
+ 				if (!noDraw)
+-					DrawTextBlockRange(orgX + curX + centerX, orgY + curY, textBlocks, lineBegin, pos, font, color, polyflags, spaceX);
++					DrawTextBlockRange(orgX + lineStartX(lineWidth), orgY + curY, textBlocks, lineBegin, pos, font, color, polyflags, spaceX);
+ 
+-				curX = 0;
++				curX = nextLineX;
+ 				curY += lineHeight;
+ 				totalHeight += lineHeight;
+ 				totalWidth = std::max(totalWidth, lineWidth);
+@@ -356,16 +405,16 @@ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY,
+ 
+ 	if (lineBegin < textBlocks.size())
+ 	{
+-		float centerX = 0;
+-		if (center)
+-			centerX = std::round((clipX - lineWidth) * 0.5f);
++		float lineX = lineStartX(lineWidth);
+ 		if (!noDraw)
+-			DrawTextBlockRange(orgX + curX + centerX, orgY + curY, textBlocks, lineBegin, textBlocks.size(), font, color, polyflags, spaceX);
+-		curX += centerX + lineWidth;
++			DrawTextBlockRange(orgX + lineX, orgY + curY, textBlocks, lineBegin, textBlocks.size(), font, color, polyflags, spaceX);
++		curX = lineX + lineWidth;
+ 		curY += lineHeight;
+ 		totalHeight += lineHeight;
+ 		totalWidth = std::max(totalWidth, lineWidth);
+ 	}
++	if (centerOnCurX) // and UCanvas::execDrawText moves it on by the widest line
++		curX = lineCenter + totalWidth;
+ 
+ 	curXL = std::max(curXL, totalWidth);
+ 	curYL = std::max(curYL, totalHeight);
+@@ -381,6 +430,12 @@ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY,
  
  void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float orgY, float curX, float curY, const std::string& text, uint32_t polyflags, bool checkHotKey, float clipX, float clipY, bool center)
  {
@@ -381,7 +450,7 @@ index 4b2aa5c5..55b1394a 100644
  	FontGlyph uglyph = font->GetGlyph('_');
  	int uwidth = uglyph.USize;
  	int uheight = uglyph.VSize;
-@@ -397,7 +447,7 @@ void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float
+@@ -397,7 +452,7 @@ void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float
  
  	bool foundAmpersand = false;
  	int maxY = 0;
@@ -390,7 +459,7 @@ index 4b2aa5c5..55b1394a 100644
  	{
  		if (checkHotKey && c == '&' && !foundAmpersand)
  		{
-@@ -457,7 +507,7 @@ void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float
+@@ -457,7 +512,7 @@ void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float
  
  			Rectf dest = Rectf::xywh(orgX + curX + centerX, orgY + curY, (float)glyph.USize, (float)glyph.VSize);
  			Rectf src = Rectf::xywh((float)glyph.StartU, (float)glyph.StartV, (float)glyph.USize, (float)glyph.VSize);
@@ -399,7 +468,7 @@ index 4b2aa5c5..55b1394a 100644
  
  			curX += glyph.USize;
  			maxY = std::max(maxY, glyph.VSize);
-@@ -528,7 +578,7 @@ vec2 RenderSubsystem::GetTextSize(UFont* font, const std::string& text, float sp
+@@ -528,7 +583,7 @@ vec2 RenderSubsystem::GetTextSize(UFont* font, const std::string& text, float sp
  {
  	float x = 0.0f;
  	float y = 0.0f;

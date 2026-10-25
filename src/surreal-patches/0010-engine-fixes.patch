@@ -1473,7 +1473,7 @@ index 908adb98..e11e90db 100644
  		return v;
  	Exception::Throw("Unsupported expression value property type");
 diff --git a/SurrealEngine/VM/Frame.cpp b/SurrealEngine/VM/Frame.cpp
-index 1e7b3c96..404e8a42 100644
+index 1e7b3c96..bc5ea596 100644
 --- a/SurrealEngine/VM/Frame.cpp
 +++ b/SurrealEngine/VM/Frame.cpp
 @@ -1,5 +1,6 @@
@@ -1516,7 +1516,37 @@ index 1e7b3c96..404e8a42 100644
  		return ExpressionValue::NothingValue();
  	}
  
-@@ -377,7 +389,13 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, const Arra
+@@ -307,6 +319,29 @@ ExpressionValue Frame::Call(UFunction* func, UObject* instance, const ArrayView<
+ 	}
+ 	else
+ 	{
++		// While a singular function runs on an object, every singular call on that object is skipped: the body doesn't
++		// run, out parameters keep their values and the result is the return type's default. Kept in a side table, not
++		// in the object's flags, which come unmasked from package files and go into saves.
++		static std::unordered_set<UObject*> inSingularFunc;
++		struct SingularScope
++		{
++			UObject* object = nullptr;
++			~SingularScope() { if (object) inSingularFunc.erase(object); }
++		} singularScope;
++		if (AllFlags(func->FuncFlags, FunctionFlags::Singular))
++		{
++			if (!inSingularFunc.insert(instance).second)
++			{
++				for (UProperty* prop : func->Properties)
++				{
++					if (AllFlags(prop->PropFlags, PropertyFlags::ReturnParm))
++						return ExpressionValue::DefaultValue(prop);
++				}
++				return ExpressionValue::NothingValue();
++			}
++			singularScope.object = instance;
++		}
++
+ 		Frame frame(instance, func, 0, false);
+ 
+ 		// Store args in function frame local variables
+@@ -377,7 +412,13 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, const Arra
  			}
  			else if (argindex < args.size())
  			{
@@ -1531,7 +1561,7 @@ index 1e7b3c96..404e8a42 100644
  			}
  			else
  			{
-@@ -519,6 +537,17 @@ ExpressionEvalResult Frame::Run()
+@@ -519,6 +560,17 @@ ExpressionEvalResult Frame::Run()
  
  	ActiveCallStackFrame activeFrame(this);
  
@@ -1549,7 +1579,7 @@ index 1e7b3c96..404e8a42 100644
  	if (!Func->Code->Statements.empty())
  		StepExpression = Func->Code->Statements[StatementIndex];
  
-@@ -528,7 +557,9 @@ ExpressionEvalResult Frame::Run()
+@@ -528,7 +580,9 @@ ExpressionEvalResult Frame::Run()
  		Break();
  	}
  
@@ -1560,7 +1590,7 @@ index 1e7b3c96..404e8a42 100644
  	int instructionsRetired = 0;
  	while (true)
  	{
-@@ -658,8 +689,7 @@ ExpressionEvalResult Frame::Run()
+@@ -658,8 +712,7 @@ ExpressionEvalResult Frame::Run()
  			Iterators.pop_back();
  			break;
  		case StatementResult::AccessedNone:
@@ -1570,7 +1600,7 @@ index 1e7b3c96..404e8a42 100644
  			break;
  		}
  
-@@ -682,7 +712,12 @@ void Frame::ProcessSwitch(const ExpressionValue& condition)
+@@ -682,7 +735,12 @@ void Frame::ProcessSwitch(const ExpressionValue& condition)
  		{
  			//ExpressionValue casevalue = ExpressionEvaluator::Eval(caseexpr->Value, Object, Object, Variables).Value;
  			ExpressionValue casevalue = RunExpr(caseexpr->Value, Object, Object, Variables).Value;

@@ -130,6 +130,10 @@ MoveToward goes on along the wall (otherwise the same function). `processLanded`
 finds nothing, four short traces under its corners pick the way), 5 times at most; a bSlidingCarcass on a slope slides;
 a non-pawn in a bBounceVelocity zone bounces; else Landed, then walking (pawns, spending the time left) or none.
 
+HP2's `physFalling` [HP2 0x103FB560] (compared at the bounce only, 2026-10-25): bBounce raises HitWall only when the hit
+actor isn't a Mover; landing on a mover takes the floor/wall path above (`processLanded` on a floor), so a bouncing
+actor comes to rest on a mover with the mover as its base and rides it. HP1 bounces off anything.
+
 ### Walking (physWalking 0x103E6B60)
 
 `calcVelocity` (0x103EB3E0) with ground friction: acceleration capped at AccelRate (a walking player 30%), friction
@@ -352,6 +356,16 @@ Checked in HP1. It first walks the actor's class chain and returns unless the ac
   `KeyFrameReached` (Mover's calls `InterpolateEnd(self)`). **Blocked part way: `bInterpolating` off, no event**;
   GridMover's `Tick` notices (`bDoingInterpolation && !bInterpolating`) and goes to `DoneMoving`. SurrealEngine
   instead retried the blocked move every tick.
+
+HP2's Ch2Skurge `LumosFloor` (`Mover0`, `ME_IgnoreWhenEncroach`) stops 16 units into its move in Flipendo, blocked by
+`GreenPurpleCheckerBean6`, which rests on the level floor next to it (2026-10-25). The bean is an `HProp` (an `HPawn`,
+`bCollideWorld`) with `bBounce`; `HProp.BounceIntoPlace.HitWall` halves and mirrors its velocity and nothing ever stops
+it, so it stays `PHYS_Falling` with no base, bouncing on the floor by a fraction of a unit. HP2's `MoveActor`
+[HP2 0x103B3E80] sweeps a mover with `MoverEncroachType` < 4 against actors and blocks it on any with `bCollideWorld`
+(its inlined IsBlockedBy, the same as HP1's), `physMovingBrush` passes no ignore flags, and the bean's cylinder line
+check is HP1's, so by the code the original stops there too. An Android fork lets a mover through actors that block
+neither actors nor players (HP2 only); that rule is not in HP2's code and isn't ported. Open: whether the original's
+floor stops for the bean (or the bean is meant to be picked up first); check in the original game.
 
 `ULevel::MoveActor` (0x103AA3A0) sweeps the world collision box of any actor with `bCollideActors` or `bCollideWorld`,
 brushes included (for a brush the primitive's world bounding box, shrunk by 0.51 on each side), and checks the level

@@ -529,7 +529,9 @@ namespace KW
 	// decoration with half gravity, a player whose feet are in water (falling) with that zone's friction. A step is split
 	// where the vertical velocity changes sign. Hits: bounce (HitWall), land on a floor (normal.z > 0.7), else a ledge
 	// grab (Mount), HitWall, and slide along the wall(s). Air control: AirControl * AccelRate, up to GroundSpeed.
-	// IDA Engine.dll: ?physFalling@AActor@@QAEXMH@Z [HP1 0x103EEA20]
+	// HP2 doesn't bounce off a mover: a bBounce actor lands on it like on a floor, so it gets the mover as its base and
+	// rides it (Ch2Skurge's jellybean on the Lumos floor; HP2 compared at the bounce only).
+	// IDA Engine.dll: ?physFalling@AActor@@QAEXMH@Z [HP1 0x103EEA20] [HP2 0x103FB560]
 	void PhysFalling(UActor* actor, float deltaTime, int iterations)
 	{
 		UPawn* pawn = AsPawn(actor);
@@ -666,7 +668,7 @@ namespace KW
 						deco->numLandings() = std::max(deco->numLandings() - 1, 0);
 				}
 
-				if (actor->bBounce())
+				if (actor->bBounce() && !(IsHP2() && hit.Actor && UObject::TryCast<UMover>(hit.Actor)))
 				{
 					CallEvent(actor, EventName::HitWall, { ExpressionValue::VectorValue(hit.Normal), ExpressionValue::ObjectValue(hit.Actor) });
 					if (actor->bDeleteMe() || actor->Physics() == PHYS_None)

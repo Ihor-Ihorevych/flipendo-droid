@@ -76,4 +76,7 @@ namespace HP1::Mods
 
 	// ImprovedMovement.cpp
 	void TickImprovedMovement();
+
+	// LoadingScreenHold.cpp
+	void TickLoadingScreenHold();
 }

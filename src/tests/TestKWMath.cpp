@@ -6,7 +6,7 @@
 #include "Math/coords.h"
 #include "Packages/Engine/Resources/Level/UModel.h"
 
-// KW's pure math: the view and canvas scaling, FGetHSV, FCoords::OrthoRotation, AActor::TwoWallAdjust and the mesh
+// KW's pure math: the view and canvas scaling, centred canvas text, FGetHSV, FCoords::OrthoRotation, AActor::TwoWallAdjust and the mesh
 // opacity flags.
 
 static int AngleDelta(int a, int b)
@@ -35,6 +35,14 @@ TEST(CanvasUIScale_FromViewportHeight)
 	CHECK_NEAR(KW::CanvasUIScale(480), 1.0, 1e-6);
 	CHECK_NEAR(KW::CanvasUIScale(1080), 1.40625, 1e-6);
 	CHECK_NEAR(KW::CanvasUIScale(1536), 2.0, 1e-6);
+}
+
+TEST(CenteredTextLineX_OnCurX)
+{
+	// HP1's loading screen at 1024x768: OrgX 153.6, ClipX 716.8, CurX 358.4; a 301-wide line starts 150 left of CurX
+	CHECK_NEAR(KW::CenteredTextLineX(358.4f, 301.0f), 208.0, 1e-6);
+	CHECK_NEAR(KW::CenteredTextLineX(358.4f, 0.0f), 358.0, 1e-6);
+	CHECK_NEAR(KW::CenteredTextLineX(100.0f, 300.5f), -50.0, 1e-6); // the start may be left of OrgX
 }
 
 TEST(GetHSV_Hues)

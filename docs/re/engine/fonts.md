@@ -32,6 +32,21 @@ and IsRemapped = 0; every font in HPMenu.u has 256 characters (8 pages of 32 or 
 - When the font is the canvas's SmallFont or MedFont (+112/+116) and the language isn't INT, WrappedPrint and
   execDrawTextClipped draw with the font at +108 instead. Not ported.
 
+## Centred text (Canvas.bCenter)
+
+`UCanvas::WrappedPrint` [HP1 0x10387C50], called by `execDrawText` with Canvas.bCenter:
+
+- Each line is centred on **CurX**: it starts at `(int)(CurX - (int)width / 2)` (OrgX added when drawing,
+  `sub_10388530`). SurrealEngine centred lines between OrgX and OrgX + ClipX and added CurX on top.
+- Wrapping measures from 0 against ClipX (not from CurX), and CurX goes back to its value after every line; then
+  `execDrawText` adds the widest line to CurX (and with CR, CurX 0 and CurY on as usual).
+- HP1's loading screen relies on it: `HPConsole.DrawLevelInfo` sets OrgX 0.15, ClipX 0.7 and CurX 0.35 of FrameX, so
+  the level title and objective are centred on the screen; with SurrealEngine's rule they ran off the right edge.
+- `execStrLen` (`WrappedStrLenf`) never centres, and `execDrawTextClipped` doesn't read bCenter at all. SurrealEngine's
+  DrawTextClipped still centres with bCenter (not changed; no HP case seen).
+
+Flipendo: `KW::CenteredTextLineX` (`src/knowwonder/KWCanvas.cpp`), used by RenderSubsystem::DrawText for both games.
+
 ## System fonts (Console.CreateNativeFont)
 
 `UConsole::execCreateNativeFont` calls the viewport's CreateNativeFont (vtable +156); Engine.dll's base UViewport

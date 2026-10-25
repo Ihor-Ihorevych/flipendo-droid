@@ -78,6 +78,11 @@ at edges and corners.
 - **Ray** (zero extent, `sub_104294C0`): the BSP walk with the inside/outside rule; a hit is the point where the line
   enters solid space after having been outside (unless the extra node flags have 0x10, starting inside counts too), the
   normal is the last node crossed, facing the start.
+  HP2's `UModel::LineCheck` [HP2 0x10438320] and ray walk [HP2 0x10437C60] are HP1's; HP1's and HP2's `execTrace`
+  pass extra node flags 0, so a Trace that starts inside a mover's solid hits the mover at time 0 in both games. HP2's
+  `SpellCursor` traces from the camera, which only stops at the level and `bBlockCamera` actors and can end up inside a
+  gate mover: by the code its cursor then lands on the camera there in the original too (an Android fork skips the mover
+  in that case; not ported, not checked in the original game).
 - **Point / box at a location** (`UModel::PointCheck` 0x104271D0; `sub_10427630` with an extent): the box is out of a
   hull when it is wholly in front of any of its planes; else the hit is the shallowest penetration, pushed out 1.02
   times as far.
