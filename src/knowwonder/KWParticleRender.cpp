@@ -334,7 +334,7 @@ namespace KW
 			auto lightsys = &engine->Level->Light;
 			lightsys->UpdateLightList(actor);
 			VertexLight vertexLight;
-			lightsys->InitVertexLight(vertexLight, actor, engine->GetZoneActor(actor->Region().ZoneNumber));
+			lightsys->InitVertexLight(vertexLight, actor, engine->GetZoneActor(actor->Region().ZoneNumber), vec4(actor->Location(), 0.0f));
 			return vec4(vertexLight.GetVertexLight(actor->Location(), -ctx.Forward, false, true), 1.0f);
 		}
 	}

@@ -1,7 +1,7 @@
 flipendo: KnowWonder sound and music
 
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
-index a4e1dd8e..1a6c41c2 100644
+index 9b3b3499..22210fc9 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 +++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 @@ -9,12 +9,30 @@
@@ -44,10 +44,10 @@ index a4e1dd8e..1a6c41c2 100644
  	else if (propertyName == "SoundVolume")
 -		return IniPropertyConverter<uint8_t>::ToString(SoundVolume);
 +		return VolumeToString(SoundVolume);
+ 	else if (propertyName == "SpeechVolume")
+ 		return IniPropertyConverter<uint8_t>::ToString(SpeechVolume);
  	else if (propertyName == "AmbientFactor")
- 		return IniPropertyConverter<float>::ToString(AmbientFactor);
- 
-@@ -85,9 +103,9 @@ void USurrealAudioDevice::SetPropertyFromString(const NameString& propertyName,
+@@ -87,9 +105,9 @@ void USurrealAudioDevice::SetPropertyFromString(const NameString& propertyName,
  	else if (propertyName == "Channels")
  		Channels = IniPropertyConverter<int>::FromString(value);
  	else if (propertyName == "MusicVolume")
@@ -56,10 +56,10 @@ index a4e1dd8e..1a6c41c2 100644
  	else if (propertyName == "SoundVolume")
 -		SoundVolume = IniPropertyConverter<uint8_t>::FromString(value);
 +		SoundVolume = VolumeFromString(value, SoundVolume);
+ 	else if (propertyName == "SpeechVolume")
+ 		SpeechVolume = IniPropertyConverter<uint8_t>::FromString(value);
  	else if (propertyName == "AmbientFactor")
- 		AmbientFactor = IniPropertyConverter<float>::FromString(value);
- 	else
-@@ -116,8 +134,8 @@ void USurrealAudioDevice::LoadProperties(const NameString& from)
+@@ -120,8 +138,8 @@ void USurrealAudioDevice::LoadProperties(const NameString& from)
  	Latency = IniPropertyConverter<int>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "Latency", Latency);
  	OutputRate = IniPropertyConverter<AudioFrequency>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "OutputRate", OutputRate);
  	Channels = IniPropertyConverter<int>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "Channels", Channels);
@@ -67,10 +67,10 @@ index a4e1dd8e..1a6c41c2 100644
 -	SoundVolume = IniPropertyConverter<uint8_t>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "SoundVolume", SoundVolume);
 +	MusicVolume = VolumeFromString(engine->packages->GetIniFile("System")->GetValue(name_from, "MusicVolume", VolumeToString(MusicVolume)), MusicVolume);
 +	SoundVolume = VolumeFromString(engine->packages->GetIniFile("System")->GetValue(name_from, "SoundVolume", VolumeToString(SoundVolume)), SoundVolume);
+ 	if (engine->LaunchInfo.IsDeusEx())
+ 		SpeechVolume = IniPropertyConverter<uint8_t>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "SpeechVolume", SpeechVolume);
  	AmbientFactor = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "AmbientFactor", AmbientFactor);
- }
- 
-@@ -136,8 +154,8 @@ void USurrealAudioDevice::SaveConfig()
+@@ -142,8 +160,8 @@ void USurrealAudioDevice::SaveConfig()
  	engine->packages->SetIniValue("System", Class, "Latency", IniPropertyConverter<int>::ToString(Latency));
  	engine->packages->SetIniValue("System", Class, "OutputRate", IniPropertyConverter<AudioFrequency>::ToString(OutputRate));
  	engine->packages->SetIniValue("System", Class, "Channels", IniPropertyConverter<int>::ToString(Channels));
@@ -78,23 +78,23 @@ index a4e1dd8e..1a6c41c2 100644
 -	engine->packages->SetIniValue("System", Class, "SoundVolume", IniPropertyConverter<uint8_t>::ToString(SoundVolume));
 +	engine->packages->SetIniValue("System", Class, "MusicVolume", VolumeToString(MusicVolume));
 +	engine->packages->SetIniValue("System", Class, "SoundVolume", VolumeToString(SoundVolume));
+ 	if (engine->LaunchInfo.IsDeusEx())
+ 		engine->packages->SetIniValue("System", Class, "SpeechVolume", IniPropertyConverter<uint8_t>::ToString(SpeechVolume));
  	engine->packages->SetIniValue("System", Class, "AmbientFactor", IniPropertyConverter<float>::ToString(AmbientFactor));
- }
- 
-@@ -150,6 +168,12 @@ void USurrealAudioDevice::InitDevice()
+@@ -156,7 +174,11 @@ void USurrealAudioDevice::InitDevice()
+ 	// TODO: Add option for number of sound channels
+ 	// TODO: Add option for music buffer count
  	// TODO: Add option for music buffer size
- 	// m_Device = AudioDevice::Create(48000, 256, 16, 256);
- 	m_Device = AudioDevice::Create(OutputRate.frequency, 256, 16, 256);
-+	// HP1's Galaxy driver: volume = clamp(1 - distance / radius) * Volume, at most full volume. HP2's ALAudio:
-+	// OpenAL's inverse distance clamped model
+-	m_Device = AudioDevice::Create(OutputRate.frequency, Channels, 16, 256);
++	// HP2's ALAudio driver has up to 32 channels of its own (HP2::AudioChannels)
++	m_Device = AudioDevice::Create(OutputRate.frequency, engine->LaunchInfo.IsHarryPotter2() ? std::max(Channels, HP2::AudioChannels()) : Channels, 16, 256);
++	// HP2's ALAudio: OpenAL's inverse distance clamped model. HP1's Galaxy driver's linear falloff is set by UpdateSounds.
 +	if (engine->LaunchInfo.IsHarryPotter2())
 +		HP2::InitAudio(m_Device.get());
-+	else if (engine->LaunchInfo.IsKnowWonder())
-+		m_Device->SetLinearFalloff(true);
  	LogMessage("Audio device initialized");
  }
  
-@@ -172,20 +196,39 @@ void USurrealAudioDevice::SetViewport(UViewport* InViewport)
+@@ -179,17 +201,31 @@ void USurrealAudioDevice::SetViewport(UViewport* InViewport)
  			if (m_Viewport->Actor()->Song() && m_Viewport->Actor()->Transition() == MTRAN_None)
  				m_Viewport->Actor()->Transition() = MTRAN_Instant;
  
@@ -104,7 +104,7 @@ index a4e1dd8e..1a6c41c2 100644
  	}
  }
  
- void USurrealAudioDevice::Update(const mat4& listener)
+ void USurrealAudioDevice::Update()
  {
 -	StartAmbience();
 -	UpdateAmbience();
@@ -118,29 +118,19 @@ index a4e1dd8e..1a6c41c2 100644
 +		StartAmbience();
 +		UpdateAmbience();
 +	}
- 	UpdateSounds(listener);
+ 	UpdateSounds();
 -	UpdateMusic();
- 
--	m_Device->SetMusicVolume(MusicVolume / 255.0f);
--	m_Device->SetSoundVolume(SoundVolume / 255.0f * 0.5f);
++
 +	// HP1's audio driver fades between songs, keeps a song playing when it is set again and scales the music by
 +	// PlayerPawn.PercentMusicVolume. It also plays its mp2 music although HP1 ships UseDigitalMusic=False.
 +	if (engine->LaunchInfo.IsKnowWonder())
-+	{
 +		m_Device->SetMusicVolume(KW::UpdateMusic(m_Device.get(), m_Viewport ? m_Viewport->Actor() : nullptr, MusicVolume, Latency));
-+	}
 +	else
-+	{
 +		UpdateMusic();
-+		m_Device->SetMusicVolume(MusicVolume / 255.0f);
-+	}
-+	// HP2 mutes the sound effects while it fast-forwards a skipped cutscene (MUTESOUNDS)
-+	bool muted = engine->LaunchInfo.IsHarryPotter2() && HP2::SoundsMuted();
-+	m_Device->SetSoundVolume(muted ? 0.0f : SoundVolume / 255.0f * 0.5f);
  	m_Device->Update();
  }
  
-@@ -264,6 +307,11 @@ static bool HasLipSync()
+@@ -281,6 +317,11 @@ void USurrealAudioDevice::UpdateAmbience()
  
  void USurrealAudioDevice::UpdateLipSync(PlayingSound& Playing)
  {
@@ -149,10 +139,10 @@ index a4e1dd8e..1a6c41c2 100644
 +		HP2::UpdateLipSync(Playing);
 +		return;
 +	}
- 	if (!HasLipSync() || !Playing.Actor || !engine->LevelInfo)
+ 	if (!engine->LaunchInfo.IsDeusEx())
  		return;
- 	if ((Playing.Id & 14) != SLOT_Talk * 2)
-@@ -286,6 +334,11 @@ void USurrealAudioDevice::UpdateLipSync(PlayingSound& Playing)
+ 	if (!Playing.Actor || !engine->LevelInfo)
+@@ -305,6 +346,11 @@ void USurrealAudioDevice::UpdateLipSync(PlayingSound& Playing)
  // Called wherever a slot is torn down, so the mouth does not freeze mid-vowel.
  void USurrealAudioDevice::ClearLipSync(PlayingSound& Playing)
  {
@@ -161,10 +151,20 @@ index a4e1dd8e..1a6c41c2 100644
 +		HP2::StopLipSync(Playing);
 +		return;
 +	}
- 	if (!HasLipSync() || !Playing.Actor)
+ 	if (!engine->LaunchInfo.IsDeusEx())
  		return;
- 	if ((Playing.Id & 14) != SLOT_Talk * 2)
-@@ -310,12 +363,42 @@ void USurrealAudioDevice::UpdateSounds(const mat4& listener)
+ 	if (!Playing.Actor)
+@@ -324,35 +370,74 @@ void USurrealAudioDevice::UpdateSounds()
+ 	if (!m_Viewport || !m_Viewport->Actor())
+ 		return;
+ 
++	// HP1's Galaxy driver: volume = clamp(1 - distance / radius) * Volume, at most the sound volume
++	if (engine->LaunchInfo.IsKnowWonder() && !engine->LaunchInfo.IsHarryPotter2())
++		m_Device->SetLinearFalloff(true, SoundVolume / 255.0f * 0.5f);
++
+ 	for (size_t i = 0; i < PlayingSounds.size(); i++)
+ 	{
+ 		PlayingSound& Playing = PlayingSounds[i];
  
  		if (Playing.Id != 0)
  		{
@@ -180,6 +180,14 @@ index a4e1dd8e..1a6c41c2 100644
 +				Playing.Location = engine->CameraActor->Location();
 +			else if (Playing.Actor)
  				Playing.Location = Playing.Actor->Location();
+ 
+-			// Global volume for the sound type
++			// Global volume for the sound type; HP2 mutes the sound effects while it fast-forwards a skipped cutscene (MUTESOUNDS)
+ 			float globalVolume = SoundVolume / 255.0f * 0.5f;
+ 			if (engine->LaunchInfo.IsDeusEx() && GetSoundSlot(Playing.Id) == SLOT_Talk)
+ 				globalVolume = SpeechVolume / 255.0f * 0.5f;
++			if (hp2 && HP2::SoundsMuted())
++				globalVolume = 0.0f;
  
 +			// HP2's StopSound fade-out (UALAudioSubsystem::Update): linear over FadeOutTime, a step of at most 1 s, then stopped
 +			float volume = Playing.Volume;
@@ -200,51 +208,46 @@ index a4e1dd8e..1a6c41c2 100644
 +
 +			if (hp2)
 +				volume = HP2::UpdateSound(this, (int)i, Playing, volume);
-+
  			// Update the priority
--			Playing.Priority = SoundPriority(m_Viewport, Playing.Location, Playing.Volume, Playing.Radius);
+-			Playing.Priority = SoundPriority(m_Viewport, Playing.Location, Playing.Volume * globalVolume, Playing.Radius);
 +			if (hp2)
 +				Playing.Priority = HP2::SoundPriority(m_Viewport, Playing.Location, Playing.Volume, Playing.Radius, Playing.Flags);
 +			else
-+				Playing.Priority = SoundPriority(m_Viewport, Playing.Location, Playing.Volume, Playing.Radius);
++				Playing.Priority = SoundPriority(m_Viewport, Playing.Location, Playing.Volume * globalVolume, Playing.Radius);
  
  			UpdateLipSync(Playing);
  
-@@ -324,7 +407,7 @@ void USurrealAudioDevice::UpdateSounds(const mat4& listener)
+ 			// Update the device sound channels to match our configuration
+ 			if (!Playing.IsActive)
  			{
- 				if (m_Device->IsPlaying((int)i))
- 				{
--					m_Device->UpdateSound((int)i, Playing.Sound, Playing.Location, Playing.Volume, Playing.Radius, Playing.Pitch);
-+					m_Device->UpdateSound((int)i, Playing.Sound, Playing.Location, volume, Playing.Radius, Playing.Pitch);
- 				}
- 				else
- 				{
-@@ -334,7 +417,11 @@ void USurrealAudioDevice::UpdateSounds(const mat4& listener)
- 			}
- 			else
- 			{
--				m_Device->PlaySound((int)i, Playing.Sound, Playing.Location, Playing.Volume, Playing.Radius, Playing.Pitch);
-+				m_Device->PlaySound((int)i, Playing.Sound, Playing.Location, volume, Playing.Radius, Playing.Pitch);
+-				m_Device->PlaySound((int)i, Playing.Sound, Playing.Location, Playing.Volume * globalVolume, Playing.Radius, Playing.Pitch);
++				m_Device->PlaySound((int)i, Playing.Sound, Playing.Location, volume * globalVolume, Playing.Radius, Playing.Pitch);
 +				if (engine->LaunchInfo.IsKnowWonder())
 +					m_Device->SetLooping((int)i, Playing.Loop);
 +				if (hp2)
 +					m_Device->SetSoundVelocity((int)i, vec3(0.0f));
  				Playing.IsActive = true;
  			}
- 		}
-@@ -378,12 +465,25 @@ void USurrealAudioDevice::UpdateMusic()
- 	}
+ 			else
+ 			{
+-				m_Device->UpdateSound((int)i, Playing.Location, Playing.Volume * globalVolume, Playing.Radius, Playing.Pitch);
++				m_Device->UpdateSound((int)i, Playing.Location, volume * globalVolume, Playing.Radius, Playing.Pitch);
+ 				if (!m_Device->IsPlaying((int)i))
+ 				{
+ 					ClearLipSync(Playing);
+@@ -425,12 +510,25 @@ bool USurrealAudioDevice::IsSameSoundId(int id1, int id2)
+ 	return (id1 & ~1) == (id2 & ~1);
  }
  
--bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 Location, float Volume, float Radius, float Pitch, bool isTalk)
-+bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 Location, float Volume, float Radius, float Pitch, bool isTalk, bool no3D, bool loop)
+-bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 Location, float Volume, float Radius, float Pitch)
++bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 Location, float Volume, float Radius, float Pitch, bool no3D, bool loop)
  {
 -	if (Radius <= 0.0) // Seems we have zero radius values. Lovely.
 +	// HP1's Galaxy driver asserts a radius (Actor.PlaySound already made a zero radius 1600, KW::PlaySound)
 +	if (Radius <= 0.0 && !engine->LaunchInfo.IsKnowWonder()) // Seems we have zero radius values. Lovely.
  		Radius = 1500.0f;
  
--	if (isTalk && engine->LaunchInfo.IsDeusEx())
+-	if (GetSoundSlot(Id) == SLOT_Talk && engine->LaunchInfo.IsDeusEx())
 +	if (engine->LaunchInfo.IsHarryPotter2())
 +	{
 +		// ALAudio: the volume from 0.01 to full, the pitch from 0.1 to 2
@@ -257,13 +260,13 @@ index a4e1dd8e..1a6c41c2 100644
 +		// negative volume plays silent
 +		Volume = std::max(Volume, 0.0f);
 +	}
-+	else if (isTalk && engine->LaunchInfo.IsDeusEx())
++	else if (GetSoundSlot(Id) == SLOT_Talk && engine->LaunchInfo.IsDeusEx())
  	{
  		// Should this still be directional?
  		Volume *= 2.0f;
-@@ -404,12 +504,26 @@ bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 L
- 	if ((Id & 14) == 2 * SLOT_None)
- 		Id = 16 * --FreeSlot;
+@@ -451,12 +549,26 @@ bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 L
+ 	if (GetSoundSlot(Id) == SLOT_None)
+ 		Id = CreateSoundId(Actor, SLOT_None, false);
  
 -	float Priority = SoundPriority(m_Viewport, Location, Volume, Radius);
 +	int hp2Flags = 0;
@@ -290,8 +293,8 @@ index a4e1dd8e..1a6c41c2 100644
 +	for (size_t i = 0; i < PlayingSounds.size() && !engine->LaunchInfo.IsHarryPotter2(); i++)
  	{
  		PlayingSound& Playing = PlayingSounds[i];
- 		if ((Playing.Id & ~1) == (Id & ~1))
-@@ -439,6 +553,9 @@ bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 L
+ 		if (IsSameSoundId(Playing.Id, Id))
+@@ -486,6 +598,9 @@ bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 L
  	StopSound(Index);
  	PlayingSounds[Index] = PlayingSound(Actor, Id, Sound, Location, Volume, Radius, Pitch, Priority);
  	PlayingSounds[Index].StartTime = engine->LevelInfo->TimeSeconds();
@@ -301,7 +304,7 @@ index a4e1dd8e..1a6c41c2 100644
  
  	return true;
  }
-@@ -475,6 +592,63 @@ void USurrealAudioDevice::StopSound(UActor* Actor, int Id)
+@@ -522,6 +637,63 @@ void USurrealAudioDevice::StopSound(UActor* Actor, int Id)
  	}
  }
  
@@ -365,7 +368,7 @@ index a4e1dd8e..1a6c41c2 100644
  void USurrealAudioDevice::StopSound(size_t index)
  {
  	PlayingSound& Playing = PlayingSounds[index];
-@@ -494,6 +668,11 @@ void USurrealAudioDevice::StopSounds()
+@@ -541,6 +713,11 @@ void USurrealAudioDevice::StopSounds()
  	for (size_t i = 0; i < PlayingSounds.size(); i++)
  		StopSound(i);
  
@@ -378,10 +381,24 @@ index a4e1dd8e..1a6c41c2 100644
  	m_Viewport = nullptr;
  }
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h
-index 81534ba9..3adf1d19 100644
+index 3bd4c645..3a41b5fc 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h
 +++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h
-@@ -24,6 +24,20 @@ struct PlayingSound
+@@ -3,12 +3,12 @@
+ #include "UAudioSubsystem.h"
+ #include "Packages/Engine/Resources/USound.h"
+ #include "Audio/AudioDevice.h"
++#include "Packages/Engine/Actors/UActor.h" // ESoundSlot (an enum without a fixed type can't be declared ahead in standard C++)
+ 
+ class UActor;
+ class UMusic;
+ class UViewport;
+ class AudioDevice;
+-enum ESoundSlot;
+ 
+ struct PlayingSound
+ {
+@@ -25,6 +25,20 @@ struct PlayingSound
  	float Radius = 1.0f;
  	float Pitch = 1.0f;
  	float StartTime = 0.0f;
@@ -402,12 +419,12 @@ index 81534ba9..3adf1d19 100644
  };
  
  class USurrealAudioDevice : public UAudioSubsystem
-@@ -62,8 +76,14 @@ public:
+@@ -45,8 +59,14 @@ public:
+ 	void SetViewport(UViewport* InViewport);
+ 	void Update();
  
- 	void Update(const mat4& listener);
- 
--	bool PlaySound(UActor* Actor, int Id, USound* Sound, vec3 Location, float Volume, float Radius, float Pitch, bool isTalk);
-+	bool PlaySound(UActor* Actor, int Id, USound* Sound, vec3 Location, float Volume, float Radius, float Pitch, bool isTalk, bool no3D = false, bool loop = false);
+-	bool PlaySound(UActor* Actor, int Id, USound* Sound, vec3 Location, float Volume, float Radius, float Pitch);
++	bool PlaySound(UActor* Actor, int Id, USound* Sound, vec3 Location, float Volume, float Radius, float Pitch, bool no3D = false, bool loop = false);
  	void StopSound(UActor* Actor, int Id);
 +	// HP1's ModifySound / StopSound(Sound, Slot): first sound whose Id matches (ignoring bit 0) and, if given, Sound
 +	bool ModifySoundHP1(int Id, USound* Sound, int Param, float Value);
@@ -418,17 +435,26 @@ index 81534ba9..3adf1d19 100644
  	void ActorDestroyed(UActor* Actor);
  	void StopSounds();
  
-@@ -71,6 +91,9 @@ public:
- 	void AddStats(Array<std::string>& lines);
+@@ -65,6 +85,18 @@ public:
+ 	static ESoundSlot GetSoundSlot(int id);
+ 	static bool IsSameSoundId(int id1, int id2);
  
- 	AudioDevice* GetDevice() { return m_Device.get(); }
-+	// For HP2's audio driver (src/hp2/HP2Audio.cpp)
++	// For HP2's audio driver (src/hp2/HP2Audio.cpp) and its front end's volume settings
++	UViewport* GetCurrentViewport() { return m_Viewport; }
 +	Array<PlayingSound>& GetPlayingSounds() { return PlayingSounds; }
 +	void StopSoundAt(size_t index) { StopSound(index); }
- 
++	void SetSoundPaused(int channel, bool paused) { m_Device->SetPaused(channel, paused); }
++	void SetSoundVelocity(int channel, const vec3& velocity) { m_Device->SetSoundVelocity(channel, velocity); }
++	void SetListenerVelocity(const vec3& velocity) { m_Device->SetListenerVelocity(velocity); }
++	uint8_t GetMusicVolume() const { return MusicVolume; }
++	uint8_t GetSoundVolume() const { return SoundVolume; }
++	void SetMusicVolume(uint8_t volume) { MusicVolume = volume; }
++	void SetSoundVolume(uint8_t volume) { SoundVolume = volume; }
++
  private:
- 	void StartAmbience();
-@@ -82,6 +105,8 @@ private:
+ 	AudioDevice* GetDevice() { return m_Device.get(); } // DO NOT MAKE THIS PUBLIC!!!!
+ 	friend class USound; // To do: figure out what USound::GetSound() is doing and why it wants to talk directly to the device (it shouldn't)
+@@ -80,6 +112,8 @@ private:
  	void UpdateMusic();
  	void StopSound(size_t index);
  

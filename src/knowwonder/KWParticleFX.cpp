@@ -382,7 +382,7 @@ namespace KW
 					flags.movers = true;
 					flags.world = true;
 					CollisionHit hit = a->XLevel()->Collision.TraceFirstHit(p.OldPosition, p.Position, nullptr, vec3(0.0f), flags);
-					if (hit.Fraction < 1.0f && !hit.Actor)
+					if (hit.Fraction < 1.0f && hit.Actor == a->Level())
 					{
 						vec3 hitLocation = p.OldPosition + (p.Position - p.OldPosition) * hit.Fraction;
 						p.Velocity = (p.Velocity - hit.Normal * (2.0f * dot(hit.Normal, p.Velocity))) * PFX::Elasticity(a);

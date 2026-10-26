@@ -54,7 +54,7 @@ Lev_Tut1b, 255 = as loud as it goes) and fades it back over `BoostTime` in scrip
 It played every mp2 song once. When the stream ended, the music thread kept queueing its fixed buffers without
 clearing the part the decoder didn't fill, so the last chunks of old audio replayed forever: a glitchy ~1 s loop at
 the end of every song (reported near Nearly Headless Nick in Lev_Tut1b). Fixed for every game by filling the rest of
-the buffer with silence (`Audio/AudioDevice.cpp`); for HP1, `KW::UpdateMusic` restarts the song at its end (a new mp3
+the buffer with silence (`Audio/OpenAL/OpenALAudioDevice.cpp`); for HP1, `KW::UpdateMusic` restarts the song at its end (a new mp3
 decoder: SurrealEngine's mp3 source doesn't rewind after reaching the end) unless `bDontLoopSong`, and sets
 `bSongFinished` and clears an ended song like Galaxy.
 

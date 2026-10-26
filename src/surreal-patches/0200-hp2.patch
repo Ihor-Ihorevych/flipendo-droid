@@ -1,7 +1,7 @@
 flipendo: Harry Potter 2: its sound objects' extra fields and XA sounds, no IpDrv package, actors' tick parents
 
 diff --git a/SurrealEngine/Packages/Engine/Resources/Level/ULevel.cpp b/SurrealEngine/Packages/Engine/Resources/Level/ULevel.cpp
-index 28e61f2a..bf8eb4d3 100644
+index 5088612a..7011ea88 100644
 --- a/SurrealEngine/Packages/Engine/Resources/Level/ULevel.cpp
 +++ b/SurrealEngine/Packages/Engine/Resources/Level/ULevel.cpp
 @@ -7,6 +7,7 @@
@@ -12,7 +12,7 @@ index 28e61f2a..bf8eb4d3 100644
  
  ULevel::ULevel(NameString name, UClass* base, ObjectFlags flags) : ULevelBase(name, base, flags)
  {
-@@ -60,8 +61,17 @@ void ULevel::TickActor(float elapsed, UActor* actor)
+@@ -64,8 +65,17 @@ void ULevel::TickActor(float elapsed, UActor* actor)
  	if (!actor)
  		return;
  
@@ -31,7 +31,7 @@ index 28e61f2a..bf8eb4d3 100644
  	{
  		TickActor(elapsed, actor->Owner());
  	}
-@@ -73,6 +83,10 @@ void ULevel::TickActor(float elapsed, UActor* actor)
+@@ -77,6 +87,10 @@ void ULevel::TickActor(float elapsed, UActor* actor)
  	// Mark actor as ticked
  	actor->bTicked() = ticked;
  
@@ -43,7 +43,7 @@ index 28e61f2a..bf8eb4d3 100644
  	actor->Tick(elapsed);
  
 diff --git a/SurrealEngine/Packages/Engine/Resources/USound.cpp b/SurrealEngine/Packages/Engine/Resources/USound.cpp
-index 75eb4e30..13d0f85c 100644
+index df526a71..4403509e 100644
 --- a/SurrealEngine/Packages/Engine/Resources/USound.cpp
 +++ b/SurrealEngine/Packages/Engine/Resources/USound.cpp
 @@ -2,6 +2,7 @@
@@ -122,8 +122,8 @@ index 75eb4e30..13d0f85c 100644
 +	}
  }
  
- void USound::GetSound()
-@@ -50,6 +95,11 @@ void USound::GetSound()
+ // Loads sound samples if they are not already loaded
+@@ -51,6 +96,11 @@ void USound::CheckSoundSamples()
  	{
  		source = AudioSource::CreateMp3(Data);
  	}
@@ -136,7 +136,7 @@ index 75eb4e30..13d0f85c 100644
  	{
  		Exception::Throw("Unsupported sound format: " + Format.ToString());
 diff --git a/SurrealEngine/Packages/Engine/Resources/USound.h b/SurrealEngine/Packages/Engine/Resources/USound.h
-index f4c32aea..decbebf6 100644
+index c937674f..4db521f2 100644
 --- a/SurrealEngine/Packages/Engine/Resources/USound.h
 +++ b/SurrealEngine/Packages/Engine/Resources/USound.h
 @@ -32,6 +32,11 @@ public:

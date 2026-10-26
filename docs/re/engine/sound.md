@@ -2,7 +2,7 @@
 
 How a sound effect gets from `Actor.PlaySound` to the speakers in HP1. Reversed from HP1's Engine.dll and Galaxy.dll
 (HP1's audio driver). Music is in [music.md](music.md). Port: `src/knowwonder/KWSound.cpp`, the device side in
-`USurrealAudioDevice` and `Audio/AudioDevice.cpp` ([engine-hooks.md](../../engine-hooks.md)).
+`USurrealAudioDevice` and `Audio/OpenAL/` ([engine-hooks.md](../../engine-hooks.md)).
 
 ## PlaySound (Engine.dll)
 

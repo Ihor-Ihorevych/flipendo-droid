@@ -1,11 +1,11 @@
 flipendo: KnowWonder rendering (FOV, skeletal meshes, particles, translucency, vertex alpha, actor shadows, textures; loading screen; menu canvas, coronas); BSP surfaces take the zone on the camera's side and sprites are drawn right side up (any game)
 
 diff --git a/SurrealEngine/Light/LightSystem.h b/SurrealEngine/Light/LightSystem.h
-index e1e0062e..5fa8f0dd 100644
+index 8c91bf4a..befc2465 100644
 --- a/SurrealEngine/Light/LightSystem.h
 +++ b/SurrealEngine/Light/LightSystem.h
 @@ -200,7 +200,7 @@ public:
- 	void InitVertexLight(VertexLight& vertexlight, UActor* actor, UZoneInfo* zoneActor);
+ 	void InitVertexLight(VertexLight& vertexlight, UActor* actor, UZoneInfo* zoneActor, const vec4& boundingSphere);
  
  private:
 -	TextureInfo GetLightmap(UModel* model, int lightmapIndex, const Coords& coords, UZoneInfo* zoneActor, const vec3& worldLocation, float radius, UMover* mover, bool specialLit);
@@ -14,7 +14,7 @@ index e1e0062e..5fa8f0dd 100644
  	void CheckLight(UActor* light);
  	void UpdateFogmapTexture(uint32_t* texels, UModel* model, const Coords& mapCoords, int lightMap, UZoneInfo* zoneActor);
 diff --git a/SurrealEngine/Light/LightSystem_Light.cpp b/SurrealEngine/Light/LightSystem_Light.cpp
-index 2c1f7f54..2155ca7a 100644
+index ab7b2114..e9b36d08 100644
 --- a/SurrealEngine/Light/LightSystem_Light.cpp
 +++ b/SurrealEngine/Light/LightSystem_Light.cpp
 @@ -9,6 +9,7 @@
@@ -230,10 +230,10 @@ index 3b522523..80f6309e 100644
  		FontGlyph glyph = Font->GetGlyph(c);
  		x += glyph.USize;
 diff --git a/SurrealEngine/Render/RenderCanvas.cpp b/SurrealEngine/Render/RenderCanvas.cpp
-index 4b2aa5c5..8a52626f 100644
+index 56d705f2..1ad3e919 100644
 --- a/SurrealEngine/Render/RenderCanvas.cpp
 +++ b/SurrealEngine/Render/RenderCanvas.cpp
-@@ -8,12 +8,15 @@
+@@ -8,6 +8,7 @@
  #include "Packages/Engine/UViewport.h"
  #include "Packages/Engine/UCanvas.h"
  #include "Packages/Engine/UConsole.h"
@@ -241,6 +241,7 @@ index 4b2aa5c5..8a52626f 100644
  #include "Packages/Engine/Resources/UFont.h"
  #include "Packages/Engine/Resources/UPalette.h"
  #include "Packages/Engine/Resources/Level/UModel.h"
+@@ -25,6 +26,8 @@
  #include "GameWindow.h"
  #include "VM/ScriptCall.h"
  #include "Engine.h"
@@ -249,7 +250,7 @@ index 4b2aa5c5..8a52626f 100644
  
  void RenderSubsystem::ResetCanvas()
  {
-@@ -21,6 +24,8 @@ void RenderSubsystem::ResetCanvas()
+@@ -32,6 +35,8 @@ void RenderSubsystem::ResetCanvas()
  	// Assume 1280x960 for UT and newer.
  	int vertResolution = engine->LaunchInfo.ue1Version < 400 ? 768 : 960;
  	Canvas.uiscale = std::max((engine->viewport->ViewportHeight() + vertResolution / 2) / vertResolution, 1);
@@ -258,7 +259,7 @@ index 4b2aa5c5..8a52626f 100644
  
  	SceneNode frame;
  	Canvas.Frame.XB = 0;
-@@ -54,11 +59,8 @@ void RenderSubsystem::ResetCanvas()
+@@ -65,11 +70,8 @@ void RenderSubsystem::ResetCanvas()
  	engine->canvas->SizeX() = sizeX;
  	engine->canvas->SizeY() = sizeY;
  
@@ -272,7 +273,7 @@ index 4b2aa5c5..8a52626f 100644
  
  	//engine->viewport->bShowWindowsMouse() = true; // bShowWindowsMouse is set to true by WindowConsole if mouse cursor should be visible
  	//engine->viewport->bWindowsMouseAvailable() = true; // if true then RenderUWindow updates mouse pos from (WindowsMouseX,WindowsMouseY), otherwise it uses KeyEvent(IK_MouseX, delta) + KeyEvent(IK_MouseY, delta). Maybe used for windowed mode?
-@@ -80,7 +82,16 @@ void RenderSubsystem::RenderOverlays()
+@@ -91,7 +93,16 @@ void RenderSubsystem::RenderOverlays()
  	Device->SetSceneNode(&Canvas.Frame);
  	if (engine->viewport->Actor())
  	{
@@ -290,7 +291,7 @@ index 4b2aa5c5..8a52626f 100644
  		{
  			CallEvent(engine->viewport->Actor(), EventName::RenderOverlays, { ExpressionValue::ObjectValue(engine->canvas) });
  		}
-@@ -101,13 +112,40 @@ void RenderSubsystem::PostRender()
+@@ -112,13 +123,40 @@ void RenderSubsystem::PostRender()
  	Device->SetSceneNode(&Canvas.Frame);
  	if (engine->viewport->Actor())
  		CallEvent(engine->viewport->Actor(), EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
@@ -331,7 +332,7 @@ index 4b2aa5c5..8a52626f 100644
  void RenderSubsystem::PostRenderFlash()
  {
  	Device->SetSceneNode(&Canvas.Frame);
-@@ -133,10 +171,10 @@ void RenderSubsystem::DrawActor(UActor* actor, bool WireFrame, bool ClearZ)
+@@ -144,10 +182,10 @@ void RenderSubsystem::DrawActor(UActor* actor, bool WireFrame, bool ClearZ)
  void RenderSubsystem::DrawClippedActor(UActor* actor, bool WireFrame, int X, int Y, int XB, int YB, bool ClearZ)
  {
  	SceneNode frame;
@@ -346,7 +347,7 @@ index 4b2aa5c5..8a52626f 100644
  	frame.FX = (float)X * Canvas.uiscale;
  	frame.FY = (float)Y * Canvas.uiscale;
  	frame.FX2 = frame.FX * 0.5f;
-@@ -254,7 +292,7 @@ void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<std::stri
+@@ -265,7 +303,7 @@ void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<std::stri
  {
  	for (size_t i = start; i < end; i++)
  	{
@@ -355,7 +356,7 @@ index 4b2aa5c5..8a52626f 100644
  		{
  			FontGlyph glyph = font->GetGlyph(c);
  
-@@ -288,6 +326,23 @@ void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<std::stri
+@@ -299,6 +337,23 @@ void RenderSubsystem::DrawTextBlockRange(float x, float y, const Array<std::stri
  
  void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY, float& curX, float& curY, float& curXL, float& curYL, bool newlineAtEnd, const std::string& text, uint32_t polyflags, bool center, float spaceX, float spaceY, float clipX, float clipY, bool noDraw)
  {
@@ -379,7 +380,7 @@ index 4b2aa5c5..8a52626f 100644
  	float totalWidth = 0.0f;
  	float totalHeight = 0.0f;
  
-@@ -301,17 +356,14 @@ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY,
+@@ -312,17 +367,14 @@ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY,
  		{
  			if (pos != lineBegin)
  			{
@@ -399,7 +400,7 @@ index 4b2aa5c5..8a52626f 100644
  			lineBegin = pos + 1;
  			lineWidth = 0.0f;
  			lineHeight = 0.0f;
-@@ -321,13 +373,10 @@ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY,
+@@ -332,13 +384,10 @@ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY,
  			vec2 blockSize = GetTextSize(font, textBlocks[pos], spaceX, spaceY);
  			if (lineWidth + blockSize.x > clipX)
  			{
@@ -415,7 +416,7 @@ index 4b2aa5c5..8a52626f 100644
  				curY += lineHeight;
  				totalHeight += lineHeight;
  				totalWidth = std::max(totalWidth, lineWidth);
-@@ -356,16 +405,16 @@ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY,
+@@ -367,16 +416,16 @@ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY,
  
  	if (lineBegin < textBlocks.size())
  	{
@@ -437,7 +438,7 @@ index 4b2aa5c5..8a52626f 100644
  
  	curXL = std::max(curXL, totalWidth);
  	curYL = std::max(curYL, totalHeight);
-@@ -381,6 +430,12 @@ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY,
+@@ -392,6 +441,12 @@ void RenderSubsystem::DrawText(UFont* font, vec4 color, float orgX, float orgY,
  
  void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float orgY, float curX, float curY, const std::string& text, uint32_t polyflags, bool checkHotKey, float clipX, float clipY, bool center)
  {
@@ -450,7 +451,7 @@ index 4b2aa5c5..8a52626f 100644
  	FontGlyph uglyph = font->GetGlyph('_');
  	int uwidth = uglyph.USize;
  	int uheight = uglyph.VSize;
-@@ -397,7 +452,7 @@ void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float
+@@ -408,7 +463,7 @@ void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float
  
  	bool foundAmpersand = false;
  	int maxY = 0;
@@ -459,7 +460,7 @@ index 4b2aa5c5..8a52626f 100644
  	{
  		if (checkHotKey && c == '&' && !foundAmpersand)
  		{
-@@ -457,7 +512,7 @@ void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float
+@@ -468,7 +523,7 @@ void RenderSubsystem::DrawTextClipped(UFont* font, vec4 color, float orgX, float
  
  			Rectf dest = Rectf::xywh(orgX + curX + centerX, orgY + curY, (float)glyph.USize, (float)glyph.VSize);
  			Rectf src = Rectf::xywh((float)glyph.StartU, (float)glyph.StartV, (float)glyph.USize, (float)glyph.VSize);
@@ -468,7 +469,7 @@ index 4b2aa5c5..8a52626f 100644
  
  			curX += glyph.USize;
  			maxY = std::max(maxY, glyph.VSize);
-@@ -528,7 +583,7 @@ vec2 RenderSubsystem::GetTextSize(UFont* font, const std::string& text, float sp
+@@ -539,7 +594,7 @@ vec2 RenderSubsystem::GetTextSize(UFont* font, const std::string& text, float sp
  {
  	float x = 0.0f;
  	float y = 0.0f;
@@ -516,7 +517,7 @@ index f3fcef6d..d0bbc9c1 100644
  
  void RenderSubsystem::DrawEditorViewport()
 diff --git a/SurrealEngine/Render/RenderSubsystem.h b/SurrealEngine/Render/RenderSubsystem.h
-index 0f88fc9c..d66b5d5b 100644
+index cd5eb208..9d7b2353 100644
 --- a/SurrealEngine/Render/RenderSubsystem.h
 +++ b/SurrealEngine/Render/RenderSubsystem.h
 @@ -23,6 +23,7 @@ public:
@@ -527,7 +528,7 @@ index 0f88fc9c..d66b5d5b 100644
  	void OnMapLoaded();
  
  	void DrawActor(UActor* actor, bool WireFrame, bool ClearZ);
-@@ -105,7 +106,7 @@ private:
+@@ -106,7 +107,7 @@ private:
  
  	struct
  	{
@@ -609,7 +610,7 @@ index 984fdbfc..e3ab5663 100644
 +	}
  }
 diff --git a/SurrealEngine/Render/VisibleBrush.cpp b/SurrealEngine/Render/VisibleBrush.cpp
-index 74911e16..71fd8462 100644
+index 823eb35f..ee510450 100644
 --- a/SurrealEngine/Render/VisibleBrush.cpp
 +++ b/SurrealEngine/Render/VisibleBrush.cpp
 @@ -20,25 +20,47 @@ bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass
@@ -812,7 +813,7 @@ index 36448a66..3f69fb58 100644
  	bool DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly& poly, int pass, UMover* mover, bool translucentPass);
  };
 diff --git a/SurrealEngine/Render/VisibleFrame.cpp b/SurrealEngine/Render/VisibleFrame.cpp
-index 818aa65d..b3f9dd36 100644
+index e75cc24f..0753c9e0 100644
 --- a/SurrealEngine/Render/VisibleFrame.cpp
 +++ b/SurrealEngine/Render/VisibleFrame.cpp
 @@ -2,6 +2,7 @@
@@ -908,7 +909,7 @@ index 818aa65d..b3f9dd36 100644
  		}
  		else if (PolyFlags & PF_Portal)
  		{
--			int portalZone = front ? node->Zone1 : node->Zone0;
+-			int portalZone = front ? node->Zone0 : node->Zone1;
 +			// The zone beyond the portal as seen from the frame's eye: a BSP mirror's frame keeps the real camera as
 +			// ViewLocation, on the other side of a portal the reflection looks through (Lev5_Final's Mirror of Erised
 +			// looks back into a warp zone)
@@ -1081,7 +1082,7 @@ index 435b42ab..c992a02c 100644
  	Array<VisibleNode> OpaqueNodes;
  	Array<VisibleActor> Actors;
 diff --git a/SurrealEngine/Render/VisibleMesh.cpp b/SurrealEngine/Render/VisibleMesh.cpp
-index 9a14d426..51e6147b 100644
+index 331caac5..81574634 100644
 --- a/SurrealEngine/Render/VisibleMesh.cpp
 +++ b/SurrealEngine/Render/VisibleMesh.cpp
 @@ -12,6 +12,7 @@
@@ -1105,7 +1106,7 @@ index 9a14d426..51e6147b 100644
 +				mat4 weaponMeshToWorld = hp1WeaponFrame * mat4::scale(weapon->ThirdPersonScale()) * weaponMesh->meshToObject;
 +				mat3 weaponNormalToWorld = mat3::transpose(mat3(weaponMeshToWorld));
 +				KW::BeginWeaponDraw(weapon, hp1WeaponFrame, weapon->ThirdPersonScale());
-+				needsTranslucentPass = DrawMeshAtLocation(frame, weapon, actor, weaponMesh, weaponMeshToWorld, weaponNormalToWorld, translucentPass) || needsTranslucentPass;
++				needsTranslucentPass = DrawMeshAtLocation(frame, weapon, actor, weaponMesh, weaponMeshToWorld, weaponNormalToWorld, weapon->ThirdPersonScale(), translucentPass) || needsTranslucentPass;
 +				KW::EndWeaponDraw();
 +			}
 +		}
@@ -1113,7 +1114,7 @@ index 9a14d426..51e6147b 100644
  		{
  			// Find attachment triangle location in the world:
  			const vec3& v0 = attachmentTris[0];
-@@ -142,6 +155,7 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, UActor* lightLoca
+@@ -142,11 +155,12 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, UActor* lightLoca
  	if (actor->bUnlit() || actor->Region().ZoneNumber == 0) polyflags |= PF_Unlit;
  
  	bool needTranslucentPass = false;
@@ -1121,6 +1122,12 @@ index 9a14d426..51e6147b 100644
  
  	UZoneInfo* zoneActor = engine->GetZoneActor(actor->Region().ZoneNumber);
  
+ 	VertexLight vertexLight;
+-	lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor, vec4((ObjectToWorld * (mesh->BoundingSphere.xyz(), 1.0f)).xyz(), mesh->BoundingSphere.z * scale));
++	lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor, vec4((ObjectToWorld * vec4(mesh->BoundingSphere.xyz(), 1.0f)).xyz(), mesh->BoundingSphere.w * scale));
+ 
+ 	GouraudVertex vertices[3];
+ 	for (const MeshTri& tri : mesh->Tris)
 @@ -155,6 +169,7 @@ bool VisibleMesh::DrawMesh(VisibleFrame* frame, UActor* actor, UActor* lightLoca
  			continue;
  
@@ -1137,8 +1144,12 @@ index 9a14d426..51e6147b 100644
  		renderflags |= PF_RenderFog;
  
  		frame->Device->DrawGouraudPolygon(&frame->Frame, texinfo, vertices, 3, renderflags);
-@@ -456,6 +472,7 @@ bool VisibleMesh::DrawLodMeshFace(VisibleFrame* frame, UActor* actor, UActor* li
- 	lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor);
+@@ -453,9 +469,10 @@ bool VisibleMesh::DrawLodMeshFace(VisibleFrame* frame, UActor* actor, UActor* li
+ 	UZoneInfo* zoneActor = engine->GetZoneActor(actor->Region().ZoneNumber);
+ 
+ 	VertexLight vertexLight;
+-	lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor, vec4((ObjectToWorld * (mesh->BoundingSphere.xyz(), 1.0f)).xyz(), mesh->BoundingSphere.z * scale));
++	lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor, vec4((ObjectToWorld * vec4(mesh->BoundingSphere.xyz(), 1.0f)).xyz(), mesh->BoundingSphere.w * scale));
  
  	bool needTranslucentPass = false;
 +	float opacity = engine->LaunchInfo.IsKnowWonder() ? KW::MeshOpacity(actor) : 1.0f;
@@ -1163,7 +1174,7 @@ index 9a14d426..51e6147b 100644
  		frame->Device->DrawGouraudPolygon(&frame->Frame, texinfo, vertices, 3, renderflags);
 @@ -558,6 +577,12 @@ bool VisibleMesh::DrawLodMeshFace(VisibleFrame* frame, UActor* actor, UActor* li
  
- bool VisibleMesh::DrawSkeletalMesh(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, USkeletalMesh* mesh, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, bool translucentPass)
+ bool VisibleMesh::DrawSkeletalMesh(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, USkeletalMesh* mesh, const mat4& ObjectToWorld, const mat3& ObjectNormalToWorld, float scale, bool translucentPass)
  {
 +	if (engine->LaunchInfo.IsKnowWonder()) // HP1 skeletal pose + skinning (src/knowwonder/Anim)
 +	{
@@ -1171,11 +1182,29 @@ index 9a14d426..51e6147b 100644
 +		return KW::DrawSkeletalMesh(frame, actor, lightLocationActor, mesh, translucentPass);
 +	}
 +
- 	return DrawLodMesh(frame, actor, lightLocationActor, mesh, ObjectToWorld, ObjectNormalToWorld, translucentPass);
+ 	return DrawLodMesh(frame, actor, lightLocationActor, mesh, ObjectToWorld, ObjectNormalToWorld, scale, translucentPass);
  }
  
+@@ -681,7 +706,7 @@ bool VisibleMesh::DrawMeshDX(VisibleFrame* frame, UActor* actor, UActor* lightLo
+ 	UZoneInfo* zoneActor = engine->GetZoneActor(actor->Region().ZoneNumber);
+ 
+ 	VertexLight vertexLight;
+-	lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor, vec4((ObjectToWorld * (mesh->BoundingSphere.xyz(), 1.0f)).xyz(), mesh->BoundingSphere.z * scale));
++	lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor, vec4((ObjectToWorld * vec4(mesh->BoundingSphere.xyz(), 1.0f)).xyz(), mesh->BoundingSphere.w * scale));
+ 
+ 	GouraudVertex vertices[3];
+ 	for (const MeshTri& tri : mesh->Tris)
+@@ -924,7 +949,7 @@ bool VisibleMesh::DrawLodMeshFaceDX(VisibleFrame* frame, UActor* actor, UActor*
+ 	UZoneInfo* zoneActor = engine->GetZoneActor(actor->Region().ZoneNumber);
+ 
+ 	VertexLight vertexLight;
+-	lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor, vec4((ObjectToWorld * (mesh->BoundingSphere.xyz(), 1.0f)).xyz(), mesh->BoundingSphere.z * scale));
++	lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor, vec4((ObjectToWorld * vec4(mesh->BoundingSphere.xyz(), 1.0f)).xyz(), mesh->BoundingSphere.w * scale));
+ 
+ 	bool needTranslucentPass = false;
+ 
 diff --git a/SurrealEngine/Render/VisibleNode.cpp b/SurrealEngine/Render/VisibleNode.cpp
-index 1a567482..94d82262 100644
+index 57a391a6..529e0d14 100644
 --- a/SurrealEngine/Render/VisibleNode.cpp
 +++ b/SurrealEngine/Render/VisibleNode.cpp
 @@ -3,6 +3,7 @@
@@ -1186,7 +1215,7 @@ index 1a567482..94d82262 100644
  #include "Engine.h"
  #include "Packages/Engine/Resources/Level/ULevel.h"
  #include "Packages/Engine/Resources/Level/UModel.h"
-@@ -71,6 +72,11 @@ void VisibleNode::Draw(VisibleFrame* frame)
+@@ -71,13 +72,19 @@ void VisibleNode::Draw(VisibleFrame* frame)
  		}
  	}
  
@@ -1196,10 +1225,9 @@ index 1a567482..94d82262 100644
 +		return;
 +
  	TextureInfo lightmap;
- 	TextureInfo fogmap;
  	if ((PolyFlags & PF_Unlit) == 0)
-@@ -80,7 +86,8 @@ void VisibleNode::Draw(VisibleFrame* frame)
- 	}
+ 		lightmap = engine->Level->Light.GetLevelLightmap(surface, zoneActor, model);
+ 	TextureInfo fogmap = engine->Level->Light.GetLevelFogmap(surface, engine->CameraActor->Region().Zone, model);
  
  	SurfaceInfo surfaceinfo;
 -	surfaceinfo.PolyFlags = PolyFlags;
