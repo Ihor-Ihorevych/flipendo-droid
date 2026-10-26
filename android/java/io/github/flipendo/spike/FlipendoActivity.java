@@ -639,6 +639,8 @@ public class FlipendoActivity extends SDLActivity {
 
     /** The renderer choice in GAME_DIR: "vulkan" (default), "opengl" (Settings) or "opengl-auto" (Vulkan failed; android_main.cpp). */
     static final String RENDERER_FILE = ".flipendo-renderer";
+    /** Settings > Free camera (Philosopher's Stone): the file exists = android_main.cpp starts the game with --mod=free-cam. */
+    static final String FREECAM_FILE = ".flipendo-freecam";
 
     /** Needs "All files access" to read the game data; opens the system page for it on first launch. */
     private boolean ensureStorageAccess() {
