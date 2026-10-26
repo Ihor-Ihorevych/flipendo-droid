@@ -588,3 +588,7 @@ Merged with Flipendo again (upstream e251a17: SurrealEngine c41d349e, the Free C
 ## 0.4.4B
 
 - The **Free camera** checkbox of 0.4.4A is gone again: it did not work on the phone (the mod needs more than the mouse input the touch layer feeds it). The `free-cam` mod is still in the engine, off, with no switch on Android.
+
+## 0.4.4C
+
+- **Chamber of Secrets started in the blue grid map (`startup.unr`) on New Game and Load** in 0.4.4 / 0.4.4A / 0.4.4B: the merge with upstream lost the `HP2::OpenStartMenu()` / `HP2::TickTouch()` calls in `Engine::Tick` (my hand merge of the new simulation-step loop in `Engine.cpp` silently did not match), so the launcher's `hp2_start.txt` was never read and the game never travelled to PrivetDr or the saved level. Restored inside the step loop (first step only), with the profiling scopes that were lost the same way.

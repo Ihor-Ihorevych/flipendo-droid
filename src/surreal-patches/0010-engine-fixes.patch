@@ -1,7 +1,7 @@
 flipendo: fixes to SurrealEngine bugs (any game): VM (and HP2's bytecode tokens), properties, ini files (UTF-16 localization files), packages (Unicode strings), UTF-16 strings and file names that differ in case on Linux, GetLanguage, fonts (character remap, text drawn by code point, runtime-made fonts), crash reports, music streaming and following the default audio device (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties
 
 diff --git a/SurrealEngine/Audio/AudioDevice.h b/SurrealEngine/Audio/AudioDevice.h
-index c334c78..12c7e09 100644
+index c334c781..12c7e097 100644
 --- a/SurrealEngine/Audio/AudioDevice.h
 +++ b/SurrealEngine/Audio/AudioDevice.h
 @@ -26,5 +26,13 @@ public:
@@ -19,7 +19,7 @@ index c334c78..12c7e09 100644
  	virtual void Update() = 0;
  };
 diff --git a/SurrealEngine/Audio/AudioPlayer.cpp b/SurrealEngine/Audio/AudioPlayer.cpp
-index f1bb061..418bf58 100644
+index f1bb061f..418bf582 100644
 --- a/SurrealEngine/Audio/AudioPlayer.cpp
 +++ b/SurrealEngine/Audio/AudioPlayer.cpp
 @@ -290,6 +290,16 @@ public:
@@ -40,7 +40,7 @@ index f1bb061..418bf58 100644
  
  #include <alsa/asoundlib.h>
 diff --git a/SurrealEngine/Audio/AudioSource.cpp b/SurrealEngine/Audio/AudioSource.cpp
-index 241acdd..3d45348 100644
+index 241acddf..3d45348f 100644
 --- a/SurrealEngine/Audio/AudioSource.cpp
 +++ b/SurrealEngine/Audio/AudioSource.cpp
 @@ -365,8 +365,15 @@ public:
@@ -77,7 +77,7 @@ index 241acdd..3d45348 100644
  			int c = stream_info.channels;
  			for (int j = 0; j < c; j++)
 diff --git a/SurrealEngine/Audio/OpenAL/ALSoundSource.cpp b/SurrealEngine/Audio/OpenAL/ALSoundSource.cpp
-index 9056d01..44526ab 100644
+index 9056d016..44526ab0 100644
 --- a/SurrealEngine/Audio/OpenAL/ALSoundSource.cpp
 +++ b/SurrealEngine/Audio/OpenAL/ALSoundSource.cpp
 @@ -3,6 +3,7 @@
@@ -178,7 +178,7 @@ index 9056d01..44526ab 100644
  	{
  		pitch = newPitch;
 diff --git a/SurrealEngine/Audio/OpenAL/ALSoundSource.h b/SurrealEngine/Audio/OpenAL/ALSoundSource.h
-index 442234a..898ea7b 100644
+index 442234ad..898ea7bd 100644
 --- a/SurrealEngine/Audio/OpenAL/ALSoundSource.h
 +++ b/SurrealEngine/Audio/OpenAL/ALSoundSource.h
 @@ -23,8 +23,12 @@ public:
@@ -203,7 +203,7 @@ index 442234a..898ea7b 100644
 +	float maxVolume = 1.0f;
  };
 diff --git a/SurrealEngine/Audio/OpenAL/OpenALAudioDevice.cpp b/SurrealEngine/Audio/OpenAL/OpenALAudioDevice.cpp
-index 0917637..7a49194 100644
+index 09176379..7a491946 100644
 --- a/SurrealEngine/Audio/OpenAL/OpenALAudioDevice.cpp
 +++ b/SurrealEngine/Audio/OpenAL/OpenALAudioDevice.cpp
 @@ -45,6 +45,9 @@ OpenALAudioDevice::OpenALAudioDevice(int inFrequency, int numVoices, int inMusic
@@ -555,7 +555,7 @@ index 0917637..7a49194 100644
 +		LogMessage(std::string("Audio device: now ") + alcGetString(alDevice, ALC_ALL_DEVICES_SPECIFIER) + (connected ? "" : " (the last one was lost)") + ", system default " + newDefault);
 +}
 diff --git a/SurrealEngine/Audio/OpenAL/OpenALAudioDevice.h b/SurrealEngine/Audio/OpenAL/OpenALAudioDevice.h
-index e5a4d32..98d4524 100644
+index e5a4d325..98d4524f 100644
 --- a/SurrealEngine/Audio/OpenAL/OpenALAudioDevice.h
 +++ b/SurrealEngine/Audio/OpenAL/OpenALAudioDevice.h
 @@ -9,6 +9,8 @@
@@ -619,7 +619,7 @@ index e5a4d32..98d4524 100644
 +	vec3 listenerVelocity = vec3(0.0f);
  };
 diff --git a/SurrealEngine/Native/NObject.cpp b/SurrealEngine/Native/NObject.cpp
-index f423753..fc817ce 100644
+index f4237532..fc817ce7 100644
 --- a/SurrealEngine/Native/NObject.cpp
 +++ b/SurrealEngine/Native/NObject.cpp
 @@ -12,6 +12,7 @@
@@ -759,7 +759,7 @@ index f423753..fc817ce 100644
  
  void NObject::GetConfigString_Nerf(const std::string& section, const std::string& key, const std::string& iniName, std::string& ReturnValue)
 diff --git a/SurrealEngine/ObjectTravelInfo.cpp b/SurrealEngine/ObjectTravelInfo.cpp
-index 1559ad6..e3e759f 100644
+index 1559ad63..e3e759f0 100644
 --- a/SurrealEngine/ObjectTravelInfo.cpp
 +++ b/SurrealEngine/ObjectTravelInfo.cpp
 @@ -3,6 +3,7 @@
@@ -848,7 +848,7 @@ index 1559ad6..e3e759f 100644
  			{
  				std::string propertyNameStr;
 diff --git a/SurrealEngine/Package/IniFile.cpp b/SurrealEngine/Package/IniFile.cpp
-index 6aab46e..4737e49 100644
+index 6aab46e1..4737e497 100644
 --- a/SurrealEngine/Package/IniFile.cpp
 +++ b/SurrealEngine/Package/IniFile.cpp
 @@ -3,6 +3,8 @@
@@ -950,7 +950,7 @@ index 6aab46e..4737e49 100644
  				// If we did, then get the next index from it, else add the key we found to the database
  				int found_index = 0;
 diff --git a/SurrealEngine/Package/ObjectStream.h b/SurrealEngine/Package/ObjectStream.h
-index 1c5144c..9825a51 100644
+index 1c5144c4..9825a51a 100644
 --- a/SurrealEngine/Package/ObjectStream.h
 +++ b/SurrealEngine/Package/ObjectStream.h
 @@ -3,6 +3,7 @@
@@ -980,7 +980,7 @@ index 1c5144c..9825a51 100644
  				Exception::Throw("ObjectStream::ReadString: Invalid size in " + package->GetPackageName().ToString());
  			Array<char> s;
 diff --git a/SurrealEngine/Package/Package.cpp b/SurrealEngine/Package/Package.cpp
-index 78b0a27..c96a6e5 100644
+index 78b0a27d..c96a6e5b 100644
 --- a/SurrealEngine/Package/Package.cpp
 +++ b/SurrealEngine/Package/Package.cpp
 @@ -5,6 +5,8 @@
@@ -1014,7 +1014,7 @@ index 78b0a27..c96a6e5 100644
  	}
  	else
 diff --git a/SurrealEngine/Packages/Core/Properties/UProperty.h b/SurrealEngine/Packages/Core/Properties/UProperty.h
-index 355f97f..e56e03c 100644
+index 355f97f3..e56e03cf 100644
 --- a/SurrealEngine/Packages/Core/Properties/UProperty.h
 +++ b/SurrealEngine/Packages/Core/Properties/UProperty.h
 @@ -146,7 +146,7 @@ inline void* PropertyDataBlock::Ptr(const UProperty* prop)
@@ -1034,7 +1034,7 @@ index 355f97f..e56e03c 100644
 +	Exception::Throw("Property offset out of bounds! (" + prop->Name.ToString() + " at " + std::to_string(offset) + ", size " + std::to_string(Size) + ")");
  }
 diff --git a/SurrealEngine/Packages/Core/Properties/UStrProperty.cpp b/SurrealEngine/Packages/Core/Properties/UStrProperty.cpp
-index ce5b70f..efd6537 100644
+index ce5b70fc..efd65370 100644
 --- a/SurrealEngine/Packages/Core/Properties/UStrProperty.cpp
 +++ b/SurrealEngine/Packages/Core/Properties/UStrProperty.cpp
 @@ -45,7 +45,12 @@ void UStrProperty::SaveValue(void* data, PackageStreamWriter* stream)
@@ -1052,7 +1052,7 @@ index ce5b70f..efd6537 100644
  
  std::string UStrProperty::PrintValue(const void* data)
 diff --git a/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp b/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp
-index 2f91f14..e3a86d3 100644
+index 2f91f141..e3a86d3f 100644
 --- a/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp
 +++ b/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp
 @@ -49,8 +49,12 @@ void UStructProperty::LoadStructMemberValue(void* data, ObjectStream* stream)
@@ -1095,7 +1095,7 @@ index 2f91f14..e3a86d3 100644
  			}
  		}
 diff --git a/SurrealEngine/Packages/Core/UObject.cpp b/SurrealEngine/Packages/Core/UObject.cpp
-index 14b87d6..fcb0e7d 100644
+index 14b87d6f..fcb0e7d1 100644
 --- a/SurrealEngine/Packages/Core/UObject.cpp
 +++ b/SurrealEngine/Packages/Core/UObject.cpp
 @@ -30,7 +30,16 @@ void UObject::LoadNow()
@@ -1232,7 +1232,7 @@ index 14b87d6..fcb0e7d 100644
  	}
  
 diff --git a/SurrealEngine/Packages/Core/UObject.h b/SurrealEngine/Packages/Core/UObject.h
-index 4333e1a..7aa62ea 100644
+index 4333e1ac..7aa62eac 100644
 --- a/SurrealEngine/Packages/Core/UObject.h
 +++ b/SurrealEngine/Packages/Core/UObject.h
 @@ -337,6 +337,11 @@ public:
@@ -1263,7 +1263,7 @@ index 4333e1a..7aa62ea 100644
 +	Exception::Throw("Property offset out of bounds! (offset " + std::to_string(offset) + ", size " + std::to_string(Size) + ")");
  }
 diff --git a/SurrealEngine/Packages/Core/UState.cpp b/SurrealEngine/Packages/Core/UState.cpp
-index 55f5c3f..57069c4 100644
+index 55f5c3f7..57069c47 100644
 --- a/SurrealEngine/Packages/Core/UState.cpp
 +++ b/SurrealEngine/Packages/Core/UState.cpp
 @@ -28,3 +28,14 @@ void UState::Save(PackageStreamWriter* stream)
@@ -1282,7 +1282,7 @@ index 55f5c3f..57069c4 100644
 +	return nullptr;
 +}
 diff --git a/SurrealEngine/Packages/Core/UState.h b/SurrealEngine/Packages/Core/UState.h
-index e0615c5..98d86ac 100644
+index e0615c50..98d86ac5 100644
 --- a/SurrealEngine/Packages/Core/UState.h
 +++ b/SurrealEngine/Packages/Core/UState.h
 @@ -29,6 +29,8 @@ public:
@@ -1296,7 +1296,7 @@ index e0615c5..98d86ac 100644
  	std::map<NameString, UFunction*> Functions;
  };
 diff --git a/SurrealEngine/Packages/Core/UStruct.cpp b/SurrealEngine/Packages/Core/UStruct.cpp
-index c6fb195..6b7b1c7 100644
+index c6fb1957..6b7b1c73 100644
 --- a/SurrealEngine/Packages/Core/UStruct.cpp
 +++ b/SurrealEngine/Packages/Core/UStruct.cpp
 @@ -8,6 +8,7 @@
@@ -1344,7 +1344,7 @@ index c6fb195..6b7b1c7 100644
  		ReadToken(stream, depth);
  	}
 diff --git a/SurrealEngine/Packages/Engine/Resources/UFont.cpp b/SurrealEngine/Packages/Engine/Resources/UFont.cpp
-index 47d655d..474cfd0 100644
+index 47d655d1..474cfd09 100644
 --- a/SurrealEngine/Packages/Engine/Resources/UFont.cpp
 +++ b/SurrealEngine/Packages/Engine/Resources/UFont.cpp
 @@ -2,6 +2,7 @@
@@ -1462,7 +1462,7 @@ index 47d655d..474cfd0 100644
 +	native = true;
 +}
 diff --git a/SurrealEngine/Packages/Engine/Resources/UFont.h b/SurrealEngine/Packages/Engine/Resources/UFont.h
-index 998435b..add5ee5 100644
+index 998435b4..add5ee5d 100644
 --- a/SurrealEngine/Packages/Engine/Resources/UFont.h
 +++ b/SurrealEngine/Packages/Engine/Resources/UFont.h
 @@ -41,11 +41,32 @@ public:
@@ -1501,7 +1501,7 @@ index 998435b..add5ee5 100644
 +	bool native = false;
  };
 diff --git a/SurrealEngine/PropertyOffsets.cpp b/SurrealEngine/PropertyOffsets.cpp
-index 5308fe1..4414bc9 100644
+index 5308fe1c..4414bc97 100644
 --- a/SurrealEngine/PropertyOffsets.cpp
 +++ b/SurrealEngine/PropertyOffsets.cpp
 @@ -5603,9 +5603,12 @@ void InitPropertyOffsets(PackageManager* packages)
@@ -1521,7 +1521,7 @@ index 5308fe1..4414bc9 100644
  	if (packages->IsUnreal1())
  	{
 diff --git a/SurrealEngine/UI/ErrorWindow/ErrorWindow.cpp b/SurrealEngine/UI/ErrorWindow/ErrorWindow.cpp
-index 218f755..68fcd29 100644
+index 218f7552..68fcd29f 100644
 --- a/SurrealEngine/UI/ErrorWindow/ErrorWindow.cpp
 +++ b/SurrealEngine/UI/ErrorWindow/ErrorWindow.cpp
 @@ -10,6 +10,7 @@
@@ -1545,7 +1545,7 @@ index 218f755..68fcd29 100644
  
  			LogMessageLine line;
 diff --git a/SurrealEngine/Utils/File.cpp b/SurrealEngine/Utils/File.cpp
-index 3a70976..48030dd 100644
+index 3a709765..48030ddb 100644
 --- a/SurrealEngine/Utils/File.cpp
 +++ b/SurrealEngine/Utils/File.cpp
 @@ -545,4 +545,33 @@ std::string OS::find_truetype_font(const std::string& font_name_and_extension)
@@ -1585,7 +1585,7 @@ index 3a70976..48030dd 100644
 +	return result;
 +}
 diff --git a/SurrealEngine/Utils/File.h b/SurrealEngine/Utils/File.h
-index b2ae131..772b931 100644
+index b2ae131f..772b9317 100644
 --- a/SurrealEngine/Utils/File.h
 +++ b/SurrealEngine/Utils/File.h
 @@ -39,6 +39,10 @@ public:
@@ -1600,7 +1600,7 @@ index b2ae131..772b931 100644
  	static void delete_always(const std::string& filename);
  
 diff --git a/SurrealEngine/Utils/UTF16.cpp b/SurrealEngine/Utils/UTF16.cpp
-index 7f36592..1b21673 100644
+index 7f36592b..1b21673f 100644
 --- a/SurrealEngine/Utils/UTF16.cpp
 +++ b/SurrealEngine/Utils/UTF16.cpp
 @@ -35,14 +35,84 @@ std::wstring to_utf16(const std::string& str)
@@ -1691,7 +1691,7 @@ index 7f36592..1b21673 100644
  
  #endif
 diff --git a/SurrealEngine/VM/Bytecode.cpp b/SurrealEngine/VM/Bytecode.cpp
-index 5ef79b4..e85f218 100644
+index 5ef79b40..e85f2185 100644
 --- a/SurrealEngine/VM/Bytecode.cpp
 +++ b/SurrealEngine/VM/Bytecode.cpp
 @@ -11,6 +11,7 @@ MemoryArena Bytecode::arena(1024 * 1024);
@@ -1726,7 +1726,7 @@ index 5ef79b4..e85f218 100644
  		DynArrayToIntExpression* expr = Create<DynArrayToIntExpression>(exproffset);
  		expr->Value = ReadToken(stream, depth);
 diff --git a/SurrealEngine/VM/Bytecode.h b/SurrealEngine/VM/Bytecode.h
-index dfa376d..52d434b 100644
+index dfa376d1..52d434b8 100644
 --- a/SurrealEngine/VM/Bytecode.h
 +++ b/SurrealEngine/VM/Bytecode.h
 @@ -5,6 +5,7 @@
@@ -1788,7 +1788,7 @@ index dfa376d..52d434b 100644
 +	bool hp2Tokens = false;
  };
 diff --git a/SurrealEngine/VM/ExpressionEvaluator.cpp b/SurrealEngine/VM/ExpressionEvaluator.cpp
-index ff50042..379bd08 100644
+index ff500427..379bd08f 100644
 --- a/SurrealEngine/VM/ExpressionEvaluator.cpp
 +++ b/SurrealEngine/VM/ExpressionEvaluator.cpp
 @@ -204,7 +204,8 @@ void ExpressionEvaluator::Expr(ClassContextExpression* expr)
@@ -1802,7 +1802,7 @@ index ff50042..379bd08 100644
  }
  
 diff --git a/SurrealEngine/VM/ExpressionValue.h b/SurrealEngine/VM/ExpressionValue.h
-index 908adb9..7c3a378 100644
+index 908adb98..7c3a3783 100644
 --- a/SurrealEngine/VM/ExpressionValue.h
 +++ b/SurrealEngine/VM/ExpressionValue.h
 @@ -161,6 +161,7 @@ public:
@@ -1862,7 +1862,7 @@ index 908adb9..7c3a378 100644
  		{
  			Array->CopyArray(Ptr, rvalue.Ptr);
 diff --git a/SurrealEngine/VM/Frame.cpp b/SurrealEngine/VM/Frame.cpp
-index 456f993..fe2bf13 100644
+index 456f993e..fe2bf13e 100644
 --- a/SurrealEngine/VM/Frame.cpp
 +++ b/SurrealEngine/VM/Frame.cpp
 @@ -1,5 +1,6 @@
@@ -2154,7 +2154,7 @@ index 456f993..fe2bf13 100644
  						PopExpr();
  					}
 diff --git a/SurrealEngine/VM/Frame.h b/SurrealEngine/VM/Frame.h
-index d302a40..3395cc1 100644
+index d302a401..3395cc11 100644
 --- a/SurrealEngine/VM/Frame.h
 +++ b/SurrealEngine/VM/Frame.h
 @@ -81,7 +81,7 @@ public:

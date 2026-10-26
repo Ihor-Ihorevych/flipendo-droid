@@ -1,7 +1,7 @@
 flipendo: Harry Potter 2: its sound objects' extra fields and XA sounds, no IpDrv package, actors' tick parents
 
 diff --git a/SurrealEngine/Packages/Engine/Resources/Level/ULevel.cpp b/SurrealEngine/Packages/Engine/Resources/Level/ULevel.cpp
-index 5088612..7011ea8 100644
+index 5088612a..7011ea88 100644
 --- a/SurrealEngine/Packages/Engine/Resources/Level/ULevel.cpp
 +++ b/SurrealEngine/Packages/Engine/Resources/Level/ULevel.cpp
 @@ -7,6 +7,7 @@
@@ -43,7 +43,7 @@ index 5088612..7011ea8 100644
  	actor->Tick(elapsed);
  
 diff --git a/SurrealEngine/Packages/Engine/Resources/USound.h b/SurrealEngine/Packages/Engine/Resources/USound.h
-index c937674..4db521f 100644
+index c937674f..4db521f2 100644
 --- a/SurrealEngine/Packages/Engine/Resources/USound.h
 +++ b/SurrealEngine/Packages/Engine/Resources/USound.h
 @@ -32,6 +32,11 @@ public:

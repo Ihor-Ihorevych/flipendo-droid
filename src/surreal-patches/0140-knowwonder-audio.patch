@@ -1,7 +1,7 @@
 flipendo: KnowWonder sound and music (HP2's XA ADPCM sounds)
 
 diff --git a/SurrealEngine/Packages/Engine/Resources/USound.cpp b/SurrealEngine/Packages/Engine/Resources/USound.cpp
-index df526a7..4403509 100644
+index df526a71..4403509e 100644
 --- a/SurrealEngine/Packages/Engine/Resources/USound.cpp
 +++ b/SurrealEngine/Packages/Engine/Resources/USound.cpp
 @@ -2,6 +2,7 @@
@@ -94,7 +94,7 @@ index df526a7..4403509 100644
  	{
  		Exception::Throw("Unsupported sound format: " + Format.ToString());
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
-index 9b3b349..ec778ab 100644
+index 9b3b3499..ec778ab6 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 +++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 @@ -9,12 +9,31 @@
@@ -509,7 +509,7 @@ index 9b3b349..ec778ab 100644
  	m_Viewport = nullptr;
  }
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h
-index 3bd4c64..3a41b5f 100644
+index 3bd4c645..3a41b5fc 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h
 +++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h
 @@ -3,12 +3,12 @@

@@ -1,7 +1,7 @@
 flipendo: KnowWonder actor tick, native actors (ParticleFX, Wind), animation
 
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor.cpp b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
-index 2091167..e224404 100644
+index 20911673..e2244041 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor.cpp
 @@ -9,6 +9,8 @@
@@ -137,7 +137,7 @@ index 2091167..e224404 100644
 +	return radius;
 +}
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor.h b/SurrealEngine/Packages/Engine/Actors/UActor.h
-index 8b39b40..5fb11f0 100644
+index 8b39b403..5fb11f00 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor.h
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor.h
 @@ -384,6 +384,7 @@ public:
@@ -167,7 +167,7 @@ index 8b39b40..5fb11f0 100644
  	vec3& Acceleration() { return Value<vec3>(PropOffsets_Actor.Acceleration); }
  	uint8_t& AmbientGlow() { return Value<uint8_t>(PropOffsets_Actor.AmbientGlow); }
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
-index e58877f..3e079eb 100644
+index e58877fd..3e079eb7 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_Animation.cpp
 @@ -6,6 +6,7 @@
@@ -192,7 +192,7 @@ index e58877f..3e079eb 100644
  	{
  		if (!IsAnimating() || AnimFrame() >= AnimLast())
 diff --git a/SurrealEngine/Packages/Engine/Resources/Mesh/UAnimation.cpp b/SurrealEngine/Packages/Engine/Resources/Mesh/UAnimation.cpp
-index 53982dc..76d59fd 100644
+index 53982dc0..76d59fdb 100644
 --- a/SurrealEngine/Packages/Engine/Resources/Mesh/UAnimation.cpp
 +++ b/SurrealEngine/Packages/Engine/Resources/Mesh/UAnimation.cpp
 @@ -2,12 +2,19 @@

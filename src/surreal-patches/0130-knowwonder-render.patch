@@ -1,7 +1,7 @@
 flipendo: KnowWonder rendering (FOV, skeletal meshes, particles, translucency, vertex alpha, actor shadows, textures; loading screen; menu canvas, coronas); BSP surfaces take the zone on the camera's side and sprites are drawn right side up (any game)
 
 diff --git a/SurrealEngine/Light/LightSystem.h b/SurrealEngine/Light/LightSystem.h
-index 8c91bf4..befc246 100644
+index 8c91bf4a..befc2465 100644
 --- a/SurrealEngine/Light/LightSystem.h
 +++ b/SurrealEngine/Light/LightSystem.h
 @@ -200,7 +200,7 @@ public:
@@ -14,7 +14,7 @@ index 8c91bf4..befc246 100644
  	void CheckLight(UActor* light);
  	void UpdateFogmapTexture(uint32_t* texels, UModel* model, const Coords& mapCoords, int lightMap, UZoneInfo* zoneActor);
 diff --git a/SurrealEngine/Light/LightSystem_Light.cpp b/SurrealEngine/Light/LightSystem_Light.cpp
-index ab7b211..e9b36d0 100644
+index ab7b2114..e9b36d08 100644
 --- a/SurrealEngine/Light/LightSystem_Light.cpp
 +++ b/SurrealEngine/Light/LightSystem_Light.cpp
 @@ -9,6 +9,7 @@
@@ -87,7 +87,7 @@ index ab7b211..e9b36d0 100644
  		{
  			CheckLight(light);
 diff --git a/SurrealEngine/Light/LightmapBuilder.cpp b/SurrealEngine/Light/LightmapBuilder.cpp
-index b5afb5c..4de9f31 100644
+index b5afb5c2..4de9f313 100644
 --- a/SurrealEngine/Light/LightmapBuilder.cpp
 +++ b/SurrealEngine/Light/LightmapBuilder.cpp
 @@ -8,6 +8,8 @@
@@ -144,7 +144,7 @@ index b5afb5c..4de9f31 100644
  	vec3 lightcolor = GetLightColor(light);
  	float lightcolorR = lightcolor.r;
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp
-index a457b9a..254714c 100644
+index a457b9a0..254714c9 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_Render.cpp
 @@ -6,6 +6,8 @@
@@ -178,7 +178,7 @@ index a457b9a..254714c 100644
  	{
  		UModel* brush = Brush();
 diff --git a/SurrealEngine/Packages/Engine/Resources/Textures/UIceTexture.cpp b/SurrealEngine/Packages/Engine/Resources/Textures/UIceTexture.cpp
-index 07a06c4..23cfa38 100644
+index 07a06c4e..23cfa38c 100644
 --- a/SurrealEngine/Packages/Engine/Resources/Textures/UIceTexture.cpp
 +++ b/SurrealEngine/Packages/Engine/Resources/Textures/UIceTexture.cpp
 @@ -1,9 +1,16 @@
@@ -199,7 +199,7 @@ index 07a06c4..23cfa38 100644
  	{
  		UnrealMipmap& mipmap = UsedMipmaps.front();
 diff --git a/SurrealEngine/Packages/Engine/Resources/Textures/UScriptedTexture.cpp b/SurrealEngine/Packages/Engine/Resources/Textures/UScriptedTexture.cpp
-index 3b52252..80f6309 100644
+index 3b522523..80f6309e 100644
 --- a/SurrealEngine/Packages/Engine/Resources/Textures/UScriptedTexture.cpp
 +++ b/SurrealEngine/Packages/Engine/Resources/Textures/UScriptedTexture.cpp
 @@ -63,7 +63,7 @@ void UScriptedTexture::DrawColoredText(float X, float Y, const std::string& Text
@@ -230,7 +230,7 @@ index 3b52252..80f6309 100644
  		FontGlyph glyph = Font->GetGlyph(c);
  		x += glyph.USize;
 diff --git a/SurrealEngine/Render/RenderCanvas.cpp b/SurrealEngine/Render/RenderCanvas.cpp
-index 56d705f..be86e76 100644
+index 56d705f2..be86e766 100644
 --- a/SurrealEngine/Render/RenderCanvas.cpp
 +++ b/SurrealEngine/Render/RenderCanvas.cpp
 @@ -8,6 +8,7 @@
@@ -483,7 +483,7 @@ index 56d705f..be86e76 100644
  		FontGlyph glyph = font->GetGlyph(c);
  		x += (float)glyph.USize + spaceX;
 diff --git a/SurrealEngine/Render/RenderScene.cpp b/SurrealEngine/Render/RenderScene.cpp
-index 0d0b3ba..c3e1931 100644
+index 0d0b3ba3..c3e19316 100644
 --- a/SurrealEngine/Render/RenderScene.cpp
 +++ b/SurrealEngine/Render/RenderScene.cpp
 @@ -1,5 +1,6 @@
@@ -519,7 +519,7 @@ index 0d0b3ba..c3e1931 100644
  
  void RenderSubsystem::DrawViewport(UViewportWindow* viewport)
 diff --git a/SurrealEngine/Render/RenderSubsystem.cpp b/SurrealEngine/Render/RenderSubsystem.cpp
-index f3fcef6..645df33 100644
+index f3fcef6d..645df333 100644
 --- a/SurrealEngine/Render/RenderSubsystem.cpp
 +++ b/SurrealEngine/Render/RenderSubsystem.cpp
 @@ -1,5 +1,6 @@
@@ -595,7 +595,7 @@ index f3fcef6..645df33 100644
  
  void RenderSubsystem::DrawEditorViewport()
 diff --git a/SurrealEngine/Render/RenderSubsystem.h b/SurrealEngine/Render/RenderSubsystem.h
-index cd5eb20..9d7b235 100644
+index cd5eb208..9d7b2353 100644
 --- a/SurrealEngine/Render/RenderSubsystem.h
 +++ b/SurrealEngine/Render/RenderSubsystem.h
 @@ -23,6 +23,7 @@ public:
@@ -616,7 +616,7 @@ index cd5eb20..9d7b235 100644
  		int framesDrawn = 0;
  		uint64_t startFPSTime = 0;
 diff --git a/SurrealEngine/Render/VisibleActor.cpp b/SurrealEngine/Render/VisibleActor.cpp
-index 984fdbf..e3ab566 100644
+index 984fdbfc..e3ab5663 100644
 --- a/SurrealEngine/Render/VisibleActor.cpp
 +++ b/SurrealEngine/Render/VisibleActor.cpp
 @@ -9,10 +9,13 @@
@@ -688,7 +688,7 @@ index 984fdbf..e3ab566 100644
 +	}
  }
 diff --git a/SurrealEngine/Render/VisibleBrush.cpp b/SurrealEngine/Render/VisibleBrush.cpp
-index 823eb35..ee51045 100644
+index 823eb35f..ee510450 100644
 --- a/SurrealEngine/Render/VisibleBrush.cpp
 +++ b/SurrealEngine/Render/VisibleBrush.cpp
 @@ -20,25 +20,47 @@ bool VisibleBrush::Draw(VisibleFrame* frame, UActor* actor, bool translucentPass
@@ -866,7 +866,7 @@ index 823eb35..ee51045 100644
  	SurfaceFacet facet;
  	facet.MapCoords.Origin = poly.Base;
 diff --git a/SurrealEngine/Render/VisibleBrush.h b/SurrealEngine/Render/VisibleBrush.h
-index 36448a6..3f69fb5 100644
+index 36448a66..3f69fb58 100644
 --- a/SurrealEngine/Render/VisibleBrush.h
 +++ b/SurrealEngine/Render/VisibleBrush.h
 @@ -1,5 +1,7 @@
@@ -891,7 +891,7 @@ index 36448a6..3f69fb5 100644
  	bool DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly& poly, int pass, UMover* mover, bool translucentPass);
  };
 diff --git a/SurrealEngine/Render/VisibleFrame.cpp b/SurrealEngine/Render/VisibleFrame.cpp
-index e75cc24..14edc37 100644
+index e75cc24f..14edc371 100644
 --- a/SurrealEngine/Render/VisibleFrame.cpp
 +++ b/SurrealEngine/Render/VisibleFrame.cpp
 @@ -1,7 +1,9 @@
@@ -1174,7 +1174,7 @@ index e75cc24..14edc37 100644
  		{
  			VisibleNode visnode(info);
 diff --git a/SurrealEngine/Render/VisibleFrame.h b/SurrealEngine/Render/VisibleFrame.h
-index 435b42a..dba18d6 100644
+index 435b42ab..dba18d69 100644
 --- a/SurrealEngine/Render/VisibleFrame.h
 +++ b/SurrealEngine/Render/VisibleFrame.h
 @@ -16,6 +16,10 @@ public:
@@ -1204,7 +1204,7 @@ index 435b42a..dba18d6 100644
  	Array<VisibleNode> OpaqueNodes;
  	Array<VisibleActor> Actors;
 diff --git a/SurrealEngine/Render/VisibleMesh.cpp b/SurrealEngine/Render/VisibleMesh.cpp
-index 331caac..5aec3a3 100644
+index 331caac5..5aec3a3b 100644
 --- a/SurrealEngine/Render/VisibleMesh.cpp
 +++ b/SurrealEngine/Render/VisibleMesh.cpp
 @@ -12,6 +12,7 @@
@@ -1409,7 +1409,7 @@ index 331caac..5aec3a3 100644
  	bool needTranslucentPass = false;
  
 diff --git a/SurrealEngine/Render/VisibleNode.cpp b/SurrealEngine/Render/VisibleNode.cpp
-index 57a391a..529e0d1 100644
+index 57a391a6..529e0d14 100644
 --- a/SurrealEngine/Render/VisibleNode.cpp
 +++ b/SurrealEngine/Render/VisibleNode.cpp
 @@ -3,6 +3,7 @@
@@ -1442,7 +1442,7 @@ index 57a391a..529e0d1 100644
  	surfaceinfo.MacroTexture = surface.Material && surface.Material->MacroTexture() ? &macrotex : nullptr;
  	surfaceinfo.DetailTexture = surface.Material && surface.Material->DetailTexture() ? &detailtex : nullptr;
 diff --git a/SurrealEngine/Render/VisiblePortal.h b/SurrealEngine/Render/VisiblePortal.h
-index 70dc72e..1ec0d27 100644
+index 70dc72e3..1ec0d278 100644
 --- a/SurrealEngine/Render/VisiblePortal.h
 +++ b/SurrealEngine/Render/VisiblePortal.h
 @@ -4,6 +4,7 @@
@@ -1466,7 +1466,7 @@ index 70dc72e..1ec0d27 100644
 +	vec3 MirrorNormal = vec3(0.0f);
  };
 diff --git a/SurrealEngine/Render/VisibleSprite.cpp b/SurrealEngine/Render/VisibleSprite.cpp
-index 9a053a7..b8789be 100644
+index 9a053a7f..b8789bef 100644
 --- a/SurrealEngine/Render/VisibleSprite.cpp
 +++ b/SurrealEngine/Render/VisibleSprite.cpp
 @@ -75,20 +75,25 @@ void VisibleSprite::Draw(VisibleFrame* frame, UActor* actor)
@@ -1500,7 +1500,7 @@ index 9a053a7..b8789be 100644
  	vertices[3].Fog = { 0.0f };
  
 diff --git a/SurrealEngine/RenderDevice/D3D11/D3D11FileResource.cpp b/SurrealEngine/RenderDevice/D3D11/D3D11FileResource.cpp
-index a294070..c8f614e 100644
+index a2940705..c8f614e1 100644
 --- a/SurrealEngine/RenderDevice/D3D11/D3D11FileResource.cpp
 +++ b/SurrealEngine/RenderDevice/D3D11/D3D11FileResource.cpp
 @@ -108,7 +108,8 @@ std::string D3D11FileResource::readAllText(const std::string& filename)
@@ -1523,7 +1523,7 @@ index a294070..c8f614e 100644
  
  				output.outColor = clamp(output.outColor, 0.0, 1.0);
 diff --git a/SurrealEngine/RenderDevice/D3D11/D3D11RenderDevice.cpp b/SurrealEngine/RenderDevice/D3D11/D3D11RenderDevice.cpp
-index ba22def..3e934c5 100644
+index ba22defd..3e934c52 100644
 --- a/SurrealEngine/RenderDevice/D3D11/D3D11RenderDevice.cpp
 +++ b/SurrealEngine/RenderDevice/D3D11/D3D11RenderDevice.cpp
 @@ -1838,7 +1838,8 @@ void D3D11RenderDevice::DrawComplexSurface(SceneNode* Frame, SurfaceInfo& Surfac
@@ -1547,7 +1547,7 @@ index ba22def..3e934c5 100644
  		}
 diff --git a/SurrealEngine/RenderDevice/OpenGL/GLESCompat.h b/SurrealEngine/RenderDevice/OpenGL/GLESCompat.h
 new file mode 100644
-index 0000000..72bc5ec
+index 00000000..72bc5ec3
 --- /dev/null
 +++ b/SurrealEngine/RenderDevice/OpenGL/GLESCompat.h
 @@ -0,0 +1,67 @@
@@ -1619,7 +1619,7 @@ index 0000000..72bc5ec
 +	return false;
 +}
 diff --git a/SurrealEngine/RenderDevice/OpenGL/GLFileResource.cpp b/SurrealEngine/RenderDevice/OpenGL/GLFileResource.cpp
-index 593b423..f9f4b80 100644
+index 593b4239..f9f4b80b 100644
 --- a/SurrealEngine/RenderDevice/OpenGL/GLFileResource.cpp
 +++ b/SurrealEngine/RenderDevice/OpenGL/GLFileResource.cpp
 @@ -78,46 +78,68 @@ std::string GLFileResource::readAllText(const std::string& filename)
@@ -1710,7 +1710,7 @@ index 593b423..f9f4b80 100644
  				val += Brightness * 0.5;
  				return max(val, vec3(0.0, 0.0, 0.0));
 diff --git a/SurrealEngine/RenderDevice/OpenGL/GLHandles.h b/SurrealEngine/RenderDevice/OpenGL/GLHandles.h
-index 3268fcb..323fecc 100644
+index 3268fcbf..323fecc6 100644
 --- a/SurrealEngine/RenderDevice/OpenGL/GLHandles.h
 +++ b/SurrealEngine/RenderDevice/OpenGL/GLHandles.h
 @@ -1,6 +1,10 @@
@@ -1725,7 +1725,7 @@ index 3268fcb..323fecc 100644
  #include <memory>
  
 diff --git a/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp b/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp
-index 00a0aab..fede0bd 100644
+index 00a0aab8..fede0bdf 100644
 --- a/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp
 +++ b/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.cpp
 @@ -1,4 +1,8 @@
@@ -2362,7 +2362,7 @@ index 00a0aab..fede0bd 100644
  	GLchar* source = (GLchar*)code.data();
  	GLint length = (GLint)code.size();
 diff --git a/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.h b/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.h
-index 4b0cb7f..8e7cb17 100644
+index 4b0cb7f5..8e7cb176 100644
 --- a/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.h
 +++ b/SurrealEngine/RenderDevice/OpenGL/GLRenderDevice.h
 @@ -153,6 +153,7 @@ public:
@@ -2395,7 +2395,7 @@ index 4b0cb7f..8e7cb17 100644
 +		throw std::runtime_error(std::string(msg) + " (GL error 0x" + [error] { char text[16]; snprintf(text, sizeof(text), "%04X", (unsigned)error); return std::string(text); }() + ")");
  }
 diff --git a/SurrealEngine/RenderDevice/OpenGL/GLTextureManager.cpp b/SurrealEngine/RenderDevice/OpenGL/GLTextureManager.cpp
-index 2df5d18..120376c 100644
+index 2df5d18a..120376c6 100644
 --- a/SurrealEngine/RenderDevice/OpenGL/GLTextureManager.cpp
 +++ b/SurrealEngine/RenderDevice/OpenGL/GLTextureManager.cpp
 @@ -97,7 +97,7 @@ GLCachedTexture* GLTextureManager::CreateNullTexture()
@@ -2408,7 +2408,7 @@ index 2df5d18..120376c 100644
  	return NullTexture.get();
  }
 diff --git a/SurrealEngine/RenderDevice/OpenGL/GLTextureUploader.cpp b/SurrealEngine/RenderDevice/OpenGL/GLTextureUploader.cpp
-index cdc8684..fd175ea 100644
+index cdc86848..fd175ea9 100644
 --- a/SurrealEngine/RenderDevice/OpenGL/GLTextureUploader.cpp
 +++ b/SurrealEngine/RenderDevice/OpenGL/GLTextureUploader.cpp
 @@ -17,9 +17,19 @@ GLTextureUploader* GLTextureUploader::GetUploader(TextureFormat format)
@@ -2501,7 +2501,7 @@ index cdc8684..fd175ea 100644
 +
 +#endif
 diff --git a/SurrealEngine/RenderDevice/OpenGL/GLTextureUploader.h b/SurrealEngine/RenderDevice/OpenGL/GLTextureUploader.h
-index 81144e5..0e0a8d4 100644
+index 81144e57..0e0a8d43 100644
 --- a/SurrealEngine/RenderDevice/OpenGL/GLTextureUploader.h
 +++ b/SurrealEngine/RenderDevice/OpenGL/GLTextureUploader.h
 @@ -119,3 +119,30 @@ private:
@@ -2536,7 +2536,7 @@ index 81144e5..0e0a8d4 100644
 +
 +#endif
 diff --git a/SurrealEngine/RenderDevice/OpenGL/GLUploadManager.cpp b/SurrealEngine/RenderDevice/OpenGL/GLUploadManager.cpp
-index a7d42da..8daef16 100644
+index a7d42da7..8daef16d 100644
 --- a/SurrealEngine/RenderDevice/OpenGL/GLUploadManager.cpp
 +++ b/SurrealEngine/RenderDevice/OpenGL/GLUploadManager.cpp
 @@ -1,8 +1,15 @@
@@ -2667,7 +2667,7 @@ index a7d42da..8daef16 100644
  		if (!Mip->Data.empty())
  		{
 diff --git a/SurrealEngine/RenderDevice/RenderDevice.h b/SurrealEngine/RenderDevice/RenderDevice.h
-index 2e23b3c..8480ad7 100644
+index 2e23b3c1..8480ad73 100644
 --- a/SurrealEngine/RenderDevice/RenderDevice.h
 +++ b/SurrealEngine/RenderDevice/RenderDevice.h
 @@ -37,6 +37,7 @@ struct GouraudVertex
@@ -2687,7 +2687,7 @@ index 2e23b3c..8480ad7 100644
  
  class OutputDevice
 diff --git a/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp b/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
-index 118f3de..265cece 100644
+index 118f3de3..265cece0 100644
 --- a/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
 +++ b/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.cpp
 @@ -29,11 +29,13 @@ CommandBufferManager::CommandBufferManager(VulkanRenderDevice* renderer) : rende
@@ -2831,7 +2831,7 @@ index 118f3de..265cece 100644
  	return DrawCommands.get();
  }
 diff --git a/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.h b/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.h
-index f1c8d83..bf92c0d 100644
+index f1c8d832..bf92c0dc 100644
 --- a/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.h
 +++ b/SurrealEngine/RenderDevice/Vulkan/CommandBufferManager.h
 @@ -11,9 +11,15 @@ public:
@@ -2861,7 +2861,7 @@ index f1c8d83..bf92c0d 100644
 +	std::unique_ptr<DeleteList> PendingDeleteList;
  };
 diff --git a/SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.cpp b/SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.cpp
-index 2ff37d7..11586c8 100644
+index 2ff37d79..11586c86 100644
 --- a/SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.cpp
 +++ b/SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.cpp
 @@ -8,7 +8,10 @@
@@ -2965,7 +2965,7 @@ index 2ff37d7..11586c8 100644
 +	FixedTextures.Count = 0;
 +}
 diff --git a/SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.h b/SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.h
-index 41f3ca9..fed21d8 100644
+index 41f3ca90..fed21d8c 100644
 --- a/SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.h
 +++ b/SurrealEngine/RenderDevice/Vulkan/DescriptorSetManager.h
 @@ -2,6 +2,7 @@
@@ -3051,7 +3051,7 @@ index 41f3ca9..fed21d8 100644
  	{
  		std::unique_ptr<VulkanDescriptorSetLayout> Layout;
 diff --git a/SurrealEngine/RenderDevice/Vulkan/FileResource.cpp b/SurrealEngine/RenderDevice/Vulkan/FileResource.cpp
-index 681fb55..aa399fb 100644
+index 681fb558..aa399fbc 100644
 --- a/SurrealEngine/RenderDevice/Vulkan/FileResource.cpp
 +++ b/SurrealEngine/RenderDevice/Vulkan/FileResource.cpp
 @@ -39,7 +39,9 @@ std::string FileResource::readAllText(const std::string& filename)
@@ -3116,7 +3116,7 @@ index 681fb55..aa399fb 100644
  
  				outColor = clamp(outColor, 0.0, 1.0);
 diff --git a/SurrealEngine/RenderDevice/Vulkan/RenderPassManager.cpp b/SurrealEngine/RenderDevice/Vulkan/RenderPassManager.cpp
-index 62d8e05..bfc2dca 100644
+index 62d8e05d..bfc2dca0 100644
 --- a/SurrealEngine/RenderDevice/Vulkan/RenderPassManager.cpp
 +++ b/SurrealEngine/RenderDevice/Vulkan/RenderPassManager.cpp
 @@ -23,7 +23,7 @@ RenderPassManager::~RenderPassManager()
@@ -3129,7 +3129,7 @@ index 62d8e05..bfc2dca 100644
  		.DebugName("SceneBindlessPipelineLayout")
  		.Create(renderer->Device.get());
 diff --git a/SurrealEngine/RenderDevice/Vulkan/ShaderManager.cpp b/SurrealEngine/RenderDevice/Vulkan/ShaderManager.cpp
-index 940c228..1372f6e 100644
+index 940c2285..1372f6e3 100644
 --- a/SurrealEngine/RenderDevice/Vulkan/ShaderManager.cpp
 +++ b/SurrealEngine/RenderDevice/Vulkan/ShaderManager.cpp
 @@ -5,23 +5,30 @@
@@ -3167,7 +3167,7 @@ index 940c228..1372f6e 100644
  
  	Postprocess.VertexShader = GLSLCompiler()
 diff --git a/SurrealEngine/RenderDevice/Vulkan/TextureUploader.cpp b/SurrealEngine/RenderDevice/Vulkan/TextureUploader.cpp
-index c925f9a..058ea16 100644
+index c925f9ad..058ea168 100644
 --- a/SurrealEngine/RenderDevice/Vulkan/TextureUploader.cpp
 +++ b/SurrealEngine/RenderDevice/Vulkan/TextureUploader.cpp
 @@ -18,13 +18,25 @@ TextureUploader* TextureUploader::GetUploader(TextureFormat format)
@@ -3321,7 +3321,7 @@ index c925f9a..058ea16 100644
 +	}
 +}
 diff --git a/SurrealEngine/RenderDevice/Vulkan/TextureUploader.h b/SurrealEngine/RenderDevice/Vulkan/TextureUploader.h
-index 8705efb..7f604c5 100644
+index 8705efbe..7f604c57 100644
 --- a/SurrealEngine/RenderDevice/Vulkan/TextureUploader.h
 +++ b/SurrealEngine/RenderDevice/Vulkan/TextureUploader.h
 @@ -106,3 +106,16 @@ private:
@@ -3342,7 +3342,7 @@ index 8705efb..7f604c5 100644
 +	int Kind; // 1 = BC1, 2 = BC2, 3 = BC3
 +};
 diff --git a/SurrealEngine/RenderDevice/Vulkan/UploadManager.cpp b/SurrealEngine/RenderDevice/Vulkan/UploadManager.cpp
-index 4d7dcaf..7f0a3be 100644
+index 4d7dcaff..7f0a3be6 100644
 --- a/SurrealEngine/RenderDevice/Vulkan/UploadManager.cpp
 +++ b/SurrealEngine/RenderDevice/Vulkan/UploadManager.cpp
 @@ -3,6 +3,9 @@
@@ -3389,7 +3389,7 @@ index 4d7dcaf..7f0a3be 100644
  	{
  		renderer->Commands->WaitForTransfer();
 diff --git a/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp b/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp
-index 0c7b3bb..fbcf66a 100644
+index 0c7b3bb7..fbcf66af 100644
 --- a/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp
 +++ b/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.cpp
 @@ -10,6 +10,9 @@
@@ -3707,7 +3707,7 @@ index 0c7b3bb..fbcf66a 100644
 +	return true;
 +}
 diff --git a/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.h b/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.h
-index d84b42b..59b1706 100644
+index d84b42bd..59b1706c 100644
 --- a/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.h
 +++ b/SurrealEngine/RenderDevice/Vulkan/VulkanRenderDevice.h
 @@ -61,6 +61,12 @@ public:
