@@ -1484,10 +1484,23 @@ index dfa376d1..52d434b8 100644
 +	bool hp2Tokens = false;
  };
 diff --git a/SurrealEngine/VM/ExpressionValue.h b/SurrealEngine/VM/ExpressionValue.h
-index 908adb98..e11e90db 100644
+index 908adb98..ef71d7a3 100644
 --- a/SurrealEngine/VM/ExpressionValue.h
 +++ b/SurrealEngine/VM/ExpressionValue.h
-@@ -376,6 +376,7 @@ inline ExpressionValue ExpressionValue::DefaultValue(UProperty* prop)
+@@ -179,7 +179,11 @@ public:
+ 
+ 	ExpressionValue Member(UProperty* field)
+ 	{
+-		return ExpressionValue::Variable(Ptr, field);
++		ExpressionValue value = ExpressionValue::Variable(Ptr, field);
++		// A temporary struct owns its storage; its member must outlive the parent expression.
++		if (!IsVariable())
++			value.Load();
++		return value;
+ 	}
+ 
+ 	void CheckType(ExpressionValueType type) const
+@@ -376,6 +380,7 @@ inline ExpressionValue ExpressionValue::DefaultValue(UProperty* prop)
  	{
  		ExpressionValue v(prop->ValueType);
  		v.GetStructValue()->Init(static_cast<UStructProperty*>(prop)->Struct);
@@ -1495,7 +1508,7 @@ index 908adb98..e11e90db 100644
  		return v;
  	}
  	case ExpressionValueType::ValueCoords: return CoordsValue({});
-@@ -387,7 +388,10 @@ inline ExpressionValue ExpressionValue::PropertyValue(UProperty* prop)
+@@ -387,7 +392,10 @@ inline ExpressionValue ExpressionValue::PropertyValue(UProperty* prop)
  {
  	ExpressionValue v(prop->ValueType);
  	if (prop->ValueType == ExpressionValueType::ValueStruct)

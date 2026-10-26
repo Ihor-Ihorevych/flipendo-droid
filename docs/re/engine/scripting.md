@@ -149,3 +149,13 @@ loads unmasked from package files and writes into saves) and returns the return 
 that its own Touch moves onto it (seen in an Android fork's playtest, 2026-10-24).
 HP2's `harry.Summon(ClassName)` calls itself (not `Super.Summon`), so the `summon` cheat ends the game this way in
 the original too.
+
+
+## Members of temporary struct expressions
+
+A member read from a temporary vector/rotator/struct must own a copy of the field before
+the parent expression is destroyed. ExpressionValue::Member previously returned a reference
+into that temporary. HP2 cutscene rotations consequently read overwritten yaw values.
+Member now loads the field when the parent is a value; fields of variables retain their
+reference semantics so assignments still update the original struct. Regression tests
+replace the parent after reading a member and check both value ownership and write-through.
