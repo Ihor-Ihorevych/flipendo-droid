@@ -168,3 +168,16 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `PropertyOffsets.cpp`, `Package/PackageManager.h` | `IsHarryPotter2()`: no IpDrv offsets (HP2 ships without IpDrv) |
 | `Native/NObject.cpp`, `Native/NActor.cpp` | Object.GetLanguage and Actor's HP1 natives (PlayAnim, LoopAnim, GetWorldCollisionBox, GetRenderExtent) also for HP2 |
 | `Utils/File.cpp/.h`, `Package/PackageManager.cpp`, `UE1GameDatabase.cpp` | `File::find_ignoring_case` for `System/`, the ini files, the `Paths=` folders and `Localize` files (whose name may hold a `\\` folder, HP2's cutscenes) (any game; HP2 ships `system/default.ini`) |
+
+### HP1 cutscene skip transition hooks
+
+`Engine.cpp` calls `HP1::BeginModsFrame` before HP1 time scaling, uses `ModsSimulationSteps` for bounded world and
+console ticks, and checks `ModsSimulationTick` after each step. `ModsWorldPaused` protects the lesson reveal;
+`ModsLevelChanging` clears transient skip state before UnloadMap destroys actors. Non-HP1 games keep one world tick
+and their existing clock-update timing; HP2 queued saves still end the frame after that tick.
+
+`Packages/Engine/Actors/Pawn/UPlayerPawn.cpp` calls `HP1::ModsPlayerTick` between PlayerInput and PlayerTick to consume
+released gameplay input during the transition while preserving scripted CutMovingTo. `Engine.cpp` consumes key
+presses when `HP1::ModsKeyDown` returns true. `Packages/Engine/Subsystems/USurrealAudioDevice.cpp` checks
+`HP1::ModsMuteCutsceneSpeech` for the speech slots. Every new hook is gated by IsHarryPotter1; the mod is disabled by
+its existing switch, `--no-mod=cutscene-skip` / `--vanilla`.

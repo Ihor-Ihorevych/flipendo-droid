@@ -96,20 +96,22 @@ def test_main_menu(args, state):
 def test_walk_and_save(args, state):
     save = args.game / "Save" / f"Save{SLOT}.usa"
     before = save.stat().st_mtime if save.exists() else None
-    run = run_game(args, "walk_and_save", ["--level=Lev_Tut1", f"--slot={SLOT}"], 13, {
+    # The skip runs the scene's full timeline and then reveals it; input during the transition is consumed.
+    walk_start = 12
+    run = run_game(args, "walk_and_save", ["--level=Lev_Tut1", f"--slot={SLOT}"], walk_start + 5, {
         "HP1_SKIPCUTS": "1",
         "HP1_TRACE": "harry0",
         "HP1_TRACE_INTERVAL": "0.1",
-        "HP1_KEYS": "8:Up:2",
-        "HP1_EXEC": "11:@console SaveSelectedSlot",
+        "HP1_KEYS": f"{walk_start}:Up:2",
+        "HP1_EXEC": f"{walk_start + 3}:@console SaveSelectedSlot",
     })
     problems = common_problems(run)
-    start = run.trace_at("harry0", 7.9)
-    stop = run.trace_at("harry0", 10.9)
+    start = run.trace_at("harry0", walk_start - 0.1)
+    stop = run.trace_at("harry0", walk_start + 2.9)
     if not start or not stop:
-        return problems + ["no harry0 traces before 8 s and 11 s"]
+        return problems + [f"no harry0 traces around the walk starting at {walk_start} s"]
     if start[1] != "PlayerWalking":
-        problems.append(f"harry0 is in state {start[1]} at 8 s, not PlayerWalking (the opening cutscene wasn't skipped?)")
+        problems.append(f"harry0 is in state {start[1]} at {walk_start} s, not PlayerWalking (the opening cutscene wasn't skipped?)")
     moved = distance(start[2], stop[2])
     if moved < 150:
         problems.append(f"harry0 moved {moved:.0f} units holding Up for 2 s (expected 150 or more)")

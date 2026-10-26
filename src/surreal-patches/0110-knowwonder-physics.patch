@@ -365,18 +365,29 @@ index 48026a40..c80c2d72 100644
  		StateFrame->SetLatentState(LatentRunState::WaitForLanding);
  }
 diff --git a/SurrealEngine/Packages/Engine/Actors/Pawn/UPlayerPawn.cpp b/SurrealEngine/Packages/Engine/Actors/Pawn/UPlayerPawn.cpp
-index e3c87b45..cafa042c 100644
+index e3c87b45..286f8498 100644
 --- a/SurrealEngine/Packages/Engine/Actors/Pawn/UPlayerPawn.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/Pawn/UPlayerPawn.cpp
-@@ -3,6 +3,7 @@
+@@ -3,6 +3,8 @@
  #include "UPlayerPawn.h"
  #include "UCamera.h"
  #include "Engine.h"
 +#include "KW.h"
++#include "HP1.h"
  #include "Package/PackageManager.h"
  #include "Package/IniProperty.h"
  #include "VM/ScriptCall.h"
-@@ -50,6 +51,12 @@ void UPlayerPawn::Tick(float elapsed)
+@@ -35,7 +37,8 @@ void UPlayerPawn::Tick(float elapsed)
+ 		if (Player() && !UObject::TryCast<UCamera>(this))
+ 		{
+ 			CallEvent(this, EventName::PlayerInput, { ExpressionValue::FloatValue(elapsed) });
+-			CallEvent(this, EventName::PlayerTick, { ExpressionValue::FloatValue(elapsed) });
++			if (!engine->LaunchInfo.IsHarryPotter1() || !HP1::ModsPlayerTick(this))
++				CallEvent(this, EventName::PlayerTick, { ExpressionValue::FloatValue(elapsed) });
+ 		}
+ 	}
+ 
+@@ -50,6 +53,12 @@ void UPlayerPawn::Tick(float elapsed)
  
  void UPlayerPawn::TickRotating(float elapsed)
  {

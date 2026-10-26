@@ -18,8 +18,16 @@ namespace HP1
 	// Additions the original game doesn't have (src/hp1/mods/). Engine::Tick, after the console tick (HP1 and HP2; HP2
 	// runs only the mods that read no HP1 scripts).
 	void TickMods(float realElapsed);
-	// Engine::OnWindowKeyDown, before the key is routed anywhere (EInputKey value).
-	void ModsKeyDown(int key);
+	// Engine::OnWindowKeyDown, before the key is routed anywhere (EInputKey value); true consumes the press.
+	bool ModsKeyDown(int key);
+	// HP1 cutscene skip: real-time transition, bounded world steps and reset before map destruction.
+	void BeginModsFrame(float realElapsed);
+	void ModsLevelChanging();
+	int ModsSimulationSteps(float& elapsed);
+	bool ModsSimulationTick();
+	bool ModsWorldPaused();
+	bool ModsMuteCutsceneSpeech();
+	bool ModsPlayerTick(UPlayerPawn* player);
 	// Engine::Tick, when the frame's game time is worked out: how much faster the game runs this frame (1 = normal).
 	// HP1 and HP2.
 	float ModsTimeScale();
