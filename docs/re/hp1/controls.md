@@ -73,3 +73,24 @@ camera does it instead, and only while Harry stands still:
 `FarState` and `Highstate` also compare with `HarrysPreviousPosition` (and update it), and use `GeneralMoveModeCamera`
 while Harry moves (not backing up, `cameraLock` off); `BossState` and `TrollChaseState` set `p.bStationary = true`
 themselves.
+
+## Independent orbit on retail packages (optional free-cam mod)
+
+The retail `BaseCam.Standardstate` follows Harry's facing and runs both a `Tick` and a latent
+`TurnToward(StandardTarget)` loop. Wrapping Harry's movement alone cannot reproduce the independent camera
+in AdamJD's [Movement and Camera Improvement](https://www.moddb.com/games/harry-potter-and-the-sorcerers-stone/downloads/hp1-movement-and-camera-improvement).
+The previous local installation's embedded scripts credit AdamJD and replace the normal camera with a separate
+orbit target, pitch/yaw smoothing and a traced camera arm. Its defaults are a 128-unit arm, a 55-unit vertical
+look-at offset, rotation speed 4, rotation tightness 8 and distance recovery tightness 2.5.
+
+`FreeCamera.cpp` supplies this orbit on the retail classes through script-function wrappers, disables the
+retail latent turn loop while controlling the camera, and keeps orbit state outside the packages. With
+`improved-movement` enabled, movement uses camera yaw, while Harry retains idle facing and turns towards
+acceleration. Without it, the original keyboard turning and movement remain; horizontal mouse input controls
+the camera independently. Aiming faces the camera and feeds
+its pitch into the original reticle trace without applying mouse input twice. The camera traces its vertical
+focus offset and arm against the world and blocking actors, pulls in immediately and eases back out. It delegates
+to the original scripts for cutscenes, menus, flying, carrying, bosses and special movement modes, resetting its
+orbit on camera state and level changes. It uses existing input actions and never changes key bindings.
+The switches are independent: `--vanilla --mod=free-cam` enables only the camera;
+`--vanilla --mod=free-cam,improved-movement` enables both. Neither mod changes the other’s enabled state.

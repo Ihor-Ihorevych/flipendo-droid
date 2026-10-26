@@ -60,3 +60,41 @@ TEST(ModList_IdsUnique)
 		CHECK(ids.insert(mod.Id).second);
 	CHECK(ids.count("improved-movement") == 1);
 }
+
+TEST(FreeCamera_DefaultOff)
+{
+	bool found = false;
+	for (const ModInfo& mod : HP1::Mods::ModList())
+	{
+		if (std::string(mod.Id) != "free-cam")
+			continue;
+		found = true;
+		CHECK(!Resolve(mod, {}));
+		CHECK(!Resolve(mod, { "--vanilla" }));
+		CHECK(Resolve(mod, { "--vanilla" }, "free-cam"));
+		CHECK(!Resolve(mod, {}, "free-cam", "free-cam"));
+	}
+	CHECK(found);
+}
+
+TEST(FreeCamera_IndependentOfImprovedMovement)
+{
+	const ModInfo* camera = nullptr;
+	const ModInfo* movement = nullptr;
+	for (const ModInfo& mod : HP1::Mods::ModList())
+	{
+		if (std::string(mod.Id) == "free-cam") camera = &mod;
+		if (std::string(mod.Id) == "improved-movement") movement = &mod;
+	}
+	CHECK(camera && movement);
+	if (!camera || !movement)
+		return;
+	CHECK(Resolve(*camera, { "--vanilla" }, "free-cam"));
+	CHECK(!Resolve(*movement, { "--vanilla" }, "free-cam"));
+	CHECK(!Resolve(*camera, { "--vanilla" }, "improved-movement"));
+	CHECK(Resolve(*movement, { "--vanilla" }, "improved-movement"));
+	CHECK(Resolve(*camera, { "--vanilla" }, "free-cam,improved-movement"));
+	CHECK(Resolve(*movement, { "--vanilla" }, "free-cam,improved-movement"));
+	CHECK(!Resolve(*movement, {}, "free-cam", "improved-movement"));
+	CHECK(!Resolve(*camera, {}, "improved-movement", "free-cam"));
+}
