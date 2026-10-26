@@ -163,6 +163,16 @@ build-linux/SurrealEngine ~/Games/HarryPotter
 | `--list-mods` | list the extras with their ids and whether they are on |
 | `--logfile=flipendo.log` | write a log file (attach it to bug reports) |
 
+## Donate
+
+Flipendo is free and always will be. If you'd like to support the work, crypto donations are welcome:
+
+| Coin | Address |
+|---|---|
+| BTC (SegWit) | `bc1qke3zv2s8enm70qy4vws33zm6vldux4c3jc3k3r` |
+| XMR | `41mdy9DgDSTVZ6idttunmRCv5pggWMMzbYY4dDCP2YHVAswRPeWQXsLRanoXwoiUUfC5Zm8svzRZi8hrwww7y3q9K9cWB1d` |
+| LTC | `ltc1q2pzx25jmlx33zlrsznsnsqq50l2alf4xjhgtc3` |
+
 ## Extras and mods
 
 Most are for Philosopher's Stone (HP1); the Games column says which also work in Chamber of Secrets (HP2), whose own
