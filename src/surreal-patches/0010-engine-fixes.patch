@@ -1520,7 +1520,7 @@ index 908adb98..ef71d7a3 100644
  		return v;
  	Exception::Throw("Unsupported expression value property type");
 diff --git a/SurrealEngine/VM/Frame.cpp b/SurrealEngine/VM/Frame.cpp
-index 456f993e..dbdc471f 100644
+index 456f993e..92a6784f 100644
 --- a/SurrealEngine/VM/Frame.cpp
 +++ b/SurrealEngine/VM/Frame.cpp
 @@ -1,5 +1,6 @@
@@ -1668,3 +1668,26 @@ index 456f993e..dbdc471f 100644
  				break;
  			else
  				StatementIndex = Func->Code->FindStatementIndex(caseexpr->NextOffset);
+@@ -1011,7 +1070,7 @@ ExpressionEvalResult Frame::RunExpr(Expression* statementExpr, UObject* self, UO
+ 					}
+ 					else
+ 					{
+-						Frame::ThrowException("Class reference is None");
++						result.Result = StatementResult::AccessedNone;
+ 						PushValue(ExpressionValue::NothingValue());
+ 						PopExpr();
+ 					}
+diff --git a/SurrealEngine/VM/ExpressionEvaluator.cpp b/SurrealEngine/VM/ExpressionEvaluator.cpp
+index ff500427..379bd08f 100644
+--- a/SurrealEngine/VM/ExpressionEvaluator.cpp
++++ b/SurrealEngine/VM/ExpressionEvaluator.cpp
+@@ -204,7 +204,8 @@ void ExpressionEvaluator::Expr(ClassContextExpression* expr)
+ 	}
+ 	else
+ 	{
+-		Frame::ThrowException("Class reference is None");
++		Result.Result = StatementResult::AccessedNone;
++		Result.Value = ExpressionValue::NothingValue();
+ 	}
+ }
+ 

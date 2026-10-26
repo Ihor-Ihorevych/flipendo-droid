@@ -30,3 +30,15 @@ TEST(VariableRotatorMember_StoresThroughToParent)
 	CHECK_EQ(value.Roll, 33);
 }
 
+
+TEST(NoneClassContext_SkipsTheContextExpression)
+{
+	NoObjectExpression none;
+	InstanceVariableExpression invalidContext;
+	ClassContextExpression expression;
+	expression.ObjectExpr = &none;
+	expression.ContextExpr = &invalidContext;
+	auto result = ExpressionEvaluator::Eval(&expression, nullptr, nullptr, nullptr);
+	CHECK(result.Result == StatementResult::AccessedNone);
+	CHECK(result.Value.GetType() == ExpressionValueType::Nothing);
+}

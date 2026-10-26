@@ -159,3 +159,13 @@ into that temporary. HP2 cutscene rotations consequently read overwritten yaw va
 Member now loads the field when the parent is a value; fields of variables retain their
 reference semantics so assignments still update the original struct. Regression tests
 replace the parent after reading a member and check both value ownership and write-through.
+
+
+## Empty class contexts
+
+HP2 Core.dll execClassContext (0x10132C00) reports an empty class context, skips its
+expression and returns zero/default data, as an empty object context does. Both VM
+evaluators previously threw an exception. Harry.StopBossEncounter calls ChooseSpell(0),
+whose SetCurrentSpell reads default.SpellType from None; the exception interrupted the
+end of the Skurge Peeves fight. Both evaluators now return AccessedNone and NothingValue.
+The regression test supplies an invalid inner expression to check that None skips it.
