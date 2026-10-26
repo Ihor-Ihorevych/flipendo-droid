@@ -62,6 +62,7 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Packages/Engine/Actors/UActor_Animation.cpp` | `HP1::TickAnimation` |
 | `Render/VisibleMesh.cpp` | `HP1::DrawSkeletalMesh` in `DrawSkeletalMesh` |
 | `Packages/Engine/Actors/UActor.h`, `UActor.cpp` | `WorldLightRadius` scaled by `max(DrawScale, 1)` for KnowWonder (moved out of line) |
+| `Packages/Engine/Actors/UActor_Base.cpp` | `InitBase` applies AttachTag to the child, stopping at the first matching parent; with KnowWonder physics, initial support uses `KW::FindBase` rather than the first overlap ([physics](re/engine/physics.md#initial-support-must-block-the-actor)) |
 | `Light/LightmapBuilder.cpp` | BSP light maps: `KW::LightmapAmbient` (SetAmbientLight), `KW::LightmapIllumination` instead of `LightEffect::Run` (falloff, LightSource, LightRadiusInner), `KW::AddLightmapLight` (AddLightContribution: colour scale, 7-bit clamps, bDarkLight); ungated fix: `CalcWorldLocations` puts lumels on the surface plane (inverse of the U/V/normal frame) |
 | `Packages/Engine/Actors/UActor_Render.cpp` | `HP1::GetRenderBoundingBox` in `UpdateBspInfo` |
 | `Packages/Engine/Actors/UActor_PhysMovingBrush.cpp` | `KW::PhysMovingBrush` in place of upstream's mover loop: the Mover's own (shadowing) PhysAlpha/PhysRate, KeyFrameReached instead of InterpolateEnd(None), a blocked move stops the interpolation, bCollideWorld movers (GridMover) collide with the world by their bounding box and fall with the zone's gravity |
