@@ -74,6 +74,9 @@ namespace HP1::Mods
 	// FastForward.cpp
 	float FastForwardTimeScale();
 
+	// FreeCamera.cpp
+	void TickFreeCamera();
+
 	// ImprovedMovement.cpp
 	void TickImprovedMovement();
 

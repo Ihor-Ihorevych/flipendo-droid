@@ -31,6 +31,7 @@ namespace HP1::Mods
 			{ "frame-limit", true, "HP1, HP2", nullptr, nullptr, "at most --fps=<n> (60) frames a second" },
 			{ "path-fixes", true, "HP1", nullptr, nullptr, "reach specs the original maps are missing" },
 			{ "texture-overrides", true, "HP1, HP2", nullptr, nullptr, "Textures/<package>/<group>/<name>.dds packs" },
+			{ "free-cam", false, "HP1", nullptr, nullptr, "camera-relative movement and independent mouse orbit" },
 			{ "improved-movement", true, "HP1", nullptr, "--classic-movement", "HP2's controls: strafe, move while aiming" },
 			{ "splash-skip", true, "HP1, HP2", "--skip-splash", nullptr, "no logo screens at start" },
 			{ "intro-skip", false, "HP1", "--skip-intro", nullptr, "New Game goes straight to Lev_Tut1" },
@@ -247,6 +248,7 @@ namespace HP1
 		Mods::TickDiscordPresence(realElapsed);
 		Mods::TickPathFixes();
 		Mods::TickImprovedMovement();
+		Mods::TickFreeCamera();
 		Mods::TickFrameLimit();
 	}
 
