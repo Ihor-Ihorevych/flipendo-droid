@@ -395,3 +395,23 @@ QuidditchPlayer and QuidditchPawn clear it); the cutscene command `FollowSpline`
 has the `Align` option. So PrivetDr's intro camera (`BaseCam FollowSpline CameraCrane EaseBetween ...`, no `Align`)
 keeps the rotation BaseCam gives it (towards its target, which follows its own spline) instead of turning with the
 crane path's points, which looked down at the map's edges. The rest of HP2's function is not compared with HP1's yet.
+
+
+## AttachTag parent direction
+
+HP2 Engine.dll UGameEngine::LoadMap (0x103A5430, attachment loop 0x103A7002..0x103A7016)
+calls SetBase on the child whose AttachTag matches the parent's Tag, and stops at the
+first match. InitBase had the direction reversed: it based the parent on its child.
+In Ch2Skurge this leaves the lower Flipendo target at its old position when the SwingBar
+rotates. InitBase now bases the child on the matching parent. This correction uses no
+level or actor names. Existing saved transforms are not rewritten or inferred.
+
+
+## Initial support must block the actor
+
+Native FindBase traces the actor's cylinder eight units down: HP1 Engine.dll 0x103E4FD0,
+HP2 0x103F2460 (trace flags 7 at 0x103F24F3, SetBase at 0x103F2528). KW::FindBase already
+implements this. InitBase instead picked the first overlap, including nonblocking beans
+and triggers. In HP2 BeanRewardRoom this attaches rotating beans to one another and
+carries the children around their parents. KnowWonder InitBase now uses FindBase after
+the explicit AttachTag case. Other games and --upstream-physics retain their existing path.

@@ -149,3 +149,35 @@ loads unmasked from package files and writes into saves) and returns the return 
 that its own Touch moves onto it (seen in an Android fork's playtest, 2026-10-24).
 HP2's `harry.Summon(ClassName)` calls itself (not `Super.Summon`), so the `summon` cheat ends the game this way in
 the original too.
+
+
+## Members of temporary struct expressions
+
+A member read from a temporary vector/rotator/struct must own a copy of the field before
+the parent expression is destroyed. ExpressionValue::Member previously returned a reference
+into that temporary. HP2 cutscene rotations consequently read overwritten yaw values.
+Member now loads the field when the parent is a value; fields of variables retain their
+reference semantics so assignments still update the original struct. Regression tests
+replace the parent after reading a member and check both value ownership and write-through.
+
+
+## Empty class contexts
+
+HP2 Core.dll execClassContext (0x10132C00) reports an empty class context, skips its
+expression and returns zero/default data, as an empty object context does. Both VM
+evaluators previously threw an exception. Harry.StopBossEncounter calls ChooseSpell(0),
+whose SetCurrentSpell reads default.SpellType from None; the exception interrupted the
+end of the Skurge Peeves fight. Both evaluators now return AccessedNone and NothingValue.
+The regression test supplies an invalid inner expression to check that None skips it.
+
+
+## HP2 inherited state code and logical state identity
+
+HPawn.stateLeadingActor extends patrol. Its running bytecode can therefore belong
+to a parent state while probes,
+GetStateName and local-variable storage belong to the selected child. Frame previously
+used a single Func for both. HP2 label lookup now follows state super links, retains a
+separate logical StateNode, and serializes both the running code and logical state.
+This is a compatibility implementation from the supplied script state/label tables;
+the complete corresponding Core.dll routine has not been reversed. Other games retain
+the existing label lookup. It is independent of any particular level or actor name.

@@ -690,3 +690,47 @@ index 7076ca11..103b1418 100644
  	if (engine->LaunchInfo.IsUnrealTournament_469())
  	{
  		auto TouchingArray = Touching_UT469();
+diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Base.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Base.cpp
+index a3942d45..17590968 100644
+--- a/SurrealEngine/Packages/Engine/Actors/UActor_Base.cpp
++++ b/SurrealEngine/Packages/Engine/Actors/UActor_Base.cpp
+@@ -10,6 +10,8 @@
+ #include "Utils/Logger.h"
+ #include "Engine.h"
+ #include "VM/ScriptCall.h"
++#include "KW.h"
++#include "KWMove.h"
+ 
+ void UActor::InitBase()
+ {
+@@ -22,7 +24,8 @@ void UActor::InitBase()
+ 			{
+ 				if (levelActor && levelActor->Tag() == attachTag)
+ 				{
+-					levelActor->SetBase(this, false);
++					SetBase(levelActor, false);
++					break;
+ 				}
+ 			}
+ 			return;
+@@ -33,10 +36,17 @@ void UActor::InitBase()
+ 	bool isDecorationInventoryOrPawn = UObject::TryCast<UDecoration>(this) || UObject::TryCast<UInventory>(this) || UObject::TryCast<UPawn>(this);
+ 	if (isDecorationInventoryOrPawn && !ActorBase() && bCollideWorld() && (Physics() == PHYS_None || Physics() == PHYS_Rotating))
+ 	{
+-		CollisionHitList hits = XLevel()->Collision.OverlapTest(this);
+-		if (!hits.empty())
++		if (engine->LaunchInfo.IsKnowWonder() && KW::UseKWPhysics())
+ 		{
+-			SetBase(hits.front().Actor, true);
++			KW::FindBase(this);
++		}
++		else
++		{
++			CollisionHitList hits = XLevel()->Collision.OverlapTest(this);
++			if (!hits.empty())
++			{
++				SetBase(hits.front().Actor, true);
++			}
+ 		}
+ 	}
+ 
