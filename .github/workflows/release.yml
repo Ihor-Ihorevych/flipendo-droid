@@ -88,11 +88,34 @@ jobs:
           path: dist
           merge-multiple: true
 
+      - uses: actions/checkout@v4
+        with:
+          path: src
+          fetch-depth: 0
+
       - name: Version
         run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      # The commits since the previous version tag (all of them for the first one), newest first.
+      - name: Release notes
+        working-directory: src
+        run: |
+          prev=$(git describe --tags --abbrev=0 --match 'v*' "$GITHUB_REF_NAME^" 2>/dev/null || true)
+          url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          {
+            echo "## Changes${prev:+ since $prev}"
+            echo
+            git log --no-merges --format="- %s ([%h]($url/commit/%H))" ${prev:+"$prev.."}"$GITHUB_REF_NAME"
+            if [ -n "$prev" ]; then
+              echo
+              echo "Full diff: [$prev...$GITHUB_REF_NAME]($url/compare/$prev...$GITHUB_REF_NAME)"
+            fi
+          } > ../notes.md
+          cat ../notes.md
 
       - uses: softprops/action-gh-release@v2
         with:
           draft: true
           name: Flipendo ${{ env.VERSION }}
+          body_path: notes.md
           files: dist/*.zip
