@@ -572,41 +572,6 @@ public class SetupActivity extends Activity {
             hhp.leftMargin = dp(8);
             col.addView(hdHint, hhp);
         }
-
-        // Free camera (Philosopher's Stone): the camera orbits Harry with the look finger; off by default. The file is read by android_main.cpp.
-        {
-            final File flag = new File(FlipendoActivity.GAME_DIR, FlipendoActivity.FREECAM_FILE);
-            android.widget.CheckBox cam = new android.widget.CheckBox(this);
-            cam.setText(tr("Free camera"));
-            cam.setTextColor(PARCHMENT);
-            cam.setTextSize(14);
-            cam.setButtonTintList(android.content.res.ColorStateList.valueOf(GOLD));
-            cam.setChecked(flag.exists());
-            cam.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
-                public void onCheckedChanged(android.widget.CompoundButton b, boolean on) {
-                    try {
-                        if (on) {
-                            new File(FlipendoActivity.GAME_DIR).mkdirs();
-                            writeSmallFile(flag, "1");
-                        } else {
-                            flag.delete();
-                        }
-                    } catch (IOException e) {
-                        android.util.Log.e("flipendo", "could not keep the free camera choice: " + e);
-                    }
-                }
-            });
-            cam.setPadding(dp(8), dp(4), dp(8), dp(4));
-            col.addView(cam, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-            TextView camHint = new TextView(this);
-            camHint.setTextColor(INK_MUTED);
-            camHint.setTextSize(12);
-            camHint.setLineSpacing(0f, 1.15f);
-            camHint.setText(tr("Philosopher's Stone: the camera orbits Harry and is turned by dragging the look finger. Off by default; the new Flipendo mod, little tested on a phone."));
-            LinearLayout.LayoutParams chp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            chp.leftMargin = dp(8);
-            col.addView(camHint, chp);
-        }
         return col;
     }
 

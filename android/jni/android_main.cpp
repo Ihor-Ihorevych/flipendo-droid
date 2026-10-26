@@ -522,9 +522,6 @@ extern "C" __attribute__((visibility("default"))) int SDL_main(int argc, char** 
 		// The engine's own copy of AdamJD's controls (Improved movement, HP1) stays off: the movement mod (on by default, its
 		// packages: SetupActivity installs it) is the one that is used.
 		args.push_back("--classic-movement");
-		// Settings > Free camera (SetupActivity): Flipendo's free-cam mod, Philosopher's Stone only, off unless the file exists
-		if (access("/sdcard/FlipendoHP/.flipendo-freecam", F_OK) == 0)
-			args.push_back("--mod=free-cam");
 		__android_log_print(ANDROID_LOG_INFO, "flipendo", "game folder: %s", gameDir.c_str());
 		args.push_back(gameDir);
 		// The renderer: Vulkan unless .flipendo-renderer says opengl (Settings > Renderer), or Vulkan failed on this phone

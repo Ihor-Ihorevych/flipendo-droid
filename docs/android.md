@@ -585,6 +585,6 @@ Merged with Flipendo again (upstream e251a17: SurrealEngine c41d349e, the Free C
 - **The engine patches conflicted in every file** and were rebuilt by a three-way merge of the patched trees (base, ours and upstream each applied to its SurrealEngine commit) in a scratch clone, then regenerated against c41d349e. Where upstream fixed what we had fixed ourselves, upstream's version won: HP2 state code inherited from a parent state (`StateNode` instead of our `CodeOwner`), class references and quoted strings in the travel string, the None class context, the audio device (now `Audio/OpenAL/`). Ours stayed in the Android and render patches, the 48 kHz mixing rate, the native lookup guards (`Frame.cpp`) and the listener at the camera position (`OpenALAudioDevice::Update`).
 - Not played on a phone yet: the cutscene skip, HP2 states and sound.
 
-## 0.4.4A
+## 0.4.4B
 
-- **Free camera** checkbox in the launcher (under HD textures; Flipendo's `free-cam` mod, Philosopher's Stone only, off by default). It is the file `/sdcard/FlipendoHP/.flipendo-freecam` (`FlipendoActivity.FREECAM_FILE`); `android_main.cpp` starts the game with `--mod=free-cam` when it exists. The mod reads the mouse (`SmoothMouseX/Y`), which the look finger and the right stick already feed. Not played on a phone yet.
+- The **Free camera** checkbox of 0.4.4A is gone again: it did not work on the phone (the mod needs more than the mouse input the touch layer feeds it). The `free-cam` mod is still in the engine, off, with no switch on Android.
