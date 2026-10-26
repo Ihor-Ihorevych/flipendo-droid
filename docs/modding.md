@@ -19,13 +19,14 @@ default. So `--vanilla --mod=improved-movement` is the original game with only t
 
 | Mod | Id | Games | Default | What it does |
 |---|---|---|---|---|
-| `CutsceneSkip.cpp` | `cutscene-skip` | HP1 | on | "Press Space to skip" during cutscenes; Space fast-forwards to the end |
+| `CutsceneSkip.cpp` | `cutscene-skip` | HP1 | on | Space fades to black, fast-forwards the scene with "Skipping...", then reveals it; Escape cancels |
 | `StorybookSkip.cpp` | `storybook-skip` | HP1 | on | "Press Space to skip" in storybooks (New Game intro, chapter interludes) |
 | `DiscordPresence.cpp` | `discord` | HP1 | on (also off with `--no-discord`) | Discord Rich Presence: the level (the game's own level titles), cutscene / paused, Gryffindor's points, play time. Uses Flipendo's Discord application (its name and App Icon); `--discord-app=<id>` uses another |
 | `FastForward.cpp` | `fast-forward` | HP1, HP2 | on | hold Shift to run the game 2.5 times as fast (Shift is unbound in HP1) |
 | `FrameLimit.cpp` | `frame-limit` | HP1, HP2 | on at 60 fps (`--fps=<n>`; `--fps=0` also turns it off) | waits at the end of each frame's tick so the game runs at most n frames a second: HP1's per-frame movement breaks at high frame rates ([original_bugs.md](re/hp1/original_bugs.md)) |
 | `PathFixes.cpp` | `path-fixes` | HP1 | on | adds reach specs the original maps are missing, so `Pawn.FindPath` finds the route the designers meant: Lev_Tut3b's HPath_F3 → baseStation1, Peeves' exit after the duel ([original_bugs.md](re/hp1/original_bugs.md)) |
 | `TextureOverrides.cpp` | `texture-overrides` | HP1, HP2 | on | draws a texture from `Textures/<package>/<group>/<name>.dds` in the game folder when that file exists (DXT1/3/5, the layout D3D11Drv texture packs such as the ESRGAN Upscale Pack use); realtime and procedural textures are left alone. Vulkan only |
+| `FreeCamera.cpp` | `free-cam` | HP1 | off | independent smoothed mouse orbit, after AdamJD’s camera mod; keeps the original close distance and pulls in at obstacles. With `improved-movement`, movement is relative to the camera and Harry turns towards movement; without it, the original keyboard turning and movement remain. Aiming faces the camera. Uses configured keys and never enables another mod implicitly. |
 | `ImprovedMovement.cpp` | `improved-movement` | HP1 | on (also off with `--classic-movement`) | HP2's controls, after AdamJD's Mouse Fix and Strafing mod: Left / Right strafe (the mouse turns, in the air too), Harry keeps moving while a spell is held (the mouse aims it up and down; he can jump with it or start one in the air, but doesn't climb until it is cast), the mouse looks up and down while Harry moves, not only standing still, a ledge caught mid-jump is climbed at once, and AdamJD's smaller tweaks: half the sideways air control, slower blends, the idle while sliding with no input, spells hitting a pawn within 128 at once ([controls.md](re/hp1/controls.md)) |
 | `LoadingScreenHold.cpp` | `loading-screen-hold` | HP1 | on | keeps the loading screen (the level's title and objective on the parchment) up for at least 3.5 s, load time included; on today's machines it otherwise flashes by |
 | `LaunchSkips.cpp` | `splash-skip`, `intro-skip` | HP1, HP2 | splash skip on (`--skip-splash` turns it on with `--vanilla` too); intro skip off (`--skip-intro`, HP1) | skip the logo/title splash screens (HP2: the EA and WB splashes before its front end); skip the New Game storybook |
@@ -36,12 +37,16 @@ A mod is a C++ file in `src/hp1/mods/`. The build picks up new files automatical
 read HP1's script classes (`HPBase`, `HPMenu`). The exceptions read no scripts and run for HP2 too: `TextureOverrides.cpp`,
 `FastForward.cpp` (`ModsTimeScale`), `FrameLimit.cpp` (the only mod `TickMods` runs for HP2) and the splash skip
 (`HP1::ModsSkipSplash`, asked by HP2's front end); their hooks are gated `IsKnowWonder()`.
-Mods hook in only through these calls (the first four in `src/hp1/mods/HP1Mods.cpp`):
+Mods hook in through these calls (`src/hp1/mods/HP1Mods.cpp`):
 
 | Hook | Called | Use it for |
 |---|---|---|
 | `HP1::TickMods` | every frame, after the console tick | reading and changing game state |
-| `HP1::ModsKeyDown` | on every key press in the game window | key handling, also in menus |
+| `HP1::ModsKeyDown` | on every key press in the game window | key handling, also in menus; return true to consume the press |
+| `HP1::BeginModsFrame`, `ModsSimulationSteps`, `ModsSimulationTick`, `ModsWorldPaused` | before the HP1 world tick and after each simulation step | real-time fades, bounded skip steps and stopping at scene/lesson boundaries |
+| `HP1::ModsLevelChanging` | before HP1 map actors are destroyed | clearing transient mod state before travel or loading |
+| `HP1::ModsPlayerTick` | after HP1 PlayerInput, before PlayerTick | blocking gameplay input while the skip transition hides the world, while allowing scripted movement |
+| `HP1::ModsMuteCutsceneSpeech` | before HP1 audio playback | suppressing speech slots during a skip |
 | `HP1::PostRenderMods` | after the HUD and menus are drawn | drawing on top of everything |
 | `HP1::ModsTimeScale` | every frame, when the frame's game time is worked out | running the game faster or slower (multiplies the frame time; leaves `LevelInfo.TimeDilation`, which save games store, alone) |
 | `HP1::ModsSkipSplash` | by HP2's front end, before Game.exe's EA and WB splashes | skipping them |
@@ -71,9 +76,9 @@ Harry's `PlayerMove`, `ProcessMove`, `Mount` and `DoJump`). Install it from `Tic
 Work through the game's own script state (properties, script functions) where you can, so a mod stays a thin
 layer over vanilla behaviour. To find what to touch, read the game's scripts, extracted with KnowWonder's
 comments (see [development.md](development.md#reference-material)).
-`CutsceneSkip.cpp` is a short example that follows a script's state and calls into it.
+`CutsceneSkip.cpp` follows the script's state while the engine advances bounded world steps; it leaves scene commands and saved time dilation intact.
 
-If a mod needs a hook the four above don't give, add it to `HP1Mods.h` and to
+If a mod needs a hook the calls above don't give, add it to `HP1Mods.h` and to
 [engine-hooks.md](engine-hooks.md); mods don't add engine hooks of their own.
 
 ## Tools for modders

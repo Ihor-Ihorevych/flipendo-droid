@@ -129,7 +129,7 @@ namespace HP2
 					continue;
 				if (most ? p.Sound != most : (IsAmbient(id) && !IsAmbient(p.Id)))
 					continue;
-				float pri = SoundPriority(audio->GetViewport(), p.Location, p.Volume, p.Radius, p.Sound ? (int)p.Sound->HP2Flags : 0);
+				float pri = SoundPriority(audio->GetCurrentViewport(), p.Location, p.Volume, p.Radius, p.Sound ? (int)p.Sound->HP2Flags : 0);
 				if (pri < lowest)
 				{
 					lowest = pri;
@@ -151,7 +151,7 @@ namespace HP2
 					continue;
 				p.Paused = pause;
 				if (p.IsActive)
-					audio->GetDevice()->SetPaused((int)i, pause);
+					audio->SetSoundPaused((int)i, pause);
 			}
 		}
 
@@ -172,7 +172,7 @@ namespace HP2
 		// AmbientSound, stops.
 		void UpdateAmbience(USurrealAudioDevice* audio, bool running, const vec3& listener)
 		{
-			UViewport* viewport = audio->GetViewport();
+			UViewport* viewport = audio->GetCurrentViewport();
 			Array<PlayingSound>& sounds = audio->GetPlayingSounds();
 			UActor* viewActor = ViewActor(viewport);
 			if (running && viewActor)
@@ -231,7 +231,7 @@ namespace HP2
 							continue;
 						UActor* a = e.actor;
 						bool no3D = (e.flags & FlagNo3D) != 0;
-						if (!audio->PlaySound(a, e.id, sound, a->Location(), a->SoundVolume() / 255.0f, a->SoundRadius(), a->SoundPitch() / 64.0f, false, no3D, true))
+						if (!audio->PlaySound(a, e.id, sound, a->Location(), a->SoundVolume() / 255.0f, a->SoundRadius(), a->SoundPitch() / 64.0f, no3D, true))
 							break;
 					}
 					start = end;
@@ -340,7 +340,7 @@ namespace HP2
 		s.lastTime = now;
 		s.dt = dt;
 
-		UViewport* viewport = audio->GetViewport();
+		UViewport* viewport = audio->GetCurrentViewport();
 		if (!viewport || !viewport->Actor())
 			return;
 
@@ -372,7 +372,7 @@ namespace HP2
 		vec3 velocity = (listener - s.lastListener) * (1.0f / dt);
 		s.lastListener = listener;
 		if (length(velocity) * MetresPerUnit < 50.0f)
-			audio->GetDevice()->SetListenerVelocity(velocity);
+			audio->SetListenerVelocity(velocity);
 	}
 
 	// IDA ALAudio.dll: ?Update@UALAudioSubsystem@@UAEXPAUFSceneNode@@@Z [HP2 ALAudio 0x100052D0] (each sound)
@@ -394,7 +394,7 @@ namespace HP2
 		if (actor->LightType() != 0)
 			volume *= actor->LightBrightness() / 255.0f;
 		if (!(playing.Flags & FlagNo3D) && length(actor->Velocity()) * MetresPerUnit < 300.0f)
-			audio->GetDevice()->SetSoundVelocity(channel, actor->Velocity());
+			audio->SetSoundVelocity(channel, actor->Velocity());
 		return volume;
 	}
 

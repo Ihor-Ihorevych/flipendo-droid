@@ -51,6 +51,7 @@ SurrealEngine/Collision/**
 SurrealEngine/Packages/Engine/Actors/UActor_Phys*
 SurrealEngine/Packages/Engine/Actors/Pawn/**
 SurrealEngine/Packages/Engine/Actors/UActor_Touch.cpp
+SurrealEngine/Packages/Engine/Actors/UActor_Base.cpp
 
 [0120-knowwonder-actors.patch] flipendo: KnowWonder actor tick, native actors (ParticleFX, Wind), animation
 SurrealEngine/Packages/Engine/Actors/UActor.cpp

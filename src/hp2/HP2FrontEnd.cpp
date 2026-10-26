@@ -710,9 +710,9 @@ namespace HP2
 				label.text = high;
 				page.controls.push_back(label);
 			};
-			volume(172, 182, 198, "IDC_SoundVolume", "Sound Volume", audio->SoundVolume);
+			volume(172, 182, 198, "IDC_SoundVolume", "Sound Volume", audio->GetSoundVolume());
 			size_t soundIndex = page.controls.size() - 3;
-			volume(209, 220, 234, "IDC_MusicVolume", "Music Volume", audio->MusicVolume);
+			volume(209, 220, 234, "IDC_MusicVolume", "Music Volume", audio->GetMusicVolume());
 			size_t musicIndex = page.controls.size() - 3;
 
 			page.onOk = [this, soundIndex, musicIndex] {
@@ -720,8 +720,8 @@ namespace HP2
 				USurrealAudioDevice* audio = engine->audiodev;
 				soundDisabled = page.controls[0].checked ? 1 : 0;
 				engine->packages->SetIniValue("System", "Engine.GameEngine", "UseSound", soundDisabled ? "False" : "True");
-				audio->SoundVolume = (uint8_t)std::lround(page.controls[soundIndex].value * 255 / 100.0);
-				audio->MusicVolume = (uint8_t)std::lround(page.controls[musicIndex].value * 255 / 100.0);
+				audio->SetSoundVolume((uint8_t)std::lround(page.controls[soundIndex].value * 255 / 100.0));
+				audio->SetMusicVolume((uint8_t)std::lround(page.controls[musicIndex].value * 255 / 100.0));
 				audio->SaveConfig();
 				engine->packages->SaveAllIniFiles();
 				sounds.Rollover();

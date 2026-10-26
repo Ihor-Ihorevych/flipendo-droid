@@ -1,7 +1,7 @@
 flipendo: only recenter the mouse cursor, and only act on raw mouse/keyboard input, while the game window is the active (foreground) window; window icons the right way up; macOS: a window started in fullscreen goes fullscreen reliably, and held mouse buttons count as held keys
 
 diff --git a/SurrealWidgets/CMakeLists.txt b/SurrealWidgets/CMakeLists.txt
-index 03ecfe9f..45a3fa84 100644
+index 03ecfe9..45a3fa8 100644
 --- a/SurrealWidgets/CMakeLists.txt
 +++ b/SurrealWidgets/CMakeLists.txt
 @@ -12,7 +12,7 @@ else()
@@ -37,7 +37,7 @@ index 03ecfe9f..45a3fa84 100644
  	set(SURREALWIDGETS_SOURCES ${SURREALWIDGETS_SOURCES} ${SURREALWIDGETS_UNIX_SOURCES})
  	set(SURREALWIDGETS_INCLUDE_DIRS ${SURREALWIDGETS_INCLUDE_DIRS} ${GLIB_INCLUDE_DIRS} ${FONTCONFIG_INCLUDE_DIRS})
 diff --git a/SurrealWidgets/src/window/cocoa/cocoa_display_window.mm b/SurrealWidgets/src/window/cocoa/cocoa_display_window.mm
-index 5f7ee013..d4666fdd 100644
+index 5f7ee01..d4666fd 100644
 --- a/SurrealWidgets/src/window/cocoa/cocoa_display_window.mm
 +++ b/SurrealWidgets/src/window/cocoa/cocoa_display_window.mm
 @@ -472,6 +472,7 @@ void CocoaDisplayWindowImpl::stopDisplayLink()
@@ -112,7 +112,7 @@ index 5f7ee013..d4666fdd 100644
  }
  
 diff --git a/SurrealWidgets/src/window/sdl3/sdl3_display_window.cpp b/SurrealWidgets/src/window/sdl3/sdl3_display_window.cpp
-index 5dfaca1f..f850ab79 100644
+index 5dfaca1..f850ab7 100644
 --- a/SurrealWidgets/src/window/sdl3/sdl3_display_window.cpp
 +++ b/SurrealWidgets/src/window/sdl3/sdl3_display_window.cpp
 @@ -12,13 +12,39 @@ Uint32 SDL3DisplayWindow::PaintEventNumber = 0xffffffff;
@@ -189,7 +189,7 @@ index 5dfaca1f..f850ab79 100644
  
  void SDL3DisplayWindow::MakeGLContextCurrent()
 diff --git a/SurrealWidgets/src/window/win32/win32_display_window.cpp b/SurrealWidgets/src/window/win32/win32_display_window.cpp
-index 03451a7d..b8ff6974 100644
+index 03451a7..b8ff697 100644
 --- a/SurrealWidgets/src/window/win32/win32_display_window.cpp
 +++ b/SurrealWidgets/src/window/win32/win32_display_window.cpp
 @@ -177,7 +177,7 @@ static HICON CreateIconFromImageList(const std::vector<std::shared_ptr<Image>>&

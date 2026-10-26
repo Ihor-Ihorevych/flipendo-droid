@@ -172,3 +172,13 @@ SurrealEngine lost all of it (2026-10-05: 180 house points and 52 beans came out
   (`SaveGame 98` then `open save98.usa` while Harry stands in the entrance hall): PotCam0 comes back at the same
   location and in the same state, and screenshots before and after match. The earlier report of the camera
   sitting further back after a load wasn't reproduced; it may need a save taken while the camera is still moving.
+
+
+## Class-valued travel properties
+
+UClassProperty derives from UObjectProperty but refers to a class definition, not an
+actor to collect and respawn. HP2 harry.SpellBook is a fixed travel array of classes.
+ActorTravelInfo now excludes class properties from actor collection, writes each class
+reference with its qualified class name (including fixed array indices), and resolves
+those names on acceptance. None clears the corresponding element. Ordinary object
+references and the upstream fixed-array/struct travel handling remain unchanged.

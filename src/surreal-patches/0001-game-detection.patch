@@ -1,7 +1,7 @@
 flipendo: recognise the HP1 retail (SafeDisc) and No-CD HP.exe builds (also under the long exe names some releases use), say why a folder isn't a game
 
 diff --git a/SurrealEngine/GameFolder.cpp b/SurrealEngine/GameFolder.cpp
-index 473146a7..bf256223 100644
+index 473146a..bf25622 100644
 --- a/SurrealEngine/GameFolder.cpp
 +++ b/SurrealEngine/GameFolder.cpp
 @@ -9,16 +9,21 @@
@@ -45,7 +45,7 @@ index 473146a7..bf256223 100644
  	if (ue1_game.first != KnownUE1Games::UE1_GAME_NOT_FOUND)
  	{
 diff --git a/SurrealEngine/GameFolder.h b/SurrealEngine/GameFolder.h
-index 1a03615b..dfacd75e 100644
+index 1a03615..dfacd75 100644
 --- a/SurrealEngine/GameFolder.h
 +++ b/SurrealEngine/GameFolder.h
 @@ -24,6 +24,8 @@ struct GameLaunchInfo
@@ -71,7 +71,7 @@ index 1a03615b..dfacd75e 100644
  	static std::string GetExePath();
  };
 diff --git a/SurrealEngine/UE1GameDatabase.cpp b/SurrealEngine/UE1GameDatabase.cpp
-index bf6912eb..5f4daaa3 100644
+index bf6912e..5f4daaa 100644
 --- a/SurrealEngine/UE1GameDatabase.cpp
 +++ b/SurrealEngine/UE1GameDatabase.cpp
 @@ -2,17 +2,25 @@
@@ -144,10 +144,10 @@ index bf6912eb..5f4daaa3 100644
  }
 \ No newline at end of file
 diff --git a/SurrealEngine/UE1GameDatabase.h b/SurrealEngine/UE1GameDatabase.h
-index c87149a8..b67bcff9 100644
+index c87149a..67b10db 100644
 --- a/SurrealEngine/UE1GameDatabase.h
 +++ b/SurrealEngine/UE1GameDatabase.h
-@@ -199,11 +199,27 @@ static const std::map<std::string, KnownUE1Games> SHA1Database = {
+@@ -199,11 +199,30 @@ static const std::map<std::string, KnownUE1Games> SHA1Database = {
  	// Harry Potter 1 (UK), post-patched, archive.org cracked exe
  	{"7e675aa863f55049f3cf530dfea0b241b112d03a", KnownUE1Games::HARRYPOTTER1_433},
  
@@ -164,6 +164,9 @@ index c87149a8..b67bcff9 100644
 +	// Harry Potter 1 (RU), EA Hit-Parade retail, No-CD exe shipped with the rutracker release
 +	{"7d5664c62634596fecf09013aa1aaf902a50cb27", KnownUE1Games::HARRYPOTTER1_433},
 +
++	// Harry Potter 1 (EU, EN/FR/DE), retail release, reported in issue #11 (SafeDisc or No-CD not known)
++	{"aac3b600dfc3ee689a2323021d3cf9f5c862cce9", KnownUE1Games::HARRYPOTTER1_433},
++
  	// Harry Potter 2 (UK)
  	{"3a43d9ec8be7ec441b18a8dc710b4bdd5b29bda3", KnownUE1Games::HARRYPOTTER2_433},
  
@@ -175,7 +178,7 @@ index c87149a8..b67bcff9 100644
  };
  
  // Note: order matters here as we pick the first match.
-@@ -231,5 +247,14 @@ static const Array<std::string> knownUE1ExecutableNames = {
+@@ -231,5 +250,14 @@ static const Array<std::string> knownUE1ExecutableNames = {
  	"Game.exe",
  };
  

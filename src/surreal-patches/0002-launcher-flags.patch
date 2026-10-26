@@ -1,7 +1,7 @@
 flipendo: --autolaunch, --logfile, --level and --renderer command line flags
 
 diff --git a/SurrealEngine/GameApp.cpp b/SurrealEngine/GameApp.cpp
-index 3b059e5c..959e086e 100644
+index 3b059e5..959e086 100644
 --- a/SurrealEngine/GameApp.cpp
 +++ b/SurrealEngine/GameApp.cpp
 @@ -6,17 +6,26 @@

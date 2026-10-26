@@ -800,7 +800,8 @@ namespace KW
 
 		UZoneInfo* zoneActor = engine->GetZoneActor(actor->Region().ZoneNumber);
 		VertexLight vertexLight; // fog only; the light is HP1's (src/knowwonder/KWMeshLight.cpp)
-		lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor);
+		BBox bounds = GetRenderBoundingBox(actor, mesh); // fogballs between the camera and this sphere fog the mesh
+		lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor, vec4(bounds.center(), length(bounds.extents())));
 		MeshLighting lighting;
 		SetupMeshLighting(lighting, actor, lightLocationActor, zoneActor);
 		static Array<vec3> vertexLights;

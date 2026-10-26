@@ -1,7 +1,7 @@
 flipendo: Android arm64 port (Mali): CMake, no ALSA/GTK, BC1-3 decoded on the CPU, per-frame command pool reset, no gl_ClipDistance, upright swapchain, absolute touch mouse, no backtrace()
 
 diff --git a/SurrealEngine/Utils/Exception.cpp b/SurrealEngine/Utils/Exception.cpp
-index b498aa6c..b2a16117 100644
+index b498aa6..b2a1611 100644
 --- a/SurrealEngine/Utils/Exception.cpp
 +++ b/SurrealEngine/Utils/Exception.cpp
 @@ -49,6 +49,11 @@ struct InitDbgHelp
@@ -69,7 +69,7 @@ index b498aa6c..b2a16117 100644
  #else
  
 diff --git a/SurrealGPU/include/surrealgpu/vulkanbuilders.h b/SurrealGPU/include/surrealgpu/vulkanbuilders.h
-index d5120304..30cd20a0 100644
+index d512030..30cd20a 100644
 --- a/SurrealGPU/include/surrealgpu/vulkanbuilders.h
 +++ b/SurrealGPU/include/surrealgpu/vulkanbuilders.h
 @@ -42,6 +42,7 @@ public:
@@ -81,7 +81,7 @@ index d5120304..30cd20a0 100644
  
  private:
 diff --git a/SurrealGPU/include/surrealgpu/vulkanswapchain.h b/SurrealGPU/include/surrealgpu/vulkanswapchain.h
-index 1eb3e9c6..56713f02 100644
+index 1eb3e9c..56713f0 100644
 --- a/SurrealGPU/include/surrealgpu/vulkanswapchain.h
 +++ b/SurrealGPU/include/surrealgpu/vulkanswapchain.h
 @@ -27,6 +27,9 @@ public:
@@ -103,7 +103,7 @@ index 1eb3e9c6..56713f02 100644
  	VkExtent2D actualExtent = {};
  	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
 diff --git a/SurrealGPU/src/gpupipeline.cpp b/SurrealGPU/src/gpupipeline.cpp
-index e77e8e19..a68aee02 100644
+index e77e8e1..a68aee0 100644
 --- a/SurrealGPU/src/gpupipeline.cpp
 +++ b/SurrealGPU/src/gpupipeline.cpp
 @@ -365,7 +365,7 @@ GPURenderPipeline::GPURenderPipeline(GPUDevice* device, const GPURenderPipelineD
@@ -116,7 +116,7 @@ index e77e8e19..a68aee02 100644
  	if (!desc.label.empty())
  		pipeline->SetDebugName(desc.label.c_str());
 diff --git a/SurrealGPU/src/vulkanbuilders.cpp b/SurrealGPU/src/vulkanbuilders.cpp
-index b814b9b6..9c2fca36 100644
+index b814b9b..9c2fca3 100644
 --- a/SurrealGPU/src/vulkanbuilders.cpp
 +++ b/SurrealGPU/src/vulkanbuilders.cpp
 @@ -1236,7 +1236,7 @@ std::unique_ptr<VulkanPipeline> GraphicsPipelineBuilder::Create(VulkanDevice* de
@@ -212,7 +212,7 @@ index b814b9b6..9c2fca36 100644
  	size_t selected = deviceIndex;
  	if (selected >= supportedDevices.size())
 diff --git a/SurrealGPU/src/vulkanswapchain.cpp b/SurrealGPU/src/vulkanswapchain.cpp
-index 16fb12c1..c7e3a5f7 100644
+index 16fb12c..c7e3a5f 100644
 --- a/SurrealGPU/src/vulkanswapchain.cpp
 +++ b/SurrealGPU/src/vulkanswapchain.cpp
 @@ -167,6 +167,11 @@ bool VulkanSwapChain::CreateSwapchain(int width, int height, int imageCount, boo

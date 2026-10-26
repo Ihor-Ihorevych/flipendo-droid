@@ -125,11 +125,8 @@ namespace KW
 			// Blocked by the level's BSP unless bPermeating (the original's FastLineCheck ignores actors).
 			if (!bPermeating(w))
 			{
-				for (const CollisionHit& hit : w->XLevel()->Collision.Trace(w->Location(), location, 0.0f, 0.0f, false, true, false))
-				{
-					if (!hit.Actor)
-						return vec3(0.0f);
-				}
+				if (!w->XLevel()->Collision.Trace(w->Location(), location, 0.0f, 0.0f, false, true, false).empty())
+					return vec3(0.0f);
 			}
 
 			float dist = std::sqrt(distSquared);

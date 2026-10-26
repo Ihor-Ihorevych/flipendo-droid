@@ -288,9 +288,9 @@ namespace HP2
 					continue;
 				std::string key = args[i].substr(0, eq);
 				if (StrTools::equals_ignore_case(key, "SOUND"))
-					engine->audiodev->SoundVolume = VolumeFromIni(args[i].substr(eq + 1), engine->audiodev->SoundVolume);
+					engine->audiodev->SetSoundVolume(VolumeFromIni(args[i].substr(eq + 1), engine->audiodev->GetSoundVolume()));
 				else if (StrTools::equals_ignore_case(key, "MUSIC"))
-					engine->audiodev->MusicVolume = VolumeFromIni(args[i].substr(eq + 1), engine->audiodev->MusicVolume);
+					engine->audiodev->SetMusicVolume(VolumeFromIni(args[i].substr(eq + 1), engine->audiodev->GetMusicVolume()));
 			}
 		}
 		else if (SoundPauseCommand(args[0]))

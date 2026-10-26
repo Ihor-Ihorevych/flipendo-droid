@@ -32,9 +32,28 @@ UELib (not committed).
   while the narrator (cast 6) reads three lines and then does `Trigger QuidIntro`; the stadium scene (`CutScene0`)
   begins with `Sleep 1.0`, `FadeIn 1.0`. Unskipped the camera's FadeOut comes first. With every wait zeroed the narrator
   got there first, the FadeOut came after the stadium's FadeIn, and the match was played with `ConstantGlowFog.W` at -1:
-  a black world under the HUD. The CutsceneSkip mod ([modding.md](../../modding.md)) therefore cuts every timed wait
-  by the shortest one left, and nothing while a cast member is in a move or turn (waiting for a cue named after its
-  actor), which keeps the order (checked 2026-10-11 with `HP1_SKIPCUTS=1`).
+  a black world under the HUD. The previous CutsceneSkip mod shortened every cast wait by the same minimum,
+  leaving waits unchanged while an actor moved or turned. That preserved order within the cast but did not advance
+  external world/console timers by the time removed. It also set the saved `LevelInfo.TimeDilation` to 8.
+
+## Cutscene skip transition
+
+The optional `cutscene-skip` mod now fades to black in 0.3 real seconds, displays `Skipping...` over the black
+screen, and runs the whole level at 8x in steps no larger than 1/60 game second. Console timers, actors and ViewFlash
+advance together; no cast waits or saved TimeDilation are rewritten. Work is capped at 0.8 game second per rendered
+frame. Shift does not add its own multiplier during a skip. Escape cancels and reveals the current scene.
+
+A skip ends when the scene releases Harry and its remaining camera/actor tracks finish, or immediately when Harry
+enters `SpellLearning`. The latter matters in Lev_Tut3: CutScene58/AlohomoraStart and CutScene61/CharmsStart leave
+HUD.curCutScene pointing at their old scene. A non-null HUD reference alone therefore does not mean a skippable scene
+still holds Harry. The lesson's world and console clocks stay stopped during the reveal, so the exercise does not
+consume drawing time under the black overlay. These checks use script states, not map or actor-name exceptions.
+
+Before UnloadMap destroys actors, the skip clears its scene identity, acceleration and speech suppression; only the
+visual fade may continue across a map change or save load. Existing speech is stopped at skip start and new sounds
+in SLOT_Interact/SLOT_Talk are suppressed until the reveal begins; music and saved volume settings are untouched.
+The mod is off with `--no-mod=cutscene-skip` or `--vanilla`. This is optional mod behaviour, not a reconstructed
+native cutscene-skip implementation.
 
 ## Lev_Tut1 after the jump room
 

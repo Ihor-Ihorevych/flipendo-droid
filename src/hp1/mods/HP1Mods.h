@@ -7,6 +7,7 @@
 
 class UObject;
 class UCanvas;
+class UPlayerPawn;
 class UClass;
 class UFunction;
 class ExpressionValue;
@@ -56,6 +57,15 @@ namespace HP1::Mods
 
 	// CutsceneSkip.cpp
 	void TickCutsceneSkip(float realElapsed);
+	void ResetCutsceneSkip();
+	bool CutsceneSkipBusy();
+	bool CutsceneSkipAccelerating();
+	bool CutsceneSkipWorldPaused();
+	bool CutsceneSkipSpeechMuted();
+	bool CutsceneSkipKeyDown(int key);
+	bool CutsceneSkipPlayerTick(UPlayerPawn* player);
+	void CutsceneSkipSimulationTick();
+	int CutsceneSkipSteps(float& elapsed, bool accelerating);
 	void DrawCutsceneSkip(UCanvas* canvas);
 
 	// StorybookSkip.cpp
@@ -74,6 +84,9 @@ namespace HP1::Mods
 
 	// FastForward.cpp
 	float FastForwardTimeScale();
+
+	// FreeCamera.cpp
+	void TickFreeCamera();
 
 	// ImprovedMovement.cpp
 	void TickImprovedMovement();

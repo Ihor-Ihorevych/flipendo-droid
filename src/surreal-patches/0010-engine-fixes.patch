@@ -1,538 +1,14 @@
 flipendo: fixes to SurrealEngine bugs (any game): VM (and HP2's bytecode tokens), properties, ini files (UTF-16 localization files), packages (Unicode strings), UTF-16 strings and file names that differ in case on Linux, GetLanguage, fonts (character remap, text drawn by code point, runtime-made fonts), crash reports, music streaming and following the default audio device (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties
 
-diff --git a/SurrealEngine/Audio/AudioDevice.cpp b/SurrealEngine/Audio/AudioDevice.cpp
-index 03e82566..fcb3c817 100644
---- a/SurrealEngine/Audio/AudioDevice.cpp
-+++ b/SurrealEngine/Audio/AudioDevice.cpp
-@@ -10,9 +10,11 @@
- #include "Utils/Exception.h"
- #include <map>
- #include <cmath>
-+#include <cfloat>
- #include <queue>
- #include <thread>
- #include <chrono>
-+#include <cstring>
- #include <AL/al.h>
- #include <AL/alc.h>
- #include <AL/alext.h>
-@@ -57,7 +59,7 @@ public:
- 
- 		ALint state;
- 		alGetSourcei(id, AL_SOURCE_STATE, &state);
--		return state == AL_PLAYING;
-+		return state == AL_PLAYING || state == AL_PAUSED; // HP2 pauses its sounds with the game (SetPaused)
- 	}
- 
- 	USound* GetSound()
-@@ -87,8 +89,14 @@ public:
- 		if (radius != newRadius)
- 		{
- 			radius = newRadius;
-+			if (inverseFalloff)
-+			{
-+				alSourcef(id, AL_MAX_DISTANCE, FLT_MAX);
-+				alSourcef(id, AL_REFERENCE_DISTANCE, radius);
-+				return;
-+			}
- 			alSourcef(id, AL_MAX_DISTANCE, radius);
--			alSourcef(id, AL_REFERENCE_DISTANCE, 0.1f * radius);
-+			alSourcef(id, AL_REFERENCE_DISTANCE, linearFalloff ? 0.0f : 0.1f * radius);
- 		}
- 	}
- 
-@@ -116,6 +124,12 @@ public:
- 		}
- 	}
- 
-+	// Loops the whole sound when asked, or between its loop points when it has them (SetSound)
-+	void SetLooping(bool loop)
-+	{
-+		alSourcei(id, AL_LOOPING, (loop || (sound && sound->loopInfo.Looped)) ? AL_TRUE : AL_FALSE);
-+	}
-+
- 	void SetSpatial(bool bSpatial)
- 	{
- 		if (bIs3d != bSpatial)
-@@ -131,17 +145,63 @@ public:
- 		{
- 			volume = newVolume;
- 			alSourcef(id, AL_GAIN, volume * globalVolume);
--			alSourcef(id, AL_MAX_GAIN, volume * globalVolume);
-+			alSourcef(id, AL_MAX_GAIN, linearFalloff ? globalVolume : volume * globalVolume);
- 		}
- 	}
- 
-+	// Linear falloff: the volume falls in a straight line from the source to the radius, and the volume times
-+	// the falloff is capped at full volume (a loud sound stays at full volume further out). Otherwise the
-+	// sound plays at its volume within a tenth of the radius and fades out a little before the radius.
-+	void SetLinearFalloff(bool enable)
-+	{
-+		if (linearFalloff != enable)
-+		{
-+			linearFalloff = enable;
-+			alSourcef(id, AL_ROLLOFF_FACTOR, linearFalloff ? 1.0f : 1.1f);
-+			radius = -1.0f; // applied again by the next SetRadius and SetVolume
-+			volume = -1.0f;
-+		}
-+	}
-+
-+	// HP2's ALAudio driver: full volume within the radius, then radius / (radius + rolloff * (distance - radius)),
-+	// with no distance where it ends (OpenAL's inverse distance clamped model, set for the context)
-+	void SetInverseFalloff(float rolloff)
-+	{
-+		inverseFalloff = true;
-+		alSourcef(id, AL_ROLLOFF_FACTOR, rolloff);
-+		radius = -1.0f; // applied again by the next SetRadius
-+	}
-+
-+	void SetPaused(bool paused)
-+	{
-+		ALint state;
-+		alGetSourcei(id, AL_SOURCE_STATE, &state);
-+		if (paused && state == AL_PLAYING)
-+			alSourcePause(id);
-+		else if (!paused && state == AL_PAUSED)
-+			alSourcePlay(id);
-+	}
-+
-+	// A new global volume applies to the playing sound at once. Only storing it left every looping sound at the gain it
-+	// started with: an ambient started at a high volume stayed loud, and the sounds after a volume change were silent.
- 	void SetGlobalVolume(float newGlobalVolume)
- 	{
--		globalVolume = newGlobalVolume;
-+		if (globalVolume != newGlobalVolume)
-+		{
-+			globalVolume = newGlobalVolume;
-+			if (volume >= 0.0f)
-+			{
-+				alSourcef(id, AL_GAIN, volume * globalVolume);
-+				alSourcef(id, AL_MAX_GAIN, linearFalloff ? globalVolume : volume * globalVolume);
-+			}
-+		}
- 	}
- 
-+	// OpenAL rejects a negative pitch (AL_INVALID_VALUE, which the next checked call then reported as its own
-+	// failure): HP1's BroomHarry.UpdateBroomSound fades the broom loop's pitch below 0 along with its volume.
- 	void SetPitch(float newPitch)
- 	{
-+		newPitch = std::max(newPitch, 0.0f);
- 		if (pitch != newPitch)
- 		{
- 			pitch = newPitch;
-@@ -173,6 +233,8 @@ private:
- 	float pitch = 0.0f;
- 	float dopplerFactor = 0.0f;
- 	bool bIs3d = false;
-+	bool linearFalloff = false;
-+	bool inverseFalloff = false;
- };
- 
- // TODO list:
-@@ -222,6 +284,9 @@ public:
- 		if (alcMakeContextCurrent(alContext) == ALC_FALSE)
- 			Exception::Throw("Failed to make OpenAL context current");
- 
-+		if (alcIsExtensionPresent(alDevice, "ALC_SOFT_reopen_device"))
-+			alcReopenDevice = (LPALCREOPENDEVICESOFT)alcGetProcAddress(alDevice, "alcReopenDeviceSOFT");
-+
- 		// init listener state
- 		ALfloat listenerOri[] = { 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, -1.0f };
- 		alListener3f(AL_POSITION, 0, 0, 0.0f);
-@@ -280,6 +345,7 @@ public:
- 
- 	void AddSound(USound* sound) override
- 	{
-+		std::lock_guard alLock(alMutex);
- 		sounds.push_back(sound);
- 
- 		ALenum format = AL_FORMAT_MONO_FLOAT32;
-@@ -298,6 +364,7 @@ public:
- 
- 	void RemoveSound(USound* sound) override
- 	{
-+		std::lock_guard alLock(alMutex);
- 		auto it = sounds.begin();
- 		while (it != sounds.end())
- 		{
-@@ -313,6 +380,7 @@ public:
- 
- 	bool IsPlaying(int channel) override
- 	{
-+		std::lock_guard alLock(alMutex);
- 		ALSoundSource& source = sources[channel];
- 		return source.IsPlaying();
- 	}
-@@ -326,6 +394,7 @@ public:
- 
- 	void PlaySound(int channel, USound* sound, vec3& location, float volume, float radius, float pitch) override
- 	{
-+		std::lock_guard alLock(alMutex);
- 		if (!std::isfinite(volume) || volume < 0.0f || !std::isfinite(pitch) || channel >= sources.size())
- 			Exception::Throw("Invalid PlaySound arguments");
- 
-@@ -344,10 +413,12 @@ public:
- 		source.SetPitch(pitch);
- 		source.SetSpatial(true);
- 		source.Play();
-+
- 	}
- 
- 	void UpdateSound(int channel, USound* sound, vec3& location, float volume, float radius, float pitch) override
- 	{
-+		std::lock_guard alLock(alMutex);
- 		if (!std::isfinite(volume) || volume < 0.0f || !std::isfinite(pitch) || channel >= sources.size())
- 			Exception::Throw("Invalid PlaySound arguments");
- 
-@@ -362,17 +433,25 @@ public:
- 		source.DoLoop();
- 	}
- 
-+	void SetLooping(int channel, bool loop) override
-+	{
-+		std::lock_guard alLock(alMutex);
-+		if (channel < (int)sources.size())
-+			sources[channel].SetLooping(loop);
-+	}
-+
- 	void StopSound(int channel) override
- 	{
-+		std::lock_guard alLock(alMutex);
- 		if (channel >= sources.size())
- 			Exception::Throw("Invalid StopSound arguments");
- 
- 		sources[channel].Stop();
- 	}
- 
--	std::string getALErrorString()
-+	std::string getALErrorString(ALenum error)
- 	{
--		switch (alGetError())
-+		switch (error)
- 		{
- 		case AL_NO_ERROR:
- 			return "AL_NO_ERROR";
-@@ -401,20 +480,21 @@ public:
- 		{
- 			alBufferData(alMusicBuffers[i], format, musicQueue.Pop(), musicBufferSize*4, freq);
- 			if ((error = alGetError()) != AL_NO_ERROR)
--				Exception::Throw("alBufferData failed in PlayMusicBuffer: " + getALErrorString());
-+				Exception::Throw("alBufferData failed in PlayMusicBuffer: " + getALErrorString(error));
- 
- 			alSourceQueueBuffers(alMusicSource, 1, &alMusicBuffers[i]);
--			if (alGetError() != AL_NO_ERROR)
--				Exception::Throw("alSourceQueueBuffers failed in PlayMusicBuffer: " + getALErrorString());
-+			if ((error = alGetError()) != AL_NO_ERROR)
-+				Exception::Throw("alSourceQueueBuffers failed in PlayMusicBuffer: " + getALErrorString(error));
- 		}
- 
- 		alSourcePlay(alMusicSource);
--		if (alGetError() != AL_NO_ERROR)
--			Exception::Throw("alSourcePlay failed in PlayMusicBuffer: " + getALErrorString());
-+		if ((error = alGetError()) != AL_NO_ERROR)
-+			Exception::Throw("alSourcePlay failed in PlayMusicBuffer: " + getALErrorString(error));
- 	}
- 
- 	void UpdateMusicBuffer(AudioSource* music)
- 	{
-+		ALenum error;
- 		ALint status;
- 		alGetSourcei(alMusicSource, AL_BUFFERS_PROCESSED, &status);
- 
-@@ -427,12 +507,12 @@ public:
- 			int freq = music->GetFrequency();
- 
- 			alBufferData(buffer, format, musicQueue.Pop(), musicBufferSize*4, freq);
--			if (alGetError() != AL_NO_ERROR)
--				Exception::Throw("alBufferData failed in UpdateMusicBuffer: " + getALErrorString());
-+			if ((error = alGetError()) != AL_NO_ERROR)
-+				Exception::Throw("alBufferData failed in UpdateMusicBuffer: " + getALErrorString(error));
- 
- 			alSourceQueueBuffers(alMusicSource, 1, &buffer);
--			if (alGetError() != AL_NO_ERROR)
--				Exception::Throw("alSourceQueueBuffers failed in UpdateMusicBuffer: " + getALErrorString());
-+			if ((error = alGetError()) != AL_NO_ERROR)
-+				Exception::Throw("alSourceQueueBuffers failed in UpdateMusicBuffer: " + getALErrorString(error));
- 
- 			status--;
- 		}
-@@ -441,18 +521,61 @@ public:
- 		if (status == AL_STOPPED)
- 		{
- 			alSourcePlay(alMusicSource);
--			if (alGetError() != AL_NO_ERROR)
--				Exception::Throw("alSourcePlay failed in PlayMusicBuffer: " + getALErrorString());
-+			if ((error = alGetError()) != AL_NO_ERROR)
-+				Exception::Throw("alSourcePlay failed in PlayMusicBuffer: " + getALErrorString(error));
- 		}
- 	}
- 
- 	void SetMusicVolume(float volume) override
- 	{
-+		std::lock_guard alLock(alMutex);
- 		alSourcef(alMusicSource, AL_GAIN, volume);
- 	}
- 
-+	void SetLinearFalloff(bool enable) override
-+	{
-+		std::lock_guard alLock(alMutex);
-+		for (auto& soundSource : sources)
-+			soundSource.SetLinearFalloff(enable);
-+	}
-+
-+	void SetInverseFalloff(float rolloff, float dopplerFactor, float speedOfSound) override
-+	{
-+		std::lock_guard alLock(alMutex);
-+		alDistanceModel(AL_INVERSE_DISTANCE_CLAMPED);
-+		alDopplerFactor(dopplerFactor);
-+		alSpeedOfSound(speedOfSound);
-+		for (auto& soundSource : sources)
-+			soundSource.SetInverseFalloff(rolloff);
-+		ownListenerVelocity = true;
-+	}
-+
-+	void SetSoundVelocity(int channel, const vec3& velocity) override
-+	{
-+		std::lock_guard alLock(alMutex);
-+		if (channel < (int)sources.size())
-+		{
-+			vec3 v = velocity;
-+			sources[channel].SetVelocity(v);
-+		}
-+	}
-+
-+	void SetListenerVelocity(const vec3& velocity) override
-+	{
-+		std::lock_guard alLock(alMutex);
-+		listenerVelocity = velocity;
-+	}
-+
-+	void SetPaused(int channel, bool paused) override
-+	{
-+		std::lock_guard alLock(alMutex);
-+		if (channel < (int)sources.size())
-+			sources[channel].SetPaused(paused);
-+	}
-+
- 	void SetSoundVolume(float volume) override
- 	{
-+		std::lock_guard alLock(alMutex);
- 		globalSoundVolume = volume;
- 
- 		for (auto& soundSource : sources)
-@@ -461,15 +584,18 @@ public:
- 
- 	void Update() override
- 	{
-+		std::lock_guard alLock(alMutex);
- 		UActor* listener = engine->CameraActor;
- 		if (listener)
- 		{
--			// Update listener properties
--			vec3& location = listener->Location();
--			vec3& velocity = listener->Velocity();
-+			// Update listener properties: where the camera is, as PlayerCalcView left it (what is drawn). The CameraActor
-+			// itself is only the actor the script named; HP2's third person camera is not at its location, and sounds with a
-+			// radius (footsteps, spells, pickups) played from a listener that was elsewhere.
-+			vec3 location = engine->CameraLocation;
-+			vec3& velocity = ownListenerVelocity ? listenerVelocity : listener->Velocity();
- 
- 			vec3 at, left, up;
--			Coords::Rotation(listener->Rotation()).GetAxes(at, left, up);
-+			Coords::Rotation(engine->CameraRotation).GetAxes(at, left, up);
- 
- 			ALfloat listenerOri[6] = { up.x, up.y, -up.z, -at.x, -at.y, at.z };
- 			alListener3f(AL_POSITION, location.x, location.y, -location.z);
-@@ -482,6 +608,7 @@ public:
- 	{
- 		std::unique_ptr<AudioSource> currentMusic;
- 		bool musicPlaying = false;
-+		int musicFailures = 0;
- 
- 		while (true)
- 		{
-@@ -493,47 +620,134 @@ public:
- 			{
- 				if (musicPlaying)
- 				{
-+					std::lock_guard alLock(alMutex);
- 					alSourceStop(alMusicSource);
- 					alSourceUnqueueBuffers(alMusicSource, (ALsizei)alMusicBuffers.size(), &alMusicBuffers[0]);
-+					alGetError();
- 					musicPlaying = false;
- 				}
- 				currentMusic = std::move(musicThreadData.music);
- 				musicThreadData.musicUpdate = false;
-+				musicFailures = 0;
- 			}
- 			lock.unlock();
- 			// Never touch anything from musicThreadData after this point.
- 
-+			using namespace std::chrono_literals;
- 			if (currentMusic)
- 			{
--				while (musicQueue.Size() < musicBufferCount)
--				{
--					// render a chunk of music
--					currentMusic->ReadSamples(musicQueue.GetNextFree(), musicBufferSize);
--					musicQueue.Push(musicQueue.GetNextFree());
--				}
--
--				if (!musicPlaying)
-+				// An exception leaving this thread ends the game (std::terminate), so a music error only stops the
-+				// music: the source is reset and the track restarted once a second; a track that keeps failing is
-+				// dropped.
-+				try
- 				{
--					PlayMusicBuffer(currentMusic.get());
--					musicPlaying = true;
-+					while (musicQueue.Size() < musicBufferCount)
-+					{
-+						// render a chunk of music
-+						// silence after the end of the stream (the buffer still holds an older chunk)
-+						float* chunk = musicQueue.GetNextFree();
-+						size_t samplesRead = currentMusic->ReadSamples(chunk, musicBufferSize);
-+						std::fill(chunk + samplesRead, chunk + musicBufferSize, 0.0f);
-+						musicQueue.Push(chunk);
-+					}
-+
-+					std::lock_guard alLock(alMutex);
-+					alGetError(); // an error left by a main thread call isn't ours
-+					if (!musicPlaying)
-+					{
-+						PlayMusicBuffer(currentMusic.get());
-+						musicPlaying = true;
-+					}
-+					else if (musicQueue.Size() > 0)
-+					{
-+						UpdateMusicBuffer(currentMusic.get());
-+						musicFailures = 0;
-+					}
-+
-+					// TODO: music fade in/out
- 				}
--				else if (musicQueue.Size() > 0)
-+				catch (const std::exception& e)
- 				{
--					UpdateMusicBuffer(currentMusic.get());
-+					std::string message = e.what();
-+					message = message.substr(0, message.find('\n'));
-+					{
-+						std::lock_guard alLock(alMutex);
-+						alSourceStop(alMusicSource);
-+						alSourcei(alMusicSource, AL_BUFFER, 0);
-+						alGetError();
-+					}
-+					musicPlaying = false;
-+					if (++musicFailures >= 5)
-+					{
-+						LogMessage("Music stopped, the track keeps failing: " + message);
-+						currentMusic.reset();
-+						musicFailures = 0;
-+					}
-+					else
-+					{
-+						if (musicFailures == 1)
-+							LogMessage("Music error, restarting the stream: " + message);
-+						std::this_thread::sleep_for(1s);
-+					}
- 				}
--
--				// TODO: music fade in/out
- 			}
- 			else
- 			{
- 				musicPlaying = false;
- 			}
--			using namespace std::chrono_literals;
-+
-+			{
-+				std::lock_guard alLock(alMutex);
-+				FollowDefaultDevice();
-+				alGetError();
-+			}
-+
- 			std::this_thread::sleep_for(5ms);
- 		}
- 	}
- 
-+	// OpenAL Soft 1.23 stays on the device it opened: unplugging it leaves the game silent and a new system default
-+	// (headphones plugged back in) is never picked up. Once a second, reopen the default device when ours was lost or
-+	// the default changed; alcReopenDeviceSOFT keeps the context, sources and buffers. A default is reopened for once:
-+	// when OpenAL can't open it and stays on another device, the names keep differing, and reopening every second
-+	// for that (seen 2026-10-12, over 1000 times in a row) ended in WASAPI errors. A lost device is retried less and
-+	// less often, up to every 30 s.
-+	void FollowDefaultDevice()
-+	{
-+		auto now = std::chrono::steady_clock::now();
-+		if (now < nextDeviceCheck)
-+			return;
-+		nextDeviceCheck = now + std::chrono::seconds(1);
-+
-+		if (!alcReopenDevice)
-+			return;
-+
-+		ALCint connected = ALC_TRUE;
-+		alcGetIntegerv(alDevice, ALC_CONNECTED, 1, &connected);
-+		const ALCchar* current = alcGetString(alDevice, ALC_ALL_DEVICES_SPECIFIER);
-+		const ALCchar* defaultName = alcGetString(nullptr, ALC_DEFAULT_ALL_DEVICES_SPECIFIER);
-+		std::string newDefault = defaultName ? defaultName : "";
-+		bool defaultChanged = current && !newDefault.empty() && newDefault != current && newDefault != reopenedDefault;
-+		if (connected)
-+			lostRetrySeconds = 1;
-+		if (connected && !defaultChanged)
-+			return;
-+
-+		reopenedDefault = newDefault;
-+		if (!connected)
-+		{
-+			nextDeviceCheck = now + std::chrono::seconds(lostRetrySeconds);
-+			lostRetrySeconds = std::min(lostRetrySeconds * 2, 30);
-+		}
-+		if (alcReopenDevice(alDevice, nullptr, nullptr))
-+			LogMessage(std::string("Audio device: now ") + alcGetString(alDevice, ALC_ALL_DEVICES_SPECIFIER) + (connected ? "" : " (the last one was lost)") + ", system default " + newDefault);
-+	}
-+
- 	ALCdevice* alDevice = nullptr;
-+	LPALCREOPENDEVICESOFT alcReopenDevice = nullptr;
-+	std::chrono::steady_clock::time_point nextDeviceCheck;
-+	std::string reopenedDefault; // the system default the device was last reopened for
-+	int lostRetrySeconds = 1;
- 	ALCcontext* alContext = nullptr;
- 	ALenum alError = 0;
- 	ALuint alMusicSource = 0;
-@@ -664,6 +878,12 @@ public:
- 	int frequency = 48000;
- 	Array<USound*> sounds;
- 
-+	// OpenAL keeps one error state per context (alGetError), shared by the game and music threads: without this
-+	// lock each thread read the other's errors as its own and aborted the game, "alBufferData failed in
-+	// UpdateMusicBuffer: AL_NO_ERROR" on the music thread or "Failed to play AL source" in PlaySound (HP1's
-+	// Quidditch match, 2026-10-18). Every OpenAL call holds it; the music thread clears the error state each time.
-+	std::mutex alMutex;
-+
- 	// Note: variables changed in musicThreadData *must* be done within a mutex lock to be thread safe
- 	struct
- 	{
-@@ -682,6 +902,9 @@ public:
- 	float targetMusicVolume = 0.0f;
- 	float fadeRate = 0.0f;
- 	float globalSoundVolume = 1.0f;
-+	// HP2: the listener velocity comes from the audio subsystem (SetListenerVelocity), not the camera actor
-+	bool ownListenerVelocity = false;
-+	vec3 listenerVelocity = vec3(0.0f);
- };
- 
- std::unique_ptr<AudioDevice> AudioDevice::Create(int frequency, int numVoices, int musicBufferCount, int musicBufferSize)
 diff --git a/SurrealEngine/Audio/AudioDevice.h b/SurrealEngine/Audio/AudioDevice.h
-index d201523d..3014c1ec 100644
+index c334c78..12c7e09 100644
 --- a/SurrealEngine/Audio/AudioDevice.h
 +++ b/SurrealEngine/Audio/AudioDevice.h
-@@ -27,5 +27,13 @@ public:
+@@ -26,5 +26,13 @@ public:
+ 	virtual void UpdateSound(int channel, vec3& location, float volume, float radius, float pitch) = 0;
  	virtual void StopSound(int channel) = 0;
  	virtual void SetMusicVolume(float volume) = 0;
- 	virtual void SetSoundVolume(float volume) = 0;
-+	virtual void SetLinearFalloff(bool enable) { } // see ALSoundSource::SetLinearFalloff
++	virtual void SetLinearFalloff(bool enable, float maxVolume) { } // see ALSoundSource::SetLinearFalloff
 +	virtual void SetLooping(int channel, bool loop) { } // loop the channel's sound even without loop points (HP2's PlaySound Loop)
 +	// HP2's ALAudio driver: OpenAL's inverse distance clamped model (see ALSoundSource::SetInverseFalloff), doppler
 +	// from the sources' and the listener's velocities, and its sounds paused with the game
@@ -543,7 +19,7 @@ index d201523d..3014c1ec 100644
  	virtual void Update() = 0;
  };
 diff --git a/SurrealEngine/Audio/AudioPlayer.cpp b/SurrealEngine/Audio/AudioPlayer.cpp
-index f1bb061f..418bf582 100644
+index f1bb061..418bf58 100644
 --- a/SurrealEngine/Audio/AudioPlayer.cpp
 +++ b/SurrealEngine/Audio/AudioPlayer.cpp
 @@ -290,6 +290,16 @@ public:
@@ -564,7 +40,7 @@ index f1bb061f..418bf582 100644
  
  #include <alsa/asoundlib.h>
 diff --git a/SurrealEngine/Audio/AudioSource.cpp b/SurrealEngine/Audio/AudioSource.cpp
-index 241acddf..3d45348f 100644
+index 241acdd..3d45348 100644
 --- a/SurrealEngine/Audio/AudioSource.cpp
 +++ b/SurrealEngine/Audio/AudioSource.cpp
 @@ -365,8 +365,15 @@ public:
@@ -600,8 +76,550 @@ index 241acddf..3d45348f 100644
  			int buffer_pos = (data_requested - data_left) * stream_info.channels;
  			int c = stream_info.channels;
  			for (int j = 0; j < c; j++)
+diff --git a/SurrealEngine/Audio/OpenAL/ALSoundSource.cpp b/SurrealEngine/Audio/OpenAL/ALSoundSource.cpp
+index 9056d01..44526ab 100644
+--- a/SurrealEngine/Audio/OpenAL/ALSoundSource.cpp
++++ b/SurrealEngine/Audio/OpenAL/ALSoundSource.cpp
+@@ -3,6 +3,7 @@
+ #include "ALSoundSource.h"
+ #include "Packages/Engine/Actors/UActor.h"
+ #include "Packages/Engine/Resources/USound.h"
++#include <cfloat>
+ 
+ ALSoundSource::ALSoundSource()
+ {
+@@ -39,7 +40,7 @@ bool ALSoundSource::IsPlaying()
+ 
+ 	ALint state;
+ 	alGetSourcei(id, AL_SOURCE_STATE, &state);
+-	return state == AL_PLAYING;
++	return state == AL_PLAYING || state == AL_PAUSED; // HP2 pauses its sounds with the game (SetPaused)
+ }
+ 
+ USound* ALSoundSource::GetSound()
+@@ -69,8 +70,14 @@ void ALSoundSource::SetRadius(float newRadius)
+ 	if (radius != newRadius)
+ 	{
+ 		radius = newRadius;
++		if (inverseFalloff)
++		{
++			alSourcef(id, AL_MAX_DISTANCE, FLT_MAX);
++			alSourcef(id, AL_REFERENCE_DISTANCE, radius);
++			return;
++		}
+ 		alSourcef(id, AL_MAX_DISTANCE, radius);
+-		alSourcef(id, AL_REFERENCE_DISTANCE, 0.1f * radius);
++		alSourcef(id, AL_REFERENCE_DISTANCE, linearFalloff ? 0.0f : 0.1f * radius);
+ 	}
+ }
+ 
+@@ -98,6 +105,12 @@ void ALSoundSource::SetSound(USound* newSound)
+ 	}
+ }
+ 
++// Loops the whole sound when asked, or between its loop points when it has them (SetSound)
++void ALSoundSource::SetLooping(bool loop)
++{
++	alSourcei(id, AL_LOOPING, (loop || (sound && sound->loopInfo.Looped)) ? AL_TRUE : AL_FALSE);
++}
++
+ void ALSoundSource::SetSpatial(bool bSpatial)
+ {
+ 	if (bIs3d != bSpatial)
+@@ -113,12 +126,49 @@ void ALSoundSource::SetVolume(float newVolume)
+ 	{
+ 		volume = newVolume;
+ 		alSourcef(id, AL_GAIN, volume);
+-		alSourcef(id, AL_MAX_GAIN, volume);
++		alSourcef(id, AL_MAX_GAIN, linearFalloff ? maxVolume : volume);
++	}
++}
++
++// Linear falloff: the volume falls in a straight line from the source to the radius, and the volume times
++// the falloff is capped at maxVolume (a loud sound stays at full volume further out). Otherwise the
++// sound plays at its volume within a tenth of the radius and fades out a little before the radius.
++void ALSoundSource::SetLinearFalloff(bool enable, float newMaxVolume)
++{
++	if (linearFalloff != enable || maxVolume != newMaxVolume)
++	{
++		linearFalloff = enable;
++		maxVolume = newMaxVolume;
++		alSourcef(id, AL_ROLLOFF_FACTOR, linearFalloff ? 1.0f : 1.1f);
++		radius = -1.0f; // applied again by the next SetRadius and SetVolume
++		volume = -1.0f;
+ 	}
+ }
+ 
++// HP2's ALAudio driver: full volume within the radius, then radius / (radius + rolloff * (distance - radius)),
++// with no distance where it ends (OpenAL's inverse distance clamped model, set for the context)
++void ALSoundSource::SetInverseFalloff(float rolloff)
++{
++	inverseFalloff = true;
++	alSourcef(id, AL_ROLLOFF_FACTOR, rolloff);
++	radius = -1.0f; // applied again by the next SetRadius
++}
++
++void ALSoundSource::SetPaused(bool paused)
++{
++	ALint state;
++	alGetSourcei(id, AL_SOURCE_STATE, &state);
++	if (paused && state == AL_PLAYING)
++		alSourcePause(id);
++	else if (!paused && state == AL_PAUSED)
++		alSourcePlay(id);
++}
++
++// OpenAL rejects a negative pitch (AL_INVALID_VALUE, which the next checked call then reported as its own
++// failure): HP1's BroomHarry.UpdateBroomSound fades the broom loop's pitch below 0 along with its volume.
+ void ALSoundSource::SetPitch(float newPitch)
+ {
++	newPitch = std::max(newPitch, 0.0f);
+ 	if (pitch != newPitch)
+ 	{
+ 		pitch = newPitch;
+diff --git a/SurrealEngine/Audio/OpenAL/ALSoundSource.h b/SurrealEngine/Audio/OpenAL/ALSoundSource.h
+index 442234a..898ea7b 100644
+--- a/SurrealEngine/Audio/OpenAL/ALSoundSource.h
++++ b/SurrealEngine/Audio/OpenAL/ALSoundSource.h
+@@ -23,8 +23,12 @@ public:
+ 	void SetRadius(float newRadius);
+ 	void SetVelocity(vec3& newVelocity);
+ 	void SetSound(USound* newSound);
++	void SetLooping(bool loop);
+ 	void SetSpatial(bool bSpatial);
+ 	void SetVolume(float newVolume);
++	void SetLinearFalloff(bool enable, float newMaxVolume);
++	void SetInverseFalloff(float rolloff);
++	void SetPaused(bool paused);
+ 	void SetPitch(float newPitch);
+ 	void DoLoop();
+ 
+@@ -39,4 +43,7 @@ private:
+ 	float pitch = 0.0f;
+ 	float dopplerFactor = 0.0f;
+ 	bool bIs3d = false;
++	bool linearFalloff = false;
++	bool inverseFalloff = false;
++	float maxVolume = 1.0f;
+ };
+diff --git a/SurrealEngine/Audio/OpenAL/OpenALAudioDevice.cpp b/SurrealEngine/Audio/OpenAL/OpenALAudioDevice.cpp
+index 0917637..7a49194 100644
+--- a/SurrealEngine/Audio/OpenAL/OpenALAudioDevice.cpp
++++ b/SurrealEngine/Audio/OpenAL/OpenALAudioDevice.cpp
+@@ -45,6 +45,9 @@ OpenALAudioDevice::OpenALAudioDevice(int inFrequency, int numVoices, int inMusic
+ 	if (alcMakeContextCurrent(alContext) == ALC_FALSE)
+ 		Exception::Throw("Failed to make OpenAL context current");
+ 
++	if (alcIsExtensionPresent(alDevice, "ALC_SOFT_reopen_device"))
++		alcReopenDevice = (LPALCREOPENDEVICESOFT)alcGetProcAddress(alDevice, "alcReopenDeviceSOFT");
++
+ 	// init listener state
+ 	ALfloat listenerOri[] = { 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, -1.0f };
+ 	alListener3f(AL_POSITION, 0, 0, 0.0f);
+@@ -102,6 +105,7 @@ int OpenALAudioDevice::GetTotalChannels()
+ 
+ void OpenALAudioDevice::AddSound(USound* sound)
+ {
++	std::lock_guard alLock(alMutex);
+ 	sounds.push_back(sound);
+ 
+ 	ALenum format = AL_FORMAT_MONO_FLOAT32;
+@@ -120,6 +124,7 @@ void OpenALAudioDevice::AddSound(USound* sound)
+ 
+ void OpenALAudioDevice::RemoveSound(USound* sound)
+ {
++	std::lock_guard alLock(alMutex);
+ 	auto it = sounds.begin();
+ 	while (it != sounds.end())
+ 	{
+@@ -135,6 +140,7 @@ void OpenALAudioDevice::RemoveSound(USound* sound)
+ 
+ bool OpenALAudioDevice::IsPlaying(int channel)
+ {
++	std::lock_guard alLock(alMutex);
+ 	ALSoundSource& source = sources[channel];
+ 	return source.IsPlaying();
+ }
+@@ -148,6 +154,7 @@ void OpenALAudioDevice::PlayMusic(std::unique_ptr<AudioSource> source)
+ 
+ void OpenALAudioDevice::PlaySound(int channel, USound* sound, vec3& location, float volume, float radius, float pitch)
+ {
++	std::lock_guard alLock(alMutex);
+ 	if (!std::isfinite(volume) || volume < 0.0f || !std::isfinite(pitch) || channel >= sources.size())
+ 		Exception::Throw("Invalid PlaySound arguments");
+ 
+@@ -169,6 +176,7 @@ void OpenALAudioDevice::PlaySound(int channel, USound* sound, vec3& location, fl
+ 
+ void OpenALAudioDevice::UpdateSound(int channel, vec3& location, float volume, float radius, float pitch)
+ {
++	std::lock_guard alLock(alMutex);
+ 	if (!std::isfinite(volume) || volume < 0.0f || !std::isfinite(pitch) || channel >= sources.size())
+ 		Exception::Throw("Invalid PlaySound arguments");
+ 
+@@ -184,15 +192,23 @@ void OpenALAudioDevice::UpdateSound(int channel, vec3& location, float volume, f
+ 
+ void OpenALAudioDevice::StopSound(int channel)
+ {
++	std::lock_guard alLock(alMutex);
+ 	if (channel >= sources.size())
+ 		Exception::Throw("Invalid StopSound arguments");
+ 
+ 	sources[channel].Stop();
+ }
+ 
+-std::string OpenALAudioDevice::getALErrorString()
++void OpenALAudioDevice::SetLooping(int channel, bool loop)
++{
++	std::lock_guard alLock(alMutex);
++	if (channel < (int)sources.size())
++		sources[channel].SetLooping(loop);
++}
++
++std::string OpenALAudioDevice::getALErrorString(ALenum error)
+ {
+-	switch (alGetError())
++	switch (error)
+ 	{
+ 	case AL_NO_ERROR:
+ 		return "AL_NO_ERROR";
+@@ -221,20 +237,21 @@ void OpenALAudioDevice::PlayMusicBuffer(AudioSource* music)
+ 	{
+ 		alBufferData(alMusicBuffers[i], format, musicQueue.Pop(), musicBufferSize * 4, freq);
+ 		if ((error = alGetError()) != AL_NO_ERROR)
+-			Exception::Throw("alBufferData failed in PlayMusicBuffer: " + getALErrorString());
++			Exception::Throw("alBufferData failed in PlayMusicBuffer: " + getALErrorString(error));
+ 
+ 		alSourceQueueBuffers(alMusicSource, 1, &alMusicBuffers[i]);
+-		if (alGetError() != AL_NO_ERROR)
+-			Exception::Throw("alSourceQueueBuffers failed in PlayMusicBuffer: " + getALErrorString());
++		if ((error = alGetError()) != AL_NO_ERROR)
++			Exception::Throw("alSourceQueueBuffers failed in PlayMusicBuffer: " + getALErrorString(error));
+ 	}
+ 
+ 	alSourcePlay(alMusicSource);
+-	if (alGetError() != AL_NO_ERROR)
+-		Exception::Throw("alSourcePlay failed in PlayMusicBuffer: " + getALErrorString());
++	if ((error = alGetError()) != AL_NO_ERROR)
++		Exception::Throw("alSourcePlay failed in PlayMusicBuffer: " + getALErrorString(error));
+ }
+ 
+ void OpenALAudioDevice::UpdateMusicBuffer(AudioSource* music)
+ {
++	ALenum error;
+ 	ALint status;
+ 	alGetSourcei(alMusicSource, AL_BUFFERS_PROCESSED, &status);
+ 
+@@ -247,12 +264,12 @@ void OpenALAudioDevice::UpdateMusicBuffer(AudioSource* music)
+ 		int freq = music->GetFrequency();
+ 
+ 		alBufferData(buffer, format, musicQueue.Pop(), musicBufferSize * 4, freq);
+-		if (alGetError() != AL_NO_ERROR)
+-			Exception::Throw("alBufferData failed in UpdateMusicBuffer: " + getALErrorString());
++		if ((error = alGetError()) != AL_NO_ERROR)
++			Exception::Throw("alBufferData failed in UpdateMusicBuffer: " + getALErrorString(error));
+ 
+ 		alSourceQueueBuffers(alMusicSource, 1, &buffer);
+-		if (alGetError() != AL_NO_ERROR)
+-			Exception::Throw("alSourceQueueBuffers failed in UpdateMusicBuffer: " + getALErrorString());
++		if ((error = alGetError()) != AL_NO_ERROR)
++			Exception::Throw("alSourceQueueBuffers failed in UpdateMusicBuffer: " + getALErrorString(error));
+ 
+ 		status--;
+ 	}
+@@ -261,27 +278,72 @@ void OpenALAudioDevice::UpdateMusicBuffer(AudioSource* music)
+ 	if (status == AL_STOPPED)
+ 	{
+ 		alSourcePlay(alMusicSource);
+-		if (alGetError() != AL_NO_ERROR)
+-			Exception::Throw("alSourcePlay failed in PlayMusicBuffer: " + getALErrorString());
++		if ((error = alGetError()) != AL_NO_ERROR)
++			Exception::Throw("alSourcePlay failed in PlayMusicBuffer: " + getALErrorString(error));
+ 	}
+ }
+ 
+ void OpenALAudioDevice::SetMusicVolume(float volume)
+ {
++	std::lock_guard alLock(alMutex);
+ 	alSourcef(alMusicSource, AL_GAIN, volume);
+ }
+ 
++void OpenALAudioDevice::SetLinearFalloff(bool enable, float maxVolume)
++{
++	std::lock_guard alLock(alMutex);
++	for (auto& soundSource : sources)
++		soundSource.SetLinearFalloff(enable, maxVolume);
++}
++
++void OpenALAudioDevice::SetInverseFalloff(float rolloff, float dopplerFactor, float speedOfSound)
++{
++	std::lock_guard alLock(alMutex);
++	alDistanceModel(AL_INVERSE_DISTANCE_CLAMPED);
++	alDopplerFactor(dopplerFactor);
++	alSpeedOfSound(speedOfSound);
++	for (auto& soundSource : sources)
++		soundSource.SetInverseFalloff(rolloff);
++	ownListenerVelocity = true;
++}
++
++void OpenALAudioDevice::SetSoundVelocity(int channel, const vec3& velocity)
++{
++	std::lock_guard alLock(alMutex);
++	if (channel < (int)sources.size())
++	{
++		vec3 v = velocity;
++		sources[channel].SetVelocity(v);
++	}
++}
++
++void OpenALAudioDevice::SetListenerVelocity(const vec3& velocity)
++{
++	std::lock_guard alLock(alMutex);
++	listenerVelocity = velocity;
++}
++
++void OpenALAudioDevice::SetPaused(int channel, bool paused)
++{
++	std::lock_guard alLock(alMutex);
++	if (channel < (int)sources.size())
++		sources[channel].SetPaused(paused);
++}
++
+ void OpenALAudioDevice::Update()
+ {
++	std::lock_guard alLock(alMutex);
+ 	UActor* listener = engine->CameraActor;
+ 	if (listener)
+ 	{
+-		// Update listener properties
+-		vec3& location = listener->Location();
+-		vec3& velocity = listener->Velocity();
++		// Update listener properties: where the camera is, as PlayerCalcView left it (what is drawn). The CameraActor
++		// itself is only the actor the script named; HP2's third person camera is not at its location, and sounds with a
++		// radius (footsteps, spells, pickups) played from a listener that was elsewhere.
++		vec3 location = engine->CameraLocation;
++		vec3& velocity = ownListenerVelocity ? listenerVelocity : listener->Velocity();
+ 
+ 		vec3 at, left, up;
+-		Coords::Rotation(listener->Rotation()).GetAxes(at, left, up);
++		Coords::Rotation(engine->CameraRotation).GetAxes(at, left, up);
+ 
+ 		ALfloat listenerOri[6] = { up.x, up.y, -up.z, -at.x, -at.y, at.z };
+ 		alListener3f(AL_POSITION, location.x, location.y, -location.z);
+@@ -294,6 +356,7 @@ void OpenALAudioDevice::MusicThreadMain()
+ {
+ 	std::unique_ptr<AudioSource> currentMusic;
+ 	bool musicPlaying = false;
++	int musicFailures = 0;
+ 
+ 	while (true)
+ 	{
+@@ -305,42 +368,125 @@ void OpenALAudioDevice::MusicThreadMain()
+ 		{
+ 			if (musicPlaying)
+ 			{
++				std::lock_guard alLock(alMutex);
+ 				alSourceStop(alMusicSource);
+ 				alSourceUnqueueBuffers(alMusicSource, (ALsizei)alMusicBuffers.size(), &alMusicBuffers[0]);
++				alGetError();
+ 				musicPlaying = false;
+ 			}
+ 			currentMusic = std::move(musicThreadData.music);
+ 			musicThreadData.musicUpdate = false;
++			musicFailures = 0;
+ 		}
+ 		lock.unlock();
+ 		// Never touch anything from musicThreadData after this point.
+ 
++		using namespace std::chrono_literals;
+ 		if (currentMusic)
+ 		{
+-			while (musicQueue.Size() < musicBufferCount)
+-			{
+-				// render a chunk of music
+-				currentMusic->ReadSamples(musicQueue.GetNextFree(), musicBufferSize);
+-				musicQueue.Push(musicQueue.GetNextFree());
+-			}
+-
+-			if (!musicPlaying)
++			// An exception leaving this thread ends the game (std::terminate), so a music error only stops the
++			// music: the source is reset and the track restarted once a second; a track that keeps failing is
++			// dropped.
++			try
+ 			{
+-				PlayMusicBuffer(currentMusic.get());
+-				musicPlaying = true;
++				while (musicQueue.Size() < musicBufferCount)
++				{
++					// render a chunk of music
++					// silence after the end of the stream (the buffer still holds an older chunk)
++					float* chunk = musicQueue.GetNextFree();
++					size_t samplesRead = currentMusic->ReadSamples(chunk, musicBufferSize);
++					std::fill(chunk + samplesRead, chunk + musicBufferSize, 0.0f);
++					musicQueue.Push(chunk);
++				}
++
++				std::lock_guard alLock(alMutex);
++				alGetError(); // an error left by a main thread call isn't ours
++				if (!musicPlaying)
++				{
++					PlayMusicBuffer(currentMusic.get());
++					musicPlaying = true;
++				}
++				else if (musicQueue.Size() > 0)
++				{
++					UpdateMusicBuffer(currentMusic.get());
++					musicFailures = 0;
++				}
++
++				// TODO: music fade in/out
+ 			}
+-			else if (musicQueue.Size() > 0)
++			catch (const std::exception& e)
+ 			{
+-				UpdateMusicBuffer(currentMusic.get());
++				std::string message = e.what();
++				message = message.substr(0, message.find('\n'));
++				{
++					std::lock_guard alLock(alMutex);
++					alSourceStop(alMusicSource);
++					alSourcei(alMusicSource, AL_BUFFER, 0);
++					alGetError();
++				}
++				musicPlaying = false;
++				if (++musicFailures >= 5)
++				{
++					LogMessage("Music stopped, the track keeps failing: " + message);
++					currentMusic.reset();
++					musicFailures = 0;
++				}
++				else
++				{
++					if (musicFailures == 1)
++						LogMessage("Music error, restarting the stream: " + message);
++					std::this_thread::sleep_for(1s);
++				}
+ 			}
+-
+-			// TODO: music fade in/out
+ 		}
+ 		else
+ 		{
+ 			musicPlaying = false;
+ 		}
+-		using namespace std::chrono_literals;
++
++		{
++			std::lock_guard alLock(alMutex);
++			FollowDefaultDevice();
++			alGetError();
++		}
++
+ 		std::this_thread::sleep_for(5ms);
+ 	}
+ }
++
++// OpenAL Soft 1.23 stays on the device it opened: unplugging it leaves the game silent and a new system default
++// (headphones plugged back in) is never picked up. Once a second, reopen the default device when ours was lost or
++// the default changed; alcReopenDeviceSOFT keeps the context, sources and buffers. A default is reopened for once:
++// when OpenAL can't open it and stays on another device, the names keep differing, and reopening every second
++// for that (seen 2026-10-12, over 1000 times in a row) ended in WASAPI errors. A lost device is retried less and
++// less often, up to every 30 s.
++void OpenALAudioDevice::FollowDefaultDevice()
++{
++	auto now = std::chrono::steady_clock::now();
++	if (now < nextDeviceCheck)
++		return;
++	nextDeviceCheck = now + std::chrono::seconds(1);
++
++	if (!alcReopenDevice)
++		return;
++
++	ALCint connected = ALC_TRUE;
++	alcGetIntegerv(alDevice, ALC_CONNECTED, 1, &connected);
++	const ALCchar* current = alcGetString(alDevice, ALC_ALL_DEVICES_SPECIFIER);
++	const ALCchar* defaultName = alcGetString(nullptr, ALC_DEFAULT_ALL_DEVICES_SPECIFIER);
++	std::string newDefault = defaultName ? defaultName : "";
++	bool defaultChanged = current && !newDefault.empty() && newDefault != current && newDefault != reopenedDefault;
++	if (connected)
++		lostRetrySeconds = 1;
++	if (connected && !defaultChanged)
++		return;
++
++	reopenedDefault = newDefault;
++	if (!connected)
++	{
++		nextDeviceCheck = now + std::chrono::seconds(lostRetrySeconds);
++		lostRetrySeconds = std::min(lostRetrySeconds * 2, 30);
++	}
++	if (alcReopenDevice(alDevice, nullptr, nullptr))
++		LogMessage(std::string("Audio device: now ") + alcGetString(alDevice, ALC_ALL_DEVICES_SPECIFIER) + (connected ? "" : " (the last one was lost)") + ", system default " + newDefault);
++}
+diff --git a/SurrealEngine/Audio/OpenAL/OpenALAudioDevice.h b/SurrealEngine/Audio/OpenAL/OpenALAudioDevice.h
+index e5a4d32..98d4524 100644
+--- a/SurrealEngine/Audio/OpenAL/OpenALAudioDevice.h
++++ b/SurrealEngine/Audio/OpenAL/OpenALAudioDevice.h
+@@ -9,6 +9,8 @@
+ #include <mutex>
+ #include <thread>
+ #include <memory>
++#include <chrono>
++#include <string>
+ 
+ class OpenALAudioDevice : public AudioDevice
+ {
+@@ -25,17 +27,28 @@ public:
+ 	void UpdateSound(int channel, vec3& location, float volume, float radius, float pitch) override;
+ 	void StopSound(int channel) override;
+ 	void SetMusicVolume(float volume) override;
++	void SetLooping(int channel, bool loop) override;
++	void SetLinearFalloff(bool enable, float maxVolume) override;
++	void SetInverseFalloff(float rolloff, float dopplerFactor, float speedOfSound) override;
++	void SetSoundVelocity(int channel, const vec3& velocity) override;
++	void SetListenerVelocity(const vec3& velocity) override;
++	void SetPaused(int channel, bool paused) override;
+ 	void Update() override;
+ 
+ private:
+-	std::string getALErrorString();
++	std::string getALErrorString(ALenum error);
+ 
+ 	void PlayMusicBuffer(AudioSource* music);
+ 	void UpdateMusicBuffer(AudioSource* music);
+ 
+ 	void MusicThreadMain();
++	void FollowDefaultDevice();
+ 
+ 	ALCdevice* alDevice = nullptr;
++	LPALCREOPENDEVICESOFT alcReopenDevice = nullptr;
++	std::chrono::steady_clock::time_point nextDeviceCheck;
++	std::string reopenedDefault; // the system default the device was last reopened for
++	int lostRetrySeconds = 1;
+ 	ALCcontext* alContext = nullptr;
+ 	ALenum alError = 0;
+ 	ALuint alMusicSource = 0;
+@@ -47,6 +60,12 @@ private:
+ 	int frequency = 48000;
+ 	Array<USound*> sounds;
+ 
++	// OpenAL keeps one error state per context (alGetError), shared by the game and music threads: without this
++	// lock each thread read the other's errors as its own and aborted the game, "alBufferData failed in
++	// UpdateMusicBuffer: AL_NO_ERROR" on the music thread or "Failed to play AL source" in PlaySound (HP1's
++	// Quidditch match, 2026-10-18). Every OpenAL call holds it; the music thread clears the error state each time.
++	std::mutex alMutex;
++
+ 	// Note: variables changed in musicThreadData *must* be done within a mutex lock to be thread safe
+ 	struct
+ 	{
+@@ -64,4 +83,7 @@ private:
+ 	float currentMusicVolume = 0.0f;
+ 	float targetMusicVolume = 0.0f;
+ 	float fadeRate = 0.0f;
++	// HP2: the listener velocity comes from the audio subsystem (SetListenerVelocity), not the camera actor
++	bool ownListenerVelocity = false;
++	vec3 listenerVelocity = vec3(0.0f);
+ };
 diff --git a/SurrealEngine/Native/NObject.cpp b/SurrealEngine/Native/NObject.cpp
-index 1081c358..eac79ad4 100644
+index f423753..fc817ce 100644
 --- a/SurrealEngine/Native/NObject.cpp
 +++ b/SurrealEngine/Native/NObject.cpp
 @@ -12,6 +12,7 @@
@@ -741,44 +759,48 @@ index 1081c358..eac79ad4 100644
  
  void NObject::GetConfigString_Nerf(const std::string& section, const std::string& key, const std::string& iniName, std::string& ReturnValue)
 diff --git a/SurrealEngine/ObjectTravelInfo.cpp b/SurrealEngine/ObjectTravelInfo.cpp
-index 7f6fe2b7..9fee4d16 100644
+index 1559ad6..e3e759f 100644
 --- a/SurrealEngine/ObjectTravelInfo.cpp
 +++ b/SurrealEngine/ObjectTravelInfo.cpp
-@@ -3,6 +3,8 @@
+@@ -3,6 +3,7 @@
  #include "ObjectTravelInfo.h"
  #include "Packages/Core/UClass.h"
  #include "Packages/Core/Properties/UObjectProperty.h"
 +#include "Packages/Core/Properties/UClassProperty.h"
-+#include "Packages/Core/Properties/UStrProperty.h"
  #include "Packages/Engine/Actors/UActor.h"
  #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
  #include "Engine.h"
-@@ -85,7 +87,21 @@ ActorTravelInfo::TravelObject ActorTravelInfo::CreateObject(UObject* travelObjec
+@@ -32,7 +33,7 @@ std::string ActorTravelInfo::Create(UPlayerPawn* pawn, bool transferItems)
+ 			UObject* cur = processList[i];
+ 			for (UProperty* property : cur->GetAllTravelProperties())
+ 			{
+-				if (auto objProperty = UObject::TryCast<UObjectProperty>(property))
++				if (auto objProperty = UObject::TryCast<UObjectProperty>(property); objProperty && !UObject::TryCast<UClassProperty>(property))
+ 				{
+ 					UObject** values = static_cast<UObject**>(cur->GetProperty(objProperty));
+ 					for (int j = 0; j < objProperty->ArrayDimension; j++)
+@@ -92,7 +93,17 @@ ActorTravelInfo::TravelObject ActorTravelInfo::CreateObject(UObject* travelObjec
  	info.Name = name;
  	for (UProperty* property : travelObject->GetAllTravelProperties())
  	{
 -		if (auto objProperty = UObject::TryCast<UObjectProperty>(property))
 +		if (UObject::TryCast<UClassProperty>(property))
 +		{
-+			// A class reference (HP2's harry.SpellBook[32], the spell classes the player has learned) travels as its full name, element by
-+			// element for an array: the classes are no travel objects and the lookup below only keeps what travelObjects knows.
-+			UObject** data = static_cast<UObject**>(travelObject->GetProperty(property));
-+			for (int i = 0; i < std::max(property->ArrayDimension, 1); i++)
++			const uint8_t* data = static_cast<const uint8_t*>(travelObject->GetProperty(property));
++			for (int i = 0; i < property->ArrayDimension; i++)
 +			{
-+				UClass* cls = data[i] ? UObject::TryCast<UClass>(data[i]) : nullptr;
-+				if (!cls || !cls->package)
-+					continue;
-+				std::string key = property->ArrayDimension > 1 ? property->Name.ToString() + "[" + std::to_string(i) + "]" : property->Name.ToString();
-+				info.Properties[key] = "$cls$" + cls->package->GetPackageName().ToString() + "." + cls->Name.ToString();
++				std::string key = property->Name.ToString();
++				if (property->ArrayDimension > 1) key += "[" + std::to_string(i) + "]";
++				info.Properties[key] = property->PrintValue(data + i * property->ElementPitch());
 +			}
 +		}
 +		else if (auto objProperty = UObject::TryCast<UObjectProperty>(property))
  		{
- 			UObject* value = *static_cast<UObject**>(travelObject->GetProperty(objProperty));
- 			std::string name;
-@@ -106,6 +122,13 @@ ActorTravelInfo::TravelObject ActorTravelInfo::CreateObject(UObject* travelObjec
- 			if (!name.empty())
- 				info.Properties[property->Name.ToString()] = name;
+ 			UObject** values = static_cast<UObject**>(travelObject->GetProperty(objProperty));
+ 			for (int j = 0; j < objProperty->ArrayDimension; j++)
+@@ -126,6 +137,13 @@ ActorTravelInfo::TravelObject ActorTravelInfo::CreateObject(UObject* travelObjec
+ 				}
+ 			}
  		}
 +		else if (property->ArrayDimension > 1)
 +		{
@@ -790,21 +812,22 @@ index 7f6fe2b7..9fee4d16 100644
  		else
  		{
  			info.Properties[property->Name.ToString()] = travelObject->GetPropertyAsString(property->Name);
-@@ -184,6 +207,33 @@ Array<UObject*> ActorTravelInfo::Accept(UPlayerPawn* pawn, const std::string& tr
+@@ -204,6 +222,34 @@ Array<UObject*> ActorTravelInfo::Accept(UPlayerPawn* pawn, const std::string& tr
  			if (property->Name == "Inventory" && !AllFlags(property->PropFlags, PropertyFlags::Travel))
  				continue;
  
 +			if (UObject::TryCast<UClassProperty>(property))
 +			{
-+				UObject** data = static_cast<UObject**>(acceptedObject->GetProperty(property));
-+				for (int i = 0; i < std::max(property->ArrayDimension, 1); i++)
++				uint8_t* data = static_cast<uint8_t*>(acceptedObject->GetProperty(property));
++				for (int i = 0; i < property->ArrayDimension; i++)
 +				{
-+					std::string key = property->ArrayDimension > 1 ? property->Name.ToString() + "[" + std::to_string(i) + "]" : property->Name.ToString();
-+					auto element = objInfo.Properties.find(key);
-+					if (element == objInfo.Properties.end() || element->second.rfind("$cls$", 0) != 0)
-+						continue;
-+					if (UClass* cls = engine->packages->FindClass(NameString(element->second.substr(5))))
-+						data[i] = cls;
++					std::string key = property->Name.ToString();
++					if (property->ArrayDimension > 1) key += "[" + std::to_string(i) + "]";
++					auto value = objInfo.Properties.find(key);
++					if (value == objInfo.Properties.end()) continue;
++					void* element = data + i * property->ElementPitch();
++					if (value->second == "None") *static_cast<UObject**>(element) = nullptr;
++					else property->SetValueFromString(element, value->second);
 +				}
 +				continue;
 +			}
@@ -821,25 +844,11 @@ index 7f6fe2b7..9fee4d16 100644
 +				continue;
 +			}
 +
- 			auto it = objInfo.Properties.find(property->Name.ToString());
- 			if (it == objInfo.Properties.end())
- 				continue;
-@@ -211,7 +261,12 @@ Array<UObject*> ActorTravelInfo::Accept(UPlayerPawn* pawn, const std::string& tr
- 			}
- 			else
+ 			for (size_t j = 0; j < property->ArrayDimension; j++)
  			{
--				acceptedObject->SetPropertyFromString(property->Name, value);
-+				// A string travels quoted (UStringProperty::PrintValue) but is stored as typed: take the quotes off, or
-+				// HP2's CurrentGameState arrives as "GSTATE010" with the quote characters and no actor matches it.
-+				if (UObject::TryCast<UStrProperty>(property) && value.size() >= 2 && value.front() == '"' && value.back() == '"')
-+					acceptedObject->SetPropertyFromString(property->Name, value.substr(1, value.size() - 2));
-+				else
-+					acceptedObject->SetPropertyFromString(property->Name, value);
- 			}
- 		}
- 	}
+ 				std::string propertyNameStr;
 diff --git a/SurrealEngine/Package/IniFile.cpp b/SurrealEngine/Package/IniFile.cpp
-index 6aab46e1..4737e497 100644
+index 6aab46e..4737e49 100644
 --- a/SurrealEngine/Package/IniFile.cpp
 +++ b/SurrealEngine/Package/IniFile.cpp
 @@ -3,6 +3,8 @@
@@ -941,7 +950,7 @@ index 6aab46e1..4737e497 100644
  				// If we did, then get the next index from it, else add the key we found to the database
  				int found_index = 0;
 diff --git a/SurrealEngine/Package/ObjectStream.h b/SurrealEngine/Package/ObjectStream.h
-index 1c5144c4..9825a51a 100644
+index 1c5144c..9825a51 100644
 --- a/SurrealEngine/Package/ObjectStream.h
 +++ b/SurrealEngine/Package/ObjectStream.h
 @@ -3,6 +3,7 @@
@@ -971,7 +980,7 @@ index 1c5144c4..9825a51a 100644
  				Exception::Throw("ObjectStream::ReadString: Invalid size in " + package->GetPackageName().ToString());
  			Array<char> s;
 diff --git a/SurrealEngine/Package/Package.cpp b/SurrealEngine/Package/Package.cpp
-index 78b0a27d..c96a6e5b 100644
+index 78b0a27..c96a6e5 100644
 --- a/SurrealEngine/Package/Package.cpp
 +++ b/SurrealEngine/Package/Package.cpp
 @@ -5,6 +5,8 @@
@@ -1005,7 +1014,7 @@ index 78b0a27d..c96a6e5b 100644
  	}
  	else
 diff --git a/SurrealEngine/Packages/Core/Properties/UProperty.h b/SurrealEngine/Packages/Core/Properties/UProperty.h
-index 355f97f3..e56e03cf 100644
+index 355f97f..e56e03c 100644
 --- a/SurrealEngine/Packages/Core/Properties/UProperty.h
 +++ b/SurrealEngine/Packages/Core/Properties/UProperty.h
 @@ -146,7 +146,7 @@ inline void* PropertyDataBlock::Ptr(const UProperty* prop)
@@ -1025,7 +1034,7 @@ index 355f97f3..e56e03cf 100644
 +	Exception::Throw("Property offset out of bounds! (" + prop->Name.ToString() + " at " + std::to_string(offset) + ", size " + std::to_string(Size) + ")");
  }
 diff --git a/SurrealEngine/Packages/Core/Properties/UStrProperty.cpp b/SurrealEngine/Packages/Core/Properties/UStrProperty.cpp
-index ce5b70fc..efd65370 100644
+index ce5b70f..efd6537 100644
 --- a/SurrealEngine/Packages/Core/Properties/UStrProperty.cpp
 +++ b/SurrealEngine/Packages/Core/Properties/UStrProperty.cpp
 @@ -45,7 +45,12 @@ void UStrProperty::SaveValue(void* data, PackageStreamWriter* stream)
@@ -1043,7 +1052,7 @@ index ce5b70fc..efd65370 100644
  
  std::string UStrProperty::PrintValue(const void* data)
 diff --git a/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp b/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp
-index 2f91f141..e3a86d3f 100644
+index 2f91f14..e3a86d3 100644
 --- a/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp
 +++ b/SurrealEngine/Packages/Core/Properties/UStructProperty.cpp
 @@ -49,8 +49,12 @@ void UStructProperty::LoadStructMemberValue(void* data, ObjectStream* stream)
@@ -1086,7 +1095,7 @@ index 2f91f141..e3a86d3f 100644
  			}
  		}
 diff --git a/SurrealEngine/Packages/Core/UObject.cpp b/SurrealEngine/Packages/Core/UObject.cpp
-index 8c485d04..43bbca12 100644
+index 14b87d6..fcb0e7d 100644
 --- a/SurrealEngine/Packages/Core/UObject.cpp
 +++ b/SurrealEngine/Packages/Core/UObject.cpp
 @@ -30,7 +30,16 @@ void UObject::LoadNow()
@@ -1107,7 +1116,20 @@ index 8c485d04..43bbca12 100644
  			SetObject("Outer", info->Outer);
  		}
  		else if (auto s = UObject::TryCast<UStruct>(this))
-@@ -107,9 +116,14 @@ void UObject::Load(ObjectStream* stream)
+@@ -76,10 +85,11 @@ void UObject::Load(ObjectStream* stream)
+ 			if (offset != -1)
+ 			{
+ 				func->LoadNow();
++				state->LoadNow();
+ 				int index = func->Code->FindStatementIndex(offset);
+ 				if (index != -1)
+ 				{
+-					StateFrame = std::make_shared<Frame>(this, func, index, true);
++					StateFrame = std::make_shared<Frame>(this, func, index, true, engine->LaunchInfo.IsHarryPotter2() ? state : func);
+ 					if (latentAction >= 0 && (size_t)latentAction < NativeFunctions::LatentActionByIndex.size())
+ 					{
+ 						StateFrame->SetLatentState(NativeFunctions::LatentActionByIndex[latentAction]);
+@@ -107,9 +117,14 @@ void UObject::Load(ObjectStream* stream)
  			LogMessage("UObject::Load encountered object with a state object but no function");
  		}
  
@@ -1124,7 +1146,17 @@ index 8c485d04..43bbca12 100644
  			{
  				DisableEvent(ToNameString((EventName)i));
  			}
-@@ -141,10 +155,11 @@ void UObject::Save(PackageStreamWriter* stream)
+@@ -133,18 +148,17 @@ void UObject::Save(PackageStreamWriter* stream)
+ {
+ 	if (AllFlags(Flags, ObjectFlags::HasStack))
+ 	{
+-		// func and state: in this engine's VM, a StateFrame can only ever be suspended in
+-		// state code, so func (raw StateFrame->Func) and state (StateFrame->Func cast to
+-		// UState) always point at the same object here.
++		// The logical state may inherit its running code from another state.
+ 		UStruct* func = StateFrame ? StateFrame->GetFunc() : nullptr;
+-		UState* state = StateFrame ? UObject::TryCast<UState>(StateFrame->GetFunc()) : nullptr;
++		UState* state = StateFrame ? UObject::TryCast<UState>(StateFrame->GetState()) : nullptr;
  		int32_t latentAction = 0;
  		int offset = -1;
  
@@ -1137,7 +1169,16 @@ index 8c485d04..43bbca12 100644
  			{
  				probeMask |= 1ULL << (uint64_t)i;
  			}
-@@ -408,6 +423,13 @@ bool UObject::IsEventEnabled(EventName name) const
+@@ -387,7 +401,7 @@ bool UObject::IsEventEnabled(EventName name) const
+ 		bool foundProbe = false;
+ 		if (StateFrame && StateFrame->GetFunc())
+ 		{
+-			UState* state = static_cast<UState*>(StateFrame->GetFunc());
++			UState* state = static_cast<UState*>(StateFrame->GetState());
+ 
+ 			// Probe is in the ignore list ('ignores' keyword in unrealscript)
+ 			if ((state->IgnoreMask & (1ULL << nameIndex)) == 0)
+@@ -408,6 +422,13 @@ bool UObject::IsEventEnabled(EventName name) const
  			foundProbe = true;
  		}
  
@@ -1151,9 +1192,21 @@ index 8c485d04..43bbca12 100644
  		if (!foundProbe)
  			return false;
  	}
-@@ -523,8 +545,16 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
+@@ -480,7 +501,7 @@ Array<UProperty*> UObject::GetAllTravelProperties()
  
- 	UState* oldState = (UState*)StateFrame->GetFunc();
+ NameString UObject::GetStateName() const
+ {
+-	return StateFrame && StateFrame->GetFunc() ? StateFrame->GetFunc()->Name : NameString();
++	return StateFrame && StateFrame->GetState() ? StateFrame->GetState()->Name : NameString();
+ }
+ 
+ void UObject::GotoState(NameString stateName, const NameString& labelName)
+@@ -521,10 +542,18 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
+ 	if (!StateFrame)
+ 		StateFrame = std::make_shared<Frame>(this, nullptr, 0, true);
+ 
+-	UState* oldState = (UState*)StateFrame->GetFunc();
++	UState* oldState = (UState*)StateFrame->GetState();
  
 -	if (oldState && oldState != newState)
 +	// UE1 calls EndState with InEndState set, so a GotoState made from inside EndState doesn't call it again (that
@@ -1169,7 +1222,7 @@ index 8c485d04..43bbca12 100644
  
  	if (oldState != newState)
  		StateFrame->SetState(newState);
-@@ -537,7 +567,7 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
+@@ -537,7 +566,7 @@ void UObject::GotoState(NameString stateName, const NameString& labelName)
  		// load time. An actor that starts a level with no baked-in stack but enters a real state
  		// during play would otherwise never have that state written by Save() at all, silently
  		// losing it on the next save regardless of what state it's actually in.
@@ -1179,10 +1232,10 @@ index 8c485d04..43bbca12 100644
  	}
  
 diff --git a/SurrealEngine/Packages/Core/UObject.h b/SurrealEngine/Packages/Core/UObject.h
-index 7dd57a47..470e3966 100644
+index 4333e1a..7aa62ea 100644
 --- a/SurrealEngine/Packages/Core/UObject.h
 +++ b/SurrealEngine/Packages/Core/UObject.h
-@@ -335,6 +335,11 @@ public:
+@@ -337,6 +337,11 @@ public:
  
  	std::map<NameString, std::set<NameString>> DisabledEvents;
  
@@ -1194,7 +1247,7 @@ index 7dd57a47..470e3966 100644
  	std::unique_ptr<ObjectDelayLoad> DelayLoad;
  
  	NameString Name;
-@@ -462,12 +467,12 @@ inline void* PropertyDataBlock::Ptr(size_t offset)
+@@ -464,12 +469,12 @@ inline void* PropertyDataBlock::Ptr(size_t offset)
  {
  	if (offset < Size)
  		return static_cast<uint8_t*>(Data) + offset;
@@ -1210,7 +1263,7 @@ index 7dd57a47..470e3966 100644
 +	Exception::Throw("Property offset out of bounds! (offset " + std::to_string(offset) + ", size " + std::to_string(Size) + ")");
  }
 diff --git a/SurrealEngine/Packages/Core/UState.cpp b/SurrealEngine/Packages/Core/UState.cpp
-index 55f5c3f7..57069c47 100644
+index 55f5c3f..57069c4 100644
 --- a/SurrealEngine/Packages/Core/UState.cpp
 +++ b/SurrealEngine/Packages/Core/UState.cpp
 @@ -28,3 +28,14 @@ void UState::Save(PackageStreamWriter* stream)
@@ -1229,7 +1282,7 @@ index 55f5c3f7..57069c47 100644
 +	return nullptr;
 +}
 diff --git a/SurrealEngine/Packages/Core/UState.h b/SurrealEngine/Packages/Core/UState.h
-index e0615c50..98d86ac5 100644
+index e0615c5..98d86ac 100644
 --- a/SurrealEngine/Packages/Core/UState.h
 +++ b/SurrealEngine/Packages/Core/UState.h
 @@ -29,6 +29,8 @@ public:
@@ -1243,7 +1296,7 @@ index e0615c50..98d86ac5 100644
  	std::map<NameString, UFunction*> Functions;
  };
 diff --git a/SurrealEngine/Packages/Core/UStruct.cpp b/SurrealEngine/Packages/Core/UStruct.cpp
-index 535a5549..fd9b5ff5 100644
+index c6fb195..6b7b1c7 100644
 --- a/SurrealEngine/Packages/Core/UStruct.cpp
 +++ b/SurrealEngine/Packages/Core/UStruct.cpp
 @@ -8,6 +8,7 @@
@@ -1254,7 +1307,7 @@ index 535a5549..fd9b5ff5 100644
  
  UStruct::UStruct(NameString name, UClass* cls, ObjectFlags flags) : UField(std::move(name), cls, flags)
  {
-@@ -286,8 +287,24 @@ ExprToken UStruct::ReadToken(ObjectStream* stream, int depth)
+@@ -297,8 +298,24 @@ ExprToken UStruct::ReadToken(ObjectStream* stream, int depth)
  		Exception::Throw("Bytecode parsing error");
  	depth++;
  
@@ -1281,7 +1334,7 @@ index 535a5549..fd9b5ff5 100644
  
  #ifdef _DEBUG
  	std::string tokendebug;
-@@ -344,7 +361,7 @@ ExprToken UStruct::ReadToken(ObjectStream* stream, int depth)
+@@ -355,7 +372,7 @@ ExprToken UStruct::ReadToken(ObjectStream* stream, int depth)
  			ReadToken(stream, depth);
  		}
  	}
@@ -1291,7 +1344,7 @@ index 535a5549..fd9b5ff5 100644
  		ReadToken(stream, depth);
  	}
 diff --git a/SurrealEngine/Packages/Engine/Resources/UFont.cpp b/SurrealEngine/Packages/Engine/Resources/UFont.cpp
-index 47d655d1..474cfd09 100644
+index 47d655d..474cfd0 100644
 --- a/SurrealEngine/Packages/Engine/Resources/UFont.cpp
 +++ b/SurrealEngine/Packages/Engine/Resources/UFont.cpp
 @@ -2,6 +2,7 @@
@@ -1409,7 +1462,7 @@ index 47d655d1..474cfd09 100644
 +	native = true;
 +}
 diff --git a/SurrealEngine/Packages/Engine/Resources/UFont.h b/SurrealEngine/Packages/Engine/Resources/UFont.h
-index 998435b4..add5ee5d 100644
+index 998435b..add5ee5 100644
 --- a/SurrealEngine/Packages/Engine/Resources/UFont.h
 +++ b/SurrealEngine/Packages/Engine/Resources/UFont.h
 @@ -41,11 +41,32 @@ public:
@@ -1448,7 +1501,7 @@ index 998435b4..add5ee5d 100644
 +	bool native = false;
  };
 diff --git a/SurrealEngine/PropertyOffsets.cpp b/SurrealEngine/PropertyOffsets.cpp
-index 5308fe1c..4414bc97 100644
+index 5308fe1..4414bc9 100644
 --- a/SurrealEngine/PropertyOffsets.cpp
 +++ b/SurrealEngine/PropertyOffsets.cpp
 @@ -5603,9 +5603,12 @@ void InitPropertyOffsets(PackageManager* packages)
@@ -1468,7 +1521,7 @@ index 5308fe1c..4414bc97 100644
  	if (packages->IsUnreal1())
  	{
 diff --git a/SurrealEngine/UI/ErrorWindow/ErrorWindow.cpp b/SurrealEngine/UI/ErrorWindow/ErrorWindow.cpp
-index 218f7552..68fcd29f 100644
+index 218f755..68fcd29 100644
 --- a/SurrealEngine/UI/ErrorWindow/ErrorWindow.cpp
 +++ b/SurrealEngine/UI/ErrorWindow/ErrorWindow.cpp
 @@ -10,6 +10,7 @@
@@ -1492,7 +1545,7 @@ index 218f7552..68fcd29f 100644
  
  			LogMessageLine line;
 diff --git a/SurrealEngine/Utils/File.cpp b/SurrealEngine/Utils/File.cpp
-index 3a709765..48030ddb 100644
+index 3a70976..48030dd 100644
 --- a/SurrealEngine/Utils/File.cpp
 +++ b/SurrealEngine/Utils/File.cpp
 @@ -545,4 +545,33 @@ std::string OS::find_truetype_font(const std::string& font_name_and_extension)
@@ -1532,7 +1585,7 @@ index 3a709765..48030ddb 100644
 +	return result;
 +}
 diff --git a/SurrealEngine/Utils/File.h b/SurrealEngine/Utils/File.h
-index b2ae131f..772b9317 100644
+index b2ae131..772b931 100644
 --- a/SurrealEngine/Utils/File.h
 +++ b/SurrealEngine/Utils/File.h
 @@ -39,6 +39,10 @@ public:
@@ -1547,7 +1600,7 @@ index b2ae131f..772b9317 100644
  	static void delete_always(const std::string& filename);
  
 diff --git a/SurrealEngine/Utils/UTF16.cpp b/SurrealEngine/Utils/UTF16.cpp
-index 7f36592b..1b21673f 100644
+index 7f36592..1b21673 100644
 --- a/SurrealEngine/Utils/UTF16.cpp
 +++ b/SurrealEngine/Utils/UTF16.cpp
 @@ -35,14 +35,84 @@ std::wstring to_utf16(const std::string& str)
@@ -1638,7 +1691,7 @@ index 7f36592b..1b21673f 100644
  
  #endif
 diff --git a/SurrealEngine/VM/Bytecode.cpp b/SurrealEngine/VM/Bytecode.cpp
-index 5ef79b40..e85f2185 100644
+index 5ef79b4..e85f218 100644
 --- a/SurrealEngine/VM/Bytecode.cpp
 +++ b/SurrealEngine/VM/Bytecode.cpp
 @@ -11,6 +11,7 @@ MemoryArena Bytecode::arena(1024 * 1024);
@@ -1673,7 +1726,7 @@ index 5ef79b40..e85f2185 100644
  		DynArrayToIntExpression* expr = Create<DynArrayToIntExpression>(exproffset);
  		expr->Value = ReadToken(stream, depth);
 diff --git a/SurrealEngine/VM/Bytecode.h b/SurrealEngine/VM/Bytecode.h
-index dfa376d1..52d434b8 100644
+index dfa376d..52d434b 100644
 --- a/SurrealEngine/VM/Bytecode.h
 +++ b/SurrealEngine/VM/Bytecode.h
 @@ -5,6 +5,7 @@
@@ -1735,7 +1788,7 @@ index dfa376d1..52d434b8 100644
 +	bool hp2Tokens = false;
  };
 diff --git a/SurrealEngine/VM/ExpressionEvaluator.cpp b/SurrealEngine/VM/ExpressionEvaluator.cpp
-index ff500427..4a95be24 100644
+index ff50042..379bd08 100644
 --- a/SurrealEngine/VM/ExpressionEvaluator.cpp
 +++ b/SurrealEngine/VM/ExpressionEvaluator.cpp
 @@ -204,7 +204,8 @@ void ExpressionEvaluator::Expr(ClassContextExpression* expr)
@@ -1743,13 +1796,13 @@ index ff500427..4a95be24 100644
  	else
  	{
 -		Frame::ThrowException("Class reference is None");
-+		// reading the default of a None class is an Accessed None (the expression yields zero), as in the original engine
 +		Result.Result = StatementResult::AccessedNone;
++		Result.Value = ExpressionValue::NothingValue();
  	}
  }
  
 diff --git a/SurrealEngine/VM/ExpressionValue.h b/SurrealEngine/VM/ExpressionValue.h
-index 908adb98..c32ef3f2 100644
+index 908adb9..7c3a378 100644
 --- a/SurrealEngine/VM/ExpressionValue.h
 +++ b/SurrealEngine/VM/ExpressionValue.h
 @@ -161,6 +161,7 @@ public:
@@ -1760,7 +1813,20 @@ index 908adb98..c32ef3f2 100644
  
  	ExpressionValue ItemAt(int index)
  	{
-@@ -376,6 +377,7 @@ inline ExpressionValue ExpressionValue::DefaultValue(UProperty* prop)
+@@ -179,7 +180,11 @@ public:
+ 
+ 	ExpressionValue Member(UProperty* field)
+ 	{
+-		return ExpressionValue::Variable(Ptr, field);
++		ExpressionValue value = ExpressionValue::Variable(Ptr, field);
++		// A temporary struct owns its storage; its member must outlive the parent expression.
++		if (!IsVariable())
++			value.Load();
++		return value;
+ 	}
+ 
+ 	void CheckType(ExpressionValueType type) const
+@@ -376,6 +381,7 @@ inline ExpressionValue ExpressionValue::DefaultValue(UProperty* prop)
  	{
  		ExpressionValue v(prop->ValueType);
  		v.GetStructValue()->Init(static_cast<UStructProperty*>(prop)->Struct);
@@ -1768,7 +1834,7 @@ index 908adb98..c32ef3f2 100644
  		return v;
  	}
  	case ExpressionValueType::ValueCoords: return CoordsValue({});
-@@ -387,7 +389,10 @@ inline ExpressionValue ExpressionValue::PropertyValue(UProperty* prop)
+@@ -387,7 +393,10 @@ inline ExpressionValue ExpressionValue::PropertyValue(UProperty* prop)
  {
  	ExpressionValue v(prop->ValueType);
  	if (prop->ValueType == ExpressionValueType::ValueStruct)
@@ -1779,7 +1845,7 @@ index 908adb98..c32ef3f2 100644
  	if (v.Type != ExpressionValueType::Nothing)
  		return v;
  	Exception::Throw("Unsupported expression value property type");
-@@ -417,6 +422,7 @@ inline void ExpressionValue::Store(const ExpressionValue& rvalue)
+@@ -417,6 +426,7 @@ inline void ExpressionValue::Store(const ExpressionValue& rvalue)
  	case ExpressionValueType::ValueName: *PtrName = rvalue.ToName(); break;
  	case ExpressionValueType::ValueColor: *PtrColor = rvalue.ToColor(); break;
  	case ExpressionValueType::ValueStruct:
@@ -1787,7 +1853,7 @@ index 908adb98..c32ef3f2 100644
  		if (UStruct* Struct = VariableProperty ? static_cast<UStructProperty*>(VariableProperty)->Struct : GetStructValue()->Struct)
  		{
  			for (UProperty* prop : Struct->Properties)
-@@ -426,6 +432,7 @@ inline void ExpressionValue::Store(const ExpressionValue& rvalue)
+@@ -426,6 +436,7 @@ inline void ExpressionValue::Store(const ExpressionValue& rvalue)
  		}
  		break;
  	case ExpressionValueType::ValueArray:
@@ -1796,7 +1862,7 @@ index 908adb98..c32ef3f2 100644
  		{
  			Array->CopyArray(Ptr, rvalue.Ptr);
 diff --git a/SurrealEngine/VM/Frame.cpp b/SurrealEngine/VM/Frame.cpp
-index 1e7b3c96..6ff8ef57 100644
+index 456f993..fe2bf13 100644
 --- a/SurrealEngine/VM/Frame.cpp
 +++ b/SurrealEngine/VM/Frame.cpp
 @@ -1,5 +1,6 @@
@@ -1814,26 +1880,82 @@ index 1e7b3c96..6ff8ef57 100644
  
  std::function<void()> Frame::RunDebugger;
  Array<Breakpoint> Frame::Breakpoints;
-@@ -37,6 +39,7 @@ void Frame::SetState(UStruct* func)
+@@ -24,8 +26,8 @@ std::string Frame::ExceptionText;
+ bool Frame::BreakOnError;
+ std::unique_ptr<Iterator> Frame::CreatedIterator;
+ 
+-Frame::Frame(UObject* instance, UStruct* func, size_t statementIndex, bool isStateFrame) :
+-	Object(instance), Func(func), StatementIndex(statementIndex), IsStateFrame(isStateFrame)
++Frame::Frame(UObject* instance, UStruct* func, size_t statementIndex, bool isStateFrame, UStruct* stateNode) :
++	Object(instance), Func(func), StatementIndex(statementIndex), IsStateFrame(isStateFrame), StateNode(stateNode ? stateNode : (isStateFrame ? func : nullptr))
+ {
+ 	InitVariables();
+ }
+@@ -39,6 +41,7 @@ void Frame::SetState(UStruct* func)
  {
  	DeinitVariables();
  	Func = func;
-+	CodeOwner = nullptr;
++	StateNode = func;
  	InitVariables();
  }
  
-@@ -276,7 +279,9 @@ std::string Frame::GetCallstack()
- 			if (frame->StatementIndex > 0) // StatementIndex points at the NEXT statement to be executed
+@@ -69,16 +72,17 @@ void VMFreeVariables()
+ 
+ void Frame::InitVariables()
+ {
+-	if (Func)
++	UStruct* layout = IsStateFrame ? StateNode : Func;
++	if (layout)
+ 	{
+ 		if (IsStateFrame)
+-			Variables = AlignedAlloc(Func->StructAlignment, Func->StructSize);
++			Variables = AlignedAlloc(layout->StructAlignment, layout->StructSize);
+ 		else
+-			Variables = VMVariableStackAlloc(Func->StructAlignment, Func->StructSize);
++			Variables = VMVariableStackAlloc(layout->StructAlignment, layout->StructSize);
+ 
+-		if (!Func->IsNativeFunc)
++		if (!layout->IsNativeFunc)
+ 		{
+-			for (UProperty* prop : Func->Properties)
++			for (UProperty* prop : layout->Properties)
  			{
- 				name += ": ";
--				name += GetDisassembly(func->Code->Statements[frame->StatementIndex - 1]);
-+				UStruct* code = frame->CodeOwner ? frame->CodeOwner : func;
-+				if (frame->StatementIndex - 1 < code->Code->Statements.size())
-+					name += GetDisassembly(code->Code->Statements[frame->StatementIndex - 1]);
+ 				prop->ConstructArray(static_cast<uint8_t*>(Variables) + prop->DataOffset.DataOffset);
  			}
- 		}
- 		if (!result.empty()) result += newline;
-@@ -285,12 +290,22 @@ std::string Frame::GetCallstack()
+@@ -86,7 +90,7 @@ void Frame::InitVariables()
+ 		else
+ 		{
+ 			auto v = (char*)Variables;
+-			for (size_t i = 0, count = Func->Properties.size(); i < count; i++)
++			for (size_t i = 0, count = layout->Properties.size(); i < count; i++)
+ 			{
+ 				new(v + i * sizeof(ExpressionValue)) ExpressionValue();
+ 			}
+@@ -96,11 +100,12 @@ void Frame::InitVariables()
+ 
+ void Frame::DeinitVariables()
+ {
++	UStruct* layout = IsStateFrame ? StateNode : Func;
+ 	if (Variables)
+ 	{
+-		if (!Func->IsNativeFunc)
++		if (!layout->IsNativeFunc)
+ 		{
+-			for (UProperty* prop : Func->Properties)
++			for (UProperty* prop : layout->Properties)
+ 			{
+ 				prop->DestructArray(static_cast<uint8_t*>(Variables) + prop->DataOffset.DataOffset);
+ 			}
+@@ -108,7 +113,7 @@ void Frame::DeinitVariables()
+ 		else
+ 		{
+ 			auto v = (ExpressionValue*)Variables;
+-			for (size_t i = 0, count = Func->Properties.size(); i < count; i++)
++			for (size_t i = 0, count = layout->Properties.size(); i < count; i++)
+ 			{
+ 				v[i].~ExpressionValue();
+ 			}
+@@ -307,12 +312,22 @@ std::string Frame::GetCallstack()
  	return result;
  }
  
@@ -1858,7 +1980,7 @@ index 1e7b3c96..6ff8ef57 100644
  		return ExpressionValue::NothingValue();
  	}
  
-@@ -307,6 +322,29 @@ ExpressionValue Frame::Call(UFunction* func, UObject* instance, const ArrayView<
+@@ -329,6 +344,29 @@ ExpressionValue Frame::Call(UFunction* func, UObject* instance, const ArrayView<
  	}
  	else
  	{
@@ -1888,28 +2010,7 @@ index 1e7b3c96..6ff8ef57 100644
  		Frame frame(instance, func, 0, false);
  
  		// Store args in function frame local variables
-@@ -318,12 +356,19 @@ ExpressionValue Frame::Call(UFunction* func, UObject* instance, const ArrayView<
- 			{
- 				if (argindex < args.size())
- 				{
-+					if (lvalue.GetType() == ExpressionValueType::ValueStruct && (args[argindex].GetType() != ExpressionValueType::ValueStruct || !args[argindex].HasData()))
-+						LogMessage("Call " + func->Name.ToString() + " (" + instance->Name.ToString() + "): struct parameter " + prop->Name.ToString() + " gets a value of type " + std::to_string((int)args[argindex].GetType()) + (args[argindex].IsVariable() ? " variable" : " value"));
- 					lvalue.Store(args[argindex]);
- 				}
- 				else
- 				{
- 					// Trailing optional args may be missing.
--					lvalue.Store(ExpressionValue::DefaultValue(prop));
-+					{
-+						ExpressionValue defaultValue = ExpressionValue::DefaultValue(prop);
-+						if (lvalue.GetType() == ExpressionValueType::ValueStruct && !defaultValue.HasData())
-+							LogMessage("Call " + func->Name.ToString() + " (" + instance->Name.ToString() + "): the default of struct parameter " + prop->Name.ToString() + " has no data");
-+						lvalue.Store(defaultValue);
-+					}
- 				}
- 
- 				argindex++;
-@@ -377,7 +422,13 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, const Arra
+@@ -399,7 +437,13 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, const Arra
  			}
  			else if (argindex < args.size())
  			{
@@ -1924,7 +2025,7 @@ index 1e7b3c96..6ff8ef57 100644
  			}
  			else
  			{
-@@ -387,11 +438,16 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, const Arra
+@@ -409,11 +453,16 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, const Arra
  		}
  	}
  
@@ -1943,38 +2044,38 @@ index 1e7b3c96..6ff8ef57 100644
  
  	if (callback)
  	{
-@@ -497,6 +553,25 @@ void Frame::GotoLabel(const NameString& label)
- 			if (labelIndex != -1)
- 			{
- 				Func = state;
-+				CodeOwner = nullptr;
-+				StatementIndex = labelIndex;
-+				LatentState = LatentRunState::Continue;
-+				return;
-+			}
-+		}
-+	}
-+	// A state extends another: its labels (Begin) are the parent state's when it has none of its own
-+	for (UClass* cls = Object->Class; cls != nullptr; cls = static_cast<UClass*>(cls->BaseStruct))
+@@ -465,6 +514,27 @@ void Frame::TraceCall(UFunction* func, UObject* instance, const ArrayView<Expres
+ 
+ void Frame::GotoLabel(const NameString& label)
+ {
++	if (engine->LaunchInfo.IsHarryPotter2() && StateNode)
 +	{
-+		UState* state = cls->GetState(Func->Name);
-+		for (UState* parent = state ? UObject::TryCast<UState>(state->BaseStruct) : nullptr; parent; parent = UObject::TryCast<UState>(parent->BaseStruct))
-+		{
-+			if (!parent->Code)
-+				continue;
-+			int labelIndex = parent->Code->FindLabelIndex(label.IsNone() ? NameString("Begin") : label);
-+			if (labelIndex != -1)
++		// HP2 HPawn.stateLeadingActor extends patrol: logical state and code owner differ.
++		// NOT yet verified against Core.dll; follows the shipped state super links and label tables.
++		NameString wanted = label.IsNone() ? NameString("Begin") : label;
++		for (UClass* cls = Object->Class; cls; cls = static_cast<UClass*>(cls->BaseStruct))
++			for (UState* state = cls->GetState(StateNode->Name); state; state = UObject::TryCast<UState>(state->BaseStruct))
 +			{
-+				CodeOwner = parent;
- 				StatementIndex = labelIndex;
- 				LatentState = LatentRunState::Continue;
- 				return;
-@@ -519,8 +594,19 @@ ExpressionEvalResult Frame::Run()
++				int index = state->Code ? state->Code->FindLabelIndex(wanted) : -1;
++				if (index >= 0)
++				{
++					Func = state;
++					StatementIndex = index;
++					LatentState = LatentRunState::Continue;
++					return;
++				}
++			}
++		LatentState = LatentRunState::Stop;
++		return;
++	}
++
+ 	for (UClass* cls = Object->Class; cls != nullptr; cls = static_cast<UClass*>(cls->BaseStruct))
+ 	{
+ 		UState* state = cls->GetState(Func->Name);
+@@ -496,6 +566,17 @@ ExpressionEvalResult Frame::Run()
  
  	ActiveCallStackFrame activeFrame(this);
  
--	if (!Func->Code->Statements.empty())
--		StepExpression = Func->Code->Statements[StatementIndex];
 +	// UE1 stops a script that keeps calling itself (UObject::ProcessInternal: a critical error over 250 nested script
 +	// calls) before the native stack runs out. HP2's harry.Summon calls itself.
 +	static int scriptDepth = 0;
@@ -1986,12 +2087,10 @@ index 1e7b3c96..6ff8ef57 100644
 +	if (scriptDepth > 250)
 +		ThrowException("Infinite script recursion (250 calls) detected");
 +
-+	if (!(CodeOwner ? CodeOwner : Func)->Code->Statements.empty())
-+		StepExpression = (CodeOwner ? CodeOwner : Func)->Code->Statements[StatementIndex];
+ 	if (!Func->Code->Statements.empty())
+ 		StepExpression = Func->Code->Statements[StatementIndex];
  
- 	if (RunState == FrameRunState::StepInto)
- 	{
-@@ -528,18 +614,28 @@ ExpressionEvalResult Frame::Run()
+@@ -505,7 +586,9 @@ ExpressionEvalResult Frame::Run()
  		Break();
  	}
  
@@ -2002,115 +2101,36 @@ index 1e7b3c96..6ff8ef57 100644
  	int instructionsRetired = 0;
  	while (true)
  	{
--		if (StatementIndex >= Func->Code->Statements.size())
-+		if (StatementIndex >= (CodeOwner ? CodeOwner : Func)->Code->Statements.size())
-+		{
-+			// State code that runs out (a label at its end, e.g. HP2's harry.stateCutIdle) just stops, as in UE1
-+			if (IsStateFrame)
-+			{
-+				LatentState = LatentRunState::Stop;
-+				return {};
-+			}
- 			ThrowException("Unexpected end of code statements");
-+		}
- 
- 		// Note: GotoState may change StatementIndex (jump to a different location) so we have to increment the index before executing the statement
- 		size_t curStatementIndex = StatementIndex;
- 		StatementIndex++;
- 
--		StepExpression = Func->Code->Statements[curStatementIndex];
-+		StepExpression = (CodeOwner ? CodeOwner : Func)->Code->Statements[curStatementIndex];
- 
- 		if (instructionsRetired >= maxInstructions)
- 		{
-@@ -557,7 +653,7 @@ ExpressionEvalResult Frame::Run()
- 			Break();
- 		}
- 
--		Expression* statement = Func->Code->Statements[curStatementIndex];
-+		Expression* statement = (CodeOwner ? CodeOwner : Func)->Code->Statements[curStatementIndex];
- 		//ExpressionEvalResult result = ExpressionEvaluator::Eval(statement, Object, Object, Variables);
- 		ExpressionEvalResult result = RunExpr(statement, Object, Object, Variables);
- 		if (!Func)
-@@ -567,14 +663,21 @@ ExpressionEvalResult Frame::Run()
- 		case StatementResult::Next:
- 			break;
- 		case StatementResult::Jump:
--			StatementIndex = Func->Code->FindStatementIndex(result.JumpAddress);
-+			StatementIndex = (CodeOwner ? CodeOwner : Func)->Code->FindStatementIndex(result.JumpAddress);
- 			break;
- 		case StatementResult::Switch:
- 			ProcessSwitch(result.Value);
+@@ -551,6 +634,11 @@ ExpressionEvalResult Frame::Run()
  			break;
  		case StatementResult::GotoLabel:
  			{
--				int index = Func->Code->FindLabelIndex(result.Label);
-+				int index = (CodeOwner ? CodeOwner : Func)->Code->FindLabelIndex(result.Label);
-+				if (index == -1 && CodeOwner)
++				if (IsStateFrame && engine->LaunchInfo.IsHarryPotter2())
 +				{
-+					// running a parent state's code: the derived state's own labels count too
-+					index = Func->Code->FindLabelIndex(result.Label);
-+					if (index != -1)
-+						CodeOwner = nullptr;
++					GotoLabel(result.Label);
++					break;
 +				}
+ 				int index = Func->Code->FindLabelIndex(result.Label);
  				if (index != -1)
  				{
- 					StatementIndex = index;
-@@ -592,10 +695,24 @@ ExpressionEvalResult Frame::Run()
- 							if (labelIndex != -1)
- 							{
- 								Func = state;
-+								CodeOwner = nullptr;
- 								StatementIndex = labelIndex;
- 								found = true;
- 								break;
- 							}
-+							// a parent state (state B extends A)
-+							for (UState* parent = UObject::TryCast<UState>(state->BaseStruct); parent && !found; parent = UObject::TryCast<UState>(parent->BaseStruct))
-+							{
-+								if (parent->Code && parent->Code->FindLabelIndex(result.Label) != -1)
-+								{
-+									Func = state;
-+									CodeOwner = parent;
-+									StatementIndex = parent->Code->FindLabelIndex(result.Label);
-+									found = true;
-+								}
-+							}
-+							if (found)
-+								break;
- 						}
- 					}
- 					if (!found)
-@@ -638,7 +755,7 @@ ExpressionEvalResult Frame::Run()
- 				ThrowException("Iterator statement without an iterator in " + Object->Name.ToString() + "." + Func->Name.ToString());
- 			Iterators.push_back(std::move(result.Iter));
- 			Iterators.back()->StartStatementIndex = curStatementIndex + 1;
--			Iterators.back()->EndStatementIndex = Func->Code->FindStatementIndex(result.JumpAddress);
-+			Iterators.back()->EndStatementIndex = (CodeOwner ? CodeOwner : Func)->Code->FindStatementIndex(result.JumpAddress);
- 			if (Iterators.back()->Next())
- 				StatementIndex = Iterators.back()->StartStatementIndex;
- 			else
-@@ -658,8 +775,7 @@ ExpressionEvalResult Frame::Run()
+@@ -635,14 +723,14 @@ ExpressionEvalResult Frame::Run()
  			Iterators.pop_back();
  			break;
  		case StatementResult::AccessedNone:
 -			LogMessage("Accessed None");
--			LogMessage(Frame::GetCallstack());
-+			LogAccessedNone(statement, "Accessed None");
+ 			if (BreakOnError)
+ 			{
++				LogMessage("Accessed None");
+ 				Break();
+ 			}
+ 			else
+ 			{
+-				LogMessage(Frame::GetCallstack());
++				LogAccessedNone(statement, "Accessed None");
+ 			}
  			break;
  		}
- 
-@@ -674,18 +790,23 @@ ExpressionEvalResult Frame::Run()
- 
- void Frame::ProcessSwitch(const ExpressionValue& condition)
- {
--	SwitchExpression* switchexpr = static_cast<SwitchExpression*>(Func->Code->Statements[StatementIndex - 1]);
-+	SwitchExpression* switchexpr = static_cast<SwitchExpression*>((CodeOwner ? CodeOwner : Func)->Code->Statements[StatementIndex - 1]);
- 	while (true)
- 	{
--		CaseExpression* caseexpr = static_cast<CaseExpression*>(Func->Code->Statements[StatementIndex++]);
-+		CaseExpression* caseexpr = static_cast<CaseExpression*>((CodeOwner ? CodeOwner : Func)->Code->Statements[StatementIndex++]);
- 		if (caseexpr->Value)
+@@ -666,7 +754,12 @@ void Frame::ProcessSwitch(const ExpressionValue& condition)
  		{
  			//ExpressionValue casevalue = ExpressionEvaluator::Eval(caseexpr->Value, Object, Object, Variables).Value;
  			ExpressionValue casevalue = RunExpr(caseexpr->Value, Object, Object, Variables).Value;
@@ -2123,32 +2143,42 @@ index 1e7b3c96..6ff8ef57 100644
 +			if (match)
  				break;
  			else
--				StatementIndex = Func->Code->FindStatementIndex(caseexpr->NextOffset);
-+				StatementIndex = (CodeOwner ? CodeOwner : Func)->Code->FindStatementIndex(caseexpr->NextOffset);
- 		}
- 		else
- 		{
-@@ -1020,7 +1141,8 @@ ExpressionEvalResult Frame::RunExpr(Expression* statementExpr, UObject* self, UO
+ 				StatementIndex = Func->Code->FindStatementIndex(caseexpr->NextOffset);
+@@ -1011,7 +1104,7 @@ ExpressionEvalResult Frame::RunExpr(Expression* statementExpr, UObject* self, UO
  					}
  					else
  					{
 -						Frame::ThrowException("Class reference is None");
-+						// an Accessed None, as for a context that is a None object (the script goes on with a zero value)
 +						result.Result = StatementResult::AccessedNone;
  						PushValue(ExpressionValue::NothingValue());
  						PopExpr();
  					}
 diff --git a/SurrealEngine/VM/Frame.h b/SurrealEngine/VM/Frame.h
-index a2858b24..0e520081 100644
+index d302a40..3395cc1 100644
 --- a/SurrealEngine/VM/Frame.h
 +++ b/SurrealEngine/VM/Frame.h
-@@ -94,6 +94,9 @@ private:
+@@ -81,7 +81,7 @@ public:
+ 
+ 	static std::unique_ptr<Iterator> CreatedIterator;
+ 
+-	Frame(UObject* instance, UStruct* func, size_t statementIndex, bool isStateFrame);
++	Frame(UObject* instance, UStruct* func, size_t statementIndex, bool isStateFrame, UStruct* stateNode = nullptr);
+ 	~Frame();
+ 
+ 	void SetState(UStruct* func);
+@@ -90,6 +90,7 @@ public:
+ 	void Tick();
+ 
+ 	UStruct* GetFunc() const { return Func; }
++	UStruct* GetState() const { return StateNode; }
+ 	void* GetVariables() const { return Variables; }
+ 	std::string GetName();
+ 	size_t GetStatementIndex() const { return StatementIndex; }
+@@ -104,6 +105,7 @@ private:
  	void* Variables = nullptr;
  	UObject* Object = nullptr;
  	UStruct* Func = nullptr;
-+	// The parent state whose code runs when the state has no label of its own ("state B extends A" with A's Begin: HP2's
-+	// stateLeadingActor extends patrol); Func stays the state, so its name and functions are the derived state's.
-+	UStruct* CodeOwner = nullptr;
++	UStruct* StateNode = nullptr;
  	size_t StatementIndex = 0;
  	LatentRunState LatentState = LatentRunState::Continue;
  	Array<std::unique_ptr<Iterator>> Iterators;

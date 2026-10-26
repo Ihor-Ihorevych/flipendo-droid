@@ -59,7 +59,7 @@ namespace KW
 		}
 		// HP1 plays it at 1600, HP2 at Core.dll's GAudioDefaultRadius (450)
 		float radius = parameters.y != 0.0f ? parameters.y : (IsHP2() ? 450.0f : 1600.0f);
-		engine->audiodev->PlaySound(actor, id, sound, soundLocation, parameters.x * 0.01f, radius, parameters.z * 0.01f, (id & 14) == SLOT_Talk * 2, no3D, IsHP2() && loop);
+		engine->audiodev->PlaySound(actor, id, sound, soundLocation, parameters.x * 0.01f, radius, parameters.z * 0.01f, no3D, IsHP2() && loop);
 	}
 
 	static void NClientHearSound(UObject* Self, UObject* Actor, int Id, UObject* S, const vec3& SoundLocation, const vec3& Parameters)

@@ -746,7 +746,12 @@ namespace KW
 				else
 				{
 					if (pawn)
+					{
 						PawnMount(pawn, vec3(0.0f, 0.0f, 1.0f), hit);
+						// Mount can switch to scripted climbing and clear motion. Do not finish the old falling step.
+						if (actor->bDeleteMe() || actor->Physics() != PHYS_Falling)
+							return;
+					}
 					ProcessHitWall(actor, hit.Normal, hit.Actor);
 					if (actor->bDeleteMe())
 						return;

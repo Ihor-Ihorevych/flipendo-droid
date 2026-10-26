@@ -1,7 +1,7 @@
 flipendo: KnowWonder physics, pawn movement and collision
 
 diff --git a/SurrealEngine/Collision/TopLevel/CollisionSystem.cpp b/SurrealEngine/Collision/TopLevel/CollisionSystem.cpp
-index 051ad9f9..45573f6c 100644
+index e9fb62c..8f4283c 100644
 --- a/SurrealEngine/Collision/TopLevel/CollisionSystem.cpp
 +++ b/SurrealEngine/Collision/TopLevel/CollisionSystem.cpp
 @@ -1,5 +1,7 @@
@@ -12,7 +12,7 @@ index 051ad9f9..45573f6c 100644
  #include "CollisionSystem.h"
  #include "Packages/Engine/Actors/UActor.h"
  #include "Packages/Engine/Actors/Brush/UMover.h"
-@@ -102,6 +104,35 @@ Array<UActor*> CollisionSystem::EncroachingActors(UActor* actor)
+@@ -99,6 +101,35 @@ Array<UActor*> CollisionSystem::EncroachingActors(UActor* actor)
  	return overlap.EncroachingActors(actor);
  }
  
@@ -45,10 +45,10 @@ index 051ad9f9..45573f6c 100644
 +	return result;
 +}
 +
- void CollisionSystem::SetLevel(ULevel* level)
+ void CollisionSystem::SetLevel(ULevelInfo* levelInfo, ULevel* level)
  {
- 	Level = level;
-@@ -127,6 +158,12 @@ void CollisionSystem::AddToCollision(UActor* actor)
+ 	LevelInfo = levelInfo;
+@@ -125,6 +156,12 @@ void CollisionSystem::AddToCollision(UActor* actor)
  				extents = bbox.extents() + 0.1f; // 0.1 for numerical stability
  			}
  		}
@@ -62,19 +62,19 @@ index 051ad9f9..45573f6c 100644
  		actor->Collision.Inserted = true;
  		actor->Collision.Location = location;
 diff --git a/SurrealEngine/Collision/TopLevel/CollisionSystem.h b/SurrealEngine/Collision/TopLevel/CollisionSystem.h
-index 147ce3db..1fe94c4b 100644
+index 80afa04..535e6a5 100644
 --- a/SurrealEngine/Collision/TopLevel/CollisionSystem.h
 +++ b/SurrealEngine/Collision/TopLevel/CollisionSystem.h
-@@ -37,6 +37,7 @@ public:
+@@ -38,6 +38,7 @@ public:
  	Array<UActor*> CollidingActors(const vec3& origin, float radius);
  	Array<UActor*> CollidingActors(const vec3& origin, float height, float radius);
  	Array<UActor*> EncroachingActors(UActor* actor);
 +	Array<UActor*> ActorsInBox(const vec3& boxMin, const vec3& boxMax); // every actor in the hash cells the box touches
  
- 	void SetLevel(ULevel* level);
+ 	void SetLevel(ULevelInfo* levelInfo, ULevel* level);
  	void AddToCollision(UActor* actor);
 diff --git a/SurrealEngine/Collision/TopLevel/OverlapTest.cpp b/SurrealEngine/Collision/TopLevel/OverlapTest.cpp
-index badaaaf5..3b1dd333 100644
+index cab04fa..771b6f2 100644
 --- a/SurrealEngine/Collision/TopLevel/OverlapTest.cpp
 +++ b/SurrealEngine/Collision/TopLevel/OverlapTest.cpp
 @@ -1,5 +1,7 @@
@@ -85,7 +85,7 @@ index badaaaf5..3b1dd333 100644
  #include "OverlapTest.h"
  #include "Collision/BottomLevel/OverlapAABBModel.h"
  #include "Packages/Engine/Actors/UActor.h"
-@@ -281,6 +283,8 @@ Array<UActor*> OverlapTester::EncroachingActors(UActor* actor)
+@@ -282,6 +284,8 @@ Array<UActor*> OverlapTester::EncroachingActors(UActor* actor)
  
  bool OverlapTester::IsOverlapping(UActor* actor1, UActor* actor2)
  {
@@ -94,7 +94,7 @@ index badaaaf5..3b1dd333 100644
  	return CylinderActorOverlap(to_dvec3(actor1->Location()), actor1->CollisionHeight(), actor1->CollisionRadius(), actor2);
  }
  
-@@ -333,6 +337,9 @@ bool OverlapTester::SphereActorOverlap(const dvec3& sphereCenter, double sphereR
+@@ -334,6 +338,9 @@ bool OverlapTester::SphereActorOverlap(const dvec3& sphereCenter, double sphereR
  	if (actor->Brush()) // Ignore brushes for now
  		return false;
  
@@ -104,7 +104,7 @@ index badaaaf5..3b1dd333 100644
  	dvec3 center = to_dvec3(actor->Location());
  	double height = actor->CollisionHeight();
  	double radius = actor->CollisionRadius();
-@@ -346,6 +353,9 @@ bool OverlapTester::CylinderActorOverlap(const dvec3& origin, double cylinderHei
+@@ -347,6 +354,9 @@ bool OverlapTester::CylinderActorOverlap(const dvec3& origin, double cylinderHei
  	if (actor->Brush()) // Ignore brushes for now
  		return false;
  
@@ -115,7 +115,7 @@ index badaaaf5..3b1dd333 100644
  	double height = actor->CollisionHeight();
  	double radius = actor->CollisionRadius();
 diff --git a/SurrealEngine/Collision/TopLevel/TraceTest.cpp b/SurrealEngine/Collision/TopLevel/TraceTest.cpp
-index aef803f8..32618c4b 100644
+index 214511d..6aee833 100644
 --- a/SurrealEngine/Collision/TopLevel/TraceTest.cpp
 +++ b/SurrealEngine/Collision/TopLevel/TraceTest.cpp
 @@ -1,5 +1,7 @@
@@ -126,7 +126,7 @@ index aef803f8..32618c4b 100644
  #include "TraceTest.h"
  #include "Collision/BottomLevel/TraceAABBModel.h"
  #include "Collision/BottomLevel/TraceRayModel.h"
-@@ -249,6 +251,15 @@ void TraceTester::TraceActor(UActor* actor, const dvec3& origin, double tmin, co
+@@ -251,6 +253,15 @@ void TraceTester::TraceActor(UActor* actor, const dvec3& origin, double tmin, co
  		if (!traceActors || visibilityOnly)
  			return;
  
@@ -143,7 +143,7 @@ index aef803f8..32618c4b 100644
  		if (t < tmax)
  		{
 diff --git a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn.h b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn.h
-index 32736319..573aeef7 100644
+index 3273631..573aeef 100644
 --- a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn.h
 +++ b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn.h
 @@ -16,6 +16,7 @@ public:
@@ -155,7 +155,7 @@ index 32736319..573aeef7 100644
  
  	void InitActorZone() override;
 diff --git a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
-index 48026a40..c80c2d72 100644
+index 48026a4..c80c2d7 100644
 --- a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
 @@ -7,11 +7,10 @@
@@ -365,18 +365,29 @@ index 48026a40..c80c2d72 100644
  		StateFrame->SetLatentState(LatentRunState::WaitForLanding);
  }
 diff --git a/SurrealEngine/Packages/Engine/Actors/Pawn/UPlayerPawn.cpp b/SurrealEngine/Packages/Engine/Actors/Pawn/UPlayerPawn.cpp
-index e3c87b45..cafa042c 100644
+index e3c87b4..286f849 100644
 --- a/SurrealEngine/Packages/Engine/Actors/Pawn/UPlayerPawn.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/Pawn/UPlayerPawn.cpp
-@@ -3,6 +3,7 @@
+@@ -3,6 +3,8 @@
  #include "UPlayerPawn.h"
  #include "UCamera.h"
  #include "Engine.h"
 +#include "KW.h"
++#include "HP1.h"
  #include "Package/PackageManager.h"
  #include "Package/IniProperty.h"
  #include "VM/ScriptCall.h"
-@@ -50,6 +51,12 @@ void UPlayerPawn::Tick(float elapsed)
+@@ -35,7 +37,8 @@ void UPlayerPawn::Tick(float elapsed)
+ 		if (Player() && !UObject::TryCast<UCamera>(this))
+ 		{
+ 			CallEvent(this, EventName::PlayerInput, { ExpressionValue::FloatValue(elapsed) });
+-			CallEvent(this, EventName::PlayerTick, { ExpressionValue::FloatValue(elapsed) });
++			if (!engine->LaunchInfo.IsHarryPotter1() || !HP1::ModsPlayerTick(this))
++				CallEvent(this, EventName::PlayerTick, { ExpressionValue::FloatValue(elapsed) });
+ 		}
+ 	}
+ 
+@@ -50,6 +53,12 @@ void UPlayerPawn::Tick(float elapsed)
  
  void UPlayerPawn::TickRotating(float elapsed)
  {
@@ -390,7 +401,7 @@ index e3c87b45..cafa042c 100644
  		return;
  
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
-index ced1b745..d3874707 100644
+index c903613..b73fe0d 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
 @@ -8,9 +8,25 @@
@@ -419,7 +430,7 @@ index ced1b745..d3874707 100644
  	for (float timeLeft = elapsed; timeLeft > 0.0f && !bDeleteMe(); timeLeft -= 0.02f)
  	{
  		float physTimeElapsed = std::min(timeLeft, 0.02f);
-@@ -211,7 +227,7 @@ UPawn* UActor::PreparePawnMovementTick()
+@@ -214,7 +230,7 @@ UPawn* UActor::PreparePawnMovementTick()
  	if (!pawn)
  		return nullptr;
  
@@ -428,7 +439,7 @@ index ced1b745..d3874707 100644
  		return nullptr;
  
  	OldLocation() = Location();
-@@ -256,6 +272,12 @@ std::pair<bool, vec3> UActor::CheckLocation(vec3 location, float radius, float h
+@@ -259,6 +275,12 @@ std::pair<bool, vec3> UActor::CheckLocation(vec3 location, float radius, float h
  	if (!check)
  		return { true, location };
  
@@ -441,7 +452,7 @@ index ced1b745..d3874707 100644
  	// What is a reasonable size for this grid? what did UE1 do?
  	int offset[] = { 0, 1, -1 };
  	bool found = false;
-@@ -309,6 +331,8 @@ UObject* UActor::Trace(vec3& hitLocation, vec3& hitNormal, const vec3& traceEnd,
+@@ -312,6 +334,8 @@ UObject* UActor::Trace(vec3& hitLocation, vec3& hitNormal, const vec3& traceEnd,
  	}
  
  	CollisionHit hit = XLevel()->Collision.TraceFirstHit(traceStart, traceEnd, this, extent, flags);
@@ -450,8 +461,8 @@ index ced1b745..d3874707 100644
  	hitNormal = hit.Normal;
  	hitLocation = traceStart + (traceEnd - traceStart) * hit.Fraction;
  	return hit.Actor;
-@@ -422,7 +446,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
- 				if (hit.Actor)
+@@ -425,7 +449,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
+ 				if (hit.Actor != Level())
  				{
  					bool isBlocking;
 -					if (useBlockPlayers || UObject::TryCast<UPlayerPawn>(hit.Actor) || UObject::TryCast<UProjectile>(hit.Actor))
@@ -461,7 +472,7 @@ index ced1b745..d3874707 100644
  						isBlocking = hit.Actor->bBlockPlayers() && bBlockPlayers();
  					else
  						isBlocking = hit.Actor->bBlockActors() && bBlockActors();
-@@ -529,7 +555,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
+@@ -532,7 +558,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
  		{
  			// We can't touch stuff we are blocked by
  			bool isBlocking;
@@ -473,7 +484,7 @@ index ced1b745..d3874707 100644
  			else
  				isBlocking = hit.Actor->bBlockActors() && bBlockActors();
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysFalling.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysFalling.cpp
-index 7fa151c8..0cf26a33 100644
+index 967106a..f71b494 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysFalling.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysFalling.cpp
 @@ -9,6 +9,7 @@
@@ -492,11 +503,11 @@ index 7fa151c8..0cf26a33 100644
 +			if (pawn && !bBounce() && hit.Normal.z <= 0.7f && engine->LaunchInfo.IsKnowWonder())
 +				KW::PawnMount(pawn, vec3(0.0f, 0.0f, 1.0f), hit);
 +
- 			if (hit.Actor && hit.Actor->IsA("Pawn"))
+ 			if (hit.Actor->IsA("Pawn"))
  			{
  				// So projectiles don't think they hit a wall.
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysFlying.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysFlying.cpp
-index 6ccfaa27..f5b23aba 100644
+index 6ccfaa2..f5b23ab 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysFlying.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysFlying.cpp
 @@ -64,5 +64,8 @@ void UActor::TickFlying(float elapsed)
@@ -510,7 +521,7 @@ index 6ccfaa27..f5b23aba 100644
 +		Velocity().z = 0.0f;
  }
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp
-index 22b4b664..1c5c15a1 100644
+index 22b4b66..1c5c15a 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysMovingBrush.cpp
 @@ -9,13 +9,18 @@
@@ -534,21 +545,21 @@ index 22b4b664..1c5c15a1 100644
  		float timeLeft = elapsed;
  		while (timeLeft > 0.0f)
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysProjectile.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysProjectile.cpp
-index b7d5a857..5043922f 100644
+index f9a39a1..423d5e4 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysProjectile.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysProjectile.cpp
 @@ -42,7 +42,8 @@ void UActor::TickProjectile(float elapsed)
  
  	CollisionHit hit = TryMove(Velocity() * elapsed);
  
--	if (hit.Fraction < 1.0f && !hit.Actor && !bDeleteMe() && !bJustTeleported())
+-	if (hit.Fraction < 1.0f && hit.Actor == Level() && !bDeleteMe() && !bJustTeleported())
 +	// HP1's physProjectile raises HitWall for blocking actors too (a spell bumps a GridMover, then explodes on it)
-+	if (hit.Fraction < 1.0f && (!hit.Actor || engine->LaunchInfo.IsKnowWonder()) && !bDeleteMe() && !bJustTeleported())
++	if (hit.Fraction < 1.0f && (hit.Actor == Level() || engine->LaunchInfo.IsKnowWonder()) && !bDeleteMe() && !bJustTeleported())
  	{
- 		CallEvent(this, EventName::HitWall, { ExpressionValue::VectorValue(hit.Normal), ExpressionValue::ObjectValue(hit.Actor ? hit.Actor : Level()) });
+ 		CallEvent(this, EventName::HitWall, { ExpressionValue::VectorValue(hit.Normal), ExpressionValue::ObjectValue(hit.Actor) });
  	}
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysRolling.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysRolling.cpp
-index 31d7896f..96b35a63 100644
+index 31d7896..96b35a6 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysRolling.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysRolling.cpp
 @@ -9,10 +9,11 @@
@@ -584,7 +595,7 @@ index 31d7896f..96b35a63 100644
  
  
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysTrailer.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysTrailer.cpp
-index 519c390d..09b279ac 100644
+index 519c390..09b279a 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysTrailer.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysTrailer.cpp
 @@ -2,9 +2,16 @@
@@ -605,7 +616,7 @@ index 519c390d..09b279ac 100644
  		return;
  
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp
-index 1055f908..b4d8f78b 100644
+index ffa5a57..759c63c 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_PhysWalking.cpp
 @@ -9,15 +9,23 @@
@@ -647,15 +658,15 @@ index 1055f908..b4d8f78b 100644
  
  			if (hit.Fraction < 1.0f)
  			{
--				if (player && hit.Actor)
+-				if (player && hit.Actor != Level())
 +				// HP1's APawn::stepUp (Engine.dll 0x103EC690) only special-cases pushing a decoration; every other
 +				// actor hit slides along like a wall. Without this the player sticks to Lev_Tut1's BlockAll stair walls.
-+				bool hp1PushHit = player && hit.Actor && UObject::IsType<UDecoration>(hit.Actor) && UObject::Cast<UDecoration>(hit.Actor)->bPushable() && dot(hit.Normal, moveDelta) < -0.9f;
-+				if (player && hit.Actor && (!engine->LaunchInfo.IsKnowWonder() || hp1PushHit))
++				bool hp1PushHit = player && UObject::IsType<UDecoration>(hit.Actor) && UObject::Cast<UDecoration>(hit.Actor)->bPushable() && dot(hit.Normal, moveDelta) < -0.9f;
++				if (player && hit.Actor != Level() && (!engine->LaunchInfo.IsKnowWonder() || hp1PushHit))
  				{
  					if (UObject::IsType<UDecoration>(hit.Actor) && UObject::Cast<UDecoration>(hit.Actor)->bPushable() && dot(hit.Normal, moveDelta) < -0.9f)
  					{
-@@ -267,8 +282,16 @@ void UActor::TickWalking(float elapsed)
+@@ -270,8 +285,16 @@ void UActor::TickWalking(float elapsed)
  		// Can we reach the ground from here?
  		if (!TryStepToGround(stepDownDelta))
  		{
@@ -675,7 +686,7 @@ index 1055f908..b4d8f78b 100644
  	}
  
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Touch.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Touch.cpp
-index 7076ca11..103b1418 100644
+index 7076ca1..103b141 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Touch.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_Touch.cpp
 @@ -3,6 +3,7 @@

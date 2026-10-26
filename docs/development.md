@@ -86,5 +86,8 @@ film the level with `HP1_SHOTS` every second or two and pick the frame.
 `.github/workflows/release.yml` builds Windows (x64), Linux (x86-64, Ubuntu 24.04) and macOS (Apple Silicon) on
 GitHub's runners and zips each with `tools/release/package.sh` (the binaries, licenses and the platform's
 `tools/release/README-first-<platform>.txt`). Run it by hand from the Actions tab to get the zips as build artifacts;
-pushing a tag (`hp*` or `v*`, e.g. `hp1-stable-hp2-beta1`) also makes a draft release with the three zips, to check
-and publish on GitHub. The macOS app is ad-hoc signed, not notarised (the README-first says how to open it).
+pushing a version tag also makes a draft release with the three zips, to check and publish on GitHub. Its notes list
+every commit since the previous version tag, with a link to the full diff.
+Versions are `v<major>.<minor>`, starting at `v1.0`: the minor for fixes and new mods, the major for a big step
+(a game going from beta to stable, a new game). The tag `v1.1` gives the release "Flipendo 1.1" and
+`flipendo-v1.1-<platform>.zip`. The macOS app is ad-hoc signed, not notarised (the README-first says how to open it).
