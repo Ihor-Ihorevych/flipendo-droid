@@ -140,7 +140,7 @@ namespace HP1
 
 namespace HP1::Mods
 {
-	// Set by a Space key-down (HP1::ModsKeyDown), consumed by the next TickMods.
+	// Set by a Space key-down (HP1::ModsKeyDown), consumed by the next BeginModsFrame.
 	static bool SpaceQueued = false;
 	static bool SpacePressedNow = false;
 
@@ -238,12 +238,10 @@ namespace HP1
 			Mods::TickFrameLimit();
 			return;
 		}
-		Mods::UpdateSpace();
 		Mods::TickLoadingScreenHold();
 		Mods::TickLaunchSkips();
 		LevelStartTick();
 		Mods::TickStorybookSkip();
-		Mods::TickCutsceneSkip(realElapsed);
 		Mods::TickDiscordPresence(realElapsed);
 		Mods::TickPathFixes();
 		Mods::TickImprovedMovement();
@@ -252,7 +250,7 @@ namespace HP1
 
 	float ModsTimeScale()
 	{
-		return Mods::FastForwardTimeScale();
+		return engine->LaunchInfo.IsHarryPotter1() && Mods::CutsceneSkipBusy() ? 1.0f : Mods::FastForwardTimeScale();
 	}
 
 	bool ModsSkipSplash()
@@ -260,11 +258,45 @@ namespace HP1
 		return Mods::SkipSplash();
 	}
 
-	void ModsKeyDown(int key)
+	void BeginModsFrame(float realElapsed)
 	{
+		Mods::UpdateSpace();
+		Mods::TickCutsceneSkip(realElapsed);
+	}
+
+	void ModsLevelChanging()
+	{
+		Mods::ResetCutsceneSkip();
+		Mods::SpaceQueued = Mods::SpacePressedNow = false;
+	}
+
+	int ModsSimulationSteps(float& elapsed)
+	{
+		return Mods::CutsceneSkipSteps(elapsed, Mods::CutsceneSkipAccelerating());
+	}
+
+	bool ModsSimulationTick()
+	{
+		Mods::CutsceneSkipSimulationTick();
+		return Mods::CutsceneSkipAccelerating();
+	}
+
+	bool ModsWorldPaused() { return Mods::CutsceneSkipWorldPaused(); }
+	bool ModsMuteCutsceneSpeech() { return Mods::CutsceneSkipSpeechMuted(); }
+	bool ModsPlayerTick(UPlayerPawn* player) { return Mods::CutsceneSkipPlayerTick(player); }
+
+	bool ModsKeyDown(int key)
+	{
+		if (Mods::CutsceneSkipKeyDown(key))
+		{
+			if (key == IK_Space && !Mods::CutsceneSkipBusy())
+				Mods::SpaceQueued = true;
+			return true;
+		}
 		if (key == IK_Space)
 			Mods::SpaceQueued = true;
 		KW::DebugKeyDown(key);
+		return false;
 	}
 
 	void PostRenderMods(UCanvas* canvas)

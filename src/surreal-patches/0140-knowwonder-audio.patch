@@ -1,10 +1,10 @@
 flipendo: KnowWonder sound and music
 
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
-index 9b3b3499..22210fc9 100644
+index 9b3b3499..7fd6dab5 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 +++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
-@@ -9,12 +9,30 @@
+@@ -9,12 +9,31 @@
  #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
  #include "Packages/Engine/Actors/Pawn/UPawn.h"
  #include "Packages/Engine/Actors/Info/ULevelInfo.h"
@@ -14,6 +14,7 @@ index 9b3b3499..22210fc9 100644
  #include "Packages/Engine/Resources/Level/ULevel.h"
 +#include "KW.h"
 +#include "HP2.h"
++#include "HP1.h"
  
  static float square(float x) { return x * x; }
  
@@ -35,7 +36,7 @@ index 9b3b3499..22210fc9 100644
  std::string USurrealAudioDevice::GetPropertyAsString(const NameString& propertyName) const
  {
  	if (propertyName == "Class")
-@@ -46,9 +64,9 @@ std::string USurrealAudioDevice::GetPropertyAsString(const NameString& propertyN
+@@ -46,9 +65,9 @@ std::string USurrealAudioDevice::GetPropertyAsString(const NameString& propertyN
  	else if (propertyName == "Channels")
  		return IniPropertyConverter<int>::ToString(Channels);
  	else if (propertyName == "MusicVolume")
@@ -47,7 +48,7 @@ index 9b3b3499..22210fc9 100644
  	else if (propertyName == "SpeechVolume")
  		return IniPropertyConverter<uint8_t>::ToString(SpeechVolume);
  	else if (propertyName == "AmbientFactor")
-@@ -87,9 +105,9 @@ void USurrealAudioDevice::SetPropertyFromString(const NameString& propertyName,
+@@ -87,9 +106,9 @@ void USurrealAudioDevice::SetPropertyFromString(const NameString& propertyName,
  	else if (propertyName == "Channels")
  		Channels = IniPropertyConverter<int>::FromString(value);
  	else if (propertyName == "MusicVolume")
@@ -59,7 +60,7 @@ index 9b3b3499..22210fc9 100644
  	else if (propertyName == "SpeechVolume")
  		SpeechVolume = IniPropertyConverter<uint8_t>::FromString(value);
  	else if (propertyName == "AmbientFactor")
-@@ -120,8 +138,8 @@ void USurrealAudioDevice::LoadProperties(const NameString& from)
+@@ -120,8 +139,8 @@ void USurrealAudioDevice::LoadProperties(const NameString& from)
  	Latency = IniPropertyConverter<int>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "Latency", Latency);
  	OutputRate = IniPropertyConverter<AudioFrequency>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "OutputRate", OutputRate);
  	Channels = IniPropertyConverter<int>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "Channels", Channels);
@@ -70,7 +71,7 @@ index 9b3b3499..22210fc9 100644
  	if (engine->LaunchInfo.IsDeusEx())
  		SpeechVolume = IniPropertyConverter<uint8_t>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "SpeechVolume", SpeechVolume);
  	AmbientFactor = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("System"), name_from, "AmbientFactor", AmbientFactor);
-@@ -142,8 +160,8 @@ void USurrealAudioDevice::SaveConfig()
+@@ -142,8 +161,8 @@ void USurrealAudioDevice::SaveConfig()
  	engine->packages->SetIniValue("System", Class, "Latency", IniPropertyConverter<int>::ToString(Latency));
  	engine->packages->SetIniValue("System", Class, "OutputRate", IniPropertyConverter<AudioFrequency>::ToString(OutputRate));
  	engine->packages->SetIniValue("System", Class, "Channels", IniPropertyConverter<int>::ToString(Channels));
@@ -81,7 +82,7 @@ index 9b3b3499..22210fc9 100644
  	if (engine->LaunchInfo.IsDeusEx())
  		engine->packages->SetIniValue("System", Class, "SpeechVolume", IniPropertyConverter<uint8_t>::ToString(SpeechVolume));
  	engine->packages->SetIniValue("System", Class, "AmbientFactor", IniPropertyConverter<float>::ToString(AmbientFactor));
-@@ -156,7 +174,11 @@ void USurrealAudioDevice::InitDevice()
+@@ -156,7 +175,11 @@ void USurrealAudioDevice::InitDevice()
  	// TODO: Add option for number of sound channels
  	// TODO: Add option for music buffer count
  	// TODO: Add option for music buffer size
@@ -94,7 +95,7 @@ index 9b3b3499..22210fc9 100644
  	LogMessage("Audio device initialized");
  }
  
-@@ -179,17 +201,31 @@ void USurrealAudioDevice::SetViewport(UViewport* InViewport)
+@@ -179,17 +202,31 @@ void USurrealAudioDevice::SetViewport(UViewport* InViewport)
  			if (m_Viewport->Actor()->Song() && m_Viewport->Actor()->Transition() == MTRAN_None)
  				m_Viewport->Actor()->Transition() = MTRAN_Instant;
  
@@ -130,7 +131,7 @@ index 9b3b3499..22210fc9 100644
  	m_Device->Update();
  }
  
-@@ -281,6 +317,11 @@ void USurrealAudioDevice::UpdateAmbience()
+@@ -281,6 +318,11 @@ void USurrealAudioDevice::UpdateAmbience()
  
  void USurrealAudioDevice::UpdateLipSync(PlayingSound& Playing)
  {
@@ -142,7 +143,7 @@ index 9b3b3499..22210fc9 100644
  	if (!engine->LaunchInfo.IsDeusEx())
  		return;
  	if (!Playing.Actor || !engine->LevelInfo)
-@@ -305,6 +346,11 @@ void USurrealAudioDevice::UpdateLipSync(PlayingSound& Playing)
+@@ -305,6 +347,11 @@ void USurrealAudioDevice::UpdateLipSync(PlayingSound& Playing)
  // Called wherever a slot is torn down, so the mouth does not freeze mid-vowel.
  void USurrealAudioDevice::ClearLipSync(PlayingSound& Playing)
  {
@@ -154,7 +155,7 @@ index 9b3b3499..22210fc9 100644
  	if (!engine->LaunchInfo.IsDeusEx())
  		return;
  	if (!Playing.Actor)
-@@ -324,35 +370,74 @@ void USurrealAudioDevice::UpdateSounds()
+@@ -324,35 +371,74 @@ void USurrealAudioDevice::UpdateSounds()
  	if (!m_Viewport || !m_Viewport->Actor())
  		return;
  
@@ -235,7 +236,7 @@ index 9b3b3499..22210fc9 100644
  				if (!m_Device->IsPlaying((int)i))
  				{
  					ClearLipSync(Playing);
-@@ -425,12 +510,25 @@ bool USurrealAudioDevice::IsSameSoundId(int id1, int id2)
+@@ -425,12 +511,29 @@ bool USurrealAudioDevice::IsSameSoundId(int id1, int id2)
  	return (id1 & ~1) == (id2 & ~1);
  }
  
@@ -243,6 +244,10 @@ index 9b3b3499..22210fc9 100644
 +bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 Location, float Volume, float Radius, float Pitch, bool no3D, bool loop)
  {
 -	if (Radius <= 0.0) // Seems we have zero radius values. Lovely.
++	if (engine->LaunchInfo.IsHarryPotter1() && HP1::ModsMuteCutsceneSpeech() &&
++		(GetSoundSlot(Id) == SLOT_Interact || GetSoundSlot(Id) == SLOT_Talk))
++		return false;
++
 +	// HP1's Galaxy driver asserts a radius (Actor.PlaySound already made a zero radius 1600, KW::PlaySound)
 +	if (Radius <= 0.0 && !engine->LaunchInfo.IsKnowWonder()) // Seems we have zero radius values. Lovely.
  		Radius = 1500.0f;
@@ -264,7 +269,7 @@ index 9b3b3499..22210fc9 100644
  	{
  		// Should this still be directional?
  		Volume *= 2.0f;
-@@ -451,12 +549,26 @@ bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 L
+@@ -451,12 +554,26 @@ bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 L
  	if (GetSoundSlot(Id) == SLOT_None)
  		Id = CreateSoundId(Actor, SLOT_None, false);
  
@@ -294,7 +299,7 @@ index 9b3b3499..22210fc9 100644
  	{
  		PlayingSound& Playing = PlayingSounds[i];
  		if (IsSameSoundId(Playing.Id, Id))
-@@ -486,6 +598,9 @@ bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 L
+@@ -486,6 +603,9 @@ bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 L
  	StopSound(Index);
  	PlayingSounds[Index] = PlayingSound(Actor, Id, Sound, Location, Volume, Radius, Pitch, Priority);
  	PlayingSounds[Index].StartTime = engine->LevelInfo->TimeSeconds();
@@ -304,7 +309,7 @@ index 9b3b3499..22210fc9 100644
  
  	return true;
  }
-@@ -522,6 +637,63 @@ void USurrealAudioDevice::StopSound(UActor* Actor, int Id)
+@@ -522,6 +642,63 @@ void USurrealAudioDevice::StopSound(UActor* Actor, int Id)
  	}
  }
  
@@ -368,7 +373,7 @@ index 9b3b3499..22210fc9 100644
  void USurrealAudioDevice::StopSound(size_t index)
  {
  	PlayingSound& Playing = PlayingSounds[index];
-@@ -541,6 +713,11 @@ void USurrealAudioDevice::StopSounds()
+@@ -541,6 +718,11 @@ void USurrealAudioDevice::StopSounds()
  	for (size_t i = 0; i < PlayingSounds.size(); i++)
  		StopSound(i);
  

@@ -19,7 +19,7 @@ default. So `--vanilla --mod=improved-movement` is the original game with only t
 
 | Mod | Id | Games | Default | What it does |
 |---|---|---|---|---|
-| `CutsceneSkip.cpp` | `cutscene-skip` | HP1 | on | "Press Space to skip" during cutscenes; Space fast-forwards to the end |
+| `CutsceneSkip.cpp` | `cutscene-skip` | HP1 | on | Space fades to black, fast-forwards the scene with "Skipping...", then reveals it; Escape cancels |
 | `StorybookSkip.cpp` | `storybook-skip` | HP1 | on | "Press Space to skip" in storybooks (New Game intro, chapter interludes) |
 | `DiscordPresence.cpp` | `discord` | HP1 | on (also off with `--no-discord`) | Discord Rich Presence: the level (the game's own level titles), cutscene / paused, Gryffindor's points, play time. Uses Flipendo's Discord application (its name and App Icon); `--discord-app=<id>` uses another |
 | `FastForward.cpp` | `fast-forward` | HP1, HP2 | on | hold Shift to run the game 2.5 times as fast (Shift is unbound in HP1) |
@@ -36,12 +36,16 @@ A mod is a C++ file in `src/hp1/mods/`. The build picks up new files automatical
 read HP1's script classes (`HPBase`, `HPMenu`). The exceptions read no scripts and run for HP2 too: `TextureOverrides.cpp`,
 `FastForward.cpp` (`ModsTimeScale`), `FrameLimit.cpp` (the only mod `TickMods` runs for HP2) and the splash skip
 (`HP1::ModsSkipSplash`, asked by HP2's front end); their hooks are gated `IsKnowWonder()`.
-Mods hook in only through these calls (the first four in `src/hp1/mods/HP1Mods.cpp`):
+Mods hook in through these calls (`src/hp1/mods/HP1Mods.cpp`):
 
 | Hook | Called | Use it for |
 |---|---|---|
 | `HP1::TickMods` | every frame, after the console tick | reading and changing game state |
-| `HP1::ModsKeyDown` | on every key press in the game window | key handling, also in menus |
+| `HP1::ModsKeyDown` | on every key press in the game window | key handling, also in menus; return true to consume the press |
+| `HP1::BeginModsFrame`, `ModsSimulationSteps`, `ModsSimulationTick`, `ModsWorldPaused` | before the HP1 world tick and after each simulation step | real-time fades, bounded skip steps and stopping at scene/lesson boundaries |
+| `HP1::ModsLevelChanging` | before HP1 map actors are destroyed | clearing transient mod state before travel or loading |
+| `HP1::ModsPlayerTick` | after HP1 PlayerInput, before PlayerTick | blocking gameplay input while the skip transition hides the world, while allowing scripted movement |
+| `HP1::ModsMuteCutsceneSpeech` | before HP1 audio playback | suppressing speech slots during a skip |
 | `HP1::PostRenderMods` | after the HUD and menus are drawn | drawing on top of everything |
 | `HP1::ModsTimeScale` | every frame, when the frame's game time is worked out | running the game faster or slower (multiplies the frame time; leaves `LevelInfo.TimeDilation`, which save games store, alone) |
 | `HP1::ModsSkipSplash` | by HP2's front end, before Game.exe's EA and WB splashes | skipping them |
@@ -71,9 +75,9 @@ Harry's `PlayerMove`, `ProcessMove`, `Mount` and `DoJump`). Install it from `Tic
 Work through the game's own script state (properties, script functions) where you can, so a mod stays a thin
 layer over vanilla behaviour. To find what to touch, read the game's scripts, extracted with KnowWonder's
 comments (see [development.md](development.md#reference-material)).
-`CutsceneSkip.cpp` is a short example that follows a script's state and calls into it.
+`CutsceneSkip.cpp` follows the script's state while the engine advances bounded world steps; it leaves scene commands and saved time dilation intact.
 
-If a mod needs a hook the four above don't give, add it to `HP1Mods.h` and to
+If a mod needs a hook the calls above don't give, add it to `HP1Mods.h` and to
 [engine-hooks.md](engine-hooks.md); mods don't add engine hooks of their own.
 
 ## Tools for modders

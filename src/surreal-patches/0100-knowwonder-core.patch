@@ -15,7 +15,7 @@ index 330b050a..0f2d5b7c 100644
  set_target_properties(SurrealCommon PROPERTIES CXX_STANDARD 20)
  target_precompile_headers(SurrealCommon PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/SurrealEngine/Precomp.h>)
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 2ddaf0a1..5be17740 100644
+index 2ddaf0a1..8693513d 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,9 @@
@@ -55,28 +55,87 @@ index 2ddaf0a1..5be17740 100644
  
  	bool firstCall = true;
  
-@@ -172,6 +182,8 @@ void Engine::Run()
+@@ -172,15 +182,19 @@ void Engine::Run()
  		float realTimeElapsed = CalcTimeElapsed();
  		float entryLevelElapsed = EntryLevel ? realTimeElapsed * clamp(EntryLevelInfo->TimeDilation() * currentZoneTimeDilation, 0.0025f, 25.0f) : 0.0f;
  		float levelElapsed = realTimeElapsed * clamp(LevelInfo->TimeDilation() * currentZoneTimeDilation, 0.0025f, 25.0f);
-+		if (LaunchInfo.IsKnowWonder()) // src/hp1/mods (fast forward; HP1 and HP2)
++		if (LaunchInfo.IsKnowWonder() && !LaunchInfo.IsHarryPotter1()) // HP1 scales time after BeginModsFrame
 +			levelElapsed *= HP1::ModsTimeScale();
  
  		TotalTime += realTimeElapsed;
  
-@@ -208,30 +220,21 @@ void Engine::Run()
+-		if (EntryLevel && EntryLevel != Level)
+-			EntryLevelInfo->TimeSeconds() += entryLevelElapsed;
+-		if (Level)
+-			LevelInfo->TimeSeconds() += levelElapsed;
+-
+-		Logger::Get()->SetTimeSeconds(LevelInfo->TimeSeconds());
++		if (!LaunchInfo.IsHarryPotter1())
++		{
++			if (EntryLevel && EntryLevel != Level)
++				EntryLevelInfo->TimeSeconds() += entryLevelElapsed;
++			if (Level)
++				LevelInfo->TimeSeconds() += levelElapsed;
++			Logger::Get()->SetTimeSeconds(LevelInfo->TimeSeconds());
++		}
  
- 		// Do NOT pause this Tick event otherwise some messages will stay on screen forever.
- 		CallEvent(console, EventName::Tick, { ExpressionValue::FloatValue(levelElapsed) });
-+		if (LaunchInfo.IsKnowWonder()) // src/hp1/mods (cutscene skip, launch skips; HP2: the frame limit)
-+			HP1::TickMods(realTimeElapsed);
+ 		// Update the time fields
+ 		std::time_t now = std::time(nullptr);
+@@ -203,35 +217,56 @@ void Engine::Run()
+ 		}
  
- 		if (EntryLevel && EntryLevel != Level)
- 			EntryLevel->Tick(entryLevelElapsed, m_GamePaused);
- 		Level->Tick(levelElapsed, m_GamePaused);
-+		if (LaunchInfo.IsKnowWonder() && viewport->Actor()) // UGameEngine::Tick raises ViewFlash (screen fades)
-+			CallEvent(viewport->Actor(), "ViewFlash", { ExpressionValue::FloatValue(realTimeElapsed) });
-+		if (LaunchInfo.IsHarryPotter2() && HP2::TickQueuedSave()) // a save the player queued ends the frame (src/hp2/HP2Save.cpp)
+ 		UpdateInput(realTimeElapsed);
++		if (LaunchInfo.IsHarryPotter1())
++		{
++			HP1::BeginModsFrame(realTimeElapsed);
++			levelElapsed *= HP1::ModsTimeScale();
++		}
+ 
+ 		SetPause(!LevelInfo->Pauser().empty());
+-
+-		// Do NOT pause this Tick event otherwise some messages will stay on screen forever.
+-		CallEvent(console, EventName::Tick, { ExpressionValue::FloatValue(levelElapsed) });
+-
+-		if (EntryLevel && EntryLevel != Level)
+-			EntryLevel->Tick(entryLevelElapsed, m_GamePaused);
+-		Level->Tick(levelElapsed, m_GamePaused);
++		bool transitionPaused = LaunchInfo.IsHarryPotter1() && HP1::ModsWorldPaused();
++		if (transitionPaused)
++			levelElapsed = entryLevelElapsed = 0.0f;
++		int simulationSteps = LaunchInfo.IsHarryPotter1() ? HP1::ModsSimulationSteps(levelElapsed) : 1;
++		float stepElapsed = levelElapsed / simulationSteps;
++		float entryStepElapsed = entryLevelElapsed / simulationSteps;
++		float simulatedElapsed = 0.0f;
++		for (int step = 0; step < simulationSteps; step++)
++		{
++			if (LaunchInfo.IsHarryPotter1())
++			{
++				if (EntryLevel && EntryLevel != Level)
++					EntryLevelInfo->TimeSeconds() += entryStepElapsed;
++				LevelInfo->TimeSeconds() += stepElapsed;
++				Logger::Get()->SetTimeSeconds(LevelInfo->TimeSeconds());
++			}
++			// Console timers, actors and screen fades advance with the same bounded step.
++			CallEvent(console, EventName::Tick, { ExpressionValue::FloatValue(stepElapsed) });
++			if (step == 0 && LaunchInfo.IsKnowWonder())
++				HP1::TickMods(realTimeElapsed);
++			if (!transitionPaused)
++			{
++				if (EntryLevel && EntryLevel != Level)
++					EntryLevel->Tick(entryStepElapsed, m_GamePaused);
++				Level->Tick(stepElapsed, m_GamePaused);
++			}
++			if (LaunchInfo.IsKnowWonder() && viewport->Actor())
++				CallEvent(viewport->Actor(), "ViewFlash", { ExpressionValue::FloatValue(simulationSteps > 1 ? stepElapsed : realTimeElapsed) });
++			simulatedElapsed += stepElapsed;
++			bool accelerating = LaunchInfo.IsHarryPotter1() && HP1::ModsSimulationTick();
++			if (!accelerating || !LevelInfo->NextURL().empty() || !ClientTravelInfo.URL.Map.empty() ||
++				ClientTravelInfo.URL.HasOption("load") || ClientTravelInfo.URL.HasOption("restart") ||
++				SaveGameInfo.SaveGameSlot != DONT_SAVE_GAME || quit)
++				break;
++		}
++		levelElapsed = simulatedElapsed;
++		if (LaunchInfo.IsHarryPotter2() && HP2::TickQueuedSave())
 +			continue;
  
  		if (dxRootWindow)
@@ -102,7 +161,7 @@ index 2ddaf0a1..5be17740 100644
  
  		UpdateAudio();
  
-@@ -293,6 +296,8 @@ void Engine::Run()
+@@ -293,6 +328,8 @@ void Engine::Run()
  		{
  			UnrealURL url(ClientTravelInfo.URL);
  			LoadFromSaveFile(url);
@@ -111,7 +170,16 @@ index 2ddaf0a1..5be17740 100644
  			PossessSavedPlayer();
  		}
  
-@@ -687,6 +692,9 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
+@@ -669,6 +706,8 @@ void Engine::LoadEntryMap()
+ 
+ void Engine::UnloadMap()
+ {
++	if (LaunchInfo.IsHarryPotter1())
++		HP1::ModsLevelChanging();
+ 	if (LevelPackage && LevelPackage != EntryLevelPackage)
+ 		packages->UnloadPackage(LevelPackage);
+ 
+@@ -687,6 +726,9 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
  {
  	ClientTravelInfo.URL.Clear();
  
@@ -121,7 +189,7 @@ index 2ddaf0a1..5be17740 100644
  	if (Level)
  		CallEvent(console, EventName::NotifyLevelChange);
  
-@@ -699,6 +707,11 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
+@@ -699,6 +741,11 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
  
  	GetLevelInfoObject();
  
@@ -133,7 +201,7 @@ index 2ddaf0a1..5be17740 100644
  	LevelInfo->ComputerName() = "MyComputer";
  	LevelInfo->HubStackLevel() = 0; // To do: handle level hubs
  	LevelInfo->EngineVersion() = LaunchInfo.gameVersionString + " SE";
-@@ -726,6 +739,9 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
+@@ -726,6 +773,9 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
  
  	LinkActorsToLevel();
  
@@ -143,7 +211,7 @@ index 2ddaf0a1..5be17740 100644
  	// Find the game info class
  	UClass* gameInfoClass = packages->FindClass(LevelInfo->URL.GetOption("game"));
  	if (!gameInfoClass)
-@@ -760,6 +776,9 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
+@@ -760,6 +810,9 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
  		auto stringProp = GC::Alloc<UStringProperty>("", nullptr, ObjectFlags::NoFlags);
  		std::string error;
  
@@ -153,7 +221,7 @@ index 2ddaf0a1..5be17740 100644
  		LevelInfo->bStartup() = true;
  		CallEvent(GameInfo, EventName::InitGame, { ExpressionValue::StringValue(options), ExpressionValue::Variable(&error, stringProp) });
  		if (!error.empty())
-@@ -768,10 +787,14 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
+@@ -768,10 +821,14 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
  		// Note: the events may spawn actors. We can't use iterators here.
  		// Spawned objects must be initialized twice.
  		// DX breaks if SetInitialState isn't called a second time on the spawned inventory after DeusExCarcass.PostBeginPlay finishes.
@@ -172,7 +240,7 @@ index 2ddaf0a1..5be17740 100644
  
  		if (engine->LaunchInfo.IsDeusEx())
  		{
-@@ -805,12 +828,17 @@ void Engine::LoadFromSaveFile(const UnrealURL& url)
+@@ -805,12 +862,17 @@ void Engine::LoadFromSaveFile(const UnrealURL& url)
  	if (!savefilePackage)
  		return;
  
@@ -190,7 +258,7 @@ index 2ddaf0a1..5be17740 100644
  
  	// Same as LoadMap: these are session/engine identity, not save data, and must be
  	// re-established on every load regardless of what the package/save file contains.
-@@ -997,6 +1025,8 @@ void Engine::LoginPlayer()
+@@ -997,6 +1059,8 @@ void Engine::LoginPlayer()
  	// Assign the pawn to the viewport
  	viewport->Actor() = pawn;
  	viewport->Actor()->Player() = viewport;
@@ -199,7 +267,7 @@ index 2ddaf0a1..5be17740 100644
  	CallEvent(viewport->Actor(), EventName::Possess);
  
  	// Transfer travel actors to the new map
-@@ -1004,7 +1034,9 @@ void Engine::LoginPlayer()
+@@ -1004,7 +1068,9 @@ void Engine::LoginPlayer()
  	CallEvent(pawn, EventName::TravelPreAccept);
  
  	Array<UObject*> acceptedObjects;
@@ -210,7 +278,7 @@ index 2ddaf0a1..5be17740 100644
  	{
  		std::string playerName = url.GetOption("Name");
  		if (playerName.empty())
-@@ -1037,6 +1069,10 @@ void Engine::LoginPlayer()
+@@ -1037,6 +1103,10 @@ void Engine::LoginPlayer()
  	CallEvent(pawn, EventName::TravelPostAccept);
  	CallEvent(LevelInfo->Game(), EventName::PostLogin, { ExpressionValue::ObjectValue(pawn) });
  
@@ -221,7 +289,7 @@ index 2ddaf0a1..5be17740 100644
  	render->OnMapLoaded();
  }
  
-@@ -1059,6 +1095,37 @@ UObject* Engine::FindObject(NameString name, NameString className)
+@@ -1059,6 +1129,37 @@ UObject* Engine::FindObject(NameString name, NameString className)
  	return nullptr;
  }
  
@@ -259,7 +327,7 @@ index 2ddaf0a1..5be17740 100644
  float Engine::CalcTimeElapsed()
  {
  	using namespace std::chrono;
-@@ -1170,8 +1237,8 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1170,8 +1271,8 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  	}*/
  	else if (command == "getres")
  	{
@@ -270,7 +338,7 @@ index 2ddaf0a1..5be17740 100644
  		return window->GetAvailableResolutions();
  	}
  	else if (command == "getcolordepths")
-@@ -1185,6 +1252,10 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1185,6 +1286,10 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  
  		return std::to_string(width) + "x" + std::to_string(height);
  	}
@@ -281,7 +349,7 @@ index 2ddaf0a1..5be17740 100644
  	else if (command == "getcurrentcolordepth")
  	{
  		return "32";
-@@ -1221,7 +1292,17 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1221,7 +1326,17 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  			{
  				ClientTravel(url.ToString(), ETravelType::TRAVEL_Absolute, false);
  				return {};
@@ -300,7 +368,7 @@ index 2ddaf0a1..5be17740 100644
  		}
  
  		LogMessage("Couldn't find map " + maparg);
-@@ -1275,6 +1356,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1275,6 +1390,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  			return {};
  		}
  
@@ -315,7 +383,7 @@ index 2ddaf0a1..5be17740 100644
  		SaveGameInfo.SaveGameSlot = slotNum;
  
  		if (args.size() == 3)
-@@ -1326,20 +1415,40 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1326,20 +1449,40 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  			}
  		}
  	}
@@ -364,7 +432,7 @@ index 2ddaf0a1..5be17740 100644
  		if (LaunchInfo.IsDeusEx() && className == "inputext")
  		{
  			// DeusEx version of input handling. How does this differ from the other one?
-@@ -1444,6 +1553,12 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1444,6 +1587,12 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  	}
  	else
  	{
@@ -377,7 +445,7 @@ index 2ddaf0a1..5be17740 100644
  		if (!ExecCommand(args))
  		{
  			LogMessage("Unknown command: " + commandline);
-@@ -1453,6 +1568,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1453,6 +1602,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  	return {};
  }
  
@@ -392,7 +460,7 @@ index 2ddaf0a1..5be17740 100644
  Array<std::string> Engine::GetArgs(const std::string& commandline)
  {
  	Array<std::string> args;
-@@ -1484,6 +1607,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
+@@ -1484,6 +1641,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
  			endpos = command.size();
  
  		std::string subcommand = command.substr(pos, endpos - pos);
@@ -403,7 +471,7 @@ index 2ddaf0a1..5be17740 100644
  		if (!subcommand.empty())
  			subcommands.push_back(subcommand);
  		pos = endpos + 1;
-@@ -1496,8 +1623,16 @@ void Engine::LoadEngineSettings()
+@@ -1496,8 +1657,16 @@ void Engine::LoadEngineSettings()
  	if (packages->MissingSESystemIni())
  	{
  		client->LoadProperties("WinDrv.WindowsClient");
@@ -422,7 +490,7 @@ index 2ddaf0a1..5be17740 100644
  	}
  	else
  	{
-@@ -1540,7 +1675,7 @@ void Engine::LoadKeybindings()
+@@ -1540,7 +1709,7 @@ void Engine::LoadKeybindings()
  					std::string aliasCommand = alias.substr(commandStart.size(), pos - commandStart.size());
  					std::string aliasName = alias.substr(pos + commandSplit.size(), pos2 - pos - commandSplit.size());
  					if (!aliasName.empty() && aliasName != "None")
@@ -431,7 +499,7 @@ index 2ddaf0a1..5be17740 100644
  				}
  			}
  		}
-@@ -1577,7 +1712,15 @@ void Engine::UpdateInput(float timeElapsed)
+@@ -1577,7 +1746,15 @@ void Engine::UpdateInput(float timeElapsed)
  void Engine::OpenWindow()
  {
  	if (!window)
@@ -447,7 +515,7 @@ index 2ddaf0a1..5be17740 100644
  
  	int width = client->StartupFullscreen ? client->FullscreenViewportX : client->WindowedViewportX;
  	int height = client->StartupFullscreen ? client->FullscreenViewportY : client->WindowedViewportY;
-@@ -1586,9 +1729,19 @@ void Engine::OpenWindow()
+@@ -1586,9 +1763,19 @@ void Engine::OpenWindow()
  	std::string versionString = !LaunchInfo.gameVersionString.empty() ? " (v" + LaunchInfo.gameVersionString + ")" : "";
  
  	window->SetWindowTitle(LaunchInfo.gameName + versionString + " - Surreal Engine");
@@ -468,7 +536,7 @@ index 2ddaf0a1..5be17740 100644
  	if (fullscreen)
  		window->ShowFullscreen();
  	else
-@@ -1646,6 +1799,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
+@@ -1646,6 +1833,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
  	{
  		viewport->WindowsMouseX() = (float)(pos.x * window->GetDpiScale());
  		viewport->WindowsMouseY() = (float)(pos.y * window->GetDpiScale());
@@ -477,17 +545,17 @@ index 2ddaf0a1..5be17740 100644
  	}
  }
  
-@@ -1719,6 +1874,9 @@ void Engine::OnWindowKeyChar(std::string chars)
+@@ -1719,6 +1908,9 @@ void Engine::OnWindowKeyChar(std::string chars)
  
  void Engine::OnWindowKeyDown(EInputKey key)
  {
-+	if (LaunchInfo.IsHarryPotter1()) // src/hp1/mods see key presses (skip prompts)
-+		HP1::ModsKeyDown((int)key);
++	if (LaunchInfo.IsHarryPotter1() && HP1::ModsKeyDown((int)key))
++		return;
 +
  	if (playingAvi)
  	{
  		if (key == EInputKey::IK_Escape)
-@@ -1800,6 +1958,9 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
+@@ -1800,6 +1992,9 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
  	if (Frame::RunState != FrameRunState::Running || playingAvi)
  		return;
  
@@ -497,7 +565,7 @@ index 2ddaf0a1..5be17740 100644
  	bool handled = CallEvent(console, EventName::KeyEvent, { ExpressionValue::ByteValue(key), ExpressionValue::ByteValue(type), ExpressionValue::FloatValue((float)delta) }).ToBool();
  	
  	if (!handled)
-@@ -1813,7 +1974,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
+@@ -1813,7 +2008,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
  
  			for (const std::string& command : GetSubcommands(keybindings[keynames[key]]))
  			{

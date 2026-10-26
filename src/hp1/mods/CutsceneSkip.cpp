@@ -3,114 +3,65 @@
 #include "Packages/Core/UObject.h"
 #include "Packages/Engine/UViewport.h"
 #include "Packages/Engine/UConsole.h"
+#include "Packages/Engine/UCanvas.h"
+#include "Packages/Engine/Resources/Level/UModel.h"
 #include "Packages/Engine/Actors/UHUD.h"
 #include "Packages/Engine/Actors/Pawn/UPlayerPawn.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
-#include "Packages/Core/UStruct.h"
-#include "Packages/Core/Properties/UStructProperty.h"
-#include "Packages/Core/Properties/UBoolProperty.h"
-#include "Packages/Core/Properties/UStrProperty.h"
+#include "Packages/Engine/Resources/Level/ULevel.h"
+#include "Packages/Engine/Resources/Textures/UTexture.h"
+#include "Packages/Engine/Subsystems/USurrealAudioDevice.h"
+#include "Package/Package.h"
+#include "Package/PackageManager.h"
+#include "Render/RenderSubsystem.h"
+#include "Utils/Logger.h"
 #include "Engine.h"
 #include <algorithm>
 
-// Cutscene skip (on by default, off with --vanilla): while a cutscene holds Harry, "Press Space to skip" is shown;
-// Space fast-forwards the cutscene to its end.
-//
-// HP1 cutscenes are CutScene/CutScriptII actors (HPBase) running per-actor command lists. When one captures Harry
-// it sets the HUD's bCutSceneMode and curCutScene, and clears both when it releases him. Jumping to the end
-// would skip doors opening, actors moving and triggers firing, so instead the cutscene is played very fast:
-// Level.TimeDilation goes up (what the original's debug-only "hold Space to fast-forward" did with SloMo(8)) and the
-// cast's timed waits (Sleep, Talk) are cut short together, so dialogue pauses pass at once.
-//
-// The cast members only stay in step through their waits: in Lev3_Quid2's common room cutscene the camera's
-// "Sleep 9.0, Sleep 2.0, FadeOut 1.0" runs out before the narrator's lines end with "Trigger QuidIntro", whose
-// stadium cutscene fades back in. The script's own CutSkip() zeroes every wait, so the narrator got there first and
-// the camera's FadeOut came after the stadium's FadeIn: the match was played on a black screen. So the waits are cut
-// by the same amount: the shortest one left, and only while no cast member is in a move or turn (those finish on
-// their own time, 8 times as fast).
-//
-// Spell lessons and scrolls also set bCutSceneMode but no curCutScene, so they are never skipped.
-
+// HPBase.CutScene/CutScriptII command tracks must run in order: skipping their commands would lose world changes.
+// This optional mod hides bounded fast-forward behind a fade instead of rewriting the scripts' waits.
 namespace HP1::Mods
 {
-	static const float SkipTimeDilation = 8.0f;
-
-	// After a cutscene releases Harry, its camera track can still be gliding in CutState (its moves don't shorten
-	// like the waits do); keep the fast-forward until the camera is back, but never longer than this.
-	static const float MaxCameraTail = 3.0f;
-
-	static bool Skipping = false;
-	static float SavedTimeDilation = 1.0f;
+	static constexpr float FadeSeconds = 0.3f;
+	static constexpr float MaxCameraTail = 3.0f;
+	static constexpr float MaxSkipSeconds = 30.0f;
+	static constexpr float SkipSpeed = 8.0f;
+	static constexpr float SimulationStep = 1.0f / 60.0f;
+	enum class SkipPhase { Idle, FadeOut, Running, FadeIn };
+	static SkipPhase Phase = SkipPhase::Idle;
+	static float Opacity = 0.0f;
 	static float CameraTail = 0.0f;
+	static float SkipElapsed = 0.0f;
+	static NameString SceneName;
+	static bool SpeechMuted = false;
 
-	// The cutscene currently holding Harry, or nullptr.
+	bool CutsceneSkipSpeechMuted() { return SpeechMuted; }
+
+	static void MuteSpeech()
+	{
+		SpeechMuted = true;
+		auto& sounds = engine->audiodev->GetPlayingSounds();
+		for (size_t i = 0; i < sounds.size(); i++)
+		{
+			auto slot = USurrealAudioDevice::GetSoundSlot(sounds[i].Id);
+			if (sounds[i].Id && (slot == SLOT_Interact || slot == SLOT_Talk))
+				engine->audiodev->StopSoundAt(i);
+		}
+	}
+
+	static bool SpellLessonActive()
+	{
+		UPlayerPawn* player = engine->viewport ? engine->viewport->Actor() : nullptr;
+		return player && player->GetStateName() == NameString("SpellLearning");
+	}
+
 	static UObject* ActiveCutscene()
 	{
 		UPlayerPawn* player = engine->viewport ? engine->viewport->Actor() : nullptr;
-		UObject* hud = player ? player->myHUD() : nullptr;
-		if (!hud || !BoolProperty(hud, "bCutSceneMode"))
-			return nullptr;
-		return ObjectProperty(hud, "curCutScene");
+		UObject* hud = player && !SpellLessonActive() ? player->myHUD() : nullptr;
+		return hud && BoolProperty(hud, "bCutSceneMode") ? ObjectProperty(hud, "curCutScene") : nullptr;
 	}
 
-	// A struct member of a script struct, or nullptr.
-	static UProperty* StructMember(UStructProperty* prop, const char* name)
-	{
-		for (UProperty* member : prop->Struct->Properties)
-		{
-			if (member->Name == name)
-				return member;
-		}
-		return nullptr;
-	}
-
-	// Cut every cast member's timed wait by the shortest one left, which keeps them in the order they'd run in
-	// unskipped. CutScene.cast[7] and CutScriptII.actors[6] (HPBase) hold the same fields. A move or turn waits for
-	// a cue named after the actor (CutScene: action number + name, CutScriptII: the name); then nothing is cut.
-	static void CutWaits(UObject* cutscene)
-	{
-		UStructProperty* list = UObject::Cast<UStructProperty>(cutscene->GetMemberProperty(NameString("cast")));
-		if (!list)
-			list = UObject::Cast<UStructProperty>(cutscene->GetMemberProperty(NameString("actors")));
-		if (!list)
-			return;
-		UProperty* actorName = StructMember(list, "actorName");
-		UProperty* nextTime = StructMember(list, "fNextActionTime");
-		UBoolProperty* waiting = UObject::Cast<UBoolProperty>(StructMember(list, "bWaiting"));
-		UBoolProperty* finished = UObject::Cast<UBoolProperty>(StructMember(list, "bFinished"));
-		UProperty* waitingFor = StructMember(list, "strWaitingFor");
-		if (!actorName || !nextTime || !waiting || !finished || !waitingFor)
-			return;
-
-		uint8_t* data = static_cast<uint8_t*>(cutscene->GetProperty(list));
-		std::vector<float*> timed;
-		float shortest = 0.0f;
-		for (int i = 0; i < list->ArrayDimension; i++)
-		{
-			uint8_t* element = static_cast<uint8_t*>(list->GetElement(data, i));
-			UObject* actor = *reinterpret_cast<UObject**>(element + actorName->DataOffset.DataOffset);
-			if (!actor || finished->GetBool(element + finished->DataOffset.DataOffset))
-				continue;
-			if (waiting->GetBool(element + waiting->DataOffset.DataOffset))
-			{
-				std::string cue = *reinterpret_cast<std::string*>(element + waitingFor->DataOffset.DataOffset);
-				std::string name = actor->Name.ToString();
-				auto lower = [](std::string s) { std::transform(s.begin(), s.end(), s.begin(), ::tolower); return s; };
-				if (cue.size() >= name.size() && lower(cue.substr(cue.size() - name.size())) == lower(name))
-					return; // a move or turn
-				continue;
-			}
-			float* time = reinterpret_cast<float*>(element + nextTime->DataOffset.DataOffset);
-			if (*time <= 0.0f)
-				return; // acts this tick anyway
-			shortest = timed.empty() ? *time : std::min(shortest, *time);
-			timed.push_back(time);
-		}
-		for (float* time : timed)
-			*time -= shortest;
-	}
-
-	// Harry's camera (baseHarry.cam) is still run by a cutscene.
 	static bool CameraInCutscene()
 	{
 		UPlayerPawn* player = engine->viewport ? engine->viewport->Actor() : nullptr;
@@ -118,42 +69,205 @@ namespace HP1::Mods
 		return cam && cam->GetStateName() == NameString("CutState");
 	}
 
+	static bool SceneStillPlaying()
+	{
+		if (engine->Level)
+			for (UActor* actor : engine->Level->Actors)
+				if (actor && !actor->bDeleteMe() && actor->Name == SceneName)
+					return BoolProperty(actor, "bPlaying");
+		return false;
+	}
+
+	static bool MenuOpen()
+	{
+		return BoolProperty(ObjectProperty(engine->console, "menuBook"), "bIsOpen");
+	}
+
+	bool CutsceneSkipBusy()
+	{
+		return Phase != SkipPhase::Idle;
+	}
+
+	bool CutsceneSkipAccelerating()
+	{
+		return Phase == SkipPhase::Running && engine->LevelInfo &&
+			engine->LevelInfo->Pauser().empty() && !MenuOpen();
+	}
+
+	bool CutsceneSkipWorldPaused()
+	{
+		return Phase == SkipPhase::FadeIn && SpellLessonActive();
+	}
+
+	static void Reveal(const char* reason)
+	{
+		Phase = SkipPhase::FadeIn;
+		SceneName = NameString();
+		SpeechMuted = false;
+		LogMessage(std::string("Cutscene skip: reveal (") + reason + ")");
+	}
+
+	void ResetCutsceneSkip()
+	{
+		if (!CutsceneSkipBusy())
+			return;
+		// The old map is about to be destroyed. Only the visual fade may cross the boundary.
+		Reveal("level change/load");
+		CameraTail = SkipElapsed = 0.0f;
+	}
+
+	bool CutsceneSkipKeyDown(int key)
+	{
+		if (CutsceneSkipBusy())
+		{
+			if (key == IK_Escape && Phase != SkipPhase::FadeIn)
+				Reveal("cancelled");
+			return true;
+		}
+		return IsOn("cutscene-skip") && key == IK_Space && ActiveCutscene() && !MenuOpen() &&
+			engine->LevelInfo && engine->LevelInfo->Pauser().empty();
+	}
+
 	void TickCutsceneSkip(float realElapsed)
 	{
 		if (!IsOn("cutscene-skip") || !engine->LevelInfo)
 			return;
-
-		UObject* cutscene = ActiveCutscene();
-		bool pressed = SpacePressed();
-
-		if (Skipping)
+		// Use real time for the reveal even when a frame stalls.
+		float dt = std::max(realElapsed, 0.0f);
+		if (Phase == SkipPhase::Idle)
 		{
-			if (!cutscene)
+			UObject* scene = ActiveCutscene();
+			if (!scene || !SpacePressed() || MenuOpen() || !engine->LevelInfo->Pauser().empty())
+				return;
+			SceneName = scene->Name;
+			Phase = SkipPhase::FadeOut;
+			Opacity = CameraTail = SkipElapsed = 0.0f;
+			MuteSpeech();
+			LogMessage("Cutscene skip: fade out " + SceneName.ToString());
+		}
+		if (Phase == SkipPhase::FadeIn)
+		{
+			Opacity = std::max(0.0f, Opacity - dt / FadeSeconds);
+			if (Opacity == 0.0f)
 			{
-				CameraTail += realElapsed;
-				if (!CameraInCutscene() || CameraTail > MaxCameraTail)
-				{
-					engine->LevelInfo->TimeDilation() = SavedTimeDilation;
-					Skipping = false;
-				}
+				Phase = SkipPhase::Idle;
+				LogMessage("Cutscene skip: idle");
+			}
+			return;
+		}
+		if (MenuOpen() || !engine->LevelInfo->Pauser().empty())
+		{
+			Reveal("paused");
+			return;
+		}
+		SkipElapsed += realElapsed;
+		if (SkipElapsed > MaxSkipSeconds)
+		{
+			Reveal("timeout; scene continues normally");
+			return;
+		}
+		if (ActiveCutscene())
+			CameraTail = 0.0f;
+		else
+		{
+			CameraTail += realElapsed;
+			if (CameraTail > MaxCameraTail)
+			{
+				Reveal("camera tail timeout");
 				return;
 			}
-			engine->LevelInfo->TimeDilation() = SkipTimeDilation;
-			CutWaits(cutscene);
 		}
-		else if (cutscene && pressed)
+		if (Phase == SkipPhase::FadeOut)
 		{
-			Skipping = true;
-			CameraTail = 0.0f;
-			SavedTimeDilation = engine->LevelInfo->TimeDilation();
-			engine->LevelInfo->TimeDilation() = SkipTimeDilation;
-			CutWaits(cutscene);
+			Opacity = std::min(1.0f, Opacity + dt / FadeSeconds);
+			if (Opacity == 1.0f)
+			{
+				Phase = SkipPhase::Running;
+				LogMessage("Cutscene skip: running (8x, bounded steps)");
+			}
 		}
+	}
+
+	void CutsceneSkipSimulationTick()
+	{
+		if (Phase != SkipPhase::Running && Phase != SkipPhase::FadeOut)
+			return;
+		// These lessons take over Harry without clearing the old HUD curCutScene.
+		if (SpellLessonActive())
+		{
+			Reveal("spell lesson; timer protected");
+			return;
+		}
+		if (UObject* scene = ActiveCutscene())
+			SceneName = scene->Name;
+		else if (!CameraInCutscene() && !SceneStillPlaying())
+			Reveal("finished");
+	}
+
+	int CutsceneSkipSteps(float& elapsed, bool accelerating)
+	{
+		if (!accelerating)
+			return 1;
+		// Advance the whole world together. Never compress individual script waits or save a speed override.
+		elapsed = std::clamp(elapsed, 0.0f, 0.1f) * SkipSpeed;
+		return std::max(1, (int)std::ceil(elapsed / SimulationStep));
+	}
+
+	bool CutsceneSkipPlayerTick(UPlayerPawn* player)
+	{
+		if (!CutsceneSkipBusy())
+			return false;
+		player->aForward() = player->aStrafe() = player->aTurn() = player->aLookUp() = 0.0f;
+		player->aUp() = 0.0f;
+		player->bJumpStatus() = false;
+		player->bFire() = player->bAltFire() = 0;
+		// Scripted CutMovingTo must keep running; released gameplay waits for the reveal.
+		if (!BoolProperty(ObjectProperty(player, "myHUD"), "bCutSceneMode") &&
+			player->GetStateName() == NameString("PlayerWalking"))
+		{
+			player->Acceleration() = vec3(0.0f);
+			return true;
+		}
+		return false;
 	}
 
 	void DrawCutsceneSkip(UCanvas* canvas)
 	{
-		if (IsOn("cutscene-skip") && ActiveCutscene())
-			DrawPrompt(canvas, Skipping ? "Skipping..." : "Press Space to skip");
+		if (!IsOn("cutscene-skip"))
+			return;
+		if (Phase == SkipPhase::Idle)
+		{
+			if (ActiveCutscene() && !MenuOpen())
+				DrawPrompt(canvas, "Press Space to skip");
+			return;
+		}
+		static UTexture* black = nullptr;
+		if (!black)
+		{
+			black = UObject::Cast<UTexture>(engine->packages->GetTransientPackage()->NewObject(
+				"CutsceneSkipBlack", engine->packages->FindClass("Engine.Texture"), ObjectFlags::Transient));
+			black->Format() = (uint8_t)TextureFormat::BGRA8;
+			black->USize() = black->UClamp() = 256;
+			black->VSize() = black->VClamp() = 1;
+			black->UBits() = 8;
+			black->VBits() = 0;
+			UnrealMipmap mip;
+			mip.Width = 256;
+			mip.Height = 1;
+			mip.UBits = 8;
+			mip.VBits = 0;
+			// Tile rendering ignores vertex alpha, so sample opacity from the texture.
+			mip.Data.resize(256 * 4, 0);
+			for (int x = 0; x < 256; x++)
+				mip.Data[x * 4 + 3] = (uint8_t)x;
+			black->UncompressedMipmaps.push_back(std::move(mip));
+			black->UsedFormat = TextureFormat::BGRA8;
+			black->UsedMipmaps = black->UncompressedMipmaps;
+		}
+		float alpha = Opacity * Opacity * (3.0f - 2.0f * Opacity);
+		engine->render->DrawTile(black, 0, 0, (float)canvas->SizeX(), (float)canvas->SizeY(),
+			std::round(alpha * 255.0f), 0, 1, 1, 1, {1, 1, 1, 1}, {}, PF_Highlighted | PF_NoSmooth);
+		if (Phase == SkipPhase::Running)
+			DrawPrompt(canvas, "Skipping...");
 	}
 }
