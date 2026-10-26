@@ -169,3 +169,15 @@ evaluators previously threw an exception. Harry.StopBossEncounter calls ChooseSp
 whose SetCurrentSpell reads default.SpellType from None; the exception interrupted the
 end of the Skurge Peeves fight. Both evaluators now return AccessedNone and NothingValue.
 The regression test supplies an invalid inner expression to check that None skips it.
+
+
+## HP2 inherited state code and logical state identity
+
+HPawn.stateLeadingActor extends patrol. Its running bytecode can therefore belong
+to a parent state while probes,
+GetStateName and local-variable storage belong to the selected child. Frame previously
+used a single Func for both. HP2 label lookup now follows state super links, retains a
+separate logical StateNode, and serializes both the running code and logical state.
+This is a compatibility implementation from the supplied script state/label tables;
+the complete corresponding Core.dll routine has not been reversed. Other games retain
+the existing label lookup. It is independent of any particular level or actor name.
