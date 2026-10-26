@@ -690,3 +690,17 @@ index 7076ca11..103b1418 100644
  	if (engine->LaunchInfo.IsUnrealTournament_469())
  	{
  		auto TouchingArray = Touching_UT469();
+diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Base.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Base.cpp
+index a3942d45..5031b1a5 100644
+--- a/SurrealEngine/Packages/Engine/Actors/UActor_Base.cpp
++++ b/SurrealEngine/Packages/Engine/Actors/UActor_Base.cpp
+@@ -22,7 +22,8 @@ void UActor::InitBase()
+ 			{
+ 				if (levelActor && levelActor->Tag() == attachTag)
+ 				{
+-					levelActor->SetBase(this, false);
++					SetBase(levelActor, false);
++					break;
+ 				}
+ 			}
+ 			return;

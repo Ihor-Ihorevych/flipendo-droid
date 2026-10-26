@@ -395,3 +395,13 @@ QuidditchPlayer and QuidditchPawn clear it); the cutscene command `FollowSpline`
 has the `Align` option. So PrivetDr's intro camera (`BaseCam FollowSpline CameraCrane EaseBetween ...`, no `Align`)
 keeps the rotation BaseCam gives it (towards its target, which follows its own spline) instead of turning with the
 crane path's points, which looked down at the map's edges. The rest of HP2's function is not compared with HP1's yet.
+
+
+## AttachTag parent direction
+
+HP2 Engine.dll UGameEngine::LoadMap (0x103A5430, attachment loop 0x103A7002..0x103A7016)
+calls SetBase on the child whose AttachTag matches the parent's Tag, and stops at the
+first match. InitBase had the direction reversed: it based the parent on its child.
+In Ch2Skurge this leaves the lower Flipendo target at its old position when the SwingBar
+rotates. InitBase now bases the child on the matching parent. This correction uses no
+level or actor names. Existing saved transforms are not rewritten or inferred.
