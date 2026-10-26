@@ -123,6 +123,15 @@ only over 200), moves, and averages the velocity with the step's displacement (c
 bBounce raises HitWall; a floor (normal.z > 0.7) lands (`processLanded`); a wall tries a ledge grab (`Mount`), HitWall
 (`processHitWall`), and slides along it and a second wall, landing on a ditch or floor.
 
+After `Mount`, falling stops immediately if the script destroyed the actor or changed its physics. HP1's
+`Harry.Mounting.BeginState` clears Velocity and Acceleration and selects PHYS_Projectile for the scripted climb.
+Continuing the old falling step then reconstructs velocity and restores the acceleration saved before `Mount`,
+so held movement accelerates Harry through the climb. Reproduced on a `Lev_Tut1b` block with improved-movement's
+early airborne mantle, both with and without free-cam (2026-10-26). `KW::PhysFalling` now preserves the new mode's
+motion. Retail `FallingMount` keeps PHYS_Falling until the catch point, so its falling step still runs; movement
+held after the climb resumes through the normal walking script. This callback guard is shared; HP2's climbing
+and the original Windows executable have not been tested for this case.
+
 `processHitWall` (0x103ECF20): never against pawns. A pawn steering into the wall (towards Destination, flat when
 walking, within MinHitWall) gets HitWall only if its script probes it (falling: always); otherwise its move ends
 (MoveTimer -1, bFromWall). HP2's (0x103F9D30) only sets bFromWall and leaves MoveTimer alone, so the MoveTo /
