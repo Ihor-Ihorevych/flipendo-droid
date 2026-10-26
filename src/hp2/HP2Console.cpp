@@ -35,13 +35,10 @@ namespace HP2
 		const std::string music = engine->packages->GetIniValue("System", AudioSection, "MusicVolume", "");
 		const std::string sound = engine->packages->GetIniValue("System", AudioSection, "SoundVolume", "");
 		if (!music.empty())
-			engine->audiodev->MusicVolume = ToByte((float)atof(music.c_str()));
+			engine->audiodev->SetMusicVolume(ToByte((float)atof(music.c_str())));
 		if (!sound.empty())
-			engine->audiodev->SoundVolume = ToByte((float)atof(sound.c_str()));
+			engine->audiodev->SetSoundVolume(ToByte((float)atof(sound.c_str())));
 
-		// 16 channels (the stock section) were all busy with torches, rain and Lumos loops, and every other sound was dropped
-		const std::string channels = engine->packages->GetIniValue("System", AudioSection, "Channels", "");
-		engine->audiodev->Channels = std::max(channels.empty() ? 0 : atoi(channels.c_str()), 32);
 	}
 
 	bool ConsoleCommand(const std::string& commandline, std::string& result)
@@ -76,7 +73,7 @@ namespace HP2
 			const bool sound = StrTools::equals_ignore_case(key, "SoundVolume");
 			if (lowerTarget.find("audiodevice") == std::string::npos || (!music && !sound) || !engine->audiodev)
 				return false;
-			uint8_t& volume = music ? engine->audiodev->MusicVolume : engine->audiodev->SoundVolume;
+			uint8_t volume = music ? engine->audiodev->GetMusicVolume() : engine->audiodev->GetSoundVolume();
 			if (StrTools::equals_ignore_case(name, "get"))
 			{
 				result = std::to_string(volume / 255.0f);
@@ -85,6 +82,7 @@ namespace HP2
 			if (!value.empty())
 			{
 				volume = ToByte((float)atof(value.c_str()));
+				if (music) engine->audiodev->SetMusicVolume(volume); else engine->audiodev->SetSoundVolume(volume);
 				engine->packages->SetIniValue("System", AudioSection, music ? "MusicVolume" : "SoundVolume", value);
 			}
 			result.clear();
@@ -106,7 +104,7 @@ namespace HP2
 					continue;
 				uint8_t volume = ToByte((float)atof(value.c_str()));
 				if (engine->audiodev)
-					(music ? engine->audiodev->MusicVolume : engine->audiodev->SoundVolume) = volume;
+					{ if (music) engine->audiodev->SetMusicVolume(volume); else engine->audiodev->SetSoundVolume(volume); }
 				engine->packages->SetIniValue("System", AudioSection, music ? "MusicVolume" : "SoundVolume", value);
 			}
 			result.clear();
