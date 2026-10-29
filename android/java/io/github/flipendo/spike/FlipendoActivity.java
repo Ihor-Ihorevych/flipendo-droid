@@ -106,6 +106,10 @@ public class FlipendoActivity extends SDLActivity {
     /** Settings > Wand sensitivity: how fast the wand stick turns the camera (1 = as before). */
     static float wandSens = 1f;
     static final float[] WAND_SENS_STEPS = { 0.25f, 0.5f, 0.75f, 1f, 1.5f, 2f, 3f };
+    /** Settings > Camera sensitivity: how fast dragging or a gamepad's right stick turns the camera (1 = as before);
+     *  independent of Wand sensitivity, which only affects the wand button's own aim-stick. */
+    static float cameraSens = 1f;
+    static final float[] CAMERA_SENS_STEPS = { 0.25f, 0.5f, 0.75f, 1f, 1.5f, 2f, 3f };
     /** Settings > Controls: no cutscene skip (SKIP button, Y held on a pad) and no save button / pad save: play as the game was made. */
     static boolean noSkip = false, noQuickSave = false;
     /** Settings > Game > Performance log: frame phase timings in the log (for a report from a slow phone). */
@@ -340,7 +344,7 @@ public class FlipendoActivity extends SDLActivity {
     private void saveScales() {
         getSharedPreferences("flipendo", MODE_PRIVATE).edit()
                 .putFloat("renderScale", surfaceScale).putFloat("uiScale", uiScale)
-                .putFloat("fovOffset", fovOffset).putBoolean("debugMode", debugMode).putBoolean("showFps", showFps).putBoolean("autoJump", autoJump).putBoolean("invertWand", invertWand).putFloat("wandSens", wandSens).putBoolean("noSkip", noSkip).putBoolean("noQuickSave", noQuickSave).putBoolean("perfLog", perfLog).putBoolean("firstPerson", firstPerson).putInt("fpsLimit", fpsLimit).apply();
+                .putFloat("fovOffset", fovOffset).putBoolean("debugMode", debugMode).putBoolean("showFps", showFps).putBoolean("autoJump", autoJump).putBoolean("invertWand", invertWand).putFloat("wandSens", wandSens).putFloat("cameraSens", cameraSens).putBoolean("noSkip", noSkip).putBoolean("noQuickSave", noQuickSave).putBoolean("perfLog", perfLog).putBoolean("firstPerson", firstPerson).putInt("fpsLimit", fpsLimit).apply();
     }
 
     /** Resizes the render surface (the engine rebuilds its scene textures and swapchain for the new size). */
@@ -721,6 +725,7 @@ public class FlipendoActivity extends SDLActivity {
         applyAutoJump(prefs.getBoolean("autoJump", true), false);
         invertWand = prefs.getBoolean("invertWand", false);
         wandSens = prefs.getFloat("wandSens", 1f);
+        cameraSens = prefs.getFloat("cameraSens", 1f);
         noSkip = prefs.getBoolean("noSkip", false);
         noQuickSave = prefs.getBoolean("noQuickSave", false);
         applyPerfLog(prefs.getBoolean("perfLog", false), false);
@@ -1457,7 +1462,7 @@ public class FlipendoActivity extends SDLActivity {
                     padDrawY -= sy;
                     if (sx != 0 || sy != 0) SDLActivity.onNativeMouse(0, MotionEvent.ACTION_MOVE, sx, sy, true);
                 } else if (!cutsceneShown) {
-                    SDLActivity.onNativeMouse(0, MotionEvent.ACTION_MOVE, dx * PAD_LOOK, dy * PAD_LOOK, true);
+                    SDLActivity.onNativeMouse(0, MotionEvent.ACTION_MOVE, dx * PAD_LOOK * cameraSens, dy * PAD_LOOK * cameraSens, true);
                 }
                 postDelayed(this, 16);
             }
@@ -1612,7 +1617,7 @@ public class FlipendoActivity extends SDLActivity {
         // The port's settings panel: the entry the pad is on
         static final int SET_RENDER = 0, SET_UI = 1, SET_FOV = 2, SET_FPS = 3, SET_SEG = 4, SET_JUMP = 5, SET_LANG = 6, SET_MOD = 7,
                 SET_DEBUG = 8, SET_TELEGRAM = 9, SET_DONE = 10, SET_RENDERER = 11, SET_FPS_LIMIT = 12, SET_LAYOUT = 13, SET_HELP = 14, SET_INVERT = 15, SET_SWITCH = 16, SET_FIRST = 17,
-                SET_TAB = 18 /* 18..20: the pages */, SET_NOSKIP = 21, SET_NOSAVE = 22, SET_FIX = 23, SET_PERF = 24, SET_WANDSENS = 25;
+                SET_TAB = 18 /* 18..20: the pages */, SET_NOSKIP = 21, SET_NOSAVE = 22, SET_FIX = 23, SET_PERF = 24, SET_WANDSENS = 25, SET_CAMERASENS = 26;
         int settingsFocus = -1;
         final java.util.List<android.graphics.RectF> setRects = new java.util.ArrayList<>();
         final java.util.List<Integer> setIds = new java.util.ArrayList<>();
@@ -1646,6 +1651,7 @@ public class FlipendoActivity extends SDLActivity {
             addEntry(noSkipBtn, SET_NOSKIP);
             addEntry(noSaveBtn, SET_NOSAVE);
             addEntry(wandSensBtn, SET_WANDSENS);
+            addEntry(cameraSensBtn, SET_CAMERASENS);
             if (languages.size() > 1) addEntry(languageBtn, SET_LANG);
             addEntry(rendererBtn, SET_RENDERER);
             addEntry(debugBtn, SET_DEBUG);
@@ -1724,6 +1730,7 @@ public class FlipendoActivity extends SDLActivity {
                 case SET_NOSKIP: noSkip = !noSkip; activity.saveScales(); break;
                 case SET_NOSAVE: noQuickSave = !noQuickSave; activity.saveScales(); break;
                 case SET_WANDSENS: cycleWandSens(); break;
+                case SET_CAMERASENS: cycleCameraSens(); break;
                 case SET_FIRST: activity.applyFirstPerson(!firstPerson, true); break;
                 case SET_FPS: showFps = !showFps; fpsFrames = -1; activity.saveScales(); break;
                 case SET_SEG: setDpadMode(!dpadMode); break;
@@ -1782,6 +1789,19 @@ public class FlipendoActivity extends SDLActivity {
                 }
             }
             wandSens = WAND_SENS_STEPS[next];
+            ((FlipendoActivity) getContext()).saveScales();
+            invalidate();
+        }
+
+        void cycleCameraSens() {
+            int next = 0;
+            for (int i = 0; i < CAMERA_SENS_STEPS.length; i++) {
+                if (Math.abs(CAMERA_SENS_STEPS[i] - cameraSens) < 0.01f) {
+                    next = (i + 1) % CAMERA_SENS_STEPS.length;
+                    break;
+                }
+            }
+            cameraSens = CAMERA_SENS_STEPS[next];
             ((FlipendoActivity) getContext()).saveScales();
             invalidate();
         }
@@ -1910,7 +1930,7 @@ public class FlipendoActivity extends SDLActivity {
         boolean helpOpen;        // the controls help card over the settings panel
         final android.graphics.RectF panel = new android.graphics.RectF();
         final android.graphics.RectF segStick = new android.graphics.RectF(), segDpad = new android.graphics.RectF();
-        final android.graphics.RectF fixBtn = new android.graphics.RectF(), switchBtn = new android.graphics.RectF(), helpBtn = new android.graphics.RectF(), layoutBtn = new android.graphics.RectF(), closeBtn = new android.graphics.RectF(), debugBtn = new android.graphics.RectF(), autoJumpBtn = new android.graphics.RectF(), invertBtn = new android.graphics.RectF(), wandSensBtn = new android.graphics.RectF(), telegramBtn = new android.graphics.RectF(), languageBtn = new android.graphics.RectF(), modBtn = new android.graphics.RectF(), fpsBtn = new android.graphics.RectF(), fpBtn = new android.graphics.RectF();
+        final android.graphics.RectF fixBtn = new android.graphics.RectF(), switchBtn = new android.graphics.RectF(), helpBtn = new android.graphics.RectF(), layoutBtn = new android.graphics.RectF(), closeBtn = new android.graphics.RectF(), debugBtn = new android.graphics.RectF(), autoJumpBtn = new android.graphics.RectF(), invertBtn = new android.graphics.RectF(), wandSensBtn = new android.graphics.RectF(), cameraSensBtn = new android.graphics.RectF(), telegramBtn = new android.graphics.RectF(), languageBtn = new android.graphics.RectF(), modBtn = new android.graphics.RectF(), fpsBtn = new android.graphics.RectF(), fpBtn = new android.graphics.RectF();
 
         final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
         final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -2078,7 +2098,7 @@ public class FlipendoActivity extends SDLActivity {
         float layoutPageRows(float y0) {
             float h = lh;
             for (android.graphics.RectF r : new android.graphics.RectF[] { fpBtn, fpsBtn, segStick, segDpad, autoJumpBtn, invertBtn, layoutBtn,
-                    languageBtn, modBtn, rendererBtn, debugBtn, fixBtn, perfBtn, switchBtn, noSkipBtn, noSaveBtn, wandSensBtn }) r.setEmpty();
+                    languageBtn, modBtn, rendererBtn, debugBtn, fixBtn, perfBtn, switchBtn, noSkipBtn, noSaveBtn, wandSensBtn, cameraSensBtn }) r.setEmpty();
             float rowH = 0.115f * h, rowGap = 0.02f * h;
             float knobR = 0.026f * lu;
             sliderX0 = colL0 + knobR;
@@ -2122,6 +2142,8 @@ public class FlipendoActivity extends SDLActivity {
                     wandSensBtn.set(colR0, yr, colR1, yr + rowH);
                     yr += rowH + rowGap;
                 }
+                cameraSensBtn.set(colR0, yr, colR1, yr + rowH);
+                yr += rowH + rowGap;
             } else {
                 leftSection = tr("GAME");
                 rightSection = tr("MORE");
@@ -2151,6 +2173,8 @@ public class FlipendoActivity extends SDLActivity {
                 activity.saveScales();
             } else if (wandSensBtn.contains(x, y)) {
                 cycleWandSens();
+            } else if (cameraSensBtn.contains(x, y)) {
+                cycleCameraSens();
             } else if (noSaveBtn.contains(x, y)) {
                 noQuickSave = !noQuickSave;
                 activity.saveScales();
@@ -2377,6 +2401,7 @@ public class FlipendoActivity extends SDLActivity {
                 drawSwitchRow(c, noSkipBtn, tr("No cutscene skip"), tr("No SKIP button, no hold-Y skip"), noSkip, false);
                 drawSwitchRow(c, noSaveBtn, tr("No quick save"), tr("No save button, no pad save"), noQuickSave, false);
                 if (!wandSensBtn.isEmpty()) drawValueRow(c, wandSensBtn, tr("Wand sensitivity"), tr("How fast the wand stick turns the camera"), Math.round(wandSens * 100f) + "%", false);
+                drawValueRow(c, cameraSensBtn, tr("Camera sensitivity"), tr("How fast dragging or the right stick turns the camera"), Math.round(cameraSens * 100f) + "%", false);
             } else {
                 if (languages.size() > 1) {
                     String current = languages.get(languageIndex(currentLanguage()))[1];
@@ -2926,7 +2951,7 @@ public class FlipendoActivity extends SDLActivity {
                             }
                         } else if (role == Role.LOOK && moved > slop) {
                             SDLActivity.onNativeMouse(0, MotionEvent.ACTION_MOVE,
-                                    (x - l[0]) * 1.5f, (y - l[1]) * 1.5f, true);
+                                    (x - l[0]) * 1.5f * cameraSens, (y - l[1]) * 1.5f * cameraSens, true);
                         }
                         l[0] = x;
                         l[1] = y;
