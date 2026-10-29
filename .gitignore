@@ -20,6 +20,8 @@ __pycache__/
 
 # Android build (android/build-apk.sh)
 /build-android/
+/build-android-hp3/
+/build-android-tests/
 /android/apk/
 /android/dist/
 /android/deps/
