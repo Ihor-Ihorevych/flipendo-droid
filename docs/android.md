@@ -385,6 +385,19 @@ One app, two games. The launcher (`SetupActivity`) has a **HP1 | HP2** switch; e
 - **Self pack with HP2:** `android/build-apk.sh --selfpack "C:/Games/HP" --hp2 "<HP2 install>" --hp2-texts "<harry2 folder>"`
   also packs HP2 (`assets/hp2data`); `installHp2Data` unpacks it into `/sdcard/FlipendoHP2` once (saves are left alone).
 
+## Harry Potter 3
+
+A third game, run by a different engine (the UT2004/Unreal Engine 2.5 port in the sibling repository
+`flipendo-droid-2004`, branch `hp3`) in its own process (`:hp3`), started straight into its own front end: its folder
+(`/sdcard/FlipendoHP3`; preference `gameDir.hp3`), recognised by `System/hppoa.exe`. `android/build-apk.sh` builds the
+engine itself (`--hp3-engine`, `--hp3-headers`, `--hp3-deps`, defaulting to the sibling repository, `../hp3-headers`
+and the engine's own dependency checkouts) and links it into every APK, native code and Java (`Hp3Setup.java`,
+`GameActivity`/`Hp3TouchOverlayView`/`Storage` copied from the engine with SDL2 moved to the Java package
+`org.libsdl2.app`, which keeps it apart from Flipendo's own SDL3). The launcher writes `System/UT2004.ini` once, from
+HP3's own `Default.ini` with the renderer and window driver set for Android (`Hp3Setup.prepareIni`); it never touches
+an ini the player already has. `--hp3 "<HP3 install>"` packs HP3's data (`assets/hp3data`) into the self pack, without
+the Windows executables, the installer, `help`, `Support` or `Movies` (the engine does not play Bink video yet).
+
 ## Control layout and the potion (HP2)
 
 - **Control layout** (Settings, *Edit*): the wand button, the jump button, the arrow pad and the toolbar can be dragged and

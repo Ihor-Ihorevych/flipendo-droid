@@ -12,9 +12,14 @@
 #   android/build-apk.sh --selfpack "C:/Games/HP" --textures texture-packs/storybook-hd --menu-art texture-packs/menu-art
 #                                                 .dds texture packs (Textures/<package>/<group>/<name>.dds, the texture-overrides mod); menu art per language
 #   android/build-apk.sh --selfpack "C:/Games/HP" --hp2 "<HP2 folder>" [--hp2-texts "<harry2 folder>"]   ... HP2 in the self pack too
+#   android/build-apk.sh --selfpack "C:/Games/HP" --hp3 "<HP3 folder>"   ... HP3 in the self pack too
 #   android/build-apk.sh --install                ... and install the plain APK on the connected phone (adb)
+# Every APK carries Harry Potter 3's engine, built from the sibling engine repository (--hp3-engine, default
+# ../flipendo-droid-2004) with HP3's generated headers (--hp3-headers, default ../hp3-headers) and the engine's
+# dependency sources (--hp3-deps, default <engine>/build-windows-hp3-layout/_deps: sdl2-src, gl4es-src, metoolkitkarmadecomp-src).
 # The self pack contains copyrighted game data: for your own phone only, never publish or share it.
-# Needs: JDK 21, Android SDK (platform 35, build-tools 35.0.0, NDK 27.2.12479018, CMake 3.22.1), git.
+# Needs: JDK 21, Android SDK (platform 35, build-tools 35.0.0, NDK 27.2.12479018 and, for HP3, 28.2.13676358,
+# CMake 3.22.1 and, for HP3, 4.1.2), git.
 # Override the locations with JAVA_HOME and ANDROID_HOME. See docs/android.md.
 set -euo pipefail
 
@@ -31,9 +36,17 @@ MODS=()      # "id=zip": script mods the app can switch on and off (Settings > M
 TEXTURES=()  # --textures (repeatable, later ones win): folders with a Textures/ tree of .dds overrides for the self pack (ESRGAN pack, HD storybook pages)
 MENUART=""   # --menu-art: the main menu upscale pack, one folder per language, each with Textures/MenuArt/*.dds
 VOICES=()    # "code=Sounds folder": a dubbing for --selfpack, an edition that is the base install with its Sounds replaced
+HP3DIR=""    # --hp3: an HP3 install (system/hppoa.exe) that goes into the self pack too (assets/hp3data)
+HP3_ENGINE="$(cd "$ROOT/.." && pwd)/flipendo-droid-2004" # --hp3-engine: the engine repository (flipendo-droid-2004, branch hp3)
+HP3_HEADERS="$(cd "$ROOT/.." && pwd)/hp3-headers"        # --hp3-headers: HP3's generated EngineClasses.h (never in git)
+HP3_DEPS=""  # --hp3-deps: the engine's dependency sources (default: <engine>/build-windows-hp3-layout/_deps)
 while [ $# -gt 0 ]; do
 	case "$1" in
 		--install) INSTALL=1 ;;
+		--hp3) shift; HP3DIR="$(cygpath -u "${1:?--hp3 needs the HP3 folder}")" ;;
+		--hp3-engine) shift; HP3_ENGINE="$(cygpath -u "${1:?--hp3-engine needs the engine repository}")" ;;
+		--hp3-headers) shift; HP3_HEADERS="$(cygpath -u "${1:?--hp3-headers needs the header folder}")" ;;
+		--hp3-deps) shift; HP3_DEPS="$(cygpath -u "${1:?--hp3-deps needs the _deps folder}")" ;;
 		--hp2) shift; HP2DIR="$(cygpath -u "${1:?--hp2 needs the HP2 folder}")" ;;
 		--hp2-edition) shift; HP2EDITIONS+=("$1") ;; # code=folder|name, e.g. ru=C:/Games/HP2Rus|Russian
 		--hp2-texts) shift; HP2TEXTS="$(cygpath -u "${1:?--hp2-texts needs the harry2 folder}")" ;;
@@ -60,6 +73,17 @@ if [ -n "$HP2DIR" ] && [ ! -f "$HP2DIR/System/Game.exe" ] && [ ! -f "$HP2DIR/sys
 	echo "$HP2DIR is not an HP2 install (no System/Game.exe)" >&2
 	exit 1
 fi
+if [ -n "$HP3DIR" ] && [ ! -f "$HP3DIR/System/hppoa.exe" ] && [ ! -f "$HP3DIR/system/hppoa.exe" ]; then
+	echo "$HP3DIR is not an HP3 install (no system/hppoa.exe)" >&2
+	exit 1
+fi
+HP3_DEPS="${HP3_DEPS:-$HP3_ENGINE/build-windows-hp3-layout/_deps}"
+for d in "$HP3_ENGINE/Source" "$HP3_HEADERS" "$HP3_DEPS/sdl2-src" "$HP3_DEPS/gl4es-src" "$HP3_DEPS/metoolkitkarmadecomp-src"; do
+	if [ ! -d "$d" ]; then
+		echo "HP3's engine needs $d (see --hp3-engine, --hp3-headers, --hp3-deps)" >&2
+		exit 1
+	fi
+done
 
 for l in "${LANGS[@]}"; do
 	dir="${l#*=}"
@@ -104,15 +128,39 @@ if [ ! -f "$BUILD/CMakeCache.txt" ]; then
 fi
 "$CMAKE_DIR/cmake.exe" --build "$BUILD" --target main
 
+# 3b. Harry Potter 3's engine (flipendo-droid-2004): its own SDL2, under the Java package org.libsdl2.app so that it sits
+# beside SDL3, built with the engine's NDK and CMake and the arguments its Gradle build passes
+HP3_NDK="$ANDROID_HOME/ndk/28.2.13676358"
+HP3_CMAKE="$ANDROID_HOME/cmake/4.1.2/bin"
+HP3_BUILD=build-android-hp3
+if [ ! -f "$HP3_BUILD/CMakeCache.txt" ]; then
+	"$HP3_CMAKE/cmake.exe" -S "$HP3_ENGINE" -B "$HP3_BUILD" -G Ninja -DCMAKE_MAKE_PROGRAM="$HP3_CMAKE/ninja.exe" \
+		-DCMAKE_TOOLCHAIN_FILE="$HP3_NDK/build/cmake/android.toolchain.cmake" -DANDROID_ABI=arm64-v8a \
+		-DANDROID_PLATFORM=android-29 -DANDROID_STL=c++_shared -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+		-DUE_GAME_HP3=ON -DUE_HP3_HEADERS_DIR="$(cygpath -m "$HP3_HEADERS")" -DUE_SDL2_JAVA_PACKAGE=org.libsdl2.app \
+		-DFETCHCONTENT_SOURCE_DIR_SDL2="$(cygpath -m "$HP3_DEPS/sdl2-src")" \
+		-DFETCHCONTENT_SOURCE_DIR_GL4ES="$(cygpath -m "$HP3_DEPS/gl4es-src")" \
+		-DFETCHCONTENT_SOURCE_DIR_METOOLKITKARMADECOMP="$(cygpath -m "$HP3_DEPS/metoolkitkarmadecomp-src")"
+fi
+"$HP3_CMAKE/cmake.exe" --build "$HP3_BUILD" --target SDLLaunch ut2004_android_bridge
+
 # 4. what both APKs share: libraries, dex (SDL's Java glue + our activities + touch overlay), engine UI resources
 rm -rf "$A/lib" "$A/classes" "$A/assets" "$A/data_stage"
 mkdir -p "$A/lib/arm64-v8a" "$A/classes" "$A/assets" android/dist
 for f in "$BUILD/libmain.so" "$BUILD/SDL3/libSDL3.so" "$BUILD/engine/Thirdparty/openal-soft/libopenal.so" "$BUILD/engine/libSurrealVideo.so"; do
 	cp "$f" "$A/lib/arm64-v8a/"
 done
+# HP3's engine: the game, its SDL2, its process bridge and the C++ runtime it is built against (its own NDK's); Flipendo's
+# libopenal.so serves it too (the engine binds libopenal.so by name)
+for f in "$HP3_BUILD/Source/SDLLaunch/libUT2004.so" "$HP3_BUILD/_deps/sdl2-build/libSDL2.so" "$HP3_BUILD/libut2004_android_bridge.so" \
+	"$HP3_NDK/toolchains/llvm/prebuilt/$HOST_TAG/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so"; do
+	cp "$f" "$A/lib/arm64-v8a/"
+done
+"$HP3_ENGINE/tools/android/check_sdl_java_package.sh" "$A/lib/arm64-v8a/libSDL2.so" org.libsdl2.app
 # keep the unstripped library: frames in a user's crash.txt are module+offset, symbolicate them against it
 mkdir -p android/dist/symbols
 cp "$BUILD/libmain.so" android/dist/symbols/libmain.unstripped.so
+cp "$HP3_BUILD/Source/SDLLaunch/libUT2004.so" android/dist/symbols/libUT2004.unstripped.so
 # The version (docs/android.md, "Versions"): android/VERSION is the release number; a build of its tag android-v<VERSION>
 # carries it as is, any other build adds -dev+<commit>. versionCode is the commit count, so every newer build counts higher.
 VERSION="$(tr -d ' \r\n' < android/VERSION)"
@@ -139,6 +187,21 @@ for f in android/lang/ru-text/*.rus; do
 done
 javac -Xlint:-options -source 8 -target 8 -cp "$AJ" -d "$A/classes" \
 	android/deps/SDL/android-project/app/src/main/java/org/libsdl/app/*.java android/java/io/github/flipendo/spike/*.java
+# HP3's engine activity and touch controls, with SDL2's Java moved to org.libsdl2.app (the package its libSDL2.so is built
+# for); the engine's Java is Java 17. None of the engine app's assets/system files: the launcher prepares HP3's own.
+HP3JAVA="$A/hp3java"
+EJ="$HP3_ENGINE/Android/app/src/main/java"
+rm -rf "$HP3JAVA"
+mkdir -p "$HP3JAVA/com/ut2004/android" "$HP3JAVA/org/libsdl2/app"
+for f in GameActivity Hp3TouchOverlayView Storage; do
+	sed 's/org\.libsdl\.app/org.libsdl2.app/g' "$EJ/com/ut2004/android/$f.java" > "$HP3JAVA/com/ut2004/android/$f.java"
+done
+for f in "$EJ"/org/libsdl/app/*.java; do
+	sed 's/org\.libsdl\.app/org.libsdl2.app/g' "$f" > "$HP3JAVA/org/libsdl2/app/$(basename "$f")"
+done
+javac -Xlint:-options -source 17 -target 17 -cp "$AJ" -d "$A/classes" "$HP3JAVA"/com/ut2004/android/*.java "$HP3JAVA"/org/libsdl2/app/*.java
+mkdir -p "$A/assets/touch_overlay/hp3"
+cp "$HP3_ENGINE/Android/app/src/main/assets/touch_overlay/hp3/"*.png "$A/assets/touch_overlay/hp3/"
 # the class list goes in a file: with the touch overlay's inner classes the command line got longer than Windows allows
 (cd "$A" && find classes -name "*.class" > classes.list && "$BT/d8.bat" --lib "$AJ" --output . @classes.list)
 [ -f android/debug.keystore ] || keytool -genkeypair -keystore android/debug.keystore -storepass android -keypass android \
@@ -331,6 +394,19 @@ for entry in "${SELFPACKS[@]}"; do
 		done
 		(cd "$HP2STAGE" && find . -type f ! -name .stamp -print0 | sort -z | xargs -0 sha1sum | sha1sum | cut -d' ' -f1) > "$HP2STAGE/.stamp"
 		echo "HP2 data: $(find "$HP2STAGE" -type f | wc -l) files, $(du -sm "$HP2STAGE" | cut -f1) MB"
+	fi
+	# Harry Potter 3 in the same self pack: assets/hp3data, unpacked into FlipendoHP3 (SetupActivity.installBundle), once.
+	# The game's folders only: no installer files, help, Support, Windows binaries, logs or saves; no Movies (Bink video,
+	# which the engine does not play)
+	if [ -n "$HP3DIR" ] && [ "$NAME" = flipendo-droid-selfpack.apk ]; then
+		HP3STAGE="$A/data_stage/assets/hp3data"
+		mkdir -p "$HP3STAGE"
+		(cd "$HP3DIR" && find . -type f \( -ipath './animations/*' -o -ipath './maps/*' -o -ipath './music/*' -o -ipath './sounds/*' \
+			-o -ipath './staticmeshes/*' -o -ipath './textures/*' -o -ipath './system/*' \) \
+			! -iname '*.exe' ! -iname '*.dll' ! -iname '*.log' ! -iname '*.usa' -print0) \
+			| (cd "$HP3DIR" && tar --null -cf - --files-from=-) | (cd "$HP3STAGE" && tar xf -)
+		(cd "$HP3STAGE" && find . -type f ! -name .stamp -print0 | sort -z | xargs -0 sha1sum | sha1sum | cut -d' ' -f1) > "$HP3STAGE/.stamp"
+		echo "HP3 data: $(find "$HP3STAGE" -type f | wc -l) files, $(du -sm "$HP3STAGE" | cut -f1) MB"
 	fi
 	# a stamp of what is inside (a hash of the contents: two installs can differ with the same sizes): the app only unpacks again when the data changes
 	(cd "$A/data_stage/assets" && find . -type f ! -name .stamp -print0 | sort -z | xargs -0 sha1sum | sha1sum | cut -d' ' -f1) > "$STAGE/.stamp"
