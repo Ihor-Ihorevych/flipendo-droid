@@ -39,16 +39,23 @@ public final class Hp3SetupTest {
 
     public static void main(String[] args) throws Exception {
         File x = tempDir();
-        touch(new File(x, "System/hppoa.exe"));
+        touch(new File(x, "System/Core.u"));
         check(x.equals(Hp3Setup.findGame(x, 2)), "findGameUpperSystem");
 
         x = tempDir();
-        touch(new File(x, "hp3/system/hppoa.exe"));
+        touch(new File(x, "hp3/system/Core.u"));
         check(new File(x, "hp3").equals(Hp3Setup.findGame(x, 2)), "findGameLowercaseSystem");
 
         x = tempDir();
         touch(new File(x, "System/HP.exe"));
         check(Hp3Setup.findGame(x, 2) == null, "findGameNone");
+
+        // The self pack's system/ has no .exe (build-apk.sh strips Windows executables): Core.u, not hppoa.exe, is
+        // what has to be there, or a self-pack install can never be found again after it unpacks.
+        x = tempDir();
+        touch(new File(x, "System/Core.u"));
+        touch(new File(x, "System/Engine.u"));
+        check(x.equals(Hp3Setup.findGame(x, 2)), "findGameSelfPackShape");
 
         check(PHONE_INI.equals(Hp3Setup.patchIni(PC_INI)), "patchIniReplacesDrivers");
 

@@ -389,7 +389,9 @@ One app, two games. The launcher (`SetupActivity`) has a **HP1 | HP2** switch; e
 
 A third game, run by a different engine (the UT2004/Unreal Engine 2.5 port in the sibling repository
 `flipendo-droid-2004`, branch `hp3`) in its own process (`:hp3`), started straight into its own front end: its folder
-(`/sdcard/FlipendoHP3`; preference `gameDir.hp3`), recognised by `System/hppoa.exe`. `android/build-apk.sh` builds the
+(`/sdcard/FlipendoHP3`; preference `gameDir.hp3`), recognised by `System/Core.u` (not `hppoa.exe`: the self pack strips
+Windows executables from `system/`, and `Core.u` is what the engine's own `GameActivity.hasGameTree` already uses for
+this). `android/build-apk.sh` builds the
 engine itself (`--hp3-engine`, `--hp3-headers`, `--hp3-deps`, defaulting to the sibling repository, `../hp3-headers`
 and the engine's own dependency checkouts) and links it into every APK, native code and Java (`Hp3Setup.java`,
 `GameActivity`/`Hp3TouchOverlayView`/`Storage` copied from the engine with SDL2 moved to the Java package

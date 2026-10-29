@@ -6,19 +6,21 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 
 /**
- * Harry Potter 3's game folder for the launcher: finding a copied install (System/hppoa.exe) and the phone ini HP3's
- * engine reads (System/UT2004.ini): HP3's own Default.ini with the Android renderer and window drivers. Plain Java, so
+ * Harry Potter 3's game folder for the launcher: finding a copied install (System/Core.u) and the phone ini HP3's
+ * engine reads (System/UT2004.ini): HP3's own Default.ini with the Android renderer and window drivers. Core.u, not
+ * hppoa.exe, is the recognition file: the self pack strips Windows executables from system/, but Core.u is always
+ * there, and it is what the engine's own GameActivity.hasGameTree uses to recognise a game tree. Plain Java, so
  * android/tests/run.sh tests it on the desktop.
  */
 final class Hp3Setup {
-    static final String EXE = "hppoa.exe";
+    static final String EXE = "Core.u";
     static final String RENDER_DEVICE = "GL4ESDrv.GL4ESRenderDevice";
     static final String VIEWPORT_MANAGER = "SDL2Drv.SDL2Client";
 
     private Hp3Setup() {
     }
 
-    /** dir, or a folder up to depth levels below it, holding System/hppoa.exe (system/ in the retail install); else null. */
+    /** dir, or a folder up to depth levels below it, holding System/Core.u (system/ in the retail install); else null. */
     static File findGame(File dir, int depth) {
         if (new File(dir, "System/" + EXE).isFile() || new File(dir, "system/" + EXE).isFile()) {
             return dir;

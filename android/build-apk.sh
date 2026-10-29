@@ -36,7 +36,7 @@ MODS=()      # "id=zip": script mods the app can switch on and off (Settings > M
 TEXTURES=()  # --textures (repeatable, later ones win): folders with a Textures/ tree of .dds overrides for the self pack (ESRGAN pack, HD storybook pages)
 MENUART=""   # --menu-art: the main menu upscale pack, one folder per language, each with Textures/MenuArt/*.dds
 VOICES=()    # "code=Sounds folder": a dubbing for --selfpack, an edition that is the base install with its Sounds replaced
-HP3DIR=""    # --hp3: an HP3 install (system/hppoa.exe) that goes into the self pack too (assets/hp3data)
+HP3DIR=""    # --hp3: an HP3 install (system/Core.u) that goes into the self pack too (assets/hp3data)
 HP3_ENGINE="$(cd "$ROOT/.." && pwd)/flipendo-droid-2004" # --hp3-engine: the engine repository (flipendo-droid-2004, branch hp3)
 HP3_HEADERS="$(cd "$ROOT/.." && pwd)/hp3-headers"        # --hp3-headers: HP3's generated EngineClasses.h (never in git)
 HP3_DEPS=""  # --hp3-deps: the engine's dependency sources (default: <engine>/build-windows-hp3-layout/_deps)
@@ -73,8 +73,8 @@ if [ -n "$HP2DIR" ] && [ ! -f "$HP2DIR/System/Game.exe" ] && [ ! -f "$HP2DIR/sys
 	echo "$HP2DIR is not an HP2 install (no System/Game.exe)" >&2
 	exit 1
 fi
-if [ -n "$HP3DIR" ] && [ ! -f "$HP3DIR/System/hppoa.exe" ] && [ ! -f "$HP3DIR/system/hppoa.exe" ]; then
-	echo "$HP3DIR is not an HP3 install (no system/hppoa.exe)" >&2
+if [ -n "$HP3DIR" ] && [ ! -f "$HP3DIR/System/Core.u" ] && [ ! -f "$HP3DIR/system/Core.u" ]; then
+	echo "$HP3DIR is not an HP3 install (no system/Core.u)" >&2
 	exit 1
 fi
 HP3_DEPS="${HP3_DEPS:-$HP3_ENGINE/build-windows-hp3-layout/_deps}"
