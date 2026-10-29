@@ -387,13 +387,16 @@ One app, two games. The launcher (`SetupActivity`) has a **HP1 | HP2** switch; e
 
 ## Harry Potter 3
 
-A third game, run by a different engine (the UT2004/Unreal Engine 2.5 port in the sibling repository
-`flipendo-droid-2004`, branch `hp3`) in its own process (`:hp3`), started straight into its own front end: its folder
-(`/sdcard/FlipendoHP3`; preference `gameDir.hp3`), recognised by `System/Core.u` (not `hppoa.exe`: the self pack strips
+A third game, run by a different engine (the UT2004/Unreal Engine 2.5 port, `flipendo-droid-2004`, branch `hp3`) in
+its own process (`:hp3`), started straight into its own front end: its folder (`/sdcard/FlipendoHP3`; preference
+`gameDir.hp3`), recognised by `System/Core.u` (not `hppoa.exe`: the self pack strips
 Windows executables from `system/`, and `Core.u` is what the engine's own `GameActivity.hasGameTree` already uses for
-this). `android/build-apk.sh` builds the
-engine itself (`--hp3-engine`, `--hp3-headers`, `--hp3-deps`, defaulting to the sibling repository, `../hp3-headers`
-and the engine's own dependency checkouts) and links it into every APK, native code and Java (`Hp3Setup.java`,
+this). The engine is a git submodule at `src/hp3-engine` (`git submodule update --init` after cloning), tracking its
+own `hp3` branch, actively developed there like any other submodule checkout (not a read-only vendored dependency:
+commit to it directly). `android/build-apk.sh` builds the
+engine itself (`--hp3-engine`, `--hp3-headers`, `--hp3-deps`, defaulting to the submodule, `../hp3-headers`
+and the engine's own dependency checkouts; point `--hp3-engine` at a separate checkout instead if you keep the
+engine's working copy elsewhere) and links it into every APK, native code and Java (`Hp3Setup.java`,
 `GameActivity`/`Hp3TouchOverlayView`/`Storage` copied from the engine with SDL2 moved to the Java package
 `org.libsdl2.app`, which keeps it apart from Flipendo's own SDL3). The launcher writes `System/UT2004.ini` once, from
 HP3's own `Default.ini` with the renderer and window driver set for Android (`Hp3Setup.prepareIni`); it never touches
