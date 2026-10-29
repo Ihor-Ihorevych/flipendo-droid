@@ -31,6 +31,12 @@
             android:screenOrientation="sensorLandscape"
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode|density|smallestScreenSize"
             android:theme="@android:style/Theme.NoTitleBar.Fullscreen"/>
+        <!-- Harry Potter 3: its own engine (flipendo-droid-2004, on SDL2 under org.libsdl2.app) in its own process, which
+             ends with the game; the launcher starts it with the game folder on the intent. -->
+        <activity android:name="com.ut2004.android.GameActivity" android:exported="false" android:process=":hp3"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode|density|smallestScreenSize"
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen"/>
         <provider android:name="io.github.flipendo.spike.ReportProvider" android:authorities="io.github.flipendo.spike.reports"
             android:exported="false" android:grantUriPermissions="true"/>
     </application>
