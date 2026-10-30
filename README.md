@@ -102,6 +102,10 @@ now. Development is moving quickly, so we don't know exactly how close it is to 
 played through may already work, and others may not. It needs a full playtest; the [roadmap](ROADMAP.md) has what we
 know about.
 
+> **Playtesters wanted.** We're looking for players to play Chamber of Secrets through to the end and report the bugs
+> they find, above all anything that stops you finishing the game (a crash, a door that won't open, an event that
+> never fires). Details and where to report: [issue #16](https://github.com/kroplabeskidu/flipendo/issues/16).
+
 If you play it, build from source (below) and point it at your Chamber of Secrets folder (retail 1.0, the one with
 `system/Game.exe`). Please report what works and what doesn't, with where you got to in the game.
 
