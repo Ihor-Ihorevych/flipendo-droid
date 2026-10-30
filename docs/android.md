@@ -385,6 +385,32 @@ One app, two games. The launcher (`SetupActivity`) has a **HP1 | HP2** switch; e
 - **Self pack with HP2:** `android/build-apk.sh --selfpack "C:/Games/HP" --hp2 "<HP2 install>" --hp2-texts "<harry2 folder>"`
   also packs HP2 (`assets/hp2data`); `installHp2Data` unpacks it into `/sdcard/FlipendoHP2` once (saves are left alone).
 
+## Harry Potter 3
+
+A third game, run by a different engine (the UT2004/Unreal Engine 2.5 port, `flipendo-droid-2004`, branch `hp3`) in
+its own process (`:hp3`), started straight into its own front end: its folder (`/sdcard/FlipendoHP3`; preference
+`gameDir.hp3`), recognised by `System/Core.u` (not `hppoa.exe`: the self pack strips
+Windows executables from `system/`, and `Core.u` is what the engine's own `GameActivity.hasGameTree` already uses for
+this). The engine is a git submodule at `src/hp3-engine` (`git submodule update --init` after cloning), tracking its
+own `hp3` branch, actively developed there like any other submodule checkout (not a read-only vendored dependency:
+commit to it directly). `android/build-apk.sh` builds the
+engine itself (`--hp3-engine`, `--hp3-headers`, `--hp3-deps`, defaulting to the submodule, `../hp3-headers`
+and the engine's own dependency checkouts; point `--hp3-engine` at a separate checkout instead if you keep the
+engine's working copy elsewhere) and links it into every APK, native code and Java (`Hp3Setup.java`,
+`GameActivity`/`Hp3TouchOverlayView`/`Storage` copied from the engine with SDL2 moved to the Java package
+`org.libsdl2.app`, which keeps it apart from Flipendo's own SDL3). The launcher writes `System/UT2004.ini` once, from
+HP3's own `Default.ini` with the renderer and window driver set for Android (`Hp3Setup.prepareIni`); it never touches
+an ini the player already has. `--hp3 "<HP3 install>"` packs HP3's data (`assets/hp3data`) into the self pack, without
+the Windows executables, the installer, `help`, `Support` or `Movies` (the engine does not play Bink video yet).
+
+The engine is built against headers generated from a game install (`../hp3-headers`, never in git), so a machine without the game cannot
+build it. Three modes, picked by `build-apk.sh`: **build** (the headers and dependencies are there), **prebuilt** (`--hp3-libs <folder>`
+with `libUT2004.so`, `libSDL2.so`, `libut2004_android_bridge.so` and `libc++_shared.so`) and **off** (neither: the APK has no HP3 and
+the launcher hides its cover). A build leaves its four libraries in `android/dist/hp3-libs`; `android/pack-hp3-libs.sh` zips them with the engine
+commit and `gh release create hp3-libs android/dist/hp3-libs.zip --prerelease` publishes them. The GitHub workflow downloads the release
+`hp3-libs` when it exists (it warns when the libraries were built from another engine commit than the submodule's) and builds without HP3
+when it does not.
+
 ## Control layout and the potion (HP2)
 
 - **Control layout** (Settings, *Edit*): the wand button, the jump button, the arrow pad and the toolbar can be dragged and

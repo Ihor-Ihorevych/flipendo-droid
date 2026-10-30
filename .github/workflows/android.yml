@@ -23,8 +23,29 @@ jobs:
         with:
           fetch-depth: 0 # the version code is the commit count; build-info.txt names the commit
 
-      - name: Engine (SurrealEngine submodule)
-        run: git submodule update --init src/engine
+      - name: Engines (SurrealEngine and HP3 engine submodules)
+        run: git submodule update --init src/engine src/hp3-engine
+
+      # HP3's libraries are built on a machine with the game installed (the engine needs headers generated from it, which are
+      # never in git) and published as the release "hp3-libs" (android/pack-hp3-libs.sh). Without that release the APK is built
+      # without HP3 and the launcher hides it.
+      - name: HP3 engine libraries (prebuilt)
+        id: hp3
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release download hp3-libs --pattern hp3-libs.zip --dir android/dist/hp3-dl 2>/dev/null; then
+            powershell -NoProfile -Command "Expand-Archive -Path android/dist/hp3-dl/hp3-libs.zip -DestinationPath android/dist/hp3-dl -Force"
+            PINNED="$(git -C src/hp3-engine rev-parse HEAD)"
+            BUILT="$(tr -d '[:space:]' < android/dist/hp3-dl/COMMIT.txt)"
+            if [ "$PINNED" != "$BUILT" ]; then
+              echo "::warning::hp3-libs were built from engine $BUILT, the submodule is at $PINNED"
+            fi
+            echo "args=--hp3-libs android/dist/hp3-dl" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No hp3-libs release: building without HP3"
+            echo "args=" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: actions/setup-java@v4
         with:
@@ -62,7 +83,7 @@ jobs:
           fi
 
       - name: Build
-        run: android/build-apk.sh
+        run: android/build-apk.sh ${{ steps.hp3.outputs.args }}
 
       - name: Keep the APK
         uses: actions/upload-artifact@v4

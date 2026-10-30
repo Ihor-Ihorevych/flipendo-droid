@@ -6,3 +6,7 @@
 [submodule "tools/Unreal-Library"]
 	path = tools/Unreal-Library
 	url = https://github.com/EliotVU/Unreal-Library.git
+[submodule "src/hp3-engine"]
+	path = src/hp3-engine
+	url = https://github.com/Ihor-Ihorevych/flipendo-droid-2004
+	branch = hp3
