@@ -34,6 +34,10 @@ pick the game on the start screen.
 - **Harry Potter 1**: all levels are playable.
 - **Harry Potter 2**: playable from the first scene on, with saves, duels and shops; still being polished (see
   [Status](#status)).
+- **Harry Potter 3** (*Prisoner of Azkaban*, 2004; experimental): a third cover, in builds that carry its engine. It runs on
+  its own engine (an Unreal Engine 2.5 port, [flipendo-droid-2004](https://github.com/Ihor-Ihorevych/flipendo-droid-2004), a
+  submodule here) in a separate process, with its own touch controls, a settings panel (layout, debug cheats, level select) and
+  its own game folder (`FlipendoHP3`; `System/Core.u` inside). It is early: the first level can crash when it ends.
 
 ## What you need
 
