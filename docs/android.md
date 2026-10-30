@@ -403,6 +403,14 @@ HP3's own `Default.ini` with the renderer and window driver set for Android (`Hp
 an ini the player already has. `--hp3 "<HP3 install>"` packs HP3's data (`assets/hp3data`) into the self pack, without
 the Windows executables, the installer, `help`, `Support` or `Movies` (the engine does not play Bink video yet).
 
+The engine is built against headers generated from a game install (`../hp3-headers`, never in git), so a machine without the game cannot
+build it. Three modes, picked by `build-apk.sh`: **build** (the headers and dependencies are there), **prebuilt** (`--hp3-libs <folder>`
+with `libUT2004.so`, `libSDL2.so`, `libut2004_android_bridge.so` and `libc++_shared.so`) and **off** (neither: the APK has no HP3 and
+the launcher hides its cover). A build leaves its four libraries in `android/dist/hp3-libs`; `android/pack-hp3-libs.sh` zips them with the engine
+commit and `gh release create hp3-libs android/dist/hp3-libs.zip --prerelease` publishes them. The GitHub workflow downloads the release
+`hp3-libs` when it exists (it warns when the libraries were built from another engine commit than the submodule's) and builds without HP3
+when it does not.
+
 ## Control layout and the potion (HP2)
 
 - **Control layout** (Settings, *Edit*): the wand button, the jump button, the arrow pad and the toolbar can be dragged and

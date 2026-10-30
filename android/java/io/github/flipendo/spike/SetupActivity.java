@@ -308,7 +308,7 @@ public class SetupActivity extends Activity {
         LinearLayout.LayoutParams c3 = wide ? new LinearLayout.LayoutParams(dp(142), LinearLayout.LayoutParams.MATCH_PARENT)
                 : new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f);
         c3.leftMargin = dp(12);
-        row.addView(hp3Pill, c3);
+        if (hp3Present()) row.addView(hp3Pill, c3);
         return row;
     }
 
@@ -1378,10 +1378,20 @@ public class SetupActivity extends Activity {
     static final String HP3_EXTRA_DATA_ROOT = "com.ut2004.android.DATA_ROOT";
     static final String HP3_EXTRA_HP3 = "com.ut2004.android.HP3";
 
-    /** The chosen game: "hp1", "hp2" or "hp3" (anything else is HP1). */
+    /** Whether this APK carries Harry Potter 3's engine (a build without its libraries has no GameActivity). */
+    private static boolean hp3Present() {
+        try {
+            Class.forName("com.ut2004.android.GameActivity", false, SetupActivity.class.getClassLoader());
+            return true;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /** The chosen game: "hp1", "hp2" or "hp3" (anything else is HP1; HP3 only when this APK carries its engine). */
     private String chosenGame() {
         String game = getSharedPreferences("setup", MODE_PRIVATE).getString(PREF_GAME, "hp1");
-        return "hp2".equals(game) || "hp3".equals(game) ? game : "hp1";
+        return "hp2".equals(game) || ("hp3".equals(game) && hp3Present()) ? game : "hp1";
     }
 
     private boolean isHp2() {
@@ -1958,7 +1968,7 @@ public class SetupActivity extends Activity {
                 + tr("Textures and Sounds); a folder one or two levels above it works too. The games are independent: ")
                 + tr("either one starts without the other's files."));
         body.addView(intro);
-        for (String game : new String[] { "hp1", "hp2", "hp3" }) {
+        for (String game : hp3Present() ? new String[] { "hp1", "hp2", "hp3" } : new String[] { "hp1", "hp2" }) {
             LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
             rp.topMargin = dp(12);
             body.addView(folderRow(game), rp);

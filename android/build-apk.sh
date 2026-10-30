@@ -40,6 +40,7 @@ HP3DIR=""    # --hp3: an HP3 install (system/Core.u) that goes into the self pac
 HP3_ENGINE="$ROOT/src/hp3-engine" # --hp3-engine: the engine repository (flipendo-droid-2004, branch hp3; the submodule by default, or any other checkout)
 HP3_HEADERS="$(cd "$ROOT/.." && pwd)/hp3-headers"        # --hp3-headers: HP3's generated EngineClasses.h (never in git)
 HP3_DEPS=""  # --hp3-deps: the engine's dependency sources (default: <engine>/build-windows-hp3-layout/_deps)
+HP3_LIBS=""  # --hp3-libs: a folder of prebuilt HP3 libraries (libUT2004.so, libSDL2.so, libut2004_android_bridge.so, libc++_shared.so): no HP3 build then
 while [ $# -gt 0 ]; do
 	case "$1" in
 		--install) INSTALL=1 ;;
@@ -47,6 +48,7 @@ while [ $# -gt 0 ]; do
 		--hp3-engine) shift; HP3_ENGINE="$(cygpath -u "${1:?--hp3-engine needs the engine repository}")" ;;
 		--hp3-headers) shift; HP3_HEADERS="$(cygpath -u "${1:?--hp3-headers needs the header folder}")" ;;
 		--hp3-deps) shift; HP3_DEPS="$(cygpath -u "${1:?--hp3-deps needs the _deps folder}")" ;;
+		--hp3-libs) shift; HP3_LIBS="$(cygpath -u "${1:?--hp3-libs needs the folder of prebuilt HP3 libraries}")" ;;
 		--hp2) shift; HP2DIR="$(cygpath -u "${1:?--hp2 needs the HP2 folder}")" ;;
 		--hp2-edition) shift; HP2EDITIONS+=("$1") ;; # code=folder|name, e.g. ru=C:/Games/HP2Rus|Russian
 		--hp2-texts) shift; HP2TEXTS="$(cygpath -u "${1:?--hp2-texts needs the harry2 folder}")" ;;
@@ -78,12 +80,28 @@ if [ -n "$HP3DIR" ] && [ ! -f "$HP3DIR/System/Core.u" ] && [ ! -f "$HP3DIR/syste
 	exit 1
 fi
 HP3_DEPS="${HP3_DEPS:-$HP3_ENGINE/build-windows-hp3-layout/_deps}"
-for d in "$HP3_ENGINE/Source" "$HP3_HEADERS" "$HP3_DEPS/sdl2-src" "$HP3_DEPS/gl4es-src" "$HP3_DEPS/metoolkitkarmadecomp-src"; do
-	if [ ! -d "$d" ]; then
-		echo "HP3's engine needs $d (see --hp3-engine, --hp3-headers, --hp3-deps)" >&2
-		exit 1
-	fi
-done
+# HP3's engine comes from prebuilt libraries (--hp3-libs), from a build of its source (needs the generated headers, which
+# come from a game install and are never in git), or is left out: the APK then has no HP3 and the launcher hides it.
+HP3_MODE=off
+if [ -n "$HP3_LIBS" ]; then
+	for l in libUT2004.so libSDL2.so libut2004_android_bridge.so libc++_shared.so; do
+		if [ ! -f "$HP3_LIBS/$l" ]; then
+			echo "--hp3-libs: $HP3_LIBS has no $l" >&2
+			exit 1
+		fi
+	done
+	HP3_MODE=libs
+elif [ -d "$HP3_ENGINE/Source" ] && [ -d "$HP3_HEADERS" ] && [ -d "$HP3_DEPS/sdl2-src" ] && [ -d "$HP3_DEPS/gl4es-src" ] && [ -d "$HP3_DEPS/metoolkitkarmadecomp-src" ]; then
+	HP3_MODE=build
+else
+	echo "HP3 left out: no --hp3-libs, and no engine source with generated headers and dependencies (see --hp3-engine, --hp3-headers, --hp3-deps)" >&2
+fi
+if [ -n "$HP3DIR" ] && [ "$HP3_MODE" = off ]; then
+	echo "--hp3 needs HP3's engine: give --hp3-libs or the engine source" >&2
+	exit 1
+fi
+HP3_JAVA_DIR="$HP3_ENGINE/Android/app/src/main/java"
+[ -d "$HP3_JAVA_DIR" ] || { [ "$HP3_MODE" = off ] || { echo "HP3's engine sources not found at $HP3_ENGINE (git submodule update --init src/hp3-engine)" >&2; exit 1; }; }
 
 for l in "${LANGS[@]}"; do
 	dir="${l#*=}"
@@ -133,7 +151,7 @@ fi
 HP3_NDK="$ANDROID_HOME/ndk/28.2.13676358"
 HP3_CMAKE="$ANDROID_HOME/cmake/4.1.2/bin"
 HP3_BUILD=build-android-hp3
-if [ ! -f "$HP3_BUILD/CMakeCache.txt" ]; then
+if [ "$HP3_MODE" = build ] && [ ! -f "$HP3_BUILD/CMakeCache.txt" ]; then
 	"$HP3_CMAKE/cmake.exe" -S "$HP3_ENGINE" -B "$HP3_BUILD" -G Ninja -DCMAKE_MAKE_PROGRAM="$HP3_CMAKE/ninja.exe" \
 		-DCMAKE_TOOLCHAIN_FILE="$HP3_NDK/build/cmake/android.toolchain.cmake" -DANDROID_ABI=arm64-v8a \
 		-DANDROID_PLATFORM=android-29 -DANDROID_STL=c++_shared -DCMAKE_BUILD_TYPE=RelWithDebInfo \
@@ -142,7 +160,15 @@ if [ ! -f "$HP3_BUILD/CMakeCache.txt" ]; then
 		-DFETCHCONTENT_SOURCE_DIR_GL4ES="$(cygpath -m "$HP3_DEPS/gl4es-src")" \
 		-DFETCHCONTENT_SOURCE_DIR_METOOLKITKARMADECOMP="$(cygpath -m "$HP3_DEPS/metoolkitkarmadecomp-src")"
 fi
-"$HP3_CMAKE/cmake.exe" --build "$HP3_BUILD" --target SDLLaunch ut2004_android_bridge
+if [ "$HP3_MODE" = build ]; then
+	"$HP3_CMAKE/cmake.exe" --build "$HP3_BUILD" --target SDLLaunch ut2004_android_bridge
+	# the four libraries, ready to publish as the prebuilt set for a build without the game files (--hp3-libs)
+	rm -rf android/dist/hp3-libs
+	mkdir -p android/dist/hp3-libs
+	cp "$HP3_BUILD/Source/SDLLaunch/libUT2004.so" "$HP3_BUILD/_deps/sdl2-build/libSDL2.so" "$HP3_BUILD/libut2004_android_bridge.so" \
+		"$HP3_NDK/toolchains/llvm/prebuilt/$HOST_TAG/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" android/dist/hp3-libs/
+	HP3_LIBS="$ROOT/android/dist/hp3-libs"
+fi
 
 # 4. what both APKs share: libraries, dex (SDL's Java glue + our activities + touch overlay), engine UI resources
 rm -rf "$A/lib" "$A/classes" "$A/assets" "$A/data_stage"
@@ -152,15 +178,16 @@ for f in "$BUILD/libmain.so" "$BUILD/SDL3/libSDL3.so" "$BUILD/engine/Thirdparty/
 done
 # HP3's engine: the game, its SDL2, its process bridge and the C++ runtime it is built against (its own NDK's); Flipendo's
 # libopenal.so serves it too (the engine binds libopenal.so by name)
-for f in "$HP3_BUILD/Source/SDLLaunch/libUT2004.so" "$HP3_BUILD/_deps/sdl2-build/libSDL2.so" "$HP3_BUILD/libut2004_android_bridge.so" \
-	"$HP3_NDK/toolchains/llvm/prebuilt/$HOST_TAG/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so"; do
-	cp "$f" "$A/lib/arm64-v8a/"
-done
-"$HP3_ENGINE/tools/android/check_sdl_java_package.sh" "$A/lib/arm64-v8a/libSDL2.so" org.libsdl2.app
+if [ "$HP3_MODE" != off ]; then
+	for l in libUT2004.so libSDL2.so libut2004_android_bridge.so libc++_shared.so; do
+		cp "$HP3_LIBS/$l" "$A/lib/arm64-v8a/"
+	done
+	"$HP3_ENGINE/tools/android/check_sdl_java_package.sh" "$A/lib/arm64-v8a/libSDL2.so" org.libsdl2.app
+fi
 # keep the unstripped library: frames in a user's crash.txt are module+offset, symbolicate them against it
 mkdir -p android/dist/symbols
 cp "$BUILD/libmain.so" android/dist/symbols/libmain.unstripped.so
-cp "$HP3_BUILD/Source/SDLLaunch/libUT2004.so" android/dist/symbols/libUT2004.unstripped.so
+[ "$HP3_MODE" = build ] && cp "$HP3_BUILD/Source/SDLLaunch/libUT2004.so" android/dist/symbols/libUT2004.unstripped.so
 # The version (docs/android.md, "Versions"): android/VERSION is the release number; a build of its tag android-v<VERSION>
 # carries it as is, any other build adds -dev+<commit>. versionCode is the commit count, so every newer build counts higher.
 VERSION="$(tr -d ' \r\n' < android/VERSION)"
@@ -187,6 +214,7 @@ for f in android/lang/ru-text/*.rus; do
 done
 javac -Xlint:-options -source 8 -target 8 -cp "$AJ" -d "$A/classes" \
 	android/deps/SDL/android-project/app/src/main/java/org/libsdl/app/*.java android/java/io/github/flipendo/spike/*.java
+if [ "$HP3_MODE" != off ]; then
 # HP3's engine activity and touch controls, with SDL2's Java moved to org.libsdl2.app (the package its libSDL2.so is built
 # for); the engine's Java is Java 17. None of the engine app's assets/system files: the launcher prepares HP3's own.
 HP3JAVA="$A/hp3java"
@@ -202,6 +230,7 @@ done
 javac -Xlint:-options -source 17 -target 17 -cp "$AJ" -d "$A/classes" "$HP3JAVA"/com/ut2004/android/*.java "$HP3JAVA"/org/libsdl2/app/*.java
 mkdir -p "$A/assets/touch_overlay/hp3"
 cp "$HP3_ENGINE/Android/app/src/main/assets/touch_overlay/hp3/"*.png "$A/assets/touch_overlay/hp3/"
+fi
 # the class list goes in a file: with the touch overlay's inner classes the command line got longer than Windows allows
 (cd "$A" && find classes -name "*.class" > classes.list && "$BT/d8.bat" --lib "$AJ" --output . @classes.list)
 [ -f android/debug.keystore ] || keytool -genkeypair -keystore android/debug.keystore -storepass android -keypass android \
