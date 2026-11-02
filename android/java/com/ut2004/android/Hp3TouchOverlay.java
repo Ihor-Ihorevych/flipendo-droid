@@ -25,16 +25,24 @@ final class Hp3TouchOverlay extends View {
     private static final int KIND_KEY = 0;
     private static final int KIND_FIRE = 1;
     private static final int KIND_WHEEL = 2;
+    private static final int KIND_CMD = 3;   // a command for the game loop (quick save, quick load)
+    private static final int KIND_DEBUG = 4; // opens the cheat and level menus
 
     /** A round button: where it sits (dp from the right and bottom edges), its size, and what it does. */
     private static final class Button {
         final String label;
         final float rightDp, bottomDp, radiusDp;
         final int kind, key;
+        final String cmd;
         int pointer = NONE;
         float cx, cy, r;
 
         Button(String label, float rightDp, float bottomDp, float radiusDp, int kind, int key) {
+            this(label, rightDp, bottomDp, radiusDp, kind, key, null);
+        }
+
+        Button(String label, float rightDp, float bottomDp, float radiusDp, int kind, int key, String cmd) {
+            this.cmd = cmd;
             this.label = label;
             this.rightDp = rightDp;
             this.bottomDp = bottomDp;
@@ -51,10 +59,14 @@ final class Hp3TouchOverlay extends View {
     };
     /** The top-edge buttons: (label, dp from the right edge, dp from the top edge, radius, kind, key). */
     private final Button[] topButtons = {
-        new Button("Menu", 44, 38, 28, KIND_KEY, KeyEvent.KEYCODE_ESCAPE),
-        new Button("Map", 124, 38, 28, KIND_KEY, KeyEvent.KEYCODE_TAB),
-        new Button("<", 204, 38, 28, KIND_WHEEL, -1),
-        new Button(">", 284, 38, 28, KIND_WHEEL, 1),
+        new Button("Menu", 44, 84, 28, KIND_KEY, KeyEvent.KEYCODE_ESCAPE),
+        new Button("Map", 124, 84, 28, KIND_KEY, KeyEvent.KEYCODE_TAB),
+        new Button("<", 204, 84, 28, KIND_WHEEL, -1),
+        new Button(">", 284, 84, 28, KIND_WHEEL, 1),
+        // a negative distance counts from the left edge
+        new Button("Save", -44, 84, 28, KIND_CMD, 0, "quicksave"),
+        new Button("Load", -124, 84, 28, KIND_CMD, 0, "quickload"),
+        new Button("Dbg", -204, 84, 28, KIND_DEBUG, 0),
     };
 
     // The walking stick: where the finger went down and where it is now, in pixels.
@@ -115,7 +127,7 @@ final class Hp3TouchOverlay extends View {
         }
         for (Button b : topButtons) {
             b.r = b.radiusDp * density;
-            b.cx = w - b.rightDp * density;
+            b.cx = b.rightDp < 0 ? -b.rightDp * density : w - b.rightDp * density;
             b.cy = b.bottomDp * density;
         }
     }
@@ -137,8 +149,48 @@ final class Hp3TouchOverlay extends View {
             case KIND_KEY: SDLActivity.onNativeKeyDown(b.key); break;
             case KIND_FIRE: SDLActivity.onNativeMouse(MotionEvent.BUTTON_PRIMARY, MotionEvent.ACTION_DOWN, 0, 0, true); break;
             case KIND_WHEEL: SDLActivity.onNativeMouse(0, MotionEvent.ACTION_SCROLL, 0, b.key, false); break;
+            case KIND_CMD:
+                GameActivity.nativeCommand(b.cmd);
+                android.widget.Toast.makeText(getContext(), b.cmd.equals("quicksave") ? "Saved" : "Loading", android.widget.Toast.LENGTH_SHORT).show();
+                break;
+            case KIND_DEBUG: showDebugMenu(); break;
             default: break;
         }
+    }
+
+    private static final String[] CHEAT_NAMES = {
+        "God mode (toggle)", "Ghost (no collision)", "Fly", "Walk (normal)", "All shields, cards and pixies", "100 beans", "Beat the boss", "Heal" };
+    private static final String[] CHEAT_IDS = { "god", "ghost", "fly", "walk", "giveall", "beans", "beatboss", "heal" };
+
+    private android.app.AlertDialog.Builder dialog(String title) {
+        return new android.app.AlertDialog.Builder(getContext(), android.R.style.Theme_DeviceDefault_Dialog_Alert).setTitle(title);
+    }
+
+    /** The debug menu: level select and cheats. */
+    private void showDebugMenu() {
+        releaseAll();
+        dialog("Debug").setItems(new String[] { "Level select", "Cheats" }, new android.content.DialogInterface.OnClickListener() {
+            @Override public void onClick(android.content.DialogInterface d, int which) {
+                if (which == 0) showLevels(); else showCheats();
+            }
+        }).show();
+    }
+
+    private void showLevels() {
+        final String[] maps = ((GameActivity) getContext()).mapNames();
+        dialog("Level select").setItems(maps, new android.content.DialogInterface.OnClickListener() {
+            @Override public void onClick(android.content.DialogInterface d, int which) {
+                GameActivity.nativeCommand("level " + maps[which]);
+            }
+        }).show();
+    }
+
+    private void showCheats() {
+        dialog("Cheats").setItems(CHEAT_NAMES, new android.content.DialogInterface.OnClickListener() {
+            @Override public void onClick(android.content.DialogInterface d, int which) {
+                GameActivity.nativeCommand("cheat " + CHEAT_IDS[which]);
+            }
+        }).show();
     }
 
     private void release(Button b) {
