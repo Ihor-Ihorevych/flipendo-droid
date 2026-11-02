@@ -870,7 +870,7 @@ public class FlipendoActivity extends SDLActivity {
             if (layoutEdit) return b != skip; // the layout editor shows every control
             if (b == menu || b == gear) return true;
             if (b == skip) return cutsceneShown && !noSkip; // the skip button exists only in cutscenes (and not with Settings > No cutscene skip)
-            if (b == save && noQuickSave) return false;
+            if (b == save && (noQuickSave || isHp3Game())) return false;
             if (cutsceneShown) return false;       // and they leave only the skip, settings and menu buttons
             if (padActive && (b == cast || b == jump || isArrow(b))) return false; // a gamepad is in use
             boolean game = !(menuShown || lessonShown);
@@ -1267,7 +1267,7 @@ public class FlipendoActivity extends SDLActivity {
                 case KeyEvent.KEYCODE_BUTTON_Y:
                     if (cutsceneShown) {
                         if (!noSkip) padSkipHold(down); // a cutscene is skipped by holding Y, so a touch on a stick or button skips nothing
-                    } else if (down && !menuShown && !lessonShown && !noQuickSave) {
+                    } else if (down && !menuShown && !lessonShown && !noQuickSave && !isHp3Game()) {
                         nativeRequestSave();
                     }
                     return true;
@@ -2145,16 +2145,20 @@ public class FlipendoActivity extends SDLActivity {
                 segStick.set(colL0, yl, (colL0 + colL1) / 2f, yl + rowH);
                 segDpad.set((colL0 + colL1) / 2f, yl, colL1, yl + rowH);
                 yl += rowH + rowGap;
-                autoJumpBtn.set(colL0, yl, colL1, yl + rowH);
-                yl += rowH + rowGap;
+                if (!isHp3Game()) { // HP3 has no auto jump: its Harry climbs ledges by itself
+                    autoJumpBtn.set(colL0, yl, colL1, yl + rowH);
+                    yl += rowH + rowGap;
+                }
                 invertBtn.set(colL0, yl, colL1, yl + rowH);
                 yl += rowH + rowGap;
                 layoutBtn.set(colL0, yl, colL1, yl + rowH);
                 yl += rowH + rowGap;
                 noSkipBtn.set(colR0, yr, colR1, yr + rowH);
                 yr += rowH + rowGap;
-                noSaveBtn.set(colR0, yr, colR1, yr + rowH);
-                yr += rowH + rowGap;
+                if (!isHp3Game()) { // HP3 has no quick save: its saves are made from the game's own menus
+                    noSaveBtn.set(colR0, yr, colR1, yr + rowH);
+                    yr += rowH + rowGap;
+                }
                 if (aimStick() || isHp2Game()) {
                     wandSensBtn.set(colR0, yr, colR1, yr + rowH);
                     yr += rowH + rowGap;
@@ -2412,11 +2416,11 @@ public class FlipendoActivity extends SDLActivity {
                 drawSwitchRow(c, fpsBtn, tr("FPS counter"), tr("Frames per second by the toolbar"), showFps, false);
             } else if (settingsTab == 1) {
                 drawSegments(c);
-                drawSwitchRow(c, autoJumpBtn, tr("Auto jump"), tr("Harry jumps by himself at ledges"), autoJump, false);
+                if (!autoJumpBtn.isEmpty()) drawSwitchRow(c, autoJumpBtn, tr("Auto jump"), tr("Harry jumps by himself at ledges"), autoJump, false);
                 drawSwitchRow(c, invertBtn, tr("Invert wand"), tr("Flip the wand's up/down aim"), invertWand, false);
                 drawValueRow(c, layoutBtn, tr("Control layout"), tr("Move and resize the buttons"), tr("Edit"), false);
                 drawSwitchRow(c, noSkipBtn, tr("No cutscene skip"), tr("No SKIP button, no hold-Y skip"), noSkip, false);
-                drawSwitchRow(c, noSaveBtn, tr("No quick save"), tr("No save button, no pad save"), noQuickSave, false);
+                if (!noSaveBtn.isEmpty()) drawSwitchRow(c, noSaveBtn, tr("No quick save"), tr("No save button, no pad save"), noQuickSave, false);
                 if (!wandSensBtn.isEmpty()) drawValueRow(c, wandSensBtn, tr("Wand sensitivity"), tr("How fast the wand stick turns the camera"), Math.round(wandSens * 100f) + "%", false);
                 drawValueRow(c, cameraSensBtn, tr("Camera sensitivity"), tr("How fast dragging or the right stick turns the camera"), Math.round(cameraSens * 100f) + "%", false);
             } else {
@@ -2636,7 +2640,7 @@ public class FlipendoActivity extends SDLActivity {
         void setButton(Btn b, boolean down) {
             if (b == save) {
                 b.down = down;
-                if (down && !noQuickSave) nativeRequestSave(); // saved by the game thread at its next tick, see onSaved
+                if (down && !noQuickSave && !isHp3Game()) nativeRequestSave(); // saved by the game thread at its next tick, see onSaved
                 return;
             }
             if (b == gear) {
