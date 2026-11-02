@@ -199,8 +199,17 @@ public class FlipendoActivity extends SDLActivity {
         restartWith(SetupActivity.MOD_WANT, id);
     }
 
+    /** Whether this process plays Harry Potter 3 (the Rust engine's activity says yes). */
+    protected boolean isHp3() {
+        return false;
+    }
+
+    /** HP3's debug menu: level select and cheats (the Rust engine's activity builds it). */
+    protected void openHp3Debug() {
+    }
+
     /** The game folder this run plays (found by the launcher or picked by the player); the default place if none was passed. */
-    String gameDir() {
+    protected String gameDir() {
         String dir = getIntent() != null ? getIntent().getStringExtra(SetupActivity.EXTRA_GAME_DIR) : null;
         return dir != null ? dir : GAME_DIR;
     }
@@ -533,7 +542,7 @@ public class FlipendoActivity extends SDLActivity {
     /** A debug command for the game thread (HP2: "level <map>", "state GSTATE020", "spells"); implemented in android_main.cpp. */
     static native void nativeDebugCommand(String command);
 
-    static void debugCommand(String command) {
+    protected static void debugCommand(String command) {
         try {
             nativeDebugCommand(command);
         } catch (UnsatisfiedLinkError ignored) {
@@ -563,6 +572,10 @@ public class FlipendoActivity extends SDLActivity {
     /** The HP2 debug menu: go to a level (the level Harry is in is left like any exit: persistent actors travel), set the story
      *  state of the next level load, or fill the spell book. Opened from the settings panel's Debug row. */
     void openHp2Debug() {
+        if (isHp3()) {
+            openHp3Debug();
+            return;
+        }
         final String[] actions = { tr("Go to level…"), tr("Set story state…"), tr("Give all spells"), tr("God mode (on / off)"), tr("Fly"), tr("Ghost (fly through walls)"), tr("Walk again") };
         runOnUiThread(new Runnable() {
             public void run() {
@@ -945,6 +958,10 @@ public class FlipendoActivity extends SDLActivity {
         private Boolean hp2Game;
 
         /** Whether the running game is HP2 (its folder has System/Game.exe and no System/HP.exe). */
+        boolean isHp3Game() {
+            return ((FlipendoActivity) getContext()).isHp3();
+        }
+
         boolean isHp2Game() {
             if (hp2Game == null) hp2Game = SetupActivity.isHp2Folder(((FlipendoActivity) getContext()).gameDir());
             return hp2Game;
@@ -1741,7 +1758,7 @@ public class FlipendoActivity extends SDLActivity {
                 case SET_SWITCH: switchGameTap(); break;
                 case SET_LANG: languageTap(); break;
                 case SET_DEBUG:
-                    if (isHp2Game()) { settingsOpen = false; activity.openHp2Debug(); } else activity.applyDebugMode(!debugMode, true);
+                    if (isHp2Game() || isHp3Game()) { settingsOpen = false; activity.openHp2Debug(); } else activity.applyDebugMode(!debugMode, true);
                     break;
                 case SET_TELEGRAM:
                     try {
@@ -2196,7 +2213,7 @@ public class FlipendoActivity extends SDLActivity {
                 fpsFrames = -1;
                 activity.saveScales();
             } else if (debugBtn.contains(x, y)) {
-                if (isHp2Game()) {
+                if (isHp2Game() || isHp3Game()) {
                     settingsOpen = false;
                     activity.openHp2Debug();
                 } else {
@@ -2409,7 +2426,7 @@ public class FlipendoActivity extends SDLActivity {
                 }
                 drawValueRow(c, rendererBtn, tr("Renderer"), rendererAsk ? tr("Tap again: restart with ") + rendererLabel(!rendererGL) : tr("Try the other if the game is slow or odd"),
                         rendererLabel(rendererGL) + (rendererAuto ? tr(" (auto)") : ""), rendererAsk);
-                if (isHp2Game()) drawValueRow(c, debugBtn, tr("Debug menu"), tr("Level select, story state, spells"), tr("Open"), false);
+                if (isHp2Game() || isHp3Game()) drawValueRow(c, debugBtn, tr("Debug menu"), isHp3Game() ? tr("Level select, cheats") : tr("Level select, story state, spells"), tr("Open"), false);
                 else drawSwitchRow(c, debugBtn, tr("Debug mode"), tr("Level Select in the main menu"), debugMode, false);
                 drawValueRow(c, fixBtn, tr("Graphics fix"), tr("For OpenGL glitches"), tr("Open"), false);
                 drawSwitchRow(c, perfBtn, tr("Performance log"), tr("Frame timings in the log, to send"), perfLog, false);

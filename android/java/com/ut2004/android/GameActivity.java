@@ -1,33 +1,86 @@
 package com.ut2004.android;
 
-import org.libsdl.app.SDLActivity;
+import io.github.flipendo.spike.FlipendoActivity;
 
 /**
- * Harry Potter 3's activity: SDL's activity running the Rust engine (libhp3app.so, entry point SDL_main). The launcher
- * (SetupActivity) starts it in its own process with the game folder in the DATA_ROOT extra; the engine receives that
- * folder as its first argument.
+ * Harry Potter 3's activity: Flipendo's own activity (its touch controls, settings panel and debug menu) running the Rust
+ * engine (libhp3app.so, entry point SDL_main). The launcher (SetupActivity) starts it in its own process with the game
+ * folder in the DATA_ROOT extra; the engine receives that folder as its first argument. The engine answers the natives
+ * FlipendoActivity declares (menu, cutscene, quick save, debug commands...).
  */
-public class GameActivity extends SDLActivity {
+public class GameActivity extends FlipendoActivity {
     /** The game folder (the one that holds System/Core.u). */
     public static final String EXTRA_DATA_ROOT = "com.ut2004.android.DATA_ROOT";
     /** Optional: the level to open instead of the front end. */
     public static final String EXTRA_MAP = "com.ut2004.android.MAP";
 
-    /** The engine's flag for an open menu (the touch controls step aside for it). */
-    static native boolean nativeInMenu();
+    /** How many quick saves the engine has written; the activity shows the toast when it changes. */
+    static native int nativeSavedCount();
 
-    /** A command for the engine's game loop: "quicksave", "quickload", "level <map>" or "cheat <name>". */
-    static native void nativeCommand(String command);
+    private int saved;
+    private final Runnable savePoll = new Runnable() {
+        @Override public void run() {
+            int now = nativeSavedCount();
+            if (now != saved) {
+                saved = now;
+                onSaved(0);
+            }
+            getWindow().getDecorView().postDelayed(this, 300);
+        }
+    };
+
+    @Override
+    protected void onCreate(android.os.Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        saved = nativeSavedCount();
+        getWindow().getDecorView().postDelayed(savePoll, 300);
+    }
+
+    @Override
+    public void onSaved(final int slot) {
+        runOnUiThread(new Runnable() {
+            @Override public void run() {
+                android.widget.Toast.makeText(GameActivity.this, "Quick save written", android.widget.Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    @Override
+    protected String[] getLibraries() {
+        return new String[] { "SDL3", "hp3app" };
+    }
+
+    @Override
+    protected boolean isHp3() {
+        return true;
+    }
+
+    private String root() {
+        return getIntent() != null ? getIntent().getStringExtra(EXTRA_DATA_ROOT) : null;
+    }
+
+    @Override
+    protected String gameDir() {
+        String root = root();
+        return root != null && !root.isEmpty() ? root : super.gameDir();
+    }
+
+    @Override
+    protected String[] getArguments() {
+        String root = root();
+        String map = getIntent() != null ? getIntent().getStringExtra(EXTRA_MAP) : null;
+        if (root == null || root.isEmpty()) {
+            return new String[0];
+        }
+        return map == null || map.isEmpty() ? new String[] { root } : new String[] { root, map };
+    }
 
     /** The maps in the game folder, sorted, without their extension (the level select list). */
-    String[] mapNames() {
-        String root = getIntent() != null ? getIntent().getStringExtra(EXTRA_DATA_ROOT) : null;
+    private String[] mapNames() {
         java.io.File dir = null;
-        if (root != null) {
-            for (String name : new String[] { "Maps", "maps" }) {
-                java.io.File d = new java.io.File(root, name);
-                if (d.isDirectory()) { dir = d; break; }
-            }
+        for (String name : new String[] { "Maps", "maps" }) {
+            java.io.File d = new java.io.File(gameDir(), name);
+            if (d.isDirectory()) { dir = d; break; }
         }
         java.util.ArrayList<String> maps = new java.util.ArrayList<String>();
         java.io.File[] files = dir != null ? dir.listFiles() : null;
@@ -41,25 +94,38 @@ public class GameActivity extends SDLActivity {
         return maps.toArray(new String[0]);
     }
 
-    @Override
-    protected void onCreate(android.os.Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        addContentView(new Hp3TouchOverlay(this),
-            new android.view.ViewGroup.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT));
-    }
+    private static final String[] DEBUG_NAMES = {
+        "Go to level…", "God mode (on / off)", "Fly", "Ghost (fly through walls)", "Walk (normal)",
+        "All shields, cards and pixies", "100 beans", "Beat the boss", "Heal" };
+    private static final String[] DEBUG_COMMANDS = {
+        null, "cheat god", "cheat fly", "cheat ghost", "cheat walk", "cheat giveall", "cheat beans", "cheat beatboss", "cheat heal" };
 
+    /** HP3's debug menu (opened from the settings panel's Debug row): go to a level, or a cheat. */
     @Override
-    protected String[] getLibraries() {
-        return new String[] { "SDL3", "hp3app" };
-    }
-
-    @Override
-    protected String[] getArguments() {
-        String root = getIntent() != null ? getIntent().getStringExtra(EXTRA_DATA_ROOT) : null;
-        String map = getIntent() != null ? getIntent().getStringExtra(EXTRA_MAP) : null;
-        if (root == null || root.isEmpty()) {
-            return new String[0];
-        }
-        return map == null || map.isEmpty() ? new String[] { root } : new String[] { root, map };
+    protected void openHp3Debug() {
+        runOnUiThread(new Runnable() {
+            @Override public void run() {
+                new android.app.AlertDialog.Builder(GameActivity.this).setTitle("HP3 debug")
+                    .setItems(DEBUG_NAMES, new android.content.DialogInterface.OnClickListener() {
+                        @Override public void onClick(android.content.DialogInterface d, int which) {
+                            if (DEBUG_COMMANDS[which] != null) {
+                                debugCommand(DEBUG_COMMANDS[which]);
+                                return;
+                            }
+                            final String[] maps = mapNames();
+                            if (maps.length == 0) {
+                                android.widget.Toast.makeText(GameActivity.this, "No maps found in " + gameDir(), android.widget.Toast.LENGTH_LONG).show();
+                                return;
+                            }
+                            new android.app.AlertDialog.Builder(GameActivity.this).setTitle("Go to level")
+                                .setItems(maps, new android.content.DialogInterface.OnClickListener() {
+                                    @Override public void onClick(android.content.DialogInterface d2, int i) {
+                                        debugCommand("level " + maps[i]);
+                                    }
+                                }).show();
+                        }
+                    }).show();
+            }
+        });
     }
 }
