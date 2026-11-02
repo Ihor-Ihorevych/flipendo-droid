@@ -538,6 +538,8 @@ public class FlipendoActivity extends SDLActivity {
 
     /** True while Harry flies the broom (the player is a BroomHarry); implemented in android_main.cpp. */
     static native boolean nativeOnBroom();
+    /** True while the player steers a creature (the rabbit, the dragon): the EXIT button sends Enter, which ends it. Rust HP3 engine only. */
+    static native boolean nativeCreatureActive();
 
     /** A debug command for the game thread (HP2: "level <map>", "state GSTATE020", "spells"); implemented in android_main.cpp. */
     static native void nativeDebugCommand(String command);
@@ -622,6 +624,14 @@ public class FlipendoActivity extends SDLActivity {
     static boolean onBroom() {
         try {
             return nativeOnBroom();
+        } catch (UnsatisfiedLinkError e) {
+            return false;
+        }
+    }
+
+    static boolean creatureActive() {
+        try {
+            return nativeCreatureActive();
         } catch (UnsatisfiedLinkError e) {
             return false;
         }
@@ -815,6 +825,7 @@ public class FlipendoActivity extends SDLActivity {
         boolean menuShown;       // last polled menu state: hides the gameplay buttons
         boolean lessonShown;     // last polled lesson state: hides the gameplay buttons too
         boolean cutsceneShown;   // last polled cutscene state: only SKIP, settings and menu are shown, the screen does not steer or look
+        boolean creatureShown;   // last polled creature state: the EXIT button (Enter) is offered
         // Harry on the broom (the player is a BroomHarry): the wand button is a steering stick that presses nothing (its left
         // mouse is the broom's brake, and the script drops the boost while the brake is held), and JUMP (the right mouse:
         // the boost) is a toggle, so the right thumb steers while the boost stays on
@@ -824,8 +835,10 @@ public class FlipendoActivity extends SDLActivity {
 
         final Runnable poll = new Runnable() {
             public void run() {
-                boolean m = menuActive(), l = lessonDrawing(), cs = cutsceneActive(), br = onBroom();
-                if (m != menuShown || l != lessonShown || cs != cutsceneShown || br != broomShown) {
+                boolean m = menuActive(), l = lessonDrawing(), cs = cutsceneActive(), br = onBroom(), cr = creatureActive();
+                if (m != menuShown || l != lessonShown || cs != cutsceneShown || br != broomShown || cr != creatureShown) {
+                    if (!cr && exit.down) setButton(exit, false);
+                    creatureShown = cr;
                     menuShown = m;
                     lessonShown = l;
                     cutsceneShown = cs;
@@ -867,6 +880,7 @@ public class FlipendoActivity extends SDLActivity {
 
         /** Gameplay buttons are hidden while a menu is open; MENU stays as the way back. */
         boolean visible(Btn b) {
+            if (b == exit) return creatureShown && !menuShown && !cutsceneShown && !layoutEdit && !settingsOpen;
             if (layoutEdit) return b != skip; // the layout editor shows every control
             if (b == menu || b == gear) return true;
             if (b == skip) return cutsceneShown && !noSkip; // the skip button exists only in cutscenes (and not with Settings > No cutscene skip)
@@ -1855,12 +1869,13 @@ public class FlipendoActivity extends SDLActivity {
         final Btn menu = new Btn("MENU", KeyEvent.KEYCODE_ESCAPE, 0, false);
         final Btn save = new Btn("SAVE", 0, 0, false); // save anywhere (the icon, images/android/save.png, is optional)
         final Btn skip = new Btn("SKIP", KeyEvent.KEYCODE_SPACE, 0, false); // skips a cutscene (Space); shown only in cutscenes
+        final Btn exit = new Btn("EXIT", KeyEvent.KEYCODE_ENTER, 0, false); // ends the rabbit or dragon mode (Enter); shown only while steering a creature
         final Btn gear = new Btn("SET", 0, 0, false); // opens the settings panel
         // arrow buttons (movement in dpadMode): up, down, left, right, in the order of DIR_KEYS
         final Btn[] arrows = {
             new Btn("UP", KeyEvent.KEYCODE_DPAD_UP, 0, false), new Btn("DOWN", KeyEvent.KEYCODE_DPAD_DOWN, 0, false),
             new Btn("LEFT", KeyEvent.KEYCODE_DPAD_LEFT, 0, false), new Btn("RIGHT", KeyEvent.KEYCODE_DPAD_RIGHT, 0, false) };
-        final Btn[] buttons = { cast, jump, menu, save, gear, skip, arrows[0], arrows[1], arrows[2], arrows[3] };
+        final Btn[] buttons = { cast, jump, menu, save, gear, skip, exit, arrows[0], arrows[1], arrows[2], arrows[3] };
 
         // The prompt for a fixed-camera level (the movement mod can't aim there): a small panel that takes every touch.
         boolean promptOpen;
@@ -2024,6 +2039,7 @@ public class FlipendoActivity extends SDLActivity {
             save.cx = menu.cx - barSlot; save.cy = barY; save.r = barR;
             skip.cx = save.cx; skip.cy = save.cy; skip.r = save.r; // the book's place: the book is hidden in cutscenes
             gear.cx = save.cx - barSlot; gear.cy = barY; gear.r = barR;
+            exit.r = barR * 1.25f; exit.cx = menu.cx; exit.cy = barY + barHalf + exit.r * 1.5f; // under the toolbar, a thumb's reach from the corner
             toolbar.set(gear.cx - barSlot / 2f, barY - barHalf, menu.cx + barSlot / 2f, barY + barHalf);
             // bottom right: the wand, and the jump to its lower left; on the broom the wand is a stick whose long range ring must
             // clear the jump button: it sits higher (as in HP2, the same everywhere else)
@@ -3385,6 +3401,32 @@ public class FlipendoActivity extends SDLActivity {
         }
 
         /** The skip icon: two triangles pointing right and a bar, like a "next" button (no text, so it fits in any language). */
+        /**
+         * The exit icon, the strokes of images/android/exit.svg (24 units square): a door and an arrow leaving it. Drawn as
+         * strokes, so it is sharp at any size and needs no text.
+         */
+        void drawExitIcon(Canvas c, float cx, float cy, float r, int color) {
+            float s = r * 1.25f / 24f;      // the icon spans 1.25 r
+            float x0 = cx - 12f * s, y0 = cy - 12f * s;
+            line.setColor(color);
+            line.setStrokeWidth(2f * s);
+            line.setStrokeCap(Paint.Cap.ROUND);
+            line.setStrokeJoin(Paint.Join.ROUND);
+            arrowPath.reset();
+            arrowPath.moveTo(x0 + 12f * s, y0 + 4f * s);   // the door
+            arrowPath.lineTo(x0 + 4f * s, y0 + 4f * s);
+            arrowPath.lineTo(x0 + 4f * s, y0 + 20f * s);
+            arrowPath.lineTo(x0 + 12f * s, y0 + 20f * s);
+            arrowPath.moveTo(x0 + 9f * s, y0 + 12f * s);   // the arrow
+            arrowPath.lineTo(x0 + 20f * s, y0 + 12f * s);
+            arrowPath.moveTo(x0 + 16f * s, y0 + 8f * s);
+            arrowPath.lineTo(x0 + 20f * s, y0 + 12f * s);
+            arrowPath.lineTo(x0 + 16f * s, y0 + 16f * s);
+            c.drawPath(arrowPath, line);
+            line.setStrokeCap(Paint.Cap.BUTT);
+            line.setStrokeJoin(Paint.Join.MITER);
+        }
+
         void drawSkipIcon(Canvas c, float cx, float cy, float r, int color) {
             float h = r * 0.34f;            // half the height of the triangles
             float w = r * 0.30f;            // width of one triangle
@@ -3498,6 +3540,10 @@ public class FlipendoActivity extends SDLActivity {
                 }
             }
 
+            if (visible(exit)) {
+                drawDisc(c, exit.cx, exit.cy, exit.down ? exit.r * 0.94f : exit.r, exit.down);
+                drawExitIcon(c, exit.cx, exit.cy, exit.r, exit.down ? DARK : 0xFFFFFFFF);
+            }
             // bottom right: jump and the wand
             if (visible(jump)) {
                 drawDisc(c, jump.cx, jump.cy, jump.down ? jump.r * 0.94f : jump.r, jump.down);

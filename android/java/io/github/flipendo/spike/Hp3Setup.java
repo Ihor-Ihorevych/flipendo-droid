@@ -39,6 +39,25 @@ final class Hp3Setup {
         return null;
     }
 
+    /**
+     * The localization extension HP3 reads for a launcher language code (Tr.CODES): the interface texts of Ukrainian,
+     * Belarusian, Georgian and Latvian are ours, English is the .int files, Russian is the edition's own (null: nothing to
+     * choose, the game's ini says Rus).
+     */
+    static String gameLanguage(String uiCode) {
+        switch (uiCode) {
+            case "en": return "int";
+            case "uk": return "ukr";
+            case "be": return "bel";
+            case "ka": return "geo";
+            case "lv": return "lav";
+            default: return null;
+        }
+    }
+
+    /** The file next to System that tells the engine which language to use; absent for the edition's own. */
+    static final String LANGUAGE_FILE = ".flipendo-language";
+
     /** The game's System folder: System, or system as the retail install names it. */
     static File systemDir(File game) {
         File upper = new File(game, "System");

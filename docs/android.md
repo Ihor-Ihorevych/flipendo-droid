@@ -157,6 +157,16 @@ The gear button (below SAVE, visible in game and in menus) opens a settings pane
 
 ## Languages (self pack with several editions)
 
+**HP3** has one language for its menus and loading tips, the launcher's (Settings > Language, the chip in the launcher's top
+bar). Its data is the Russian edition, which has no other texts, so `android/lang/hp3/` carries our own translations of
+`HpMenu` and `SaveTips` (English `.int`, Ukrainian `.ukr`, Belarusian `.bel`, Georgian `.geo`, Latvian `.lav`; UTF-8). The build
+puts them in the APK (`assets/hp3lang`); when HP3 starts, `SetupActivity.applyHp3Language` copies them into the game's
+`System` folder and writes the language in `.flipendo-language` next to it (Russian writes nothing: the edition's own). The
+engine reads that file (`HP3_LANGUAGE` on a desktop), and a text a translation lacks falls back to English, then to the
+edition's. Subtitles (`HpDialog`, `BumpDialog`) and the voices stay Russian. Ukrainian, Belarusian, Georgian and Latvian
+are drawn with system fonts (Georgian takes Noto Sans Georgian where the phone has it). `hp3-run lang <HP3 folder> <language> [folder]`
+checks a translation against the Russian files: missing and extra keys, text left Russian, characters the fonts lack.
+
 A self pack can carry more than one edition of the game, for example English and the Russian release with the Fargus voice-over:
 
 ```sh

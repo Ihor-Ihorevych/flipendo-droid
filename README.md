@@ -123,7 +123,7 @@ Open them with the gear (top right) or the View button on a gamepad. Everything 
 | **Debug mode / Debug menu** | HP1: adds Level Select to the main menu. HP2: a menu to go to any level, set the story state or get all spells |
 | **Renderer** | OpenGL ES (the default) or Vulkan, also on the start screen before the game loads. Try the other one if the game is slow or looks wrong; from Vulkan it switches to OpenGL ES by itself if Vulkan does not start |
 | **FPS limit** | 25 to 60 frames a second: lower saves battery and keeps the phone cooler |
-| **Language** | HP1: English or Russian text; *Добавить озвучку из папки…* adds a dubbing from its Sounds folder (such as the Russian voices) |
+| **Language** | HP3: its menus and loading tips follow the launcher's language (English, Ukrainian, Belarusian, Georgian, Latvian; the voices and subtitles stay Russian). HP1: English or Russian text; *Добавить озвучку из папки…* adds a dubbing from its Sounds folder (such as the Russian voices) |
 | **Movement mod** | HP1: AdamJD's mod for better movement, camera and climbing: tap *Choose file* and pick its zip (download it from the mod's page), then switch it on or off here |
 | **Play HP1 / Play HP2** | in the header: restarts straight into the other game (tap twice; unsaved progress is lost) |
 | **Telegram** | opens the group |
@@ -149,7 +149,7 @@ and things the game spawns (jelly beans) do not always follow Harry to the next 
 
 **Harry Potter 3**: every level loads and plays, with its spells, puzzles, creatures, cutscenes (a skip button hides
 them) and music. Rough spots: there is no video, some menus lack widgets, and a few creatures and puzzles still need
-polishing. It runs at 60 fps or more on a POCO F6. Report what you find.
+polishing. While you steer a rabbit or a dragon, an exit button ends it (the game's Enter key). It runs at 60 fps or more on a POCO F6. Report what you find.
 
 Not yet: the controls page of the game's own Options shows empty rows (the keys can't be changed on a phone anyway).
 

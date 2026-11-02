@@ -231,6 +231,9 @@ jar --create --no-manifest --file "$A/assets/SurrealEngine.pk3" -C src/engine/Re
 mkdir -p "$A/assets/icons" && cp images/android/*.png "$A/assets/icons/"
 # the Russian text translation (android/lang/ru-text, UTF-16 .rus files): in every APK, as the game's .int files in
 # Windows-1251, whose Cyrillic the game draws with glyphs from Noto Sans (src/hp1/HP1Cyrillic.cpp)
+# HP3's interface texts in the launcher's other languages (android/lang/hp3: HpMenu and SaveTips per language, UTF-8)
+mkdir -p "$A/assets/hp3lang"
+cp android/lang/hp3/* "$A/assets/hp3lang/"
 mkdir -p "$A/assets/rutext"
 for f in android/lang/ru-text/*.rus; do
 	iconv -f UTF-16 -t CP1251 "$f" > "$A/assets/rutext/$(basename "$f" .rus).int"

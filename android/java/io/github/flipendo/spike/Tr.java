@@ -90,6 +90,7 @@ final class Tr {
     }
 
     private static final String[][] T = {
+        { "Exit", "Выход", "Вихід", "Выхад" },
         { "Off (the normal picture)", "Выключено (обычная картинка)", "Вимкнено (звичайна картинка)", "Выключана (звычайная карцінка)" },
         { "Without the lightmap (the walls are visible, but not lit)", "Без карты освещения (стены видны, но не освещены)", "Без карти освітлення (стіни видно, але не освітлено)", "Без карты асвятлення (сцены бачныя, але не асветленыя)" },
         { "Without macro, detail and fog layers", "Без слоёв макро, детализации и тумана", "Без шарів макро, деталізації та туману", "Без слаёў макра, дэталізацыі і туману" },
@@ -324,6 +325,7 @@ final class Tr {
 
     /** Georgian and Latvian: { English, Georgian, Latvian }. */
     private static final String[][] T2 = {
+        { "Exit", "გასვლა", "Iziet" },
         { "Off (the normal picture)", "გამორთულია (ჩვეულებრივი სურათი)", "Izslēgts (parastais attēls)" },
         { "Without the lightmap (the walls are visible, but not lit)", "ლაითმაპის გარეშე (კედლები ჩანს, მაგრამ განათებული არ არის)", "Bez apgaismojuma kartes (sienas redzamas, bet neapgaismotas)" },
         { "Without macro, detail and fog layers", "მაკრო, დეტალებისა და ნისლის შრეების გარეშე", "Bez makro, detalizācijas un miglas slāņiem" },

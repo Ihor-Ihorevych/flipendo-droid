@@ -1,0 +1,146 @@
+﻿[hp3_adv1express]
+Line0=Move with the arrow keys or the A, W, S and D keys.
+Picture0=Picture_00
+Count=1
+[hp3_adv2exppatronum]
+Line0=When several Dementors attack Harry at once, remember that they can come at him from behind. Turn your character around often and be ready to cast a spell at any moment.
+Picture0=Picture_01
+Count=1
+[hp3_adv3library]
+Line0=To skip a cutscene, press ENTER. Tutorial cutscenes cannot be skipped.
+Picture0=Picture_02
+Count=1
+[hp3_adv5shack]
+Line0=When fighting the imps, move your hero forward and back to dodge their exploding crackers. Press A and D to take a step to the side.
+Picture0=Picture_03
+Count=1
+[hp3_adv6paddock]
+Line0=Look for hidden prizes, and remember that only the spell challenges can be played several times.
+Picture0=Picture_04
+Count=1
+[hp3_beanbonus]
+Line0=The prizes you collect in the bonus room can be spent at Fred and George's shop.
+Picture0=Picture_05
+Count=1
+[hp3_buckyexecuted]
+Line0=Press Esc from time to time to look at your task list. To win the game you must complete everything on it.
+Picture0=Picture_06
+Count=1
+[hp3_ch1carperetractum]
+Line0=Press A and D to step to the side, and W and S to move forward and back. Move the mouse to turn and aim. The left mouse button casts spells and the right one jumps.
+Picture0=Picture_07
+Count=1
+[HP3_Ch1CarpeRetractumB]
+Line0=Collect as many beans, pumpkin pasties and cauldron cakes as you can: they will come in very handy at Fred and George's shop.
+Picture0=Picture_05
+Count=1
+[hp3_ch2draconifors]
+Line0=You can steer the magic rabbits with the mouse. Press the right button to make the rabbit jump, and move the mouse to turn it. Move the rabbit with the arrow keys.
+Picture0=Picture_08_B
+Line1=Some prizes can only be reached with the magic rabbits and the little dragons.
+Picture1=Picture_08_A
+Count=2
+[HP3_Ch2DraconiforsB]
+Line0=Collect as many beans, pumpkin pasties and cauldron cakes as you can: they will come in very handy at Fred and George's shop.
+Picture0=Picture_08_A
+Count=1
+[hp3_ch3glacius]
+Line0=Amazon salamanders give off sparks. If you do not put them out in time, a new salamander is born from the flames.
+Picture0=Picture_09
+Count=1
+[HP3_Ch3GlaciusB]
+Line0=Collect as many beans, pumpkin pasties and cauldron cakes as you can: they will come in very handy at Fred and George's shop.
+Picture0=Picture_08_A
+Count=1
+[hp3_comc]
+Line0=You can steer the little dragons and Buckbeak with the mouse. Press the right mouse button to make the creature flap its wings. Move the mouse to change direction.
+Picture0=Picture_10
+Count=1
+[hp3_darktower]
+Line0=You can visit the hippogriff paddock whenever you like. There are five courses to fly to earn a full set of collector cards.
+Picture0=Picture_19_A
+Count=1
+[hp3_dementorbattle]
+Line0=To cast "Expecto Patronum", hold down the left mouse button until the ring of light is more than halfway along the wand.
+Picture0=Picture_12_B
+Line1=If several Dementors attack you at once, the mouse may be easier to use. Move it to turn, and use the left button to pick a target and cast the spell.
+Picture1=Picture_12
+Count=2
+[hp3_dungeonhub]
+Line0=Some of Hogwarts' secrets can only be opened up together with friends. In those cases Harry, Ron and Hermione must all use magic.
+Picture0=Picture_13
+Count=1
+[HP3_FA1Ron]
+Line0=Spell challenges can be replayed at any time, but story missions and the final exams must be started again from the load menu.
+Picture0=Picture_14
+Count=1
+[hp3_fa2hermione]
+Line0=Experiment a lot when you control the little dragon. Remember: it may be asked to do more than just fly!
+Picture0=Picture_15
+Count=1
+[hp3_fa3harry]
+Line0=If several enemies attack you at once, a character who can dodge attacks has a much better chance of winning. The easiest way is to move forward and back. You can also step to the side with A and D.
+Picture0=Picture_16
+Count=1
+[hp3_final]
+Line0=Congratulations! You have successfully finished your third year!
+Picture0=Picture_17
+Count=1
+[hp3_groundsdada]
+Line0=The school and its grounds hold many secrets. See something unusual? Use magic!
+Picture0=Picture_18
+Count=1
+[hp3_groundshub]
+Line0=At Fred and George's shop you can trade Bertie Bott's Beans for pumpkin pasties and cauldron cakes (if they are in stock). The reason is that some especially valuable cards and portrait passwords cannot be bought with beans.
+Picture0=Picture_19_B
+Line1=To finish the game you must complete every task on the list. To see it, press Esc, then click the check mark icon on the right of the screen.
+Picture1=Picture_19_C
+Line2=Some of Hogwarts' secrets can only be opened up together with friends. In those cases Harry, Ron and Hermione must all use magic.
+Picture2=Picture_19_D
+Line3=Collect as many beans, pumpkin pasties and cauldron cakes as you can: they will come in very handy at Fred and George's shop.
+Picture3=Picture_08_A
+Line4=You can visit the hippogriff paddock whenever you like. There are five courses to fly to earn a full set of collector cards.
+Picture4=Picture_19_A
+Count=5
+[hp3_infirmary]
+Line0=Press Esc from time to time to look at your task list. To win the game you must complete everything on it.
+Picture0=Picture_20
+Count=1
+[hp3_insidehub]
+Line0=Press TAB to see the Marauder's Map. It shows a plan of the school and its grounds, and your character's position is marked with footprints.
+Picture0=Picture_21_C
+Line1=The portraits let you go to any floor of the castle at once. They hang in a side room next to the school entrance.
+Picture1=Picture_21_A
+Line2=You can meet other students in the school and its grounds. They can often give useful advice, remind you of something important, or even tell you one of Hogwarts' secrets. Walk up close to hear what they say.
+Picture2=Picture_21_B
+Line3=Collect 75 collector cards and you will win a prize...
+Picture3=Picture_21_D
+Count=4
+[hp3_portraitpassword_b]
+Line0=Drop by Fred and George's shop often: they may have new passwords on sale!
+Picture0=Picture_22
+Count=1
+[hp3_portraitpassword_c]
+Line0=Drop by Fred and George's shop often: they may have new passwords on sale!
+Picture0=Picture_23
+Count=1
+[hp3_portraitpassword_d]
+Line0=Drop by Fred and George's shop often: they may have new passwords on sale!
+Picture0=Picture_24
+Count=1
+[hp3_portraitpassword_e]
+Line0=To collect the full set of cards, explore the school and its grounds, play the spell challenges, visit Fred and George's shop and talk to the other students.
+Picture0=Picture_25
+Count=1
+[hp3_portraitPassword_F]
+Line0=Drop by Fred and George's shop often: they may have new passwords on sale!
+Picture0=Picture_24
+Count=1
+[hp3_quidditch]
+Line0=To skip a cutscene, press ENTER. Tutorial cutscenes cannot be skipped.
+Picture0=Picture_26
+Count=1
+[hp3_whompingwillow]
+Line0=When several Dementors attack Harry at once, remember that they can come at him from behind. Turn your character around often and be ready to cast a spell at any moment.
+Picture0=Picture_01
+Count=1

@@ -1,0 +1,146 @@
+﻿[hp3_adv1express]
+Line0=Pārvietojieties ar bultiņu taustiņiem vai taustiņiem A, W, S un D.
+Picture0=Picture_00
+Count=1
+[hp3_adv2exppatronum]
+Line0=Kad vairāki dementori uzbrūk Harijam vienlaikus, atcerieties, ka tie var uzbrukt no muguras. Bieži pagriežiet savu varoni un esiet gatavs jebkurā brīdī izmantot burvestību.
+Picture0=Picture_01
+Count=1
+[hp3_adv3library]
+Line0=Lai izlaistu starpaini, nospiediet ENTER. Apmācības starpaiņus nevar izlaist.
+Picture0=Picture_02
+Count=1
+[hp3_adv5shack]
+Line0=Cīnoties ar impiem, pārvietojiet savu varoni uz priekšu un atpakaļ, lai izvairītos no to sprāgstošajām petardēm. Nospiediet A un D, lai soli pasoli sānis.
+Picture0=Picture_03
+Count=1
+[hp3_adv6paddock]
+Line0=Meklējiet paslēptas balvas un atcerieties, ka tikai burvestību izaicinājumus var spēlēt vairākas reizes.
+Picture0=Picture_04
+Count=1
+[hp3_beanbonus]
+Line0=Balvas, ko savācat bonusa istabā, var iztērēt Freda un Džordža veikalā.
+Picture0=Picture_05
+Count=1
+[hp3_buckyexecuted]
+Line0=Laiku pa laikam nospiediet Esc, lai apskatītu savu uzdevumu sarakstu. Lai uzvarētu spēlē, jums jāizpilda viss, kas tajā ir.
+Picture0=Picture_06
+Count=1
+[hp3_ch1carperetractum]
+Line0=Nospiediet A un D, lai soli pasoli sānis, un W un S, lai virzītos uz priekšu un atpakaļ. Pārvietojiet peli, lai pagrieztos un mērķētu. Kreisā peles poga izmet burvestības, bet labā lec.
+Picture0=Picture_07
+Count=1
+[HP3_Ch1CarpeRetractumB]
+Line0=Savāciet, cik vien varat burvju pupiņu, ķirbju pīrāgu un katla kūku: tās noderēs Freda un Džordža veikalā.
+Picture0=Picture_05
+Count=1
+[hp3_ch2draconifors]
+Line0=Ar peli varat vadīt burvju trušus. Nospiediet labo pogu, lai trusis lēktu, un pārvietojiet peli, lai to pagrieztu. Trusi pārvietojiet ar bultiņu taustiņiem.
+Picture0=Picture_08_B
+Line1=Dažas balvas var sasniegt tikai ar burvju trušiem un mazajiem pūķiem.
+Picture1=Picture_08_A
+Count=2
+[HP3_Ch2DraconiforsB]
+Line0=Savāciet, cik vien varat burvju pupiņu, ķirbju pīrāgu un katla kūku: tās noderēs Freda un Džordža veikalā.
+Picture0=Picture_08_A
+Count=1
+[hp3_ch3glacius]
+Line0=Amazones salamandras izstaro dzirksteles. Ja tās laikus nenodzēsīsiet, no liesmām piedzims jauna salamandra.
+Picture0=Picture_09
+Count=1
+[HP3_Ch3GlaciusB]
+Line0=Savāciet, cik vien varat burvju pupiņu, ķirbju pīrāgu un katla kūku: tās noderēs Freda un Džordža veikalā.
+Picture0=Picture_08_A
+Count=1
+[hp3_comc]
+Line0=Ar peli varat vadīt mazos pūķus un Bakbīku. Nospiediet peles labo pogu, lai radība plivinātu spārnus. Pārvietojiet peli, lai mainītu virzienu.
+Picture0=Picture_10
+Count=1
+[hp3_darktower]
+Line0=Hipogrifu aploku varat apmeklēt jebkurā laikā. Ir pieci lidojumu maršruti, lai iegūtu pilnu kolekcionāra karšu komplektu.
+Picture0=Picture_19_A
+Count=1
+[hp3_dementorbattle]
+Line0=Lai izmantotu "Expecto Patronum", turiet nospiestu kreiso peles pogu, līdz gaismas gredzens sasniedz vairāk nekā pusi no nūjas.
+Picture0=Picture_12_B
+Line1=Ja jūs vienlaikus uzbrūk vairāki dementori, peli var būt vieglāk lietot. Pārvietojiet to, lai pagrieztos, un izmantojiet kreiso pogu, lai izvēlētos mērķi un izmestu burvestību.
+Picture1=Picture_12
+Count=2
+[hp3_dungeonhub]
+Line0=Dažus Cūkkārpas noslēpumus var atvērt tikai kopā ar draugiem. Šajos gadījumos Harijam, Ronam un Hermionei jāizmanto maģija.
+Picture0=Picture_13
+Count=1
+[HP3_FA1Ron]
+Line0=Burvestību izaicinājumus var atkārtot jebkurā laikā, bet stāsta misijas un gala eksāmenus jāsāk no jauna, ielādējot spēli no ielādes izvēlnes.
+Picture0=Picture_14
+Count=1
+[hp3_fa2hermione]
+Line0=Daudz eksperimentējiet, vadot mazo pūķi. Atcerieties: no tā var prasīt darīt vairāk nekā tikai lidot!
+Picture0=Picture_15
+Count=1
+[hp3_fa3harry]
+Line0=Ja vairāki ienaidnieki uzbrūk vienlaikus, varonis, kas prot izvairīties no uzbrukumiem, uzvar daudz labāk. Visvienkāršākais ir kustēties uz priekšu un atpakaļ. Varat arī pārvietoties sānis ar A un D.
+Picture0=Picture_16
+Count=1
+[hp3_final]
+Line0=Apsveicam! Jūs veiksmīgi pabeidzāt savu trešo mācību gadu!
+Picture0=Picture_17
+Count=1
+[hp3_groundsdada]
+Line0=Skolā un tās apkārtnē ir daudz noslēpumu. Redzējāt kaut ko neparastu? Izmantojiet maģiju!
+Picture0=Picture_18
+Count=1
+[hp3_groundshub]
+Line0=Freda un Džordža veikalā varat apmainīt Bertija Botes burvju pupiņas pret ķirbju pīrāgiem un katla kūkām (ja tās ir krājumā). Iemesls ir tas, ka dažas īpaši vērtīgas kartes un portretu paroles nevar nopirkt par pupiņām.
+Picture0=Picture_19_B
+Line1=Lai pabeigtu spēli, jāizpilda visi uzdevumi sarakstā. Lai to apskatītu, nospiediet Esc un pēc tam noklikšķiniet uz ķeksīša ikonas ekrāna labajā pusē.
+Picture1=Picture_19_C
+Line2=Dažus Cūkkārpas noslēpumus var atvērt tikai kopā ar draugiem. Šajos gadījumos Harijam, Ronam un Hermionei jāizmanto maģija.
+Picture2=Picture_19_D
+Line3=Savāciet, cik vien varat burvju pupiņu, ķirbju pīrāgu un katla kūku: tās noderēs Freda un Džordža veikalā.
+Picture3=Picture_08_A
+Line4=Hipogrifu aploku varat apmeklēt jebkurā laikā. Ir pieci lidojumu maršruti, lai iegūtu pilnu kolekcionāra karšu komplektu.
+Picture4=Picture_19_A
+Count=5
+[hp3_infirmary]
+Line0=Laiku pa laikam nospiediet Esc, lai apskatītu savu uzdevumu sarakstu. Lai uzvarētu spēlē, jums jāizpilda viss, kas tajā ir.
+Picture0=Picture_20
+Count=1
+[hp3_insidehub]
+Line0=Nospiediet TAB, lai redzētu Klaidoņu karti. Tā parāda skolas un tās apkārtnes plānu, un jūsu varoņa atrašanās vieta ir atzīmēta ar pēdām.
+Picture0=Picture_21_C
+Line1=Portreti ļauj uzreiz nokļūt jebkurā pils stāvā. Tie karājas blakus telpā, kas atrodas skolas ieejas tuvumā.
+Picture1=Picture_21_A
+Line2=Skolā un tās apkārtnē varat satikt citus skolniekus. Viņi bieži var sniegt noderīgus padomus, atgādināt kaut ko svarīgu vai pat pastāstīt kādu no Cūkkārpas noslēpumiem. Pietuvojieties, lai dzirdētu, ko viņi saka.
+Picture2=Picture_21_B
+Line3=Savācot 75 kolekcionāra kartes, jūs saņemsiet balvu...
+Picture3=Picture_21_D
+Count=4
+[hp3_portraitpassword_b]
+Line0=Bieži ieskatieties Freda un Džordža veikalā: iespējams, pārdošanā būs jaunas paroles!
+Picture0=Picture_22
+Count=1
+[hp3_portraitpassword_c]
+Line0=Bieži ieskatieties Freda un Džordža veikalā: iespējams, pārdošanā būs jaunas paroles!
+Picture0=Picture_23
+Count=1
+[hp3_portraitpassword_d]
+Line0=Bieži ieskatieties Freda un Džordža veikalā: iespējams, pārdošanā būs jaunas paroles!
+Picture0=Picture_24
+Count=1
+[hp3_portraitpassword_e]
+Line0=Lai savāktu pilnu kāršu komplektu, izpētiet skolu un tās apkārtni, spēlējiet burvestību izaicinājumus, apmeklējiet Freda un Džordža veikalu un runājiet ar citiem skolniekiem.
+Picture0=Picture_25
+Count=1
+[hp3_portraitPassword_F]
+Line0=Bieži ieskatieties Freda un Džordža veikalā: iespējams, pārdošanā būs jaunas paroles!
+Picture0=Picture_24
+Count=1
+[hp3_quidditch]
+Line0=Lai izlaistu starpaini, nospiediet ENTER. Apmācības starpaiņus nevar izlaist.
+Picture0=Picture_26
+Count=1
+[hp3_whompingwillow]
+Line0=Kad vairāki dementori uzbrūk Harijam vienlaikus, atcerieties, ka tie var uzbrukt no muguras. Bieži pagriežiet savu varoni un esiet gatavs jebkurā brīdī izmantot burvestību.
+Picture0=Picture_01
+Count=1

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The EXIT button of the touch controls (rabbit and dragon mode): a door with an arrow leaving it.
+     FlipendoActivity.drawExitIcon draws these same strokes on the canvas, so the icon fits any size and any language. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <polyline points="12,4 4,4 4,20 12,20"/>
+  <line x1="9" y1="12" x2="20" y2="12"/>
+  <polyline points="16,8 20,12 16,16"/>
+</svg>

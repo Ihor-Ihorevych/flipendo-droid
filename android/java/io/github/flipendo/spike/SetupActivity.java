@@ -1242,6 +1242,11 @@ public class SetupActivity extends Activity {
                     } catch (IOException e) {
                         android.util.Log.e("flipendo", "the HP3 ini failed: " + e);
                     }
+                    try {
+                        applyHp3Language(found);
+                    } catch (IOException e) {
+                        android.util.Log.e("flipendo", "the HP3 language failed: " + e);
+                    }
                 }
                 // the translation, dubbing and movement mod are HP1's
                 if (found != null && hp1) {
@@ -2758,6 +2763,31 @@ public class SetupActivity extends Activity {
     static void writeSmallFile(File file, String text) throws IOException {
         try (OutputStream os = new FileOutputStream(file)) {
             os.write(text.getBytes());
+        }
+    }
+
+    /**
+     * HP3's interface texts follow the launcher's language: the translations (assets/hp3lang: HpMenu and SaveTips per
+     * language) go into the game's System folder, and the language is written next to it for the engine. The edition's own
+     * language (Russian) leaves no file.
+     */
+    private void applyHp3Language(File game) throws IOException {
+        String[] files = getAssets().list("hp3lang");
+        if (files != null) {
+            byte[] buffer = new byte[64 * 1024];
+            File system = Hp3Setup.systemDir(game);
+            for (String name : files) {
+                copyAsset("hp3lang/" + name, new File(system, name), buffer);
+            }
+        }
+        File choice = new File(game, Hp3Setup.LANGUAGE_FILE);
+        String code = Hp3Setup.gameLanguage(Tr.CODES[Tr.index()]);
+        if (code == null) {
+            choice.delete();
+            return;
+        }
+        try (OutputStream os = new FileOutputStream(choice)) {
+            os.write(code.getBytes("UTF-8"));
         }
     }
 
