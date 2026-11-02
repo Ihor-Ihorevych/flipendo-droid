@@ -13,6 +13,16 @@ public class GameActivity extends SDLActivity {
     /** Optional: the level to open instead of the front end. */
     public static final String EXTRA_MAP = "com.ut2004.android.MAP";
 
+    /** The engine's flag for an open menu (the touch controls step aside for it). */
+    static native boolean nativeInMenu();
+
+    @Override
+    protected void onCreate(android.os.Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        addContentView(new Hp3TouchOverlay(this),
+            new android.view.ViewGroup.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+    }
+
     @Override
     protected String[] getLibraries() {
         return new String[] { "SDL3", "hp3app" };
