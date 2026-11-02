@@ -26,12 +26,12 @@ jobs:
       - name: SurrealEngine submodule
         run: git submodule update --init src/engine
 
-      # Harry Potter 3 runs on the Rust engine (hp3-engine), built here for the phone and linked against this APK's own
+      # Harry Potter 3 runs on the Rust engine (R3paro, the repository r3paro; its folder here keeps the name hp3-engine, which build-apk.sh looks for), built here for the phone and linked against this APK's own
       # libSDL3.so by android/build-apk.sh. A private repository needs the secret HP3_ENGINE_TOKEN (a token that can read it).
       - name: HP3 engine
         uses: actions/checkout@v4
         with:
-          repository: Ihor-Ihorevych/hp3-engine
+          repository: Ihor-Ihorevych/r3paro
           path: hp3-engine
           token: ${{ secrets.HP3_ENGINE_TOKEN || github.token }}
 

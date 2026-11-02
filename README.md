@@ -34,7 +34,7 @@ pick the game on the start screen.
 - **Harry Potter 1**: all levels are playable.
 - **Harry Potter 2**: playable from the first scene on, with saves, duels and shops; still being polished (see
   [Status](#status)).
-- **Harry Potter 3** (*Prisoner of Azkaban*, 2004): all 34 levels run on [hp3-engine](https://github.com/Ihor-Ihorevych/hp3-engine),
+- **Harry Potter 3** (*Prisoner of Azkaban*, 2004): all 34 levels run on [R3paro](https://github.com/Ihor-Ihorevych/r3paro),
   an open-source engine written in Rust that plays the game's own scripts, with the same touch controls and settings
   panel as the other two games (plus a debug menu with cheats and level select). It has its own game folder,
   **FlipendoHP3** (`System/Core.u` inside). It is new and still rough in places (see [Status](#status)).
