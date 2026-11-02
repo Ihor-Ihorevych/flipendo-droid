@@ -34,15 +34,15 @@ pick the game on the start screen.
 - **Harry Potter 1**: all levels are playable.
 - **Harry Potter 2**: playable from the first scene on, with saves, duels and shops; still being polished (see
   [Status](#status)).
-- **Harry Potter 3** (*Prisoner of Azkaban*, 2004; experimental): a third cover, in builds that carry its engine. It runs on
-  its own engine (an Unreal Engine 2.5 port, [flipendo-droid-2004](https://github.com/Ihor-Ihorevych/flipendo-droid-2004), a
-  submodule here) in a separate process, with its own touch controls, a settings panel (layout, debug cheats, level select) and
-  its own game folder (`FlipendoHP3`; `System/Core.u` inside). It is early: the first level can crash when it ends.
+- **Harry Potter 3** (*Prisoner of Azkaban*, 2004): all 34 levels run on [hp3-engine](https://github.com/Ihor-Ihorevych/hp3-engine),
+  an open-source engine written in Rust that plays the game's own scripts, with the same touch controls and settings
+  panel as the other two games (plus a debug menu with cheats and level select). It has its own game folder,
+  **FlipendoHP3** (`System/Core.u` inside). It is new and still rough in places (see [Status](#status)).
 
 ## What you need
 
 - **Your own copy of the game(s)** (PC), installed on a computer: the folder with `System`, `Maps`, `Textures`, `Sounds`
-  and `Music` in it. HP1 is `System/HP.exe`, HP2 is `System/Game.exe`. The app contains no game data. The US and UK
+  and `Music` in it. HP1 is `System/HP.exe`, HP2 is `System/Game.exe`, HP3 is `System/Core.u` and its `Maps`. The app contains no game data. The US and UK
   releases work, and other language editions usually do; if yours is not recognised, tell us in the
   [Telegram group](https://t.me/flipendodroid).
 - **An Android phone or tablet**: Android 10 or newer, 64-bit (almost every phone from the last few years).
@@ -58,8 +58,10 @@ pick the game on the start screen.
    (Harry Potter 1) and **FlipendoHP2** (Harry Potter 2) in the internal storage, so that each holds its own `System`,
    `Maps` and so on: the app finds them there by itself.
 4. **Start Flipendo.** Allow **All files access** when it asks (the app needs it to read the games), then open it again.
-   On the start screen pick **Harry Potter 1** or **Harry Potter 2**. If that game isn't in its folder, tap **Choose folder**
-   and pick the folder you copied (or the folder it is in); each game remembers its own folder.
+   On the start screen pick **Harry Potter 1**, **2** or **3**. If that game isn't in its folder, tap **Choose folder**
+   and pick the folder you copied (or the folder it is in); each game remembers its own folder. For Harry Potter 3 the
+   release page also has a **data zip** (the game's maps, textures, sounds and music without the Windows files): unpack it
+   on the phone (or on the computer and copy it over) and choose the unpacked folder in the launcher.
 5. **Pick what to play** (HP2): *New game*, or one of six save slots with the picture of the level you were in. Then
    *Play*.
 
@@ -144,6 +146,10 @@ voices.
 **Harry Potter 2**: the story runs from the first scene on, with saves (six slots), shops, duels, Russian text, subtitles and
 gamepad support. Known rough spots: the light of Lumos is not exactly on the wand's tip, some translucent walls look red,
 and things the game spawns (jelly beans) do not always follow Harry to the next level. Report what you find.
+
+**Harry Potter 3**: every level loads and plays, with its spells, puzzles, creatures, cutscenes (a skip button hides
+them) and music. Rough spots: there is no video, some menus lack widgets, and a few creatures and puzzles still need
+polishing. It runs at 60 fps or more on a POCO F6. Report what you find.
 
 Not yet: the controls page of the game's own Options shows empty rows (the keys can't be changed on a phone anyway).
 
