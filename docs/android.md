@@ -263,6 +263,35 @@ installs over an older one. The version shows in the settings header and on the 
 
 Releases before the numbering: `android-2026-10-11` is 0.1.0 (problem cards, gamepad, folder picker).
 
+## Updates (GitHub Releases)
+
+The launcher updates itself from the GitHub releases of this repository (`Updater`, `UpdateRules`, `UpdateReceiver`).
+
+- **What it does.** The **Updates** chip in the start screen's top bar turns gold ("Update 0.5.4") when a newer release is out.
+  Tapping it shows the installed and the new version, the release notes and **Update** / **Skip this version** / **Later**.
+  Update downloads the release's `flipendo-droid.apk` (the light build) into the app's cache, checks its size and, when GitHub
+  lists it, its SHA-256, and hands it to Android's installer, which asks the player to confirm. The games and saves are in the
+  game folders on the phone, not in the app, so they stay. With nothing new, the chip opens **Check now** and the switch
+  **Check automatically**.
+- **When it looks.** On launcher start, at most once every 12 hours, when the switch is on (the default); one request to
+  `api.github.com/repos/Ihor-Ihorevych/flipendo-droid/releases`, nothing else is sent. A found update is only announced by the
+  chip and a toast; nothing is downloaded without a tap. The check is quiet when the phone is offline.
+- **Which release.** The highest `android-v<number>` tag that is published (not a draft) and has `flipendo-droid.apk` among its
+  assets and a later number than the installed `versionName` (`UpdateRules`; a `-dev+<commit>` build of the same number is not
+  offered that release). Pre-releases count: the CI publishes every release as one. Self packs (`flipendo-droid-selfpack.apk`)
+  are never published or offered; a self pack user who updates gets the light build over it and keeps the game data the self pack
+  already unpacked.
+- **Permissions.** `INTERNET` and `REQUEST_INSTALL_PACKAGES`. The first time, Android wants "Install unknown apps" allowed for
+  Flipendo; the launcher opens that page and the player presses Update again.
+- **The signing key must be the same.** Android replaces an app only with a build signed by the same key. Local builds sign with
+  `android/debug.keystore` (not in git); CI signs with the key in the repository secret `ANDROID_DEBUG_KEYSTORE`
+  (`base64 -w0 android/debug.keystore`, Settings > Secrets and variables > Actions). With another key in CI the published APK cannot
+  update an installed local build (or the other way round); the updater checks the downloaded APK's signer first and says so
+  instead of failing in the system installer (uninstall Flipendo, then install the release; the games and saves stay).
+- **Tests.** `android/tests/run.sh` runs `UpdateRulesTest` (version order, which release to offer, when a check is due).
+  The download and the install need a phone and a release newer than the installed build.
+
+
 ## OpenGL ES renderer
 
 Since 0.2.5b **OpenGL ES is the default** and Vulkan is picked by hand. Qualcomm's stock drivers (Adreno 618 / 642L with driver 512.x, Vulkan 1.1) refuse one of the

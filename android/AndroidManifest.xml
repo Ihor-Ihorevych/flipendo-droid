@@ -2,6 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="io.github.flipendo.spike">
     <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="35"/>
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
+    <!-- the updater: looks for a newer release on GitHub, downloads its APK and asks the system to install it -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <!-- Android 10 has no "All files access": the old storage permission with the legacy (whole-storage) view -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29"/>
@@ -39,5 +42,6 @@
             android:theme="@android:style/Theme.NoTitleBar.Fullscreen"/>
         <provider android:name="io.github.flipendo.spike.ReportProvider" android:authorities="io.github.flipendo.spike.reports"
             android:exported="false" android:grantUriPermissions="true"/>
+        <receiver android:name="io.github.flipendo.spike.UpdateReceiver" android:exported="false"/>
     </application>
 </manifest>

@@ -170,6 +170,7 @@ public class SetupActivity extends Activity {
         showGame();
         startScreen = root;
         setContentView(startScreen);
+        checkUpdatesQuietly();
     }
 
     // The start screen's palette: a night sky over the castle, parchment for the text, the candle gold of the in-game settings,
@@ -252,9 +253,202 @@ public class SetupActivity extends Activity {
             }
         }), ll);
         LinearLayout.LayoutParams ul = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        LinearLayout.LayoutParams upl = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        upl.leftMargin = dp(8);
+        updateChip = chip(tr("Updates"), PARCHMENT, new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) {
+                onUpdateChip();
+            }
+        });
+        bar.addView(updateChip, upl);
         ul.leftMargin = dp(14);
         bar.addView(uiSizeRow(), ul);
         return bar;
+    }
+
+    // Updates from GitHub Releases (Updater, UpdateRules): the chip in the top bar says when a newer release is out and opens
+    // the update; with nothing new it opens the check and the switch for the automatic check.
+    static final String PREF_UPDATE_AUTO = "updateAuto"; // on by default
+    static final String PREF_UPDATE_LAST = "updateLastCheck";
+    static final String PREF_UPDATE_SKIP = "updateSkipped";
+    private static final long UPDATE_INTERVAL_MS = 12L * 3600 * 1000;
+    private TextView updateChip;
+    private UpdateRules.Candidate availableUpdate;
+    private volatile boolean updateCancelled;
+
+    private void refreshUpdateChip() {
+        if (updateChip == null) return;
+        boolean any = availableUpdate != null;
+        updateChip.setText(any ? tr("Update") + " " + availableUpdate.version() : tr("Updates"));
+        updateChip.setTextColor(any ? GOLD : PARCHMENT);
+    }
+
+    /** Once the start screen is up: looks for a newer release without a word, when the player allows it and the last look was a while ago. */
+    private void checkUpdatesQuietly() {
+        android.content.SharedPreferences p = getSharedPreferences("setup", MODE_PRIVATE);
+        if (!p.getBoolean(PREF_UPDATE_AUTO, true) || !UpdateRules.due(System.currentTimeMillis(), p.getLong(PREF_UPDATE_LAST, 0), UPDATE_INTERVAL_MS)) {
+            return;
+        }
+        checkUpdates(false);
+    }
+
+    private void checkUpdates(final boolean manual) {
+        if (manual) {
+            android.widget.Toast.makeText(this, tr("Looking for updates..."), android.widget.Toast.LENGTH_SHORT).show();
+        }
+        new Thread(new Runnable() {
+            public void run() {
+                UpdateRules.Candidate found = null;
+                String problem = null;
+                try {
+                    found = Updater.check(SetupActivity.this);
+                } catch (java.io.IOException e) {
+                    problem = e.getMessage() != null ? e.getMessage() : e.toString();
+                }
+                final UpdateRules.Candidate result = found;
+                final String error = problem;
+                ui.post(new Runnable() {
+                    public void run() {
+                        finishUpdateCheck(result, error, manual);
+                    }
+                });
+            }
+        }, "update-check").start();
+    }
+
+    private void finishUpdateCheck(UpdateRules.Candidate found, String error, boolean manual) {
+        android.util.Log.i("flipendo", "update check (" + (manual ? "asked" : "automatic") + "): installed " + LogReport.version(this)
+                + ", " + (error != null ? "failed: " + error : found != null ? "release " + found.tag + " is out" : "nothing newer"));
+        if (isFinishing()) return;
+        android.content.SharedPreferences p = getSharedPreferences("setup", MODE_PRIVATE);
+        if (error == null) {
+            p.edit().putLong(PREF_UPDATE_LAST, System.currentTimeMillis()).apply();
+        }
+        availableUpdate = found != null && (manual || !found.version().equals(p.getString(PREF_UPDATE_SKIP, ""))) ? found : null;
+        refreshUpdateChip();
+        if (error != null) {
+            if (manual) {
+                android.widget.Toast.makeText(this, tr("Could not look for updates: ") + error, android.widget.Toast.LENGTH_LONG).show();
+            }
+        } else if (found == null) {
+            if (manual) {
+                android.widget.Toast.makeText(this, tr("You have the latest version."), android.widget.Toast.LENGTH_SHORT).show();
+            }
+        } else if (manual) {
+            showUpdateDialog(found);
+        } else if (availableUpdate != null) {
+            android.widget.Toast.makeText(this, tr("Update") + " " + found.version() + " " + tr("is available."), android.widget.Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void onUpdateChip() {
+        if (availableUpdate != null) {
+            showUpdateDialog(availableUpdate);
+            return;
+        }
+        final android.content.SharedPreferences p = getSharedPreferences("setup", MODE_PRIVATE);
+        boolean auto = p.getBoolean(PREF_UPDATE_AUTO, true);
+        String[] items = { tr("Check now"), tr("Check automatically") + ": " + (auto ? tr("on") : tr("off")) };
+        new android.app.AlertDialog.Builder(this)
+                .setTitle(tr("Updates") + " (v" + LogReport.version(this) + ")")
+                .setItems(items, new android.content.DialogInterface.OnClickListener() {
+                    public void onClick(android.content.DialogInterface d, int which) {
+                        if (which == 0) {
+                            checkUpdates(true);
+                        } else {
+                            p.edit().putBoolean(PREF_UPDATE_AUTO, !p.getBoolean(PREF_UPDATE_AUTO, true)).apply();
+                        }
+                    }
+                }).show();
+    }
+
+    private void showUpdateDialog(final UpdateRules.Candidate c) {
+        String size = c.size > 0 ? " (" + Math.max(1, (c.size + 524288) / 1048576) + " MB)" : "";
+        String message = tr("Installed: ") + LogReport.version(this) + "\n" + tr("Available: ") + c.version() + size + "\n"
+                + tr("Your games and saves stay.") + "\n\n" + UpdateRules.excerpt(c.notes, 900);
+        new android.app.AlertDialog.Builder(this)
+                .setTitle(tr("Update") + " " + c.version())
+                .setMessage(message)
+                .setPositiveButton(tr("Update"), new android.content.DialogInterface.OnClickListener() {
+                    public void onClick(android.content.DialogInterface d, int which) {
+                        startUpdate(c);
+                    }
+                })
+                .setNeutralButton(tr("Skip this version"), new android.content.DialogInterface.OnClickListener() {
+                    public void onClick(android.content.DialogInterface d, int which) {
+                        getSharedPreferences("setup", MODE_PRIVATE).edit().putString(PREF_UPDATE_SKIP, c.version()).apply();
+                        availableUpdate = null;
+                        refreshUpdateChip();
+                    }
+                })
+                .setNegativeButton(tr("Later"), null)
+                .show();
+    }
+
+    /** Downloads the release's APK (a dialog shows how far it is) and hands it to the system installer. */
+    private void startUpdate(final UpdateRules.Candidate c) {
+        if (Build.VERSION.SDK_INT >= 26 && !getPackageManager().canRequestPackageInstalls()) {
+            // the system asks the app's permission to install apps once: it is given on its own page, then Update is pressed again
+            android.widget.Toast.makeText(this, tr("Allow Flipendo to install updates, then press Update again."), android.widget.Toast.LENGTH_LONG).show();
+            splashUntil = Long.MAX_VALUE;
+            startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getPackageName())));
+            return;
+        }
+        updateCancelled = false;
+        final TextView text = new TextView(this);
+        text.setPadding(dp(24), dp(16), dp(24), dp(8));
+        text.setText(tr("Downloading") + "...");
+        final android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
+                .setTitle(tr("Update") + " " + c.version())
+                .setView(text)
+                .setCancelable(false)
+                .setNegativeButton(tr("Cancel"), new android.content.DialogInterface.OnClickListener() {
+                    public void onClick(android.content.DialogInterface d, int which) {
+                        updateCancelled = true;
+                    }
+                }).show();
+        new Thread(new Runnable() {
+            public void run() {
+                String problem = null;
+                java.io.File apk = null;
+                try {
+                    apk = Updater.download(SetupActivity.this, c, new Updater.Progress() {
+                        private long shown;
+                        public boolean update(final long done, final long total) {
+                            long now = android.os.SystemClock.uptimeMillis();
+                            if (now - shown > 250) {
+                                shown = now;
+                                ui.post(new Runnable() {
+                                    public void run() {
+                                        text.setText(tr("Downloading") + " " + (done / 1048576) + (total > 0 ? " / " + (total / 1048576) : "") + " MB");
+                                    }
+                                });
+                            }
+                            return updateCancelled;
+                        }
+                    });
+                    if (apk != null) {
+                        ui.post(new Runnable() {
+                            public void run() {
+                                text.setText(tr("Installing") + "...");
+                            }
+                        });
+                        Updater.install(SetupActivity.this, apk);
+                    }
+                } catch (java.io.IOException | RuntimeException e) {
+                    problem = e.getMessage() != null ? e.getMessage() : e.toString();
+                }
+                final String error = problem;
+                ui.post(new Runnable() {
+                    public void run() {
+                        dialog.dismiss();
+                        if (error != null) {
+                            android.widget.Toast.makeText(SetupActivity.this, tr("The update failed: ") + error, android.widget.Toast.LENGTH_LONG).show();
+                        }
+                    }
+                });
+            }
+        }, "update-download").start();
     }
 
     private boolean eggPending;

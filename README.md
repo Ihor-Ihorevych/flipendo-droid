@@ -167,8 +167,9 @@ Tried it on another phone? Tell us in the [Telegram group](https://t.me/flipendo
 ## News, help and bug reports
 
 New versions are on the [Releases](https://github.com/Ihor-Ihorevych/flipendo-droid/releases) page; news and help are in the
-**Telegram group: [t.me/flipendodroid](https://t.me/flipendodroid)**. To update, install the new APK over the old one: your
-saves and settings stay.
+**Telegram group: [t.me/flipendodroid](https://t.me/flipendodroid)**. The app looks for new versions by itself: when one is out,
+the **Updates** chip at the top of the start screen turns gold, and a tap downloads and installs it (switch the automatic look off
+there if you like). Or install the new APK over the old one by hand: your saves and settings stay.
 
 **Something broke?** Hold the menu button (top right) for a second and a half: the app makes a report and lets you send it
 with any app (Telegram, mail...). If the game crashed, the report is offered by itself the next time you start it. Post it
