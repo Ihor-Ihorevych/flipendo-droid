@@ -380,12 +380,12 @@ for entry in "${SELFPACKS[@]}"; do
 		{ echo "en|$(lang_label en)"; for l in "${LANGS[@]}" "${ADDLANGS[@]}" "${VOICES[@]}"; do echo "${l%%=*}|$(lang_label "${l%%=*}")"; done; } > "$LANGDIR/langs.txt"
 		# the base language's version of the differing files (the ones the base install has)
 		mkdir -p "$LANGDIR/en"
-		for key in "${!is_diff[@]}"; do [ -n "${base_files[$key]:-}" ] && printf '%s\0' "${base_files[$key]}"; done \
+		for key in "${!is_diff[@]}"; do if [ -n "${base_files[$key]:-}" ]; then printf '%s\0' "${base_files[$key]}"; fi; done \
 			| (cd "$SELFPACK" && tar --null -cf - --files-from=-) | (cd "$LANGDIR/en" && tar xf -)
 		for l in "${LANGS[@]}"; do
 			code="${l%%=*}"; dir="${l#*=}"
 			mkdir -p "$LANGDIR/$code"
-			game_files "$dir" | while IFS= read -r -d '' f; do [ -n "${is_diff[${f,,}]:-}" ] && printf '%s\0' "$f"; done \
+			game_files "$dir" | while IFS= read -r -d '' f; do if [ -n "${is_diff[${f,,}]:-}" ]; then printf '%s\0' "$f"; fi; done \
 				| (cd "$dir" && tar --null -cf - --files-from=-) | (cd "$LANGDIR/$code" && tar xf -)
 		done
 		# a language add-on: its language files, and the base's Default.ini with that language (the files of the other builds
