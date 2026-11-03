@@ -1,0 +1,146 @@
+﻿[hp3_adv1express]
+Line0=Muévete con las teclas de flechas o con las teclas A, W, S y D.
+Picture0=Picture_00
+Count=1
+[hp3_adv2exppatronum]
+Line0=Cuando varios Dementores ataquen a Harry a la vez, recuerda que pueden acercarse por detrás. Gira a tu personaje con frecuencia y prepárate para lanzar un hechizo en cualquier momento.
+Picture0=Picture_01
+Count=1
+[hp3_adv3library]
+Line0=Para saltar una escena, pulsa ENTER. Las escenas de tutorial no se pueden saltar.
+Picture0=Picture_02
+Count=1
+[hp3_adv5shack]
+Line0=Al luchar contra los duendecillos, mueve a tu héroe hacia delante y hacia atrás para esquivar sus petardos explosivos. Pulsa A y D para dar un paso hacia un lado.
+Picture0=Picture_03
+Count=1
+[hp3_adv6paddock]
+Line0=Busca premios ocultos, y recuerda que solo los desafíos de hechizos se pueden jugar varias veces.
+Picture0=Picture_04
+Count=1
+[hp3_beanbonus]
+Line0=Los premios que consigas en la sala de bonificación se pueden gastar en la tienda de Fred y George.
+Picture0=Picture_05
+Count=1
+[hp3_buckyexecuted]
+Line0=Pulsa Esc de vez en cuando para ver tu lista de tareas. Para ganar el juego debes completar todo lo que aparece en ella.
+Picture0=Picture_06
+Count=1
+[hp3_ch1carperetractum]
+Line0=Pulsa A y D para dar un paso hacia un lado, y W y S para avanzar y retroceder. Mueve el ratón para girar y apuntar. El botón izquierdo del ratón lanza hechizos y el derecho salta.
+Picture0=Picture_07
+Count=1
+[HP3_Ch1CarpeRetractumB]
+Line0=Reúne todas las grageas, pasteles de calabaza y pasteles de caldero que puedas: te serán muy útiles en la tienda de Fred y George.
+Picture0=Picture_05
+Count=1
+[hp3_ch2draconifors]
+Line0=Puedes dirigir a los conejos mágicos con el ratón. Pulsa el botón derecho para hacer que el conejo salte, y mueve el ratón para girarlo. Mueve el conejo con las teclas de flechas.
+Picture0=Picture_08_B
+Line1=Algunos premios solo se pueden alcanzar con los conejos mágicos y los pequeños dragones.
+Picture1=Picture_08_A
+Count=2
+[HP3_Ch2DraconiforsB]
+Line0=Reúne todas las grageas, pasteles de calabaza y pasteles de caldero que puedas: te serán muy útiles en la tienda de Fred y George.
+Picture0=Picture_08_A
+Count=1
+[hp3_ch3glacius]
+Line0=Las salamandras del Amazonas sueltan chispas. Si no las apagas a tiempo, una nueva salamandra nace de las llamas.
+Picture0=Picture_09
+Count=1
+[HP3_Ch3GlaciusB]
+Line0=Reúne todas las grageas, pasteles de calabaza y pasteles de caldero que puedas: te serán muy útiles en la tienda de Fred y George.
+Picture0=Picture_08_A
+Count=1
+[hp3_comc]
+Line0=Puedes dirigir a los pequeños dragones y a Buckbeak con el ratón. Pulsa el botón derecho del ratón para que la criatura bata las alas. Mueve el ratón para cambiar de dirección.
+Picture0=Picture_10
+Count=1
+[hp3_darktower]
+Line0=Puedes visitar el corral de hipogrifos cuando quieras. Hay cinco recorridos de vuelo para ganar un conjunto completo de cromos de magos.
+Picture0=Picture_19_A
+Count=1
+[hp3_dementorbattle]
+Line0=Para lanzar "Expecto Patronum", mantén pulsado el botón izquierdo del ratón hasta que el anillo de luz llegue a más de la mitad de la varita.
+Picture0=Picture_12_B
+Line1=Si varios Dementores te atacan a la vez, quizá el ratón sea más fácil de usar. Muévelo para girar, y usa el botón izquierdo para elegir un objetivo y lanzar el hechizo.
+Picture1=Picture_12
+Count=2
+[hp3_dungeonhub]
+Line0=Algunos secretos de Hogwarts solo se pueden abrir en compañía de amigos. En esos casos, Harry, Ron y Hermione deben usar magia todos juntos.
+Picture0=Picture_13
+Count=1
+[HP3_FA1Ron]
+Line0=Los desafíos de hechizos se pueden repetir en cualquier momento, pero las misiones de la historia y los exámenes finales deben empezarse de nuevo desde el menú de carga.
+Picture0=Picture_14
+Count=1
+[hp3_fa2hermione]
+Line0=Experimenta mucho cuando controles al pequeño dragón. ¡Recuerda que puede que se le pida hacer algo más que volar!
+Picture0=Picture_15
+Count=1
+[hp3_fa3harry]
+Line0=Si varios enemigos te atacan a la vez, un personaje que sepa esquivar los ataques tiene muchas más posibilidades de ganar. Lo más fácil es avanzar y retroceder. También puedes dar un paso hacia un lado con A y D.
+Picture0=Picture_16
+Count=1
+[hp3_final]
+Line0=¡Felicidades! ¡Has terminado con éxito tu tercer año!
+Picture0=Picture_17
+Count=1
+[hp3_groundsdada]
+Line0=El colegio y sus terrenos guardan muchos secretos. ¿Ves algo inusual? ¡Usa magia!
+Picture0=Picture_18
+Count=1
+[hp3_groundshub]
+Line0=En la tienda de Fred y George puedes cambiar Grageas de Bertie Bott por pasteles de calabaza y pasteles de caldero (si hay existencias). La razón es que algunos cromos de magos especialmente valiosos y las contraseñas de los retratos no se pueden comprar con grageas.
+Picture0=Picture_19_B
+Line1=Para terminar el juego debes completar todas las tareas de la lista. Para verla, pulsa Esc y luego haz clic en el icono de la marca de verificación a la derecha de la pantalla.
+Picture1=Picture_19_C
+Line2=Algunos secretos de Hogwarts solo se pueden abrir en compañía de amigos. En esos casos, Harry, Ron y Hermione deben usar magia todos juntos.
+Picture2=Picture_19_D
+Line3=Reúne todas las grageas, pasteles de calabaza y pasteles de caldero que puedas: te serán muy útiles en la tienda de Fred y George.
+Picture3=Picture_08_A
+Line4=Puedes visitar el corral de hipogrifos cuando quieras. Hay cinco recorridos de vuelo para ganar un conjunto completo de cromos de magos.
+Picture4=Picture_19_A
+Count=5
+[hp3_infirmary]
+Line0=Pulsa Esc de vez en cuando para ver tu lista de tareas. Para ganar el juego debes completar todo lo que aparece en ella.
+Picture0=Picture_20
+Count=1
+[hp3_insidehub]
+Line0=Pulsa TAB para ver el Mapa del Merodeador. Muestra un plano del colegio y sus terrenos, y la posición de tu personaje aparece marcada con huellas.
+Picture0=Picture_21_C
+Line1=Los retratos te permiten ir a cualquier planta del castillo de una vez. Cuelgan en una sala lateral junto a la entrada del colegio.
+Picture1=Picture_21_A
+Line2=Puedes conocer a otros alumnos en el colegio y en sus terrenos. A menudo pueden darte consejos útiles, recordarte algo importante o incluso contarte uno de los secretos de Hogwarts. Acércate para oír lo que dicen.
+Picture2=Picture_21_B
+Line3=Reúne 75 cromos de magos y ganarás un premio...
+Picture3=Picture_21_D
+Count=4
+[hp3_portraitpassword_b]
+Line0=Pásate por la tienda de Fred y George con frecuencia: ¡quizá tengan contraseñas nuevas a la venta!
+Picture0=Picture_22
+Count=1
+[hp3_portraitpassword_c]
+Line0=Pásate por la tienda de Fred y George con frecuencia: ¡quizá tengan contraseñas nuevas a la venta!
+Picture0=Picture_23
+Count=1
+[hp3_portraitpassword_d]
+Line0=Pásate por la tienda de Fred y George con frecuencia: ¡quizá tengan contraseñas nuevas a la venta!
+Picture0=Picture_24
+Count=1
+[hp3_portraitpassword_e]
+Line0=Para reunir el conjunto completo de cromos, explora el colegio y sus terrenos, juega los desafíos de hechizos, visita la tienda de Fred y George y habla con los otros alumnos.
+Picture0=Picture_25
+Count=1
+[hp3_portraitPassword_F]
+Line0=Pásate por la tienda de Fred y George con frecuencia: ¡quizá tengan contraseñas nuevas a la venta!
+Picture0=Picture_24
+Count=1
+[hp3_quidditch]
+Line0=Para saltar una escena, pulsa ENTER. Las escenas de tutorial no se pueden saltar.
+Picture0=Picture_26
+Count=1
+[hp3_whompingwillow]
+Line0=Cuando varios Dementores ataquen a Harry a la vez, recuerda que pueden acercarse por detrás. Gira a tu personaje con frecuencia y prepárate para lanzar un hechizo en cualquier momento.
+Picture0=Picture_01
+Count=1

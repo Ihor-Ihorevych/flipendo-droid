@@ -7,16 +7,16 @@ import java.io.FileOutputStream;
 import java.util.HashMap;
 
 /**
- * The app's texts in English (the keys), Russian, Ukrainian, Belarusian, Georgian and Latvian. The launcher (SetupActivity, its own process)
+ * The app's texts in English (the keys), Russian, Ukrainian, Belarusian, Georgian, Latvian, German and Spanish. The launcher (SetupActivity, its own process)
  * and the game's overlay (FlipendoActivity) both use it: the choice is a file in the app's files folder, which both read.
  * A text without a translation stays English.
  */
 final class Tr {
-    static final String[] CODES = { "en", "ru", "uk", "be", "ka", "lv" };
-    static final String[] NAMES = { "English", "Слобожанський", "Українська", "Беларуская", "ქართული", "Latviešu" };
+    static final String[] CODES = { "en", "ru", "uk", "be", "ka", "lv", "de", "es" };
+    static final String[] NAMES = { "English", "Слобожанський", "Українська", "Беларуская", "ქართული", "Latviešu", "Deutsch", "Español" };
 
-    /** The order the languages are listed in: English, Ukrainian, Belarusian, Georgian, Latvian, Russian (indexes into CODES). */
-    static final int[] ORDER = { 0, 2, 3, 4, 5, 1 };
+    /** The order the languages are listed in: English, German, Spanish, Ukrainian, Belarusian, Georgian, Latvian, Russian (indexes into CODES). */
+    static final int[] ORDER = { 0, 6, 7, 2, 3, 4, 5, 1 };
 
     static String[] orderedNames() {
         String[] names = new String[ORDER.length];
@@ -24,7 +24,7 @@ final class Tr {
         return names;
     }
 
-    /** The languages T has columns for (English included); the later ones are in T2. */
+    /** The languages T has columns for (English included); the next two are in T2 (Georgian, Latvian), the last two in T3 (German, Spanish). */
     private static final int T_LANGS = 4;
 
     private static int lang = 0;
@@ -34,7 +34,7 @@ final class Tr {
         return new File(c.getFilesDir(), "ui_lang");
     }
 
-    /** Reads the saved language; without one, the phone's: Russian, Ukrainian, Belarusian, Georgian or Latvian if it speaks one of them. */
+    /** Reads the saved language; without one, the phone's if it speaks one of ours (Russian, Ukrainian, Belarusian, Georgian, Latvian, German, Spanish). */
     static void init(Context c) {
         lang = 0;
         map = null;
@@ -81,8 +81,11 @@ final class Tr {
             map = new HashMap<>();
             if (lang < T_LANGS) {
                 for (String[] row : T) map.put(row[0], row[lang]);
-            } else {
+            } else if (lang < T_LANGS + 2) {
                 for (String[] row : T2) map.put(row[0], row[lang - T_LANGS + 1]);
+            } else {
+                // German and Spanish: { English, German, Spanish }.
+                for (String[] row : T3) map.put(row[0], row[lang - (T_LANGS + 2) + 1]);
             }
         }
         String text = map.get(en);
@@ -556,5 +559,239 @@ final class Tr {
         { "Installing Harry Potter 3 failed: ", "ჰარი პოტერი 3-ის ინსტალაცია ვერ მოხერხდა: ", "Neizdevās instalēt Hariju Poteru 3: " },
         { "Installing game data ", "თამაშის მონაცემების ინსტალაცია ", "Spēles datu instalēšana " },
         { "Installing the game data failed: ", "თამაშის მონაცემების ინსტალაცია ვერ მოხერხდა: ", "Neizdevās instalēt spēles datus: " },
+    };
+
+    /** German and Spanish: { English, German, Spanish }. */
+    private static final String[][] T3 = {
+        { "Exit", "Beenden", "Salir" },
+        { "Off (the normal picture)", "Aus (das normale Bild)", "Desactivado (la imagen normal)" },
+        { "Without the lightmap (the walls are visible, but not lit)", "Ohne Lightmap (die Wände sind sichtbar, aber nicht beleuchtet)", "Sin el lightmap (las paredes se ven, pero sin iluminar)" },
+        { "Without macro, detail and fog layers", "Ohne Makro-, Detail- und Nebelebenen", "Sin las capas de macro, detalle y niebla" },
+        { "Lightmap with a plain bilinear filter", "Lightmap mit einfachem bilinearem Filter", "Lightmap con filtro bilineal simple" },
+        { "Textures without mip levels", "Texturen ohne Mip-Stufen", "Texturas sin niveles mip" },
+        { "Plain bilinear filter for every texture", "Einfacher bilinearer Filter für jede Textur", "Filtro bilineal simple para todas las texturas" },
+        { "Lightmap read at level 0 (textureLod)", "Lightmap auf Stufe 0 gelesen (textureLod)", "Lightmap leído en el nivel 0 (textureLod)" },
+        { "Lightmap read by texel (texelFetch)", "Lightmap per Texel gelesen (texelFetch)", "Lightmap leído por texel (texelFetch)" },
+        { "Test: show the lightmap only", "Test: nur die Lightmap anzeigen", "Prueba: mostrar solo el lightmap" },
+        { "Test: show the lightmap coordinates", "Test: die Lightmap-Koordinaten anzeigen", "Prueba: mostrar las coordenadas del lightmap" },
+        { "Graphics fix (the game restarts)", "Grafikfix (das Spiel startet neu)", "Corrección gráfica (el juego se reinicia)" },
+        { "No file picker on this phone", "Kein Dateiauswahl-Tool auf diesem Handy", "No hay selector de archivos en este teléfono" },
+        { "No folder picker on this phone", "Kein Ordnerauswahl-Tool auf diesem Handy", "No hay selector de carpetas en este teléfono" },
+        { "That place can't be read as a folder: pick a folder in the phone's storage", "Dieser Ort kann nicht als Ordner gelesen werden: Wähle einen Ordner im Speicher des Handys", "No se puede leer ese lugar como carpeta: elige una carpeta en el almacenamiento del teléfono" },
+        { "Importing the dubbing...", "Synchronisation wird importiert...", "Importando el doblaje..." },
+        { "Dubbing imported: restarting with it", "Synchronisation importiert: Neustart damit", "Doblaje importado: reiniciando con él" },
+        { "Importing the mod...", "Mod wird importiert...", "Importando el mod..." },
+        { "Mod imported: restarting with it", "Mod importiert: Neustart damit", "Mod importado: reiniciando con él" },
+        { "Game saved (slot ", "Spiel gespeichert (Slot ", "Partida guardada (ranura " },
+        { "Vulkan doesn't work on this phone: switching to OpenGL ES", "Vulkan funktioniert auf diesem Handy nicht: Wechsel zu OpenGL ES", "Vulkan no funciona en este teléfono: cambiando a OpenGL ES" },
+        { "Go to level…", "Zu Level springen…", "Ir al nivel…" },
+        { "Set story state…", "Story-Status setzen…", "Establecer estado de la historia…" },
+        { "Give all spells", "Alle Zauber geben", "Dar todos los hechizos" },
+        { "God mode (on / off)", "Gottmodus (an / aus)", "Modo dios (activado / desactivado)" },
+        { "Fly", "Fliegen", "Volar" },
+        { "Ghost (fly through walls)", "Geist (durch Wände fliegen)", "Fantasma (atravesar paredes volando)" },
+        { "Walk again", "Wieder gehen", "Volver a caminar" },
+        { "HP2 debug", "HP2-Debug", "Depuración de HP2" },
+        { "No maps found in ", "Keine Karten gefunden in ", "No se encontraron mapas en " },
+        { "Go to level", "Zu Level springen", "Ir al nivel" },
+        { "Story state (applies on the next level load)", "Story-Status (gilt beim nächsten Laden des Levels)", "Estado de la historia (se aplica al cargar el siguiente nivel)" },
+        { "Language", "Sprache", "Idioma" },
+        { "✓ Current", "✓ Aktuell", "✓ Actual" },
+        { "Choose folder  ›", "Ordner wählen  ›", "Elegir carpeta  ›" },
+        { "Restart in it  ›", "Darin neu starten  ›", "Reiniciar con ella  ›" },
+        { "Picking another language restarts the game (unsaved progress is lost)", "Eine andere Sprache zu wählen startet das Spiel neu (nicht gespeicherter Fortschritt geht verloren)", "Elegir otro idioma reinicia el juego (se pierde el progreso no guardado)" },
+        { "Fixed camera level", "Level mit fester Kamera", "Nivel con cámara fija" },
+        { "The game fixes the camera here and the movement mod aims along it,", "Das Spiel fixiert hier die Kamera, und die Bewegungsmod richtet sich danach aus,", "El juego fija la cámara aquí y el mod de movimiento apunta según ella," },
+        { "so you can't aim. Switch the mod off? The game saves,", "sodass du nicht zielen kannst. Mod ausschalten? Das Spiel speichert,", "así que no puedes apuntar. ¿Desactivar el mod? El juego guarda," },
+        { "restarts and loads this save by itself.", "startet neu und lädt diesen Spielstand von selbst.", "se reinicia y carga esta partida por sí solo." },
+        { "Switch off and restart", "Ausschalten und neu starten", "Desactivar y reiniciar" },
+        { "Keep the mod", "Mod behalten", "Mantener el mod" },
+        { "Could not save: the mod stays on", "Speichern nicht möglich: die Mod bleibt an", "No se pudo guardar: el mod sigue activado" },
+        { "Display", "Anzeige", "Pantalla" },
+        { "Controls", "Steuerung", "Controles" },
+        { "Game", "Spiel", "Juego" },
+        { "DISPLAY", "ANZEIGE", "PANTALLA" },
+        { "VIEW", "ANSICHT", "VISTA" },
+        { "CONTROLS", "STEUERUNG", "CONTROLES" },
+        { "AS THE GAME INTENDED", "WIE VOM SPIEL VORGESEHEN", "TAL COMO LO PENSÓ EL JUEGO" },
+        { "GAME", "SPIEL", "JUEGO" },
+        { "MORE", "MEHR", "MÁS" },
+        { "Settings", "Einstellungen", "Ajustes" },
+        { "First person", "Ich-Perspektive", "Primera persona" },
+        { "Camera in Harry's head while walking", "Kamera in Harrys Kopf beim Gehen", "Cámara en la cabeza de Harry al caminar" },
+        { "FPS counter", "FPS-Zähler", "Contador de FPS" },
+        { "Frames per second by the toolbar", "Bilder pro Sekunde in der Werkzeugleiste", "Fotogramas por segundo junto a la barra de herramientas" },
+        { "Auto jump", "Automatisch springen", "Salto automático" },
+        { "Harry jumps by himself at ledges", "Harry springt bei Kanten selbstständig", "Harry salta solo en los bordes" },
+        { "Invert wand", "Zauberstab invertieren", "Invertir varita" },
+        { "Flip the wand's up/down aim", "Das Oben/Unten-Zielen des Zauberstabs umkehren", "Invierte la puntería arriba/abajo de la varita" },
+        { "Control layout", "Steuerungslayout", "Disposición de controles" },
+        { "Move and resize the buttons", "Tasten verschieben und in der Größe ändern", "Mueve y cambia el tamaño de los botones" },
+        { "Edit", "Bearbeiten", "Editar" },
+        { "No cutscene skip", "Kein Überspringen von Zwischensequenzen", "Sin saltar escenas" },
+        { "No SKIP button, no hold-Y skip", "Keine SKIP-Taste, kein Überspringen mit gedrückter Y-Taste", "Sin botón SALTAR, sin saltar con Y mantenido" },
+        { "No quick save", "Kein Schnellspeichern", "Sin guardado rápido" },
+        { "No save button, no pad save", "Keine Speichern-Taste, kein Speichern über das Pad", "Sin botón de guardar, sin guardar con el mando" },
+        { "Wand sensitivity", "Zauberstab-Empfindlichkeit", "Sensibilidad de la varita" },
+        { "How fast the wand stick turns the camera", "Wie schnell der Zauberstab-Stick die Kamera dreht", "Velocidad con la que la palanca de la varita gira la cámara" },
+        { "Texts and voices", "Texte und Stimmen", "Textos y voces" },
+        { "Movement mod", "Bewegungsmod", "Mod de movimiento" },
+        { "Tap again: pick its zip, the game restarts", "Nochmal tippen: ZIP wählen, das Spiel startet neu", "Toca de nuevo: elige su zip, el juego se reinicia" },
+        { "By AdamJD: camera, climbing, aim", "Von AdamJD: Kamera, Klettern, Zielen", "Por AdamJD: cámara, escalada, puntería" },
+        { "Choose file", "Datei wählen", "Elegir archivo" },
+        { "Tap again: restart without it", "Nochmal tippen: ohne sie neu starten", "Toca de nuevo: reiniciar sin él" },
+        { "Tap again: restart with it", "Nochmal tippen: mit ihr neu starten", "Toca de nuevo: reiniciar con él" },
+        { "Tap again: restart with ", "Nochmal tippen: neu starten mit ", "Toca de nuevo: reiniciar con " },
+        { "Try the other if the game is slow or odd", "Probier den anderen, wenn das Spiel langsam oder seltsam läuft", "Prueba el otro si el juego va lento o raro" },
+        { " (auto)", " (auto)", " (automático)" },
+        { "Debug menu", "Debug-Menü", "Menú de depuración" },
+        { "Level select, story state, spells", "Levelauswahl, Story-Status, Zauber", "Selección de nivel, estado de la historia, hechizos" },
+        { "Open", "Öffnen", "Abrir" },
+        { "Debug mode", "Debug-Modus", "Modo de depuración" },
+        { "Level Select in the main menu", "Levelauswahl im Hauptmenü", "Selección de nivel en el menú principal" },
+        { "Graphics fix", "Grafikfix", "Corrección gráfica" },
+        { "For OpenGL glitches", "Bei OpenGL-Fehlern", "Para fallos de OpenGL" },
+        { "Performance log", "Leistungsprotokoll", "Registro de rendimiento" },
+        { "Frame timings in the log, to send", "Bildzeiten im Protokoll zum Senden", "Tiempos de fotograma en el registro, para enviar" },
+        { "Play Harry Potter 1", "Harry Potter 1 spielen", "Jugar a Harry Potter 1" },
+        { "Play Harry Potter 2", "Harry Potter 2 spielen", "Jugar a Harry Potter 2" },
+        { "Tap again: the game restarts", "Nochmal tippen: das Spiel startet neu", "Toca de nuevo: el juego se reinicia" },
+        { "Switch to the other game", "Zum anderen Spiel wechseln", "Cambiar al otro juego" },
+        { "Tap again", "Nochmal tippen", "Toca de nuevo" },
+        { "How to play", "So spielst du", "Cómo jugar" },
+        { "Left thumb", "Linker Daumen", "Pulgar izquierdo" },
+        { "Drag anywhere on the left half to walk (or the arrow pad, if Settings > Controls has it)", "Auf der linken Hälfte irgendwo ziehen zum Gehen (oder das Pfeilpad, falls es in Einstellungen > Steuerung aktiv ist)", "Arrastra en cualquier parte de la mitad izquierda para caminar (o con el pad de flechas, si Ajustes > Controles lo tiene)" },
+        { "Right thumb", "Rechter Daumen", "Pulgar derecho" },
+        { "Drag to look around. In menus the finger is the mouse: tap, drag the sliders", "Ziehen zum Umsehen. In Menüs ist der Finger die Maus: tippen, Regler ziehen", "Arrastra para mirar alrededor. En los menús el dedo es el ratón: toca, arrastra los deslizadores" },
+        { "Wand button", "Zauberstab-Taste", "Botón de la varita" },
+        { "Cast the spell. In a spell lesson draw the symbol with your finger", "Den Zauber wirken. Im Zauberunterricht das Symbol mit dem Finger zeichnen", "Lanza el hechizo. En una lección de hechizos dibuja el símbolo con el dedo" },
+        { "Jump button", "Sprungtaste", "Botón de salto" },
+        { "Jump (Auto jump does it at ledges). The same key skips a cutscene", "Springen (Automatisch springen erledigt das an Kanten). Dieselbe Taste überspringt eine Zwischensequenz", "Salta (el salto automático lo hace en los bordes). La misma tecla salta una escena" },
+        { "Toolbar", "Werkzeugleiste", "Barra de herramientas" },
+        { "Settings, save anywhere (the book) and the pause menu (Esc). Hold Esc to send the logs", "Einstellungen, überall speichern (das Buch) und das Pausenmenü (Esc). Esc gedrückt halten, um die Protokolle zu senden", "Ajustes, guardar en cualquier lugar (el libro) y el menú de pausa (Esc). Mantén Esc para enviar los registros" },
+        { "Settings > Control layout: drag the buttons where you want them, and resize them", "Einstellungen > Steuerungslayout: Tasten dorthin ziehen, wo du sie willst, und ihre Größe ändern", "Ajustes > Disposición de controles: arrastra los botones donde quieras y cambia su tamaño" },
+        { "Two-finger tap", "Zweifingertipp", "Toque con dos dedos" },
+        { "Tap the screen with two fingers: drink a Wiggenweld potion", "Mit zwei Fingern auf den Bildschirm tippen: einen Wiggenweld-Trank trinken", "Toca la pantalla con dos dedos: bebe una poción Wiggenweld" },
+        { "Gamepad", "Gamepad", "Mando" },
+        { "A jump, X wand, Y save, B menu, a stick click drinks the potion. Hold Y to skip a cutscene", "A springen, X Zauberstab, Y speichern, B Menü, Stick-Klick trinkt den Trank. Y gedrückt halten, um eine Zwischensequenz zu überspringen", "A saltar, X varita, Y guardar, B menú, pulsar una palanca bebe la poción. Mantén Y para saltar una escena" },
+        { "A jump, X wand, Y save, B menu. Hold Y to skip a cutscene", "A springen, X Zauberstab, Y speichern, B Menü. Y gedrückt halten, um eine Zwischensequenz zu überspringen", "A saltar, X varita, Y guardar, B menú. Mantén Y para saltar una escena" },
+        { "Touch anywhere to close", "Irgendwo antippen zum Schließen", "Toca en cualquier parte para cerrar" },
+        { "Floating stick", "Schwebender Stick", "Palanca flotante" },
+        { "Arrow buttons", "Pfeiltasten", "Botones de flechas" },
+        { "Render scale", "Renderskalierung", "Escala de renderizado" },
+        { "Subtitles and HUD size", "Untertitel- und HUD-Größe", "Tamaño de subtítulos y HUD" },
+        { "Field of view", "Sichtfeld", "Campo de visión" },
+        { "FPS limit", "FPS-Limit", "Límite de FPS" },
+        { "  (default)", "  (Standard)", "  (predeterminado)" },
+        { "Arrow pad", "Pfeilpad", "Pad de flechas" },
+        { "Drag a control to move it", "Eine Steuerung ziehen, um sie zu verschieben", "Arrastra un control para moverlo" },
+        { "  ·  size ", "  ·  Größe ", "  ·  tamaño " },
+        { "Reset", "Zurücksetzen", "Restablecer" },
+        { "Hold Y", "Y gedrückt halten", "Mantener Y" },
+        { "SKIP ›", "SKIP ›", "SALTAR ›" },
+        { "Interface size ", "Oberflächengröße ", "Tamaño de la interfaz " },
+        { "Harry Potter 1 and 2 on Android", "Harry Potter 1 und 2 auf Android", "Harry Potter 1 y 2 en Android" },
+        { "Game folders", "Spielordner", "Carpetas del juego" },
+        { "Harry Potter and the", "Harry Potter und der", "Harry Potter y la" },
+        { "Chamber of Secrets", "Kammer des Schreckens", "Cámara Secreta" },
+        { "Prisoner of Azkaban", "Gefangene von Askaban", "Prisionero de Azkaban" },
+        { "Harry Potter and the Prisoner of Azkaban", "Harry Potter und der Gefangene von Askaban", "Harry Potter y el prisionero de Azkaban" },
+        { "Philosopher's Stone", "Stein der Weisen", "Piedra Filosofal" },
+        { "Harry Potter and the Chamber of Secrets", "Harry Potter und die Kammer des Schreckens", "Harry Potter y la Cámara Secreta" },
+        { "Harry Potter and the Philosopher's Stone", "Harry Potter und der Stein der Weisen", "Harry Potter y la Piedra Filosofal" },
+        { "Saved game", "Spielstand", "Partida guardada" },
+        { "Renderer", "Renderer", "Renderizador" },
+        { "Which one runs better depends on the phone. If the game is slow, looks wrong or does not start, try the other.", "Welcher besser läuft, hängt vom Handy ab. Wenn das Spiel langsam ist, falsch aussieht oder nicht startet, probier den anderen.", "Cuál funciona mejor depende del teléfono. Si el juego va lento, se ve mal o no arranca, prueba el otro." },
+        { "Remember my choice", "Meine Wahl merken", "Recordar mi elección" },
+        { "HD textures", "HD-Texturen", "Texturas HD" },
+        { "Sharper walls, doors, characters, the main menu and the storybooks (ESRGAN upscale pack, about 1.3 GB on the phone). Needs a lot of memory: untick it if the game stutters or closes.", "Schärfere Wände, Türen, Figuren, das Hauptmenü und die Märchenbücher (ESRGAN-Upscale-Paket, etwa 1,3 GB auf dem Handy). Braucht viel Speicher: Haken entfernen, wenn das Spiel ruckelt oder schließt.", "Paredes, puertas, personajes, el menú principal y los libros de cuentos más nítidos (paquete de escalado ESRGAN, unos 1,3 GB en el teléfono). Necesita mucha memoria: desmárcalo si el juego se entrecorta o se cierra." },
+        { "Installing textures ", "Texturen werden installiert ", "Instalando texturas " },
+        { "Removing the HD textures ", "HD-Texturen werden entfernt ", "Eliminando las texturas HD " },
+        { "Choose the zip of an HD texture pack (the ESRGAN upscale pack: a zip with a Textures folder in it). It is unpacked into the game folder on Play, about 1.3 GB; untick the box to take it out again.", "Wähle das ZIP eines HD-Texturpakets (das ESRGAN-Upscale-Paket: ein ZIP mit einem Ordner Textures darin). Es wird beim Start in den Spielordner entpackt, etwa 1,3 GB; Haken entfernen, um es wieder zu entfernen.", "Elige el zip de un paquete de texturas HD (el paquete de escalado ESRGAN: un zip con una carpeta Textures dentro). Se descomprime en la carpeta del juego al pulsar Jugar, unos 1,3 GB; desmarca la casilla para quitarlo de nuevo." },
+        { " will be unpacked when you press Play", " wird beim Drücken auf Spielen entpackt", " se descomprimirá al pulsar Jugar" },
+        { " has no Textures folder with .dds files in it", " hat keinen Ordner Textures mit .dds-Dateien", " no tiene una carpeta Textures con archivos .dds" },
+        { "Play", "Spielen", "Jugar" },
+        { "Start a new game", "Neues Spiel starten", "Empezar una partida nueva" },
+        { "Continue slot ", "Slot fortsetzen ", "Continuar en la ranura " },
+        { "Delete the saved game in slot ", "Spielstand in Slot löschen ", "Borrar la partida guardada en la ranura " },
+        { "New game", "Neues Spiel", "Nueva partida" },
+        { "Start from the beginning", "Von vorne beginnen", "Empezar desde el principio" },
+        { "Slot ", "Slot ", "Ranura " },
+        { "Empty", "Leer", "Vacía" },
+        { "Delete the saved game?", "Spielstand löschen?", "¿Borrar la partida guardada?" },
+        { " of Harry Potter 2 will be deleted for good.", " von Harry Potter 2 wird endgültig gelöscht.", " de Harry Potter 2 se borrará para siempre." },
+        { "Delete", "Löschen", "Borrar" },
+        { "Cancel", "Abbrechen", "Cancelar" },
+        { "Allow \"All files access\" for Flipendo, then come back.", "Erlaube \"Zugriff auf alle Dateien\" für Flipendo und komm dann zurück.", "Permite \"Acceso a todos los archivos\" para Flipendo y vuelve." },
+        { "Allow access to the phone's storage for Flipendo: it reads the game from there.", "Erlaube Flipendo den Zugriff auf den Speicher des Handys: Es liest das Spiel von dort.", "Permite a Flipendo el acceso al almacenamiento del teléfono: lee el juego desde ahí." },
+        { "Flipendo needs access to the phone's storage to read the game. Open the app again to allow it.", "Flipendo braucht Zugriff auf den Speicher des Handys, um das Spiel zu lesen. Öffne die App erneut, um es zu erlauben.", "Flipendo necesita acceso al almacenamiento del teléfono para leer el juego. Abre la app de nuevo para permitirlo." },
+        { "Switching the mod failed: ", "Wechsel der Mod fehlgeschlagen: ", "Error al cambiar el mod: " },
+        { "Installing the edition ", "Edition wird installiert ", "Instalando la edición " },
+        { "Flipendo for Android ", "Flipendo für Android ", "Flipendo para Android " },
+        { "No folder picker on this phone: copy the game to ", "Kein Ordnerauswahl-Tool auf diesem Handy: kopiere das Spiel nach ", "No hay selector de carpetas en este teléfono: copia el juego a " },
+        { " instead", " stattdessen", " en su lugar" },
+        { "HARRY POTTER 2: CHAMBER OF SECRETS", "HARRY POTTER 2: DIE KAMMER DES SCHRECKENS", "HARRY POTTER 2: LA CÁMARA SECRETA" },
+        { "HARRY POTTER 3: PRISONER OF AZKABAN", "HARRY POTTER 3: DER GEFANGENE VON ASKABAN", "HARRY POTTER 3: EL PRISIONERO DE AZKABAN" },
+        { "HARRY POTTER 1: PHILOSOPHER'S STONE", "HARRY POTTER 1: DER STEIN DER WEISEN", "HARRY POTTER 1: LA PIEDRA FILOSOFAL" },
+        { "  (default place)", "  (Standardort)", "  (lugar predeterminado)" },
+        { "No game in ", "Kein Spiel in ", "No hay juego en " },
+        { " (looked for System/", " (gesucht nach System/", " (buscado en System/" },
+        { " there and one or two folders deeper)", " dort und ein bis zwei Ordner tiefer)", " allí y en una o dos carpetas más abajo)" },
+        { "Not found yet. Looked in ", "Noch nicht gefunden. Gesucht in ", "Aún no encontrado. Buscado en " },
+        { "Choose folder", "Ordner wählen", "Elegir carpeta" },
+        { "Use default", "Standard verwenden", "Usar predeterminada" },
+        { "Done", "Fertig", "Listo" },
+        { "Where each game is on this phone. Pick the folder you copied from the PC (the one with System, Maps, ", "Wo jedes Spiel auf diesem Handy liegt. Wähle den Ordner, den du vom PC kopiert hast (den mit System, Maps, ", "Dónde está cada juego en este teléfono. Elige la carpeta que copiaste desde el PC (la que tiene System, Maps, " },
+        { "Textures and Sounds); a folder one or two levels above it works too. The games are independent: ", "Textures und Sounds); ein Ordner ein bis zwei Ebenen darüber funktioniert auch. Die Spiele sind unabhängig: ", "Textures y Sounds); una carpeta uno o dos niveles por encima también sirve. Los juegos son independientes: " },
+        { "either one starts without the other's files.", "jedes startet auch ohne die Dateien des anderen.", "cualquiera arranca sin los archivos del otro." },
+        { "That place can't be read as a folder: pick one on the phone or an SD card", "Dieser Ort kann nicht als Ordner gelesen werden: Wähle einen auf dem Handy oder einer SD-Karte", "No se puede leer ese lugar como carpeta: elige una en el teléfono o en una tarjeta SD" },
+        { "Harry Potter 2", "Harry Potter 2", "Harry Potter 2" },
+        { "Harry Potter 3", "Harry Potter 3", "Harry Potter 3" },
+        { "Harry Potter 1", "Harry Potter 1", "Harry Potter 1" },
+        { " not found)", " nicht gefunden)", " no encontrado)" },
+        { "(a place the app can't read as a folder)", "(ein Ort, den die App nicht als Ordner lesen kann)", "(un lugar que la app no puede leer como carpeta)" },
+        { "Game data not found", "Spieldaten nicht gefunden", "No se encuentran los datos del juego" },
+        { "Copy the game folder from your PC (the one that contains System, Maps, Textures, Sounds and Music) to the phone, ", "Kopiere den Spielordner vom PC (den mit System, Maps, Textures, Sounds und Music) auf das Handy, ", "Copia la carpeta del juego desde tu PC (la que contiene System, Maps, Textures, Sounds y Music) al teléfono, " },
+        { "into Internal storage / FlipendoHP, then tap Check again.\n\n", "in den internen Speicher / FlipendoHP, dann auf Erneut prüfen tippen.\n\n", "en Almacenamiento interno / FlipendoHP, y luego toca Comprobar de nuevo.\n\n" },
+        { "Already copied it somewhere else? Tap Choose folder and pick it (or the folder it is in).", "Schon woanders kopiert? Auf Ordner wählen tippen und ihn auswählen (oder den Ordner, in dem er liegt).", "¿Ya lo copiaste en otro sitio? Toca Elegir carpeta y selecciónala (o la carpeta que la contiene)." },
+        { "Check again", "Erneut prüfen", "Comprobar de nuevo" },
+        { "Send logs", "Protokolle senden", "Enviar registros" },
+        { "This isn't the game folder", "Das ist nicht der Spielordner", "Esta no es la carpeta del juego" },
+        { "There is no game in ", "Kein Spiel in ", "No hay juego en " },
+        { " (looked for System/HP.exe there and one or two folders deeper).\n\n", " (gesucht nach System/HP.exe dort und ein bis zwei Ordner tiefer).\n\n", " (buscado System/HP.exe allí y en una o dos carpetas más abajo).\n\n" },
+        { "Pick the folder you copied from the PC: it contains System, Maps, Textures, Sounds and Music. ", "Wähle den Ordner, den du vom PC kopiert hast: Er enthält System, Maps, Textures, Sounds und Music. ", "Elige la carpeta que copiaste desde el PC: contiene System, Maps, Textures, Sounds y Music. " },
+        { "Or copy the game into Internal storage / ", "Oder kopiere das Spiel in den internen Speicher / ", "O copia el juego en Almacenamiento interno / " },
+        { " and tap Check again.", " und tippe auf Erneut prüfen.", " y toca Comprobar de nuevo." },
+        { "Choose another folder", "Anderen Ordner wählen", "Elegir otra carpeta" },
+        { "The game stopped (", "Das Spiel wurde beendet (", "El juego se detuvo (" },
+        { "The game crashed last time (", "Das Spiel ist letztes Mal abgestürzt (", "El juego se cerró inesperadamente la última vez (" },
+        { "Something went wrong", "Etwas ist schiefgelaufen", "Algo salió mal" },
+        { "\n\nPlease send the logs: they help fix it. Pick an app to send them with (Telegram, mail, ...), ", "\n\nBitte sende die Protokolle: Sie helfen, das Problem zu beheben. Wähle eine App zum Senden (Telegram, Mail, ...), ", "\n\nEnvía los registros, ayudan a corregirlo. Elige una app para enviarlos (Telegram, correo, ...), " },
+        { "or share them in t.me/flipendodroid. A copy is also saved in Download.", "oder teile sie in t.me/flipendodroid. Eine Kopie wird außerdem im Ordner Download gespeichert.", "o compártelos en t.me/flipendodroid. También se guarda una copia en Descargas." },
+        { "Play anyway", "Trotzdem spielen", "Jugar igualmente" },
+        { "The game folder has no Sounds folder", "Dem Spielordner fehlt der Ordner Sounds", "La carpeta del juego no tiene carpeta Sounds" },
+        { "No sound files of the game in ", "Keine Sounddateien des Spiels in ", "No hay archivos de sonido del juego en " },
+        { ": choose the dubbing's Sounds folder (AllDialog.uax and the others)", ": Wähle den Ordner Sounds der Synchronisation (AllDialog.uax und die anderen)", ": elige la carpeta Sounds del doblaje (AllDialog.uax y los demás)" },
+        { "These sound files are the same as the game's: nothing to change", "Diese Sounddateien sind dieselben wie die des Spiels: nichts zu ändern", "Estos archivos de sonido son los mismos que los del juego: nada que cambiar" },
+        { "Could not keep the dubbing in the app's files", "Die Synchronisation konnte nicht in den Dateien der App gespeichert werden", "No se pudo guardar el doblaje en los archivos de la app" },
+        { "Could not read the folder: ", "Ordner konnte nicht gelesen werden: ", "No se pudo leer la carpeta: " },
+        { "Installing the dubbing ", "Synchronisation wird installiert ", "Instalando el doblaje " },
+        { "Restoring ", "Wiederherstellung von ", "Restaurando " },
+        { "Installing the Russian translation ", "Russische Übersetzung wird installiert ", "Instalando la traducción al ruso " },
+        { "Could not open ", "Konnte nicht öffnen ", "No se pudo abrir " },
+        { " is not a zip archive or a .u package", " ist weder ein ZIP-Archiv noch ein .u-Paket", " no es un archivo zip ni un paquete .u" },
+        { "No .u packages in what you picked: choose the mod's zip (or its .u files)", "Keine .u-Pakete in der Auswahl: Wähle das ZIP der Mod (oder ihre .u-Dateien)", "No hay paquetes .u en lo que elegiste: elige el zip del mod (o sus archivos .u)" },
+        { "These packages are not the game's own: ", "Diese Pakete gehören nicht zum Spiel: ", "Estos paquetes no son del propio juego: " },
+        { ". Choose a mod that replaces the game's scripts (HarryPotter.u, HPBase.u, ...).", ". Wähle eine Mod, die die Skripte des Spiels ersetzt (HarryPotter.u, HPBase.u, ...).", ". Elige un mod que reemplace los scripts del juego (HarryPotter.u, HPBase.u, ...)." },
+        { "Could not keep the mod in the app's files", "Die Mod konnte nicht in den Dateien der App gespeichert werden", "No se pudo guardar el mod en los archivos de la app" },
+        { "Could not read the file: ", "Datei konnte nicht gelesen werden: ", "No se pudo leer el archivo: " },
+        { "Switching to ", "Wechsel zu ", "Cambiando a " },
+        { "Installing the mod ", "Mod wird installiert ", "Instalando el mod " },
+        { "Installing Harry Potter 2 ", "Harry Potter 2 wird installiert ", "Instalando Harry Potter 2 " },
+        { "Installing Harry Potter 2 failed: ", "Installation von Harry Potter 2 fehlgeschlagen: ", "Error al instalar Harry Potter 2: " },
+        { "Installing Harry Potter 3 ", "Harry Potter 3 wird installiert ", "Instalando Harry Potter 3 " },
+        { "Installing Harry Potter 3 failed: ", "Installation von Harry Potter 3 fehlgeschlagen: ", "Error al instalar Harry Potter 3: " },
+        { "Installing game data ", "Spieldaten werden installiert ", "Instalando datos del juego " },
+        { "Installing the game data failed: ", "Installation der Spieldaten fehlgeschlagen: ", "Error al instalar los datos del juego: " },
     };
 }

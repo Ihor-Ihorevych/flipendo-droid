@@ -49,6 +49,17 @@ public class FlipendoActivity extends SDLActivity {
     /** Degrees added to the game's field of view (engine side: KW::ViewFovAngle). */
     static float fovOffset = 0f;
     static final float FOV_MIN = -20f, FOV_MAX = 40f;
+    /** HP3 starts 20 degrees wider than the game lays the view out; its own saved value, so players who had the shared 0 get it too. */
+    static final float HP3_FOV_DEFAULT = 20f;
+
+    /** The saved setting for the field of view: HP3 keeps its own (default HP3_FOV_DEFAULT), the other games the shared one (default 0). */
+    String fovPrefKey() {
+        return isHp3() ? "fovOffsetHp3" : "fovOffset";
+    }
+
+    float fovPrefDefault() {
+        return isHp3() ? HP3_FOV_DEFAULT : 0f;
+    }
     /** HP's debug mode (Level Select in the main menu, debug text); off by default. */
     static boolean debugMode = false;
 
@@ -353,7 +364,7 @@ public class FlipendoActivity extends SDLActivity {
     private void saveScales() {
         getSharedPreferences("flipendo", MODE_PRIVATE).edit()
                 .putFloat("renderScale", surfaceScale).putFloat("uiScale", uiScale)
-                .putFloat("fovOffset", fovOffset).putBoolean("debugMode", debugMode).putBoolean("showFps", showFps).putBoolean("autoJump", autoJump).putBoolean("invertWand", invertWand).putFloat("wandSens", wandSens).putFloat("cameraSens", cameraSens).putBoolean("noSkip", noSkip).putBoolean("noQuickSave", noQuickSave).putBoolean("perfLog", perfLog).putBoolean("firstPerson", firstPerson).putInt("fpsLimit", fpsLimit).apply();
+                .putFloat(fovPrefKey(), fovOffset).putBoolean("debugMode", debugMode).putBoolean("showFps", showFps).putBoolean("autoJump", autoJump).putBoolean("invertWand", invertWand).putFloat("wandSens", wandSens).putFloat("cameraSens", cameraSens).putBoolean("noSkip", noSkip).putBoolean("noQuickSave", noQuickSave).putBoolean("perfLog", perfLog).putBoolean("firstPerson", firstPerson).putInt("fpsLimit", fpsLimit).apply();
     }
 
     /** Resizes the render surface (the engine rebuilds its scene textures and swapchain for the new size). */
@@ -742,7 +753,7 @@ public class FlipendoActivity extends SDLActivity {
         android.content.SharedPreferences prefs = getSharedPreferences("flipendo", MODE_PRIVATE);
         dpadMode = prefs.getBoolean("dpad", false);
         applyUiScale(prefs.getFloat("uiScale", 1.0f), false);
-        applyFovOffset(prefs.getFloat("fovOffset", 0f), false);
+        applyFovOffset(prefs.getFloat(fovPrefKey(), fovPrefDefault()), false);
         applyDebugMode(prefs.getBoolean("debugMode", false), false);
         showFps = prefs.getBoolean("showFps", false);
         applyAutoJump(prefs.getBoolean("autoJump", true), false);
@@ -1393,8 +1404,9 @@ public class FlipendoActivity extends SDLActivity {
         final Runnable padSkipFire = new Runnable() {
             public void run() {
                 if (!padSkipHeld || !cutsceneShown) return;
-                key(KeyEvent.KEYCODE_SPACE, true);
-                postDelayed(new Runnable() { public void run() { key(KeyEvent.KEYCODE_SPACE, false); } }, 120);
+                final int skipKey = skipKey();
+                key(skipKey, true);
+                postDelayed(new Runnable() { public void run() { key(skipKey, false); } }, 120);
             }
         };
 
@@ -2648,8 +2660,13 @@ public class FlipendoActivity extends SDLActivity {
             return null;
         }
 
+        /** The key that skips a cutscene: Enter in HP3 (its BypassCutscene; Space is its jump), Space in HP1 and HP2. */
+        int skipKey() {
+            return isHp3Game() ? KeyEvent.KEYCODE_ENTER : KeyEvent.KEYCODE_SPACE;
+        }
+
         void key(int keycode, boolean down) {
-            if (noSkip && cutsceneShown && keycode == KeyEvent.KEYCODE_SPACE) return; // Space is the skip: nothing sends it in a cutscene
+            if (noSkip && cutsceneShown && (keycode == KeyEvent.KEYCODE_SPACE || keycode == skipKey())) return; // the skip key: nothing sends it in a cutscene
             if (down) SDLActivity.onNativeKeyDown(keycode); else SDLActivity.onNativeKeyUp(keycode);
         }
 
@@ -2669,7 +2686,7 @@ public class FlipendoActivity extends SDLActivity {
                 SDLActivity.onNativeMouse(down ? b.mouse : 0, down ? MotionEvent.ACTION_DOWN : MotionEvent.ACTION_UP,
                         0f, 0f, true); // a click without moving the cursor: an absolute position here turned the mod's camera
             else
-                key(b.key, down);
+                key(b == skip ? skipKey() : b.key, down);
         }
 
         void setDir(int i, boolean down) {

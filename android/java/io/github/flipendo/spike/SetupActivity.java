@@ -1259,6 +1259,7 @@ public class SetupActivity extends Activity {
                     } catch (IOException e) {
                         android.util.Log.e("flipendo", "the text translation failed: " + e);
                     }
+                    applyAddonLanguage(found, chosenLanguage(SetupActivity.this));
                     try {
                         applyVoice(found, VOICE_LANG.equals(chosenLanguage(SetupActivity.this)));
                     } catch (IOException e) {
@@ -1463,26 +1464,7 @@ public class SetupActivity extends Activity {
      */
     private void setHp2IniLanguage(File system, boolean russian) {
         String value = russian ? "rus" : (findIgnoringCase(system, "HpDialog.usa").isFile() ? "usa" : "int");
-        for (String name : new String[] { "default.ini", "SE-Game.ini" }) {
-            File ini = findIgnoringCase(system, name);
-            if (!ini.isFile()) {
-                continue;
-            }
-            try {
-                String text = new String(readAll(new java.io.FileInputStream(ini)), java.nio.charset.StandardCharsets.ISO_8859_1);
-                String changed = text.replaceFirst("(?m)^Language=.*?(\r?)$", "Language=" + value + "$1");
-                if (!changed.equals(text)) {
-                    java.io.FileOutputStream out = new java.io.FileOutputStream(ini);
-                    try {
-                        out.write(changed.getBytes(java.nio.charset.StandardCharsets.ISO_8859_1));
-                    } finally {
-                        out.close();
-                    }
-                }
-            } catch (IOException e) {
-                android.util.Log.e("flipendo", "could not set the language in " + name + ": " + e);
-            }
-        }
+        writeIniLanguage(system, value, "default.ini", "SE-Game.ini");
     }
 
     private void applyHp2Language(File game) throws IOException {
@@ -2269,7 +2251,103 @@ public class SetupActivity extends Activity {
         if (hasImportedVoice(context)) {
             out.add(new String[] { VOICE_LANG, "Русский (своя озвучка)", TEXT_LANG }); // its voices and the Russian text
         }
+        out.addAll(findAddonLanguages(hp1Folder(context)));
         return out;
+    }
+
+    // Another release's language files (the German edition's HPMenu.ger, Sounds/AllDialog.ger_uax, ...) copied into the HP1 folder
+    // are a language of their own: the game takes its texts and voices from them when its ini says Language=<ext>.
+    static final String ADDON_PREFIX = "addon-";
+    private static final String[][] ADDON_NAMES = {
+        { "ger", "Deutsch" }, { "fra", "Français" }, { "est", "Español" }, { "ita", "Italiano" }, { "dut", "Nederlands" },
+        { "swe", "Svenska" }, { "dan", "Dansk" }, { "nor", "Norsk" }, { "fin", "Suomi" }, { "por", "Português" },
+        { "pol", "Polski" }, { "cze", "Čeština" }, { "hun", "Magyar" },
+    };
+
+    /** The HP1 folder in use (the one the player picked, else the default place); null when there is none. */
+    static File hp1Folder(android.content.Context context) {
+        String picked = context.getSharedPreferences("setup", android.content.Context.MODE_PRIVATE).getString(dirKey("hp1"), null);
+        File found = picked != null ? findGameFor("hp1", new File(picked), 2) : null;
+        return found != null ? found : findGameFor("hp1", new File(defaultDir("hp1")), 2);
+    }
+
+    /** The language add-ons a game folder holds as {"addon-<ext>", name}: its System folder has an HpMenu.<ext> besides the English .int. */
+    static List<String[]> findAddonLanguages(File game) {
+        List<String[]> out = new ArrayList<>();
+        File[] files = game != null ? systemDir(game).listFiles() : null;
+        if (files == null) {
+            return out;
+        }
+        for (String[] known : ADDON_NAMES) {
+            for (File f : files) {
+                if (f.isFile() && f.getName().equalsIgnoreCase("HPMenu." + known[0])) {
+                    out.add(new String[] { ADDON_PREFIX + known[0], known[1] });
+                    break;
+                }
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Puts the chosen language in the engine's ini files ([Engine.Engine] Language=): an add-on's extension, or int when the
+     * choice is any other language (the translations that replace the .int files). The engine reads SE-HP.ini before Default.ini.
+     */
+    private static void applyAddonLanguage(File game, String chosen) {
+        File system = systemDir(game);
+        String value = chosen.startsWith(ADDON_PREFIX) ? chosen.substring(ADDON_PREFIX.length()) : "int";
+        if (!chosen.startsWith(ADDON_PREFIX)) {
+            // only an add-on's own setting is taken back; whatever else the ini says stays
+            String current = readIniLanguage(system, "SE-HP.ini");
+            boolean addon = false;
+            for (String[] a : findAddonLanguages(game)) {
+                addon |= a[0].equals(ADDON_PREFIX + current);
+            }
+            if (!addon) {
+                return;
+            }
+        }
+        writeIniLanguage(system, value, "Default.ini", "SE-HP.ini");
+    }
+
+    private static String readIniLanguage(File system, String name) {
+        File ini = findIgnoringCase(system, name);
+        try {
+            if (ini.isFile()) {
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?m)^Language=(.*?)\r?$")
+                        .matcher(new String(readAll(new java.io.FileInputStream(ini)), java.nio.charset.StandardCharsets.ISO_8859_1));
+                if (m.find()) {
+                    return m.group(1).trim().toLowerCase(java.util.Locale.ROOT);
+                }
+            }
+        } catch (IOException e) {
+            android.util.Log.e("flipendo", "could not read the language in " + name + ": " + e);
+        }
+        return "";
+    }
+
+    /** Sets Language= in the given ini files of a System folder (the ones that exist, and only when it changes). */
+    private static void writeIniLanguage(File system, String value, String... names) {
+        for (String name : names) {
+            File ini = findIgnoringCase(system, name);
+            if (!ini.isFile()) {
+                continue;
+            }
+            try {
+                String text = new String(readAll(new java.io.FileInputStream(ini)), java.nio.charset.StandardCharsets.ISO_8859_1);
+                String changed = text.replaceFirst("(?m)^Language=.*?(\r?)$", "Language=" + value + "$1");
+                if (!changed.equals(text)) {
+                    java.io.FileOutputStream out = new java.io.FileOutputStream(ini);
+                    try {
+                        out.write(changed.getBytes(java.nio.charset.StandardCharsets.ISO_8859_1));
+                    } finally {
+                        out.close();
+                    }
+                }
+            } catch (IOException e) {
+                android.util.Log.e("flipendo", "could not set the language in " + name + ": " + e);
+            }
+        }
     }
 
     // A dubbing imported from a folder the player picked (Settings > Language > "Add a dubbing from a folder"): the sound

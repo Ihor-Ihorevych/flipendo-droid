@@ -1,0 +1,146 @@
+﻿[hp3_adv1express]
+Line0=Bewege dich mit den Pfeiltasten oder den Tasten A, W, S und D.
+Picture0=Picture_00
+Count=1
+[hp3_adv2exppatronum]
+Line0=Wenn mehrere Dementoren Harry gleichzeitig angreifen, denk daran, dass sie auch von hinten kommen können. Dreh deine Spielfigur oft um und sei jederzeit bereit, einen Zauber zu wirken.
+Picture0=Picture_01
+Count=1
+[hp3_adv3library]
+Line0=Um eine Zwischensequenz zu überspringen, drücke ENTER. Tutorial-Zwischensequenzen können nicht übersprungen werden.
+Picture0=Picture_02
+Count=1
+[hp3_adv5shack]
+Line0=Wenn du gegen die Kobolde kämpfst, bewege deinen Helden vor und zurück, um ihren explodierenden Knallkörpern auszuweichen. Drücke A und D, um seitlich auszuweichen.
+Picture0=Picture_03
+Count=1
+[hp3_adv6paddock]
+Line0=Suche nach versteckten Preisen und denk daran, dass nur die Zauberherausforderungen mehrmals gespielt werden können.
+Picture0=Picture_04
+Count=1
+[hp3_beanbonus]
+Line0=Die Preise, die du im Bonusraum sammelst, kannst du im Laden von Fred und George ausgeben.
+Picture0=Picture_05
+Count=1
+[hp3_buckyexecuted]
+Line0=Drücke ab und zu Esc, um deine Aufgabenliste anzusehen. Um das Spiel zu gewinnen, musst du alles darauf erledigen.
+Picture0=Picture_06
+Count=1
+[hp3_ch1carperetractum]
+Line0=Drücke A und D, um seitlich auszuweichen, und W und S, um dich vor- und zurückzubewegen. Bewege die Maus, um dich zu drehen und zu zielen. Die linke Maustaste wirkt Zauber, die rechte lässt dich springen.
+Picture0=Picture_07
+Count=1
+[HP3_Ch1CarpeRetractumB]
+Line0=Sammle so viele Bohnen, Kürbispasteten und Kesselkuchen, wie du kannst: Im Laden von Fred und George werden sie dir sehr nützlich sein.
+Picture0=Picture_05
+Count=1
+[hp3_ch2draconifors]
+Line0=Du kannst die magischen Hasen mit der Maus steuern. Drück die rechte Taste, damit der Hase springt, und bewege die Maus, um ihn zu drehen. Bewege den Hasen mit den Pfeiltasten.
+Picture0=Picture_08_B
+Line1=Manche Preise sind nur mit den magischen Hasen und den kleinen Drachen erreichbar.
+Picture1=Picture_08_A
+Count=2
+[HP3_Ch2DraconiforsB]
+Line0=Sammle so viele Bohnen, Kürbispasteten und Kesselkuchen, wie du kannst: Im Laden von Fred und George werden sie dir sehr nützlich sein.
+Picture0=Picture_08_A
+Count=1
+[hp3_ch3glacius]
+Line0=Amazonas-Salamander sprühen Funken. Wenn du sie nicht rechtzeitig löschst, wird aus den Flammen ein neuer Salamander geboren.
+Picture0=Picture_09
+Count=1
+[HP3_Ch3GlaciusB]
+Line0=Sammle so viele Bohnen, Kürbispasteten und Kesselkuchen, wie du kannst: Im Laden von Fred und George werden sie dir sehr nützlich sein.
+Picture0=Picture_08_A
+Count=1
+[hp3_comc]
+Line0=Du kannst die kleinen Drachen und Buckbeak mit der Maus steuern. Drück die rechte Maustaste, damit das Wesen mit den Flügeln schlägt. Bewege die Maus, um die Richtung zu ändern.
+Picture0=Picture_10
+Count=1
+[hp3_darktower]
+Line0=Du kannst die Hippogreif-Koppel besuchen, wann immer du willst. Es gibt fünf Strecken, die du fliegen kannst, um einen vollständigen Satz Zauberkarten zu sammeln.
+Picture0=Picture_19_A
+Count=1
+[hp3_dementorbattle]
+Line0=Um "Expecto Patronum" zu wirken, halte die linke Maustaste gedrückt, bis der Lichtring mehr als die Hälfte des Zauberstabs entlang gewandert ist.
+Picture0=Picture_12_B
+Line1=Wenn mehrere Dementoren dich gleichzeitig angreifen, ist die Maus vielleicht einfacher zu benutzen. Bewege sie, um dich zu drehen, und nutze die linke Taste, um ein Ziel zu wählen und den Zauber zu wirken.
+Picture1=Picture_12
+Count=2
+[hp3_dungeonhub]
+Line0=Einige Geheimnisse von Hogwarts lassen sich nur gemeinsam mit Freunden öffnen. In diesen Fällen müssen Harry, Ron und Hermine alle Magie einsetzen.
+Picture0=Picture_13
+Count=1
+[HP3_FA1Ron]
+Line0=Zauberherausforderungen kannst du jederzeit wiederholen, aber Story-Missionen und die Abschlussprüfungen müssen über das Lademenü neu gestartet werden.
+Picture0=Picture_14
+Count=1
+[hp3_fa2hermione]
+Line0=Probier viel aus, wenn du den kleinen Drachen steuerst. Denk daran: Er könnte auch mehr tun müssen als nur zu fliegen!
+Picture0=Picture_15
+Count=1
+[hp3_fa3harry]
+Line0=Wenn mehrere Gegner dich gleichzeitig angreifen, hat eine Figur, die Angriffen ausweichen kann, viel bessere Gewinnchancen. Am einfachsten ist es, dich vor- und zurückzubewegen. Mit A und D kannst du auch seitlich ausweichen.
+Picture0=Picture_16
+Count=1
+[hp3_final]
+Line0=Herzlichen Glückwunsch! Du hast dein drittes Schuljahr erfolgreich abgeschlossen!
+Picture0=Picture_17
+Count=1
+[hp3_groundsdada]
+Line0=Die Schule und ihre Ländereien bergen viele Geheimnisse. Siehst du etwas Ungewöhnliches? Setz Magie ein!
+Picture0=Picture_18
+Count=1
+[hp3_groundshub]
+Line0=Im Laden von Fred und George kannst du Bertie Bott's Bohnen gegen Kürbispasteten und Kesselkuchen tauschen (falls vorrätig). Der Grund: Manche besonders wertvollen Zauberkarten und Bildpasswörter lassen sich nicht mit Bohnen kaufen.
+Picture0=Picture_19_B
+Line1=Um das Spiel zu beenden, musst du jede Aufgabe auf der Liste erledigen. Um sie zu sehen, drücke Esc und klicke dann auf das Häkchen-Symbol rechts im Bild.
+Picture1=Picture_19_C
+Line2=Manche Geheimnisse von Hogwarts lassen sich nur gemeinsam mit Freunden öffnen. In diesen Fällen müssen Harry, Ron und Hermine alle Magie einsetzen.
+Picture2=Picture_19_D
+Line3=Sammle so viele Bohnen, Kürbispasteten und Kesselkuchen, wie du kannst: Im Laden von Fred und George werden sie dir sehr nützlich sein.
+Picture3=Picture_08_A
+Line4=Du kannst die Hippogreif-Koppel besuchen, wann immer du willst. Es gibt fünf Strecken, die du fliegen kannst, um einen vollständigen Satz Zauberkarten zu sammeln.
+Picture4=Picture_19_A
+Count=5
+[hp3_infirmary]
+Line0=Drücke ab und zu Esc, um deine Aufgabenliste anzusehen. Um das Spiel zu gewinnen, musst du alles darauf erledigen.
+Picture0=Picture_20
+Count=1
+[hp3_insidehub]
+Line0=Drücke TAB, um die Karte des Rumtreibers anzusehen. Sie zeigt einen Plan der Schule und ihrer Ländereien, deine Position ist mit Fußspuren markiert.
+Picture0=Picture_21_C
+Line1=Mit den Porträts kannst du sofort in jedes Stockwerk des Schlosses reisen. Sie hängen in einem Nebenraum neben dem Schuleingang.
+Picture1=Picture_21_A
+Line2=Du kannst in der Schule und auf den Ländereien anderen Schülern begegnen. Sie geben oft nützliche Ratschläge, erinnern dich an etwas Wichtiges oder verraten dir sogar eines von Hogwarts' Geheimnissen. Geh nah an sie heran, um zu hören, was sie sagen.
+Picture2=Picture_21_B
+Line3=Sammle 75 Zauberkarten und du gewinnst einen Preis...
+Picture3=Picture_21_D
+Count=4
+[hp3_portraitpassword_b]
+Line0=Schau oft im Laden von Fred und George vorbei: Dort gibt es vielleicht neue Passwörter zu kaufen!
+Picture0=Picture_22
+Count=1
+[hp3_portraitpassword_c]
+Line0=Schau oft im Laden von Fred und George vorbei: Dort gibt es vielleicht neue Passwörter zu kaufen!
+Picture0=Picture_23
+Count=1
+[hp3_portraitpassword_d]
+Line0=Schau oft im Laden von Fred und George vorbei: Dort gibt es vielleicht neue Passwörter zu kaufen!
+Picture0=Picture_24
+Count=1
+[hp3_portraitpassword_e]
+Line0=Um den vollständigen Satz Karten zu sammeln, erkunde die Schule und ihre Ländereien, spiel die Zauberherausforderungen, besuche den Laden von Fred und George und sprich mit den anderen Schülern.
+Picture0=Picture_25
+Count=1
+[hp3_portraitPassword_F]
+Line0=Schau oft im Laden von Fred und George vorbei: Dort gibt es vielleicht neue Passwörter zu kaufen!
+Picture0=Picture_24
+Count=1
+[hp3_quidditch]
+Line0=Um eine Zwischensequenz zu überspringen, drücke ENTER. Tutorial-Zwischensequenzen können nicht übersprungen werden.
+Picture0=Picture_26
+Count=1
+[hp3_whompingwillow]
+Line0=Wenn mehrere Dementoren Harry gleichzeitig angreifen, denk daran, dass sie auch von hinten kommen können. Dreh deine Spielfigur oft um und sei jederzeit bereit, einen Zauber zu wirken.
+Picture0=Picture_01
+Count=1

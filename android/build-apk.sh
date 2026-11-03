@@ -34,6 +34,7 @@ HP2DIR=""      # --hp2: an HP2 install (System/Game.exe) that goes into the self
 HP2TEXTS=""    # --hp2-texts: HP2's Russian text files (the harry2 folder of the Russian edition)
 HP2EDITIONS=() # "code=folder|name": an HP2 release whose voices and texts are an edition the player can choose (--hp2-edition)
 LANGS=()     # "code=game folder": more languages for --selfpack (the in-game language switch)
+ADDLANGS=()  # "code=game folder": another release's language files only (texts, voices, menu art; --lang-add), on top of the base build
 MODS=()      # "id=zip": script mods the app can switch on and off (Settings > Movement mod)
 TEXTURES=()  # --textures (repeatable, later ones win): folders with a Textures/ tree of .dds overrides for the self pack (ESRGAN pack, HD storybook pages)
 MENUART=""   # --menu-art: the main menu upscale pack, one folder per language, each with Textures/MenuArt/*.dds
@@ -61,6 +62,7 @@ while [ $# -gt 0 ]; do
 		--selfpack) shift; SELFPACKS+=("$(cygpath -u "${1:?--selfpack needs the game folder}")|flipendo-droid-selfpack.apk") ;;
 		--selfpack-ru) shift; SELFPACKS+=("$(cygpath -u "${1:?--selfpack-ru needs the game folder}")|flipendo-droid-selfpack-ru.apk") ;;
 		--lang) shift; LANGS+=("$(echo "${1:?--lang needs code=game folder (e.g. ru=D:/HP-Russian)}" | sed 's|=.*||')=$(cygpath -u "$(echo "$1" | sed 's|^[^=]*=||')")") ;;
+		--lang-add) shift; ADDLANGS+=("$(echo "${1:?--lang-add needs code=game folder (e.g. de=\"C:/Games/Game Files HP1 German\")}" | sed 's|=.*||')=$(cygpath -u "$(echo "$1" | sed 's|^[^=]*=||')")") ;;
 		--mod) shift; MODS+=("${1:?--mod needs id=mod.zip (e.g. movement=movement.zip)}") ;;
 		--textures) shift; TEXTURES+=("$(cygpath -u "${1:?--textures needs a folder with Textures/}")") ;;
 		--menu-art) shift; MENUART="$(cygpath -u "${1:?--menu-art needs the folder with one subfolder per language}")" ;;
@@ -112,13 +114,31 @@ fi
 HP3_JAVA_DIR="$HP3_ENGINE/Android/app/src/main/java"
 [ -d "$HP3_JAVA_DIR" ] || { [ "$HP3_MODE" = off ] || [ "$HP3_MODE" = rust ] || { echo "HP3's engine sources not found at $HP3_ENGINE (git submodule update --init src/hp3-engine)" >&2; exit 1; }; }
 
-for l in "${LANGS[@]}"; do
+for l in "${LANGS[@]}" "${ADDLANGS[@]}"; do
 	dir="${l#*=}"
 	if [ ! -f "$dir/System/HP.exe" ] && [ ! -f "$dir/system/HP.exe" ]; then
 		echo "$dir is not an HP1 install (no System/HP.exe)" >&2
 		exit 1
 	fi
 done
+# the language extension of a --lang-add install: its Default.ini says Language=<ext> (ger), and it must name a language
+addlang_ext() {
+	local ini
+	ini="$(ls "$1"/System/Default.ini "$1"/system/Default.ini "$1"/System/default.ini 2>/dev/null | head -1)"
+	tr -d '\r' < "$ini" | sed -n 's/^Language=//p' | head -1 | tr 'A-Z' 'a-z'
+}
+for l in "${ADDLANGS[@]}"; do
+	ext="$(addlang_ext "${l#*=}")"
+	if [ -z "$ext" ] || [ "$ext" = int ]; then
+		echo "${l#*=}: Default.ini has no Language other than int, so there is nothing to add" >&2
+		exit 1
+	fi
+done
+# the files of a language: the texts (System/*.<ext>), the voices (Sounds/*.<ext>_uax), the menu art (Textures/*.<ext>_utx)
+addlang_files() {
+	(cd "$1" && find . -type f \( -ipath './system/*' -o -ipath './sounds/*' -o -ipath './textures/*' -o -ipath './music/*' \) \
+		\( -iname "*.$2" -o -iname "*.$2_*" \) -print0)
+}
 
 export ANDROID_HOME="$(cygpath -u "${ANDROID_HOME:-$LOCALAPPDATA/Android/Sdk}")"
 export JAVA_HOME="$(cygpath -u "${JAVA_HOME:-C:/Program Files/Microsoft/jdk-21.0.12.101-hotspot}")"
@@ -309,6 +329,7 @@ lang_label() {
 		en) echo "English" ;;
 		ru) echo "Русский (Фаргус)" ;;
 		ru-softclub) echo "Русский (озвучка СофтКлаб)|rutext" ;; # "|rutext": the Russian text translation goes with it
+		de) echo "Deutsch" ;;
 		*) echo "$1" ;;
 	esac
 }
@@ -320,7 +341,7 @@ for entry in "${SELFPACKS[@]}"; do
 	LANGDIR="$A/data_stage/assets/langs"
 	rm -rf "$A/data_stage"
 	mkdir -p "$STAGE"
-	if [ "$NAME" = flipendo-droid-selfpack.apk ] && { [ ${#LANGS[@]} -gt 0 ] || [ ${#VOICES[@]} -gt 0 ]; }; then
+	if [ "$NAME" = flipendo-droid-selfpack.apk ] && { [ ${#LANGS[@]} -gt 0 ] || [ ${#VOICES[@]} -gt 0 ] || [ ${#ADDLANGS[@]} -gt 0 ]; }; then
 		# Several languages (the base install is English): the files all installs share are shipped once, the files that differ
 		# (voices, fonts, texts) once per language; the app copies the chosen language's set over (SetupActivity, in-game switch).
 		declare -A base_files=() lang_dir=()
@@ -345,12 +366,18 @@ for entry in "${SELFPACKS[@]}"; do
 				if [ -z "${base_files[$key]:-}" ] || ! cmp -s "$SELFPACK/${base_files[$key]}" "$dir/$f"; then differ+=("$key"); fi
 			done < <(cd "$dir" && find . -type f -print0)
 		done
+		# a language add-on: only its language files, and the ini that names the language (the base's version goes into en)
+		for l in "${ADDLANGS[@]}"; do
+			dir="${l#*=}"
+			while IFS= read -r -d '' f; do differ+=("${f,,}"); done < <(addlang_files "$dir" "$(addlang_ext "$dir")")
+			differ+=("./system/default.ini")
+		done
 		declare -A is_diff=()
 		for key in "${differ[@]}"; do is_diff["$key"]=1; done
 		common=(); for key in "${!base_files[@]}"; do [ -z "${is_diff[$key]:-}" ] && common+=("${base_files[$key]}"); done
 		printf '%s\0' "${common[@]}" | (cd "$SELFPACK" && tar --null -cf - --files-from=-) | (cd "$STAGE" && tar xf -)
 		mkdir -p "$LANGDIR"
-		{ echo "en|$(lang_label en)"; for l in "${LANGS[@]}" "${VOICES[@]}"; do echo "${l%%=*}|$(lang_label "${l%%=*}")"; done; } > "$LANGDIR/langs.txt"
+		{ echo "en|$(lang_label en)"; for l in "${LANGS[@]}" "${ADDLANGS[@]}" "${VOICES[@]}"; do echo "${l%%=*}|$(lang_label "${l%%=*}")"; done; } > "$LANGDIR/langs.txt"
 		# the base language's version of the differing files (the ones the base install has)
 		mkdir -p "$LANGDIR/en"
 		for key in "${!is_diff[@]}"; do [ -n "${base_files[$key]:-}" ] && printf '%s\0' "${base_files[$key]}"; done \
@@ -360,6 +387,17 @@ for entry in "${SELFPACKS[@]}"; do
 			mkdir -p "$LANGDIR/$code"
 			game_files "$dir" | while IFS= read -r -d '' f; do [ -n "${is_diff[${f,,}]:-}" ] && printf '%s\0' "$f"; done \
 				| (cd "$dir" && tar --null -cf - --files-from=-) | (cd "$LANGDIR/$code" && tar xf -)
+		done
+		# a language add-on: its language files, and the base's Default.ini with that language (the files of the other builds
+		# stay the base's: the scripts, maps and exe of another release are not ours to swap in)
+		for l in "${ADDLANGS[@]}"; do
+			code="${l%%=*}"; dir="${l#*=}"; ext="$(addlang_ext "$dir")"
+			mkdir -p "$LANGDIR/$code"
+			addlang_files "$dir" "$ext" | (cd "$dir" && tar --null -cf - --files-from=-) | (cd "$LANGDIR/$code" && tar xf -)
+			base_ini="${base_files[./system/default.ini]:?the base install has no System/Default.ini}"
+			mkdir -p "$LANGDIR/$code/$(dirname "$base_ini")"
+			# only the value changes: the file stays byte for byte the base's (its CRLF line ends included)
+			LANG_EXT="$ext" perl -pe 's/^Language=\K[^\r\n]*/$ENV{LANG_EXT}/' "$SELFPACK/$base_ini" > "$LANGDIR/$code/$base_ini"
 		done
 		# a dubbing's edition: its own Sounds files, and the base install's version of every other differing file (so a switch
 		# from another edition puts the base's texts and fonts back)

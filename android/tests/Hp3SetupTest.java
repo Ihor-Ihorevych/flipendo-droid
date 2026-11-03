@@ -40,6 +40,8 @@ public final class Hp3SetupTest {
     public static void main(String[] args) throws Exception {
         File x = tempDir();
         touch(new File(x, "System/Core.u"));
+        // The launcher languages the game has interface texts for (Tr.CODES): ours are German (ger) and Spanish (est) too.
+        check("ger".equals(Hp3Setup.gameLanguage("de")) && "est".equals(Hp3Setup.gameLanguage("es")) && "int".equals(Hp3Setup.gameLanguage("en")) && "lav".equals(Hp3Setup.gameLanguage("lv")) && Hp3Setup.gameLanguage("ru") == null, "gameLanguages");
         check(x.equals(Hp3Setup.findGame(x, 2)), "findGameUpperSystem");
 
         x = tempDir();

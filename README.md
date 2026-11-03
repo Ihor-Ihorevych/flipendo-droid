@@ -113,7 +113,7 @@ Open them with the gear (top right) or the View button on a gamepad. Everything 
 | **? How to play** | a card with what every control does |
 | **Render scale** | how sharp the picture is. Lower is faster and saves battery; higher is sharper |
 | **Subtitles and HUD size** | bigger or smaller subtitles and on-screen game info |
-| **Field of view** | see more of the scene around Harry |
+| **Field of view** | see more of the scene around Harry (HP3 starts 20 degrees wider than the game lays the view out) |
 | **FPS counter** | shows frames per second next to the buttons |
 | **Movement** | floating stick or arrow buttons |
 | **Auto jump** | Harry jumps across gaps by himself (on by default) |

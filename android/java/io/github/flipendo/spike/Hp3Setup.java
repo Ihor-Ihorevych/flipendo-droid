@@ -41,7 +41,7 @@ final class Hp3Setup {
 
     /**
      * The localization extension HP3 reads for a launcher language code (Tr.CODES): the interface texts of Ukrainian,
-     * Belarusian, Georgian and Latvian are ours, English is the .int files, Russian is the edition's own (null: nothing to
+     * Belarusian, Georgian, Latvian, German and Spanish are ours, English is the .int files, Russian is the edition's own (null: nothing to
      * choose, the game's ini says Rus).
      */
     static String gameLanguage(String uiCode) {
@@ -51,6 +51,8 @@ final class Hp3Setup {
             case "be": return "bel";
             case "ka": return "geo";
             case "lv": return "lav";
+            case "de": return "ger";
+            case "es": return "est";
             default: return null;
         }
     }
