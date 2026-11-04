@@ -12,7 +12,8 @@
 #   android/build-apk.sh --selfpack "C:/Games/HP" --textures texture-packs/storybook-hd --menu-art texture-packs/menu-art
 #                                                 .dds texture packs (Textures/<package>/<group>/<name>.dds, the texture-overrides mod); menu art per language
 #   android/build-apk.sh --selfpack "C:/Games/HP" --hp2 "<HP2 folder>" [--hp2-texts "<harry2 folder>"]   ... HP2 in the self pack too
-#   android/build-apk.sh --selfpack "C:/Games/HP" --hp3 "<HP3 folder>"   ... HP3 in the self pack too
+#   android/build-apk.sh --selfpack "C:/Games/HP" --hp3 "<HP3 folder>" [--hp3-eng "<English HP3 folder>"]   ... HP3 in the self pack too
+#                                                 (--hp3 is the base, the Russian edition; --hp3-eng adds the English voices, texts and art: the launcher's language picks one)
 #   android/build-apk.sh --install                ... and install the plain APK on the connected phone (adb)
 # Every APK carries Harry Potter 3's engine: by default the Rust engine of the sibling repository (--hp3-rust, default
 # ../hp3-engine), built with cargo for aarch64-linux-android and linked against this APK's own libSDL3.so. Needs rustup with
@@ -40,6 +41,7 @@ TEXTURES=()  # --textures (repeatable, later ones win): folders with a Textures/
 MENUART=""   # --menu-art: the main menu upscale pack, one folder per language, each with Textures/MenuArt/*.dds
 VOICES=()    # "code=Sounds folder": a dubbing for --selfpack, an edition that is the base install with its Sounds replaced
 HP3DIR=""    # --hp3: an HP3 install (system/Core.u) that goes into the self pack too (assets/hp3data)
+HP3ENG=""    # --hp3-eng: the English retail HP3 install, added to the base one as a second language (voices, texts, localised art)
 HP3_ENGINE="$ROOT/src/hp3-engine" # --hp3-engine: the engine repository (flipendo-droid-2004, branch hp3; the submodule by default, or any other checkout)
 HP3_HEADERS="$(cd "$ROOT/.." && pwd)/hp3-headers"        # --hp3-headers: HP3's generated EngineClasses.h (never in git)
 HP3_DEPS=""  # --hp3-deps: the engine's dependency sources (default: <engine>/build-windows-hp3-layout/_deps)
@@ -50,6 +52,7 @@ while [ $# -gt 0 ]; do
 	case "$1" in
 		--install) INSTALL=1 ;;
 		--hp3) shift; HP3DIR="$(cygpath -u "${1:?--hp3 needs the HP3 folder}")" ;;
+		--hp3-eng) shift; HP3ENG="$(cygpath -u "${1:?--hp3-eng needs the English HP3 folder}")" ;;
 		--hp3-rust) shift; HP3_RUST="$(cygpath -u "${1:?--hp3-rust needs the Rust engine repository}")" ;;
 		--hp3-legacy) HP3_LEGACY=1 ;;
 		--hp3-engine) shift; HP3_ENGINE="$(cygpath -u "${1:?--hp3-engine needs the engine repository}")" ;;
@@ -500,6 +503,36 @@ for entry in "${SELFPACKS[@]}"; do
 			-o -ipath './staticmeshes/*' -o -ipath './textures/*' -o -ipath './system/*' \) \
 			! -iname '*.exe' ! -iname '*.dll' ! -iname '*.log' ! -iname '*.usa' -print0) \
 			| (cd "$HP3DIR" && tar --null -cf - --files-from=-) | (cd "$HP3STAGE" && tar xf -)
+		# A second edition (--hp3-eng): both languages live in the one folder and HP3's engine picks by the language the launcher wrote
+		# (.flipendo-language; none = the base, Default.ini). Files only the English edition has (alldialog.uax, the .int texts) go in
+		# as they are; a texture package both have under one name but with different art (HP3_Menu, HP3_Gameplay: the title logo)
+		# keeps the base's as <name>.rus_<ext> (the engine prefers it when Russian is chosen) and takes the English as plain.
+		if [ -n "$HP3ENG" ]; then
+			declare -A stage_files=()
+			while IFS= read -r -d '' f; do stage_files["${f,,}"]="$f"; done < <(cd "$HP3STAGE" && find . -type f -print0)
+			en_new=0; en_art=0
+			while IFS= read -r -d '' f; do
+				have="${stage_files[${f,,}]:-}"
+				if [ -z "$have" ]; then
+					mkdir -p "$HP3STAGE/$(dirname "$f")"
+					cp "$HP3ENG/$f" "$HP3STAGE/$f"
+					en_new=$((en_new + 1))
+				else
+					case "${f,,}" in
+						./textures/*)
+							if [ "$(stat -c %s "$HP3ENG/$f")" != "$(stat -c %s "$HP3STAGE/$have")" ] || ! cmp -s "$HP3ENG/$f" "$HP3STAGE/$have"; then
+								mv "$HP3STAGE/$have" "$HP3STAGE/${have%.*}.rus_${have##*.}"
+								cp "$HP3ENG/$f" "$HP3STAGE/$have"
+								en_art=$((en_art + 1))
+							fi ;;
+					esac
+				fi
+			done < <(cd "$HP3ENG" && find . -type f \( -ipath './animations/*' -o -ipath './maps/*' -o -ipath './music/*' -o -ipath './sounds/*' \
+				-o -ipath './staticmeshes/*' -o -ipath './textures/*' -o -ipath './system/*' \) \
+				! -iname '*.exe' ! -iname '*.dll' ! -iname '*.log' ! -iname '*.usa' -print0)
+			echo "HP3 English edition: $en_new files added, $en_art localised texture packages split"
+			[ "$en_new" -gt 0 ] || { echo "--hp3-eng $HP3ENG added nothing: is it an English install?" >&2; exit 1; }
+		fi
 		(cd "$HP3STAGE" && find . -type f ! -name .stamp -print0 | sort -z | xargs -0 sha1sum | sha1sum | cut -d' ' -f1) > "$HP3STAGE/.stamp"
 		echo "HP3 data: $(find "$HP3STAGE" -type f | wc -l) files, $(du -sm "$HP3STAGE" | cut -f1) MB"
 	fi

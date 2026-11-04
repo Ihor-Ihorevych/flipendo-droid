@@ -3048,7 +3048,13 @@ public class SetupActivity extends Activity {
         if (files != null) {
             byte[] buffer = new byte[64 * 1024];
             File system = Hp3Setup.systemDir(game);
+            // An install that carries the retail English texts (HpDialog.int is the biggest of them) has the full English
+            // HpMenu.int and SaveTips.int: the launcher's own English, made for an edition without it, would replace them.
+            boolean retailEnglish = new File(system, "HpDialog.int").isFile();
             for (String name : files) {
+                if (retailEnglish && name.toLowerCase(java.util.Locale.ROOT).endsWith(".int")) {
+                    continue;
+                }
                 copyAsset("hp3lang/" + name, new File(system, name), buffer);
             }
         }
