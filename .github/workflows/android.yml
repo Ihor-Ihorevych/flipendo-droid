@@ -14,6 +14,8 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    # the signing key is an environment secret (Settings > Environments); a job only sees those when it names the environment
+    environment: ANDROID_DEBUG_KEYSTORE
     timeout-minutes: 90
     defaults:
       run:

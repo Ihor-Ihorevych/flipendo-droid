@@ -85,6 +85,7 @@ final class LogReport {
                     addFile(zip, name, f);
                 }
             }
+            addHp3(zip, context);
         }
         // a copy where the user can find it without a share target
         try {
@@ -95,6 +96,27 @@ final class LogReport {
         } catch (IOException ignored) {
         }
         return out;
+    }
+
+    /**
+     * Harry Potter 3 (the Rust engine) keeps its logs in its own folder, not in FlipendoHP: logs/game.log (what the scripts
+     * logged and, once a second, what the player controls) and logs/audio.log, each rewritten when a run starts. Its other
+     * output goes to logcat. The folder is the picked one, else /sdcard/FlipendoHP3.
+     */
+    private static void addHp3(ZipOutputStream zip, Context context) throws IOException {
+        String picked = context.getSharedPreferences("setup", Context.MODE_PRIVATE).getString(SetupActivity.PREF_GAME_DIR_HP3, null);
+        File dir = new File(picked != null && !picked.isEmpty() ? picked : SetupActivity.HP3_DIR);
+        if (!dir.isDirectory()) {
+            return;
+        }
+        addText(zip, "hp3-folder.txt", gameFolder(dir)
+                + "\nlogs/: " + java.util.Arrays.toString(new File(dir, "logs").list()) + '\n');
+        for (String name : new String[] { "game.log", "audio.log" }) {
+            File f = new File(dir, "logs/" + name);
+            if (f.isFile()) {
+                addFile(zip, "hp3-" + name, f);
+            }
+        }
     }
 
     private static void addText(ZipOutputStream zip, String name, String text) throws IOException {
