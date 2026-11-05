@@ -245,6 +245,12 @@ The drawing is judged more gently than on the PC (`KWGesture.cpp`, `ScoreGesture
 
 `SetupActivity` looks for `System/HP.exe` in `/sdcard/FlipendoHP` (and one or two folders deeper) first, then in the folder the player picked. With no game anywhere it shows **Game data not found** with **Choose folder** (the system folder picker, `ACTION_OPEN_DOCUMENT_TREE`; with all files access the picked tree is read as a path: `primary:` is internal storage, other volumes are `/storage/<id>`), **Check again** and **Send logs**. A picked folder without the game shows **This isn't the game folder**; the choice is remembered either way (`setup` preferences, `gameDir`), so the next start says what is wrong instead of asking again. The folder found is passed to the game (`FlipendoActivity.getArguments`, `argv[1]` in `android_main.cpp`); logs, settings and the engine's own files stay in `/sdcard/FlipendoHP`. The log report lists the picked folder too.
 
+## PS1 games (PC / PS1 tabs)
+
+The launcher's PS1 tab plays the PlayStation versions of HP1 and HP2 in the SwanStation emulator (`Ps1Activity`, process
+`:ps1`). The player picks a folder or one image file per game, the resolution (1x to 4x) and, if wanted, a BIOS file; the
+bundled OpenBIOS is the default. How it is built, where files go and what is not done yet: [ps1.md](ps1.md).
+
 ## Builds on GitHub
 
 `.github/workflows/android.yml` builds the light APK on a Windows runner with `android/build-apk.sh`. Push the release tag `android-v<VERSION>` (below) and the APK is published as a pre-release named after the version, with notes from the commits; a tag that doesn't match `android/VERSION` fails the run; *Actions > Android APK > Run workflow* builds it without a release (the APK is in the run's artifacts). Every build must be signed with the same key, or it won't install over an older one: the key is the repository secret `ANDROID_DEBUG_KEYSTORE`, the base64 of `android/debug.keystore` (*Settings > Secrets and variables > Actions*). The workflow checks out the Rust HP3 engine (`Ihor-Ihorevych/r3paro`, next to the app; the secret `HP3_ENGINE_TOKEN` if that repository is private) and `build-apk.sh` builds it for the phone, so the APK has HP3. The self pack is never built there: it carries the game.

@@ -34,6 +34,12 @@
             android:screenOrientation="sensorLandscape"
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode|density|smallestScreenSize"
             android:theme="@android:style/Theme.NoTitleBar.Fullscreen"/>
+        <!-- PS1 Harry Potter 1 and 2: the SwanStation emulator core on SDL3 (libps1host.so) in its own process; the launcher
+             starts it with the disc on the intent (exported so that a disc can also be started from adb while developing). -->
+        <activity android:name="io.github.flipendo.spike.Ps1Activity" android:exported="true" android:process=":ps1"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode|density|smallestScreenSize"
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen"/>
         <!-- Harry Potter 3: its own engine (flipendo-droid-2004, on SDL2 under org.libsdl2.app) in its own process, which
              ends with the game; the launcher starts it with the game folder on the intent. -->
         <activity android:name="com.ut2004.android.GameActivity" android:exported="false" android:process=":hp3"

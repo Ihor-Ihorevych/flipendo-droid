@@ -14,4 +14,10 @@ add_subdirectory(${ENGINE} engine EXCLUDE_FROM_ALL)
 add_library(main SHARED jni/android_main.cpp)
 target_include_directories(main PRIVATE ${ENGINE}/SurrealEngine ${ENGINE}/Thirdparty/openal-soft/include)
 set_target_properties(main PROPERTIES CXX_STANDARD 20)
+# The PS1 emulator's host (Ps1Activity): loads the SwanStation core, which build-apk.sh builds from android/deps/swanstation
+add_library(ps1host SHARED jni/ps1_host.cpp)
+target_include_directories(ps1host PRIVATE ${CMAKE_CURRENT_LIST_DIR}/deps/swanstation/dep/libretro-common/include)
+set_target_properties(ps1host PROPERTIES CXX_STANDARD 17)
+target_link_libraries(ps1host PRIVATE SDL3::SDL3 GLESv3 EGL log android)
+
 target_link_libraries(main PRIVATE -Wl,--whole-archive SurrealCommon -Wl,--no-whole-archive SDL3::SDL3 surrealwidgets surrealgpu openmpt SurrealVideo OpenAL GLESv3 EGL log android)

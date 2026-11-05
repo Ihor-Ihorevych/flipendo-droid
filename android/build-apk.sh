@@ -14,6 +14,8 @@
 #   android/build-apk.sh --selfpack "C:/Games/HP" --hp2 "<HP2 folder>" [--hp2-texts "<harry2 folder>"]   ... HP2 in the self pack too
 #   android/build-apk.sh --selfpack "C:/Games/HP" --hp3 "<HP3 folder>" [--hp3-eng "<English HP3 folder>"]   ... HP3 in the self pack too
 #                                                 (--hp3 is the base, the Russian edition; --hp3-eng adds the English voices, texts and art: the launcher's language picks one)
+#   android/build-apk.sh --selfpack "C:/Games/HP" --ps1-hp1 HP1.chd --ps1-hp2 HP2.chd   ... the PS1 games' discs in the self pack too
+#                                                 (CHD: chdman createcd -i game.cue -o game.chd; unpacked when the PS1 tab's Play is first pressed)
 #   android/build-apk.sh --install                ... and install the plain APK on the connected phone (adb)
 # Every APK carries Harry Potter 3's engine: by default the Rust engine of the sibling repository (--hp3-rust, default
 # ../hp3-engine), built with cargo for aarch64-linux-android and linked against this APK's own libSDL3.so. Needs rustup with
@@ -41,6 +43,8 @@ TEXTURES=()  # --textures (repeatable, later ones win): folders with a Textures/
 MENUART=""   # --menu-art: the main menu upscale pack, one folder per language, each with Textures/MenuArt/*.dds
 VOICES=()    # "code=Sounds folder": a dubbing for --selfpack, an edition that is the base install with its Sounds replaced
 HP3DIR=""    # --hp3: an HP3 install (system/Core.u) that goes into the self pack too (assets/hp3data)
+PS1_HP1=""   # --ps1-hp1: the PS1 Harry Potter 1 disc image (a CHD: chdman createcd) that goes into the self pack (assets/ps1data/hp1)
+PS1_HP2=""   # --ps1-hp2: the same for PS1 Harry Potter 2
 HP3ENG=""    # --hp3-eng: the English retail HP3 install, added to the base one as a second language (voices, texts, localised art)
 HP3_ENGINE="$ROOT/src/hp3-engine" # --hp3-engine: the engine repository (flipendo-droid-2004, branch hp3; the submodule by default, or any other checkout)
 HP3_HEADERS="$(cd "$ROOT/.." && pwd)/hp3-headers"        # --hp3-headers: HP3's generated EngineClasses.h (never in git)
@@ -60,6 +64,8 @@ while [ $# -gt 0 ]; do
 		--hp3-deps) shift; HP3_DEPS="$(cygpath -u "${1:?--hp3-deps needs the _deps folder}")" ;;
 		--hp3-libs) shift; HP3_LIBS="$(cygpath -u "${1:?--hp3-libs needs the folder of prebuilt HP3 libraries}")" ;;
 		--hp2) shift; HP2DIR="$(cygpath -u "${1:?--hp2 needs the HP2 folder}")" ;;
+		--ps1-hp1) shift; PS1_HP1="$(cygpath -u "${1:?--ps1-hp1 needs a disc image (a .chd)}")" ;;
+		--ps1-hp2) shift; PS1_HP2="$(cygpath -u "${1:?--ps1-hp2 needs a disc image (a .chd)}")" ;;
 		--hp2-edition) shift; HP2EDITIONS+=("$1") ;; # code=folder|name, e.g. ru=C:/Games/HP2Rus|Russian
 		--hp2-texts) shift; HP2TEXTS="$(cygpath -u "${1:?--hp2-texts needs the harry2 folder}")" ;;
 		--selfpack) shift; SELFPACKS+=("$(cygpath -u "${1:?--selfpack needs the game folder}")|flipendo-droid-selfpack.apk") ;;
@@ -163,6 +169,18 @@ if [ ! -d android/deps/SDL ]; then
 	git clone --depth 1 --branch release-3.2.20 https://github.com/libsdl-org/SDL android/deps/SDL
 fi
 
+# 1b. SwanStation (GPLv3), the PS1 emulator core: fetched once, pinned to a commit, built below as a libretro core
+PS1_CORE_SHA=631f0fb31b809e0f889d7c551fe695788e39c1d3
+if [ ! -d android/deps/swanstation/.git ]; then
+	mkdir -p android/deps/swanstation
+	git -C android/deps/swanstation init -q
+	git -C android/deps/swanstation remote add origin https://github.com/libretro/swanstation.git
+fi
+if [ "$(git -C android/deps/swanstation rev-parse -q --verify HEAD 2>/dev/null || true)" != "$PS1_CORE_SHA" ]; then
+	git -C android/deps/swanstation fetch --depth 1 origin "$PS1_CORE_SHA"
+	git -C android/deps/swanstation checkout -q --force "$PS1_CORE_SHA"
+fi
+
 # 2. the engine with Flipendo's patches (src/surreal-patches/, including 0200-android-port.patch)
 # apply_patches.sh is only idempotent for non-overlapping patches; 0200 edits files other patches touch, so a tree
 # that already carries it is left alone, and anything else is rebuilt from a clean checkout.
@@ -176,7 +194,15 @@ if [ ! -f "$BUILD/CMakeCache.txt" ]; then
 		-DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" -DANDROID_ABI=arm64-v8a \
 		-DANDROID_PLATFORM=android-29 -DCMAKE_BUILD_TYPE=Release
 fi
-"$CMAKE_DIR/cmake.exe" --build "$BUILD" --target main
+"$CMAKE_DIR/cmake.exe" --build "$BUILD" --target main ps1host
+
+# 3a. the PS1 core as a libretro shared library (its own CMake project; the AArch64 recompiler is on for Android arm64)
+if [ ! -f "$BUILD/ps1core/CMakeCache.txt" ]; then
+	"$CMAKE_DIR/cmake.exe" -S android/deps/swanstation -B "$BUILD/ps1core" -G Ninja -DCMAKE_MAKE_PROGRAM="$CMAKE_DIR/ninja.exe" \
+		-DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" -DANDROID_ABI=arm64-v8a \
+		-DANDROID_PLATFORM=android-29 -DCMAKE_BUILD_TYPE=Release
+fi
+"$CMAKE_DIR/cmake.exe" --build "$BUILD/ps1core" --target swanstation_libretro
 
 # 3b. Harry Potter 3's engine (flipendo-droid-2004): its own SDL2, under the Java package org.libsdl2.app so that it sits
 # beside SDL3, built with the engine's NDK and CMake and the arguments its Gradle build passes
@@ -219,6 +245,9 @@ mkdir -p "$A/lib/arm64-v8a" "$A/classes" "$A/assets" android/dist
 for f in "$BUILD/libmain.so" "$BUILD/SDL3/libSDL3.so" "$BUILD/engine/Thirdparty/openal-soft/libopenal.so" "$BUILD/engine/libSurrealVideo.so"; do
 	cp "$f" "$A/lib/arm64-v8a/"
 done
+# the PS1 emulator: the host (Ps1Activity's entry) and the SwanStation core it loads by name (lib*.so, so it is unpacked next to the others)
+cp "$BUILD/libps1host.so" "$A/lib/arm64-v8a/"
+cp "$BUILD/ps1core/swanstation_libretro_android.so" "$A/lib/arm64-v8a/libswanstation.so"
 # HP3's engine: the game, its SDL2, its process bridge and the C++ runtime it is built against (its own NDK's); Flipendo's
 # libopenal.so serves it too (the engine binds libopenal.so by name)
 if [ "$HP3_MODE" = rust ]; then
@@ -255,6 +284,8 @@ mkdir -p "$A/assets/icons" && cp images/android/*.png "$A/assets/icons/"
 # the Russian text translation (android/lang/ru-text, UTF-16 .rus files): in every APK, as the game's .int files in
 # Windows-1251, whose Cyrillic the game draws with glyphs from Noto Sans (src/hp1/HP1Cyrillic.cpp)
 # HP3's interface texts in the launcher's other languages (android/lang/hp3: HpMenu and SaveTips per language, UTF-8)
+# PS1: PCSX-Redux's OpenBIOS (MIT, android/ps1/README.md), the BIOS the emulator uses unless the player picks another
+mkdir -p "$A/assets/ps1" && cp android/ps1/openbios.bin "$A/assets/ps1/"
 mkdir -p "$A/assets/hp3lang"
 cp android/lang/hp3/* "$A/assets/hp3lang/"
 mkdir -p "$A/assets/rutext"
@@ -537,7 +568,21 @@ for entry in "${SELFPACKS[@]}"; do
 		echo "HP3 data: $(find "$HP3STAGE" -type f | wc -l) files, $(du -sm "$HP3STAGE" | cut -f1) MB"
 	fi
 	# a stamp of what is inside (a hash of the contents: two installs can differ with the same sizes): the app only unpacks again when the data changes
-	(cd "$A/data_stage/assets" && find . -type f ! -name .stamp -print0 | sort -z | xargs -0 sha1sum | sha1sum | cut -d' ' -f1) > "$STAGE/.stamp"
+	# PS1 discs in the same self pack: assets/ps1data/hp1 and hp2 (one image each, a CHD by choice), unpacked into
+	# FlipendoPS1/HP1 and HP2 the first time the PS1 tab's Play is pressed (SetupActivity.startPs1, installBundle), once per stamp
+	if [ "$NAME" = flipendo-droid-selfpack.apk ]; then
+		for ps1 in "hp1|$PS1_HP1" "hp2|$PS1_HP2"; do
+			g="${ps1%%|*}"; img="${ps1#*|}"
+			[ -n "$img" ] || continue
+			PS1STAGE="$A/data_stage/assets/ps1data/$g"
+			mkdir -p "$PS1STAGE"
+			cp "$img" "$PS1STAGE/$(echo "$g" | tr a-z A-Z).${img##*.}"
+			(cd "$PS1STAGE" && find . -type f ! -name .stamp -print0 | sort -z | xargs -0 sha1sum | sha1sum | cut -d' ' -f1) > "$PS1STAGE/.stamp"
+			echo "PS1 $g: $(du -sm "$PS1STAGE" | cut -f1) MB"
+		done
+	fi
+	# (the PS1 discs have their own stamps and stay out of the PC game's)
+	(cd "$A/data_stage/assets" && find . -type f ! -name .stamp ! -path './ps1data/*' -print0 | sort -z | xargs -0 sha1sum | sha1sum | cut -d' ' -f1) > "$STAGE/.stamp"
 	echo "game data: $(find "$A/data_stage" -type f | wc -l) files, $(du -sm "$A/data_stage" | cut -f1) MB"
 	package "android/dist/$NAME" "$A/data_stage"
 	rm -rf "$A/data_stage"

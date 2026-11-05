@@ -38,6 +38,10 @@ pick the game on the start screen.
   an open-source engine written in Rust that plays the game's own scripts, with the same touch controls and settings
   panel as the other two games (plus a debug menu with cheats and level select). It has its own game folder,
   **FlipendoHP3** (`System/Core.u` inside). It is new and still rough in places (see [Status](#status)).
+- **PlayStation 1 versions of Harry Potter 1 and 2**: the launcher's **PS1** tab plays your own disc images (BIN/CUE,
+  CHD, ISO, or Alcohol MDF/MDS) in the built-in open-source [SwanStation](https://github.com/libretro/swanstation)
+  emulator, with an open BIOS included, so no Sony BIOS is needed. Pick the folder or the image file in the tab; there is an
+  on-screen PS1 pad and gamepad support. New: in-game memory-card saves are not checked yet (save states work).
 
 ## What you need
 

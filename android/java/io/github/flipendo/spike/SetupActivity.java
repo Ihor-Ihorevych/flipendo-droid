@@ -135,8 +135,8 @@ public class SetupActivity extends Activity {
         root.setBackground(new android.graphics.drawable.GradientDrawable(
                 android.graphics.drawable.GradientDrawable.Orientation.TL_BR, new int[] { NIGHT_TOP, NIGHT_BOTTOM }));
         root.addView(topBar(), new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-        LinearLayout covers = coverShelf(wide);
-        LinearLayout details = launchPanel();
+        LinearLayout covers = shelfColumn(wide);
+        LinearLayout details = detailsHolder();
         LinearLayout footer = footer();
         LinearLayout.LayoutParams bodyLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);
         bodyLp.topMargin = dp(12);
@@ -157,7 +157,7 @@ public class SetupActivity extends Activity {
         } else {
             LinearLayout col = new LinearLayout(this);
             col.setOrientation(LinearLayout.VERTICAL);
-            col.addView(covers, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(170)));
+            col.addView(covers, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
             LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
             dl.topMargin = dp(8);
             col.addView(details, dl);
@@ -167,7 +167,7 @@ public class SetupActivity extends Activity {
             root.addView(scroll, bodyLp);
             root.addView(footer, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         }
-        showGame();
+        applyPlatform();
         startScreen = root;
         setContentView(startScreen);
         checkUpdatesQuietly();
@@ -868,6 +868,10 @@ public class SetupActivity extends Activity {
         play.setFocusable(true);
         play.setOnClickListener(new android.view.View.OnClickListener() {
             public void onClick(android.view.View v) {
+                if (isPs1()) {
+                    startPs1();
+                    return;
+                }
                 playPressed = true;
                 splashUntil = 0;
                 tryStart();
@@ -889,7 +893,9 @@ public class SetupActivity extends Activity {
             return;
         }
         String text = tr("Play");
-        if (isHp2()) {
+        if (isPs1()) {
+            // PS1: just Play (the slots and the start choice are the PC game's)
+        } else if (isHp2()) {
             String start = getSharedPreferences("setup", MODE_PRIVATE).getString(PREF_START, "new");
             text = tr("Start a new game");
             if (start.startsWith("load:")) {
@@ -926,7 +932,7 @@ public class SetupActivity extends Activity {
     }
 
     private void showGame() {
-        String game = chosenGame();
+        String game = isPs1() ? ps1Game() : chosenGame();
         if (hp1Pill != null) {
             styleCover(hp1Pill, "hp1".equals(game));
             styleCover(hp2Pill, "hp2".equals(game));
@@ -935,12 +941,23 @@ public class SetupActivity extends Activity {
         if (engineOptions != null) {
             engineOptions.setVisibility("hp3".equals(game) ? android.view.View.GONE : android.view.View.VISIBLE);
         }
+        if (isPs1()) {
+            refreshPs1();
+        }
         refreshSlots();
         updatePlayLabel();
     }
 
     /** Picks the game for this and later launches; the game data is looked for again (its own folder). */
     private void chooseGame(String value) {
+        if (isPs1()) {
+            // the PS1 tab has its own choice (HP1 or HP2); the PC game's stays as it was
+            if ("hp1".equals(value) || "hp2".equals(value)) {
+                getSharedPreferences("setup", MODE_PRIVATE).edit().putString(Ps1Setup.PREF_GAME, value).apply();
+                showGame();
+            }
+            return;
+        }
         if (value.equals(chosenGame())) {
             return;
         }
@@ -950,6 +967,424 @@ public class SetupActivity extends Activity {
             gameReady = false;
             backToStart();
         }
+    }
+
+    // ---- PS1: the PlayStation versions of HP1 and HP2 in the SwanStation emulator (Ps1Activity, docs/ps1.md) ------------
+    // A PC / PS1 tab above the covers. The PS1 tab shows the two covers, its own panel (where the disc is: a folder or an
+    // image file the player picks, the resolution, the BIOS) and the same Play button. It keeps its own game choice
+    // (ps1.game), so the PC game chosen on the other tab does not change.
+
+    private static final int REQUEST_PS1_FOLDER = 31, REQUEST_PS1_DISC = 32, REQUEST_PS1_BIOS = 33;
+    private TextView tabPc, tabPs1;
+    private LinearLayout pcPanel, ps1Panel;
+    private TextView ps1Title, ps1DiscText, ps1BiosText, ps1Note, ps1Message;
+    private final TextView[] ps1ScaleButtons = new TextView[4];
+    private String ps1PickGame = "hp1"; // the game a running picker is for
+    private boolean ps1Starting;
+
+    private boolean isPs1() {
+        return "ps1".equals(getSharedPreferences("setup", MODE_PRIVATE).getString(Ps1Setup.PREF_PLATFORM, "pc"));
+    }
+
+    /** The asset folder of a game's disc in a self pack (build-apk.sh --ps1-hp1 / --ps1-hp2): assets/ps1data/hp1 with a .stamp. */
+    private static String ps1Bundle(String game) {
+        return "ps1data/" + game;
+    }
+
+    /** True when this APK carries the game's disc and it is not unpacked yet (or an older one is). */
+    private boolean ps1BundlePending(String game) {
+        String stamp;
+        try (InputStream in = getAssets().open(ps1Bundle(game) + "/.stamp")) {
+            byte[] data = new byte[64];
+            int n = in.read(data);
+            stamp = new String(data, 0, Math.max(n, 0)).trim();
+        } catch (IOException e) {
+            return false; // a plain APK: the player brings the disc
+        }
+        return !stamp.equals(readSmallFile(new File(Ps1Setup.defaultDir(game), MARKER)));
+    }
+
+    private String ps1Game() {
+        return "hp2".equals(getSharedPreferences("setup", MODE_PRIVATE).getString(Ps1Setup.PREF_GAME, "hp1")) ? "hp2" : "hp1";
+    }
+
+    /** The two tabs and the covers below them (one column on the left of the start screen). */
+    private LinearLayout shelfColumn(boolean wide) {
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout tabs = new LinearLayout(this);
+        tabs.setOrientation(LinearLayout.HORIZONTAL);
+        tabPc = platformTab("PC", "pc");
+        tabPs1 = platformTab("PS1", "ps1");
+        LinearLayout.LayoutParams t1 = new LinearLayout.LayoutParams(0, dp(40), 1f);
+        LinearLayout.LayoutParams t2 = new LinearLayout.LayoutParams(0, dp(40), 1f);
+        t2.leftMargin = dp(8);
+        tabs.addView(tabPc, t1);
+        tabs.addView(tabPs1, t2);
+        col.addView(tabs, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        LinearLayout row = coverShelf(wide);
+        LinearLayout.LayoutParams rl = wide ? new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, 0, 1f)
+                : new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(170));
+        rl.topMargin = dp(10);
+        col.addView(row, rl);
+        return col;
+    }
+
+    private TextView platformTab(String label, final String platform) {
+        TextView b = new TextView(this);
+        b.setText(label);
+        b.setTextSize(15);
+        b.setGravity(Gravity.CENTER);
+        b.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        b.setFocusable(true);
+        b.setOnClickListener(new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) { setPlatform(platform); }
+        });
+        return b;
+    }
+
+    private void setPlatform(String platform) {
+        getSharedPreferences("setup", MODE_PRIVATE).edit().putString(Ps1Setup.PREF_PLATFORM, platform).apply();
+        applyPlatform();
+    }
+
+    /** The PC panel (the saved games, the renderer) and the PS1 panel, one over the other; one is shown. */
+    private LinearLayout detailsHolder() {
+        LinearLayout holder = new LinearLayout(this);
+        holder.setOrientation(LinearLayout.VERTICAL);
+        pcPanel = launchPanel();
+        ps1Panel = buildPs1Panel();
+        holder.addView(pcPanel, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        holder.addView(ps1Panel, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        return holder;
+    }
+
+    /** Shows the tab that is on: its panel, its covers and what the footer says. */
+    private void applyPlatform() {
+        boolean ps1 = isPs1();
+        styleTab(tabPc, !ps1);
+        styleTab(tabPs1, ps1);
+        if (pcPanel != null) pcPanel.setVisibility(ps1 ? android.view.View.GONE : android.view.View.VISIBLE);
+        if (ps1Panel != null) ps1Panel.setVisibility(ps1 ? android.view.View.VISIBLE : android.view.View.GONE);
+        if (hp3Pill != null) hp3Pill.setVisibility(ps1 ? android.view.View.GONE : android.view.View.VISIBLE);
+        if (play != null) {
+            if (ps1) {
+                // PS1 needs no unpacking: Play is there at once, the PC game's progress is out of the way
+                bar.setVisibility(android.view.View.GONE);
+                status.setVisibility(android.view.View.GONE);
+                play.setVisibility(android.view.View.VISIBLE);
+            } else {
+                bar.setVisibility(gameReady ? android.view.View.GONE : android.view.View.VISIBLE);
+                status.setVisibility(gameReady ? android.view.View.GONE : android.view.View.VISIBLE);
+                play.setVisibility(gameReady ? android.view.View.VISIBLE : android.view.View.GONE);
+            }
+        }
+        showGame();
+    }
+
+    private void styleTab(TextView tab, boolean on) {
+        if (tab == null) return;
+        tab.setTextColor(on ? 0xFF1A1A1A : 0xFFFFFFFF);
+        tab.setBackground(rounded(on ? GOLD : 0x1FFFFFFF, 20, on ? 0 : 0x33FFFFFF));
+    }
+
+    private LinearLayout buildPs1Panel() {
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(14), dp(12), dp(14), dp(12));
+        panel.setBackground(rounded(0x14FFFFFF, 14, 0x22FFFFFF));
+
+        ps1Title = new TextView(this);
+        ps1Title.setTextColor(GOLD);
+        ps1Title.setTextSize(12);
+        ps1Title.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        ps1Title.setLetterSpacing(0.12f);
+        panel.addView(ps1Title);
+
+        ps1DiscText = new TextView(this);
+        ps1DiscText.setTextSize(14);
+        ps1DiscText.setTextIsSelectable(true);
+        ps1DiscText.setLineSpacing(0, 1.1f);
+        panel.addView(ps1DiscText, lp(6));
+
+        LinearLayout discButtons = new LinearLayout(this);
+        discButtons.setOrientation(LinearLayout.HORIZONTAL);
+        discButtons.addView(smallPill(tr("Choose folder"), new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) { pickPs1Folder(); }
+        }));
+        discButtons.addView(spaced(smallPill(tr("Choose image file"), new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) { pickPs1File(REQUEST_PS1_DISC); }
+        })));
+        discButtons.addView(spaced(smallPill(tr("Use default place"), new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) { clearPs1Disc(); }
+        })));
+        panel.addView(discButtons, lp(8));
+
+        TextView scaleLabel = new TextView(this);
+        scaleLabel.setTextColor(0xDDFFFFFF);
+        scaleLabel.setTextSize(13);
+        scaleLabel.setText(tr("Resolution (a higher one needs a faster phone)"));
+        panel.addView(scaleLabel, lp(12));
+        LinearLayout scales = new LinearLayout(this);
+        scales.setOrientation(LinearLayout.HORIZONTAL);
+        for (int i = 0; i < 4; i++) {
+            final int scale = i + 1;
+            ps1ScaleButtons[i] = smallPill(scale + "×", new android.view.View.OnClickListener() {
+                public void onClick(android.view.View v) {
+                    getSharedPreferences("setup", MODE_PRIVATE).edit().putInt(Ps1Setup.PREF_SCALE, scale).apply();
+                    refreshPs1();
+                }
+            });
+            scales.addView(i == 0 ? ps1ScaleButtons[i] : spaced(ps1ScaleButtons[i]));
+        }
+        panel.addView(scales, lp(6));
+
+        ps1BiosText = new TextView(this);
+        ps1BiosText.setTextSize(13);
+        ps1BiosText.setLineSpacing(0, 1.1f);
+        panel.addView(ps1BiosText, lp(12));
+        LinearLayout biosButtons = new LinearLayout(this);
+        biosButtons.setOrientation(LinearLayout.HORIZONTAL);
+        biosButtons.addView(smallPill(tr("Choose BIOS file"), new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) { pickPs1File(REQUEST_PS1_BIOS); }
+        }));
+        biosButtons.addView(spaced(smallPill(tr("Use OpenBIOS"), new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) {
+                getSharedPreferences("setup", MODE_PRIVATE).edit().remove(Ps1Setup.PREF_BIOS).apply();
+                refreshPs1();
+            }
+        })));
+        panel.addView(biosButtons, lp(6));
+
+        ps1Note = new TextView(this);
+        ps1Note.setTextColor(MUTED);
+        ps1Note.setTextSize(12);
+        panel.addView(ps1Note, lp(12));
+
+        ps1Message = new TextView(this);
+        ps1Message.setTextColor(PARCHMENT);
+        ps1Message.setTextSize(13);
+        panel.addView(ps1Message, lp(8));
+        return panel;
+    }
+
+    private LinearLayout.LayoutParams lp(int topDp) {
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        p.topMargin = dp(topDp);
+        return p;
+    }
+
+    private android.view.View spaced(android.view.View v) {
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        p.leftMargin = dp(8);
+        v.setLayoutParams(p);
+        return v;
+    }
+
+    private TextView smallPill(String label, android.view.View.OnClickListener onClick) {
+        TextView b = pill(label, false, onClick);
+        b.setTextSize(14);
+        b.setPadding(dp(16), dp(8), dp(16), dp(8));
+        b.setFocusable(true);
+        return b;
+    }
+
+    /** The texts of the PS1 panel for the game shown: where its disc is (or why not), the resolution, the BIOS. */
+    private void refreshPs1() {
+        if (ps1Panel == null) return;
+        android.content.SharedPreferences p = getSharedPreferences("setup", MODE_PRIVATE);
+        String game = ps1Game();
+        ps1Title.setText("PS1  ·  " + pick(game, tr("HARRY POTTER 1: PHILOSOPHER'S STONE"), tr("HARRY POTTER 2: CHAMBER OF SECRETS"), ""));
+
+        String pickedDisc = p.getString(Ps1Setup.PREF_DISC + game, null), pickedFolder = p.getString(Ps1Setup.PREF_FOLDER + game, null);
+        File disc = hasStorageAccess(this) ? Ps1Setup.resolveDisc(pickedDisc, pickedFolder, Ps1Setup.defaultDir(game)) : null;
+        if (disc != null) {
+            ps1DiscText.setTextColor(0xFF9BE39B);
+            ps1DiscText.setText(disc.getPath() + (Ps1DiscConverter.needsConversion(disc) ? tr("\n(converted for the emulator the first time you play)") : ""));
+        } else if (pickedDisc == null && pickedFolder == null && ps1BundlePending(game)) {
+            ps1DiscText.setTextColor(0xFF9BE39B);
+            ps1DiscText.setText(tr("The game is inside this app. It unpacks into ") + Ps1Setup.defaultDir(game).getPath()
+                    + tr(" when you press Play (the first time only)."));
+        } else if (pickedDisc != null || pickedFolder != null) {
+            ps1DiscText.setTextColor(0xFFFF8A80);
+            ps1DiscText.setText(tr("No disc image in ") + (pickedDisc != null ? pickedDisc : pickedFolder));
+        } else {
+            ps1DiscText.setTextColor(MUTED);
+            ps1DiscText.setText(tr("No disc yet. Copy the game's .cue and .bin (or a .chd, or an .mdf with its .mds) into ")
+                    + Ps1Setup.defaultDir(game).getPath() + tr(", or choose where it is."));
+        }
+
+        int scale = Ps1Setup.clampScale(p.getInt(Ps1Setup.PREF_SCALE, 2));
+        for (int i = 0; i < 4; i++) {
+            boolean on = i + 1 == scale;
+            ps1ScaleButtons[i].setTextColor(on ? 0xFF1A1A1A : 0xFFFFFFFF);
+            ps1ScaleButtons[i].setBackground(rounded(on ? GOLD : 0x1FFFFFFF, 24, on ? 0 : 0x33FFFFFF));
+        }
+
+        String bios = p.getString(Ps1Setup.PREF_BIOS, null);
+        if (bios == null) {
+            ps1BiosText.setTextColor(0xDDFFFFFF);
+            ps1BiosText.setText(tr("BIOS: OpenBIOS, built in (no Sony BIOS needed)"));
+        } else if (Ps1Setup.isBios(new File(bios))) {
+            ps1BiosText.setTextColor(0xFF9BE39B);
+            ps1BiosText.setText(tr("BIOS: ") + bios);
+        } else {
+            ps1BiosText.setTextColor(0xFFFF8A80);
+            ps1BiosText.setText(tr("BIOS file not found or not 512 KB, OpenBIOS is used instead: ") + bios);
+        }
+        ps1Note.setText(tr("Memory cards and saved states: ") + new File(Ps1Setup.defaultDir(game), "saves").getPath());
+        if (!ps1Starting) ps1Message.setText("");
+    }
+
+    private void clearPs1Disc() {
+        String game = ps1Game();
+        getSharedPreferences("setup", MODE_PRIVATE).edit().remove(Ps1Setup.PREF_DISC + game).remove(Ps1Setup.PREF_FOLDER + game).apply();
+        refreshPs1();
+    }
+
+    private void pickPs1Folder() {
+        ps1PickGame = ps1Game();
+        try {
+            startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), REQUEST_PS1_FOLDER);
+        } catch (RuntimeException e) {
+            toast(tr("No folder picker on this phone: copy the disc into ") + Ps1Setup.defaultDir(ps1PickGame).getPath() + tr(" instead"));
+        }
+    }
+
+    /** The system file picker, for a disc image (REQUEST_PS1_DISC) or a BIOS file (REQUEST_PS1_BIOS). */
+    private void pickPs1File(int request) {
+        ps1PickGame = ps1Game();
+        try {
+            Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            pick.addCategory(Intent.CATEGORY_OPENABLE);
+            pick.setType("*/*"); // .cue, .mdf, .chd have no usable type
+            startActivityForResult(pick, request);
+        } catch (RuntimeException e) {
+            toast(tr("No file picker on this phone: copy the file into ") + Ps1Setup.defaultDir(ps1PickGame).getPath() + tr(" instead"));
+        }
+    }
+
+    private void toast(String text) {
+        android.widget.Toast.makeText(this, text, android.widget.Toast.LENGTH_LONG).show();
+    }
+
+    /** The answer of the folder, disc image and BIOS pickers. */
+    private void handlePs1Pick(int request, int resultCode, Intent data) {
+        if (resultCode == RESULT_OK && data != null && data.getData() != null) {
+            android.content.SharedPreferences.Editor ed = getSharedPreferences("setup", MODE_PRIVATE).edit();
+            String game = ps1PickGame;
+            if (request == REQUEST_PS1_FOLDER) {
+                String path = treeUriToPath(data.getData());
+                if (path == null) {
+                    toast(tr("That place can't be read as a folder: pick one on the phone or an SD card"));
+                } else if (Ps1DiscConverter.findDisc(new File(path), 1) == null) {
+                    toast(tr("No disc image (.cue, .chd, .mdf, .iso) in ") + path);
+                } else {
+                    ed.putString(Ps1Setup.PREF_FOLDER + game, path).remove(Ps1Setup.PREF_DISC + game).apply();
+                }
+            } else {
+                String id = null;
+                try {
+                    id = android.provider.DocumentsContract.getDocumentId(data.getData());
+                } catch (IllegalArgumentException ignored) {
+                    // not a document: handled as "no path" below
+                }
+                String path = "com.android.externalstorage.documents".equals(data.getData().getAuthority())
+                        || "com.android.providers.downloads.documents".equals(data.getData().getAuthority())
+                        ? Ps1Setup.documentIdToPath(id, Environment.getExternalStorageDirectory().getPath()) : null;
+                if (path == null) {
+                    toast(tr("That file can't be read from there: pick it in Internal storage or on an SD card"));
+                } else if (request == REQUEST_PS1_BIOS) {
+                    if (Ps1Setup.isBios(new File(path))) {
+                        ed.putString(Ps1Setup.PREF_BIOS, path).apply();
+                    } else {
+                        toast(tr("A PS1 BIOS file is 512 KB (for example scph5501.bin)"));
+                    }
+                } else if (!Ps1Setup.isImageName(new File(path).getName())) {
+                    toast(tr("That is not a disc image (.cue, .chd, .mdf, .iso)"));
+                } else {
+                    File image = Ps1Setup.normalizePicked(new File(path));
+                    if (image == null || !image.isFile()) {
+                        toast(tr("The .mdf that goes with it has to be in the same folder"));
+                    } else {
+                        ed.putString(Ps1Setup.PREF_DISC + game, image.getPath()).apply();
+                    }
+                }
+            }
+        }
+        refreshPs1();
+    }
+
+    /** Play on the PS1 tab: finds the disc, converts an .mdf to BIN/CUE once, and starts the emulator. */
+    private void startPs1() {
+        if (ps1Starting) return;
+        if (!hasStorageAccess(this)) {
+            ps1Message.setTextColor(0xFFFF8A80);
+            ps1Message.setText(tr("Flipendo needs access to the phone's storage to read the disc. Open the app again to allow it."));
+            return;
+        }
+        android.content.SharedPreferences p = getSharedPreferences("setup", MODE_PRIVATE);
+        final String game = ps1Game();
+        final String pickedDisc = p.getString(Ps1Setup.PREF_DISC + game, null), pickedFolder = p.getString(Ps1Setup.PREF_FOLDER + game, null);
+        final File disc = Ps1Setup.resolveDisc(pickedDisc, pickedFolder, Ps1Setup.defaultDir(game));
+        // a self pack carries the disc: it is unpacked the first time, unless the player picked their own
+        final boolean unpack = pickedDisc == null && pickedFolder == null && ps1BundlePending(game);
+        if (disc == null && !unpack) {
+            ps1Message.setTextColor(0xFFFF8A80);
+            ps1Message.setText(tr("There is no disc to play: choose a folder or an image file above."));
+            return;
+        }
+        final int scale = Ps1Setup.clampScale(p.getInt(Ps1Setup.PREF_SCALE, 2));
+        final String bios = p.getString(Ps1Setup.PREF_BIOS, null);
+        ps1Starting = true;
+        ps1Message.setTextColor(PARCHMENT);
+        ps1Message.setText(unpack ? tr("Unpacking the game from the app (the first time only)...")
+                : Ps1DiscConverter.needsConversion(disc) ? tr("Converting the disc image for the emulator (once)...") : tr("Starting..."));
+        if (unpack) {
+            status.setVisibility(android.view.View.VISIBLE); // the progress of the unpacking (installBundle) is shown there
+            bar.setVisibility(android.view.View.VISIBLE);
+        }
+        new Thread(new Runnable() {
+            public void run() {
+                File source = disc;
+                String error = null;
+                if (unpack) {
+                    installBundle(ps1Bundle(game), Ps1Setup.defaultDir(game), tr("Unpacking the PS1 game "), tr("Unpacking the PS1 game failed: "));
+                    source = Ps1Setup.resolveDisc(pickedDisc, pickedFolder, Ps1Setup.defaultDir(game));
+                    if (source == null) error = tr("the game could not be unpacked");
+                }
+                File toPlay = source;
+                if (error == null && Ps1DiscConverter.needsConversion(source)) {
+                    try {
+                        toPlay = Ps1DiscConverter.convertMdf(source, new File(Ps1Setup.defaultDir(game), "disc"));
+                    } catch (IOException e) {
+                        error = e.getMessage();
+                    }
+                }
+                final File image = toPlay;
+                final String failure = error;
+                ui.post(new Runnable() {
+                    public void run() {
+                        ps1Starting = false;
+                        if (unpack) {
+                            status.setVisibility(android.view.View.GONE);
+                            bar.setVisibility(android.view.View.GONE);
+                        }
+                        if (failure != null) {
+                            ps1Message.setTextColor(0xFFFF8A80);
+                            ps1Message.setText(tr("The disc image can't be used: ") + failure);
+                            return;
+                        }
+                        ps1Message.setText("");
+                        Intent intent = new Intent(SetupActivity.this, Ps1Activity.class);
+                        intent.putExtra(Ps1Activity.EXTRA_DISC, image.getPath()).putExtra(Ps1Activity.EXTRA_GAME, game)
+                                .putExtra(Ps1Activity.EXTRA_SCALE, scale);
+                        if (bios != null) intent.putExtra(Ps1Activity.EXTRA_BIOS, bios);
+                        startActivity(intent); // the launcher stays behind: leaving the game comes back to it
+                    }
+                });
+            }
+        }).start();
     }
 
     // ---- HP2's saved games: six slots with a picture, or a new game --------------------------------------------------
@@ -2234,6 +2669,10 @@ public class SetupActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_PS1_FOLDER || requestCode == REQUEST_PS1_DISC || requestCode == REQUEST_PS1_BIOS) {
+            handlePs1Pick(requestCode, resultCode, data);
+            return;
+        }
         if (requestCode == REQUEST_PICK_HD) {
             Uri zip = resultCode == RESULT_OK && data != null ? data.getData() : null;
             if (zip == null) {

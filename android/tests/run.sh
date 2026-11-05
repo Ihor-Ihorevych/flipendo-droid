@@ -10,6 +10,11 @@ export PATH="$JAVA_HOME/bin:$PATH"
 OUT=build-android-tests
 rm -rf "$OUT"
 mkdir -p "$OUT"
-javac -Xlint:-options -source 8 -target 8 -d "$OUT" android/java/io/github/flipendo/spike/Hp3Setup.java android/java/io/github/flipendo/spike/UpdateRules.java android/tests/Hp3SetupTest.java android/tests/UpdateRulesTest.java
+J=android/java/io/github/flipendo/spike
+javac -Xlint:-options -source 8 -target 8 -d "$OUT" $J/Hp3Setup.java $J/UpdateRules.java $J/Ps1DiscConverter.java $J/Ps1PadLayout.java $J/Ps1Setup.java \
+	android/tests/Hp3SetupTest.java android/tests/UpdateRulesTest.java android/tests/Ps1DiscConverterTest.java android/tests/Ps1PadLayoutTest.java android/tests/Ps1SetupTest.java
 java -cp "$OUT" io.github.flipendo.spike.Hp3SetupTest
 java -cp "$OUT" io.github.flipendo.spike.UpdateRulesTest
+java -cp "$OUT" io.github.flipendo.spike.Ps1DiscConverterTest
+java -cp "$OUT" io.github.flipendo.spike.Ps1PadLayoutTest
+java -cp "$OUT" io.github.flipendo.spike.Ps1SetupTest
