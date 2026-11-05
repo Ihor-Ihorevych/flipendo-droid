@@ -49,9 +49,9 @@ The PS1 games are the third runtime of the APK, next to the PC engine and HP3, a
 | Part | File | Job |
 | --- | --- | --- |
 | Core | `android/deps/swanstation` (cloned by `build-apk.sh` at the pinned commit `631f0fb`, git-ignored) | built with CMake into `libswanstation.so` |
-| Host | `android/jni/ps1_host.cpp` (`libps1host.so`) | the libretro frontend on SDL3: GLES 3.x context, the core's framebuffer blitted letterboxed to its aspect ratio, SDL audio stream as the clock (the loop waits while more than about two frames are queued), gamepad and key input, save states |
-| Activity | `Ps1Activity` (process `:ps1`, extends `SDLActivity`, `getLibraries()` = SDL3 + ps1host) | prepares the BIOS and folders, the pause menu (back key or the menu button: resume, save state, load state, quit) |
-| Pad | `Ps1PadLayout` (geometry, tested), `Ps1PadView` (drawing, multi-touch) | on-screen PS1 pad; ids are libretro's joypad ids |
+| Host | `android/jni/ps1_host.cpp` (`libps1host.so`) | the libretro frontend on SDL3: GLES 3.x context, the core's framebuffer (or its software frame, uploaded to a texture) blitted letterboxed to its aspect ratio, SDL audio stream as the clock, gamepad and key input, save states |
+| Activity | `Ps1Activity` (process `:ps1`, extends `SDLActivity`, `getLibraries()` = SDL3 + ps1host) | prepares the BIOS and folders, the pause menu (back key or the menu button: resume, save state, load state, control layout, quit) |
+| Pad | `Ps1PadLayout` (geometry and groups, tested), `Ps1PadView` (drawing, multi-touch, layout editor) | on-screen PS1 pad; ids are libretro's joypad ids |
 | Discs | `Ps1DiscConverter`, `Ps1Setup` (tested) | find a disc, MDF to BIN/CUE, picked files and folders, BIOS check |
 | Launcher | `SetupActivity` | PC / PS1 tabs; the PS1 tab has its own game choice (`ps1.game`), so the PC choice is kept |
 
@@ -60,7 +60,22 @@ The PS1 games are the third runtime of the APK, next to the PC engine and HP3, a
   `.bin` its `.cue`). A picked file wins over a picked folder, which wins over the default folder. Converted images go to
   `<game folder>/disc`, memory cards and save states to `<game folder>/saves`.
 - **BIOS**: the bundled OpenBIOS (`android/ps1/`, copied to the app's files on first start) unless a 512 KB file is picked.
-- **Resolution** is the core's GPU scale, 1x to 4x (default 2x); it sets the size of the framebuffer.
+- **Renderer**: *OpenGL ES* (default, the core's hardware renderer, scaled by the resolution) or *Software* (the core
+  draws on the CPU at the PS1's own resolution; any GPU). Launcher pref `ps1.renderer`, `Ps1Activity` extra
+  `ps1.renderer`, the host's argv[7]; a software frame (XRGB8888, RGB565 or 0RGB1555) is converted to RGBA and uploaded
+  into the framebuffer's texture, its rows top first, so the blit flips it.
+- **Resolution** is the core's GPU scale, 1x to 4x (default 2x); it sets the size of the framebuffer. Software ignores it.
+- **Sound**: the audio stream is the clock. A frame runs once less than about four frames of sound are queued (room for a
+  slow frame or a late vsync), and the stream's playback rate follows the queue by up to 0.5%, so it stays near that
+  target although the display's refresh and the sound's clock differ. The device is asked for 1024-frame periods
+  (`SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES`). Every 600 frames the host logs the speed, the queue (and its lowest),
+  underruns (an empty queue before a frame, not counted just after a pause) and the rate; the app's log report
+  (`LogReport`, logcat of the app, `:ps1` included) carries these lines.
+- **Pad**: the shoulder buttons are pills (L2 over L1, R2 over R1), Start and Select pills at the bottom, the face buttons
+  carry the PlayStation symbols as drawn shapes. The controls come in six groups (arrow pad, face buttons, L1 L2, R1 R2,
+  Select Start, menu button); the pause menu's *Control layout* moves a group by dragging it and resizes it (60% to
+  180%), *Reset* puts all back, *Done* resumes the game. Saved in the `:ps1` process's preferences `ps1pad`
+  (`g<group>_x`, `_y` as fractions of the screen, `_s` the scale), one layout for both games.
 - **Start from adb** (a development aid; the activity is exported):
   `adb shell am start -n io.github.flipendo.spike/.Ps1Activity --es ps1.disc /sdcard/FlipendoPS1/HP2/HARRY_POTTER_2.cue --es ps1.game hp2 --ei ps1.scale 2`
   and `adb logcat -s ps1host:* ps1core:*` (the host logs the speed every 600 frames).
@@ -72,9 +87,8 @@ The PS1 games are the third runtime of the APK, next to the PC engine and HP3, a
 ### Not done yet
 
 - In-game saving under OpenBIOS (memory card) is still unchecked; save states are the safe way meanwhile.
-- No software-renderer fallback (the host answers only a GLES context request).
 - The analogue stick and rumble: the core gets the digital pad only. L3/R3 exist on gamepads only.
-- The pad's look (size, opacity, hiding it when a gamepad is connected) is not adjustable.
+- The pad's opacity and hiding it when a gamepad is connected are not adjustable.
 - Texts of the PS1 tab are English with the launcher's translation fallback (no translations added yet).
 
 ## Discs in the self pack (CHD)

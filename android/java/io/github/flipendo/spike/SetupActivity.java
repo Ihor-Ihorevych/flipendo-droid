@@ -758,7 +758,7 @@ public class SetupActivity extends Activity {
             public void onCheckedChanged(android.widget.CompoundButton b, boolean on) {
                 android.content.SharedPreferences.Editor e = getSharedPreferences("setup", MODE_PRIVATE).edit().putBoolean(PREF_KEEP, on);
                 if (on) {
-                    e.remove(PREF_RESTORE); // the renderer now selected is the one to keep
+                    e.remove(restoreKey(false)).remove(restoreKey(true)); // the renderers now selected are the ones to keep
                 }
                 e.apply();
             }
@@ -794,6 +794,7 @@ public class SetupActivity extends Activity {
             LinearLayout.LayoutParams hhp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
             hhp.leftMargin = dp(8);
             engineOptions.addView(hdHint, hhp);
+            hdOptions = new android.view.View[] { hd, hdHint };
         }
         return col;
     }
@@ -909,7 +910,8 @@ public class SetupActivity extends Activity {
     }
 
     private android.view.View hp1Pill, hp2Pill, hp3Pill; // the covers
-    private LinearLayout engineOptions; // the renderer and the HD textures (not for HP3)
+    private LinearLayout engineOptions; // the renderer and the HD textures
+    private android.view.View[] hdOptions; // the HD textures box and its hint (not for HP3)
     private LinearLayout slotsBox, slotsRow;
     private TextView deleteSave; // under the slots: deletes the selected saved game
     static final String PREF_START = "hp2Start"; // "new" or "load:N": what Play does in HP2
@@ -938,9 +940,13 @@ public class SetupActivity extends Activity {
             styleCover(hp2Pill, "hp2".equals(game));
             styleCover(hp3Pill, "hp3".equals(game));
         }
-        if (engineOptions != null) {
-            engineOptions.setVisibility("hp3".equals(game) ? android.view.View.GONE : android.view.View.VISIBLE);
+        // HP3 (its own engine) has the renderer choice but not the HD textures, which are SurrealEngine's
+        if (hdOptions != null) {
+            for (android.view.View v : hdOptions) {
+                v.setVisibility("hp3".equals(game) ? android.view.View.GONE : android.view.View.VISIBLE);
+            }
         }
+        showRenderer(); // each game keeps its own renderer choice
         if (isPs1()) {
             refreshPs1();
         }
@@ -979,6 +985,7 @@ public class SetupActivity extends Activity {
     private LinearLayout pcPanel, ps1Panel;
     private TextView ps1Title, ps1DiscText, ps1BiosText, ps1Note, ps1Message;
     private final TextView[] ps1ScaleButtons = new TextView[4];
+    private TextView ps1GlPill, ps1SoftPill, ps1RendererHint;
     private String ps1PickGame = "hp1"; // the game a running picker is for
     private boolean ps1Starting;
 
@@ -1120,6 +1127,29 @@ public class SetupActivity extends Activity {
         })));
         panel.addView(discButtons, lp(8));
 
+        // the renderer: its name and a segmented control (OpenGL ES | Software) on one line, as on the PC tab
+        LinearLayout rendererRow = new LinearLayout(this);
+        rendererRow.setOrientation(LinearLayout.HORIZONTAL);
+        rendererRow.setGravity(Gravity.CENTER_VERTICAL);
+        rendererRow.addView(sectionLabel(tr("Renderer")), new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        LinearLayout segments = new LinearLayout(this);
+        segments.setOrientation(LinearLayout.HORIZONTAL);
+        segments.setPadding(dp(3), dp(3), dp(3), dp(3));
+        segments.setBackground(rounded(0x14FFFFFF, 14, 0x22FFFFFF));
+        ps1GlPill = ps1RendererSegment("OpenGL ES", Ps1Setup.RENDERER_OPENGL);
+        ps1SoftPill = ps1RendererSegment(tr("Software"), Ps1Setup.RENDERER_SOFTWARE);
+        segments.addView(ps1GlPill, new LinearLayout.LayoutParams(dp(124), dp(38)));
+        LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(dp(110), dp(38));
+        sp.leftMargin = dp(3);
+        segments.addView(ps1SoftPill, sp);
+        rendererRow.addView(segments);
+        panel.addView(rendererRow, lp(14));
+        ps1RendererHint = new TextView(this);
+        ps1RendererHint.setTextColor(INK_MUTED);
+        ps1RendererHint.setTextSize(12);
+        ps1RendererHint.setLineSpacing(0f, 1.15f);
+        panel.addView(ps1RendererHint, lp(6));
+
         TextView scaleLabel = new TextView(this);
         scaleLabel.setTextColor(0xDDFFFFFF);
         scaleLabel.setTextSize(13);
@@ -1189,7 +1219,26 @@ public class SetupActivity extends Activity {
         return b;
     }
 
-    /** The texts of the PS1 panel for the game shown: where its disc is (or why not), the resolution, the BIOS. */
+    /** One half of the PS1 renderer control (a gamepad moves between the halves and A picks one). */
+    private TextView ps1RendererSegment(String text, final String value) {
+        TextView b = new TextView(this);
+        b.setText(text);
+        b.setTextSize(15);
+        b.setGravity(Gravity.CENTER);
+        b.setFocusable(true);
+        b.setOnClickListener(new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) {
+                getSharedPreferences("setup", MODE_PRIVATE).edit().putString(Ps1Setup.PREF_RENDERER, value).apply();
+                refreshPs1();
+            }
+        });
+        b.setOnFocusChangeListener(new android.view.View.OnFocusChangeListener() {
+            public void onFocusChange(android.view.View v, boolean focused) { refreshPs1(); }
+        });
+        return b;
+    }
+
+    /** The texts of the PS1 panel for the game shown: where its disc is (or why not), the renderer, the resolution, the BIOS. */
     private void refreshPs1() {
         if (ps1Panel == null) return;
         android.content.SharedPreferences p = getSharedPreferences("setup", MODE_PRIVATE);
@@ -1214,11 +1263,20 @@ public class SetupActivity extends Activity {
                     + Ps1Setup.defaultDir(game).getPath() + tr(", or choose where it is."));
         }
 
+        // the software renderer draws at the PS1's own resolution: the scale buttons are dimmed and do nothing for it
+        boolean software = Ps1Setup.RENDERER_SOFTWARE.equals(Ps1Setup.renderer(p.getString(Ps1Setup.PREF_RENDERER, null)));
+        stylePill(ps1GlPill, !software);
+        stylePill(ps1SoftPill, software);
+        ps1RendererHint.setText(software
+                ? tr("Software: works on any phone, at the PS1's own resolution.")
+                : tr("OpenGL ES: sharper, the resolution below. If the picture is wrong or the game does not start, try Software."));
         int scale = Ps1Setup.clampScale(p.getInt(Ps1Setup.PREF_SCALE, 2));
         for (int i = 0; i < 4; i++) {
-            boolean on = i + 1 == scale;
+            boolean on = i + 1 == scale && !software;
             ps1ScaleButtons[i].setTextColor(on ? 0xFF1A1A1A : 0xFFFFFFFF);
             ps1ScaleButtons[i].setBackground(rounded(on ? GOLD : 0x1FFFFFFF, 24, on ? 0 : 0x33FFFFFF));
+            ps1ScaleButtons[i].setAlpha(software ? 0.4f : 1f);
+            ps1ScaleButtons[i].setEnabled(!software);
         }
 
         String bios = p.getString(Ps1Setup.PREF_BIOS, null);
@@ -1378,7 +1436,8 @@ public class SetupActivity extends Activity {
                         ps1Message.setText("");
                         Intent intent = new Intent(SetupActivity.this, Ps1Activity.class);
                         intent.putExtra(Ps1Activity.EXTRA_DISC, image.getPath()).putExtra(Ps1Activity.EXTRA_GAME, game)
-                                .putExtra(Ps1Activity.EXTRA_SCALE, scale);
+                                .putExtra(Ps1Activity.EXTRA_SCALE, scale)
+                                .putExtra(Ps1Activity.EXTRA_RENDERER, Ps1Setup.renderer(getSharedPreferences("setup", MODE_PRIVATE).getString(Ps1Setup.PREF_RENDERER, null)));
                         if (bios != null) intent.putExtra(Ps1Activity.EXTRA_BIOS, bios);
                         startActivity(intent); // the launcher stays behind: leaving the game comes back to it
                     }
@@ -1668,31 +1727,51 @@ public class SetupActivity extends Activity {
     private android.widget.CheckBox remember;
     private boolean restored;
 
+    /** PREF_RESTORE of a game: HP3 has a renderer choice of its own (FlipendoActivity.RENDERER_FILE_HP3). */
+    static String restoreKey(boolean hp3) {
+        return hp3 ? PREF_RESTORE + "Hp3" : PREF_RESTORE;
+    }
+
+    /** The renderer choice file of the game picked here. */
+    private File rendererFile() {
+        return new File(FlipendoActivity.GAME_DIR, FlipendoActivity.rendererFile(isHp3()));
+    }
+
     /** A normal launch after a one-launch choice puts the renderer from before it back. A restart from inside the game
      *  (language, mod, renderer switch, the OpenGL ES fallback) is the same session and keeps it. */
     private void restoreRenderer() {
         android.content.SharedPreferences prefs = getSharedPreferences("setup", MODE_PRIVATE);
-        if (restored || getIntent().getBooleanExtra("restart", false) || !prefs.contains(PREF_RESTORE)) {
+        if (restored || getIntent().getBooleanExtra("restart", false)) {
             return;
         }
         restored = true;
-        String previous = prefs.getString(PREF_RESTORE, "");
-        File file = new File(FlipendoActivity.GAME_DIR, FlipendoActivity.RENDERER_FILE);
-        try {
-            if (previous.isEmpty()) {
-                file.delete();
-            } else {
-                writeSmallFile(file, previous);
+        for (boolean hp3 : new boolean[] { false, true }) {
+            String key = restoreKey(hp3);
+            if (!prefs.contains(key)) {
+                continue;
             }
-            prefs.edit().remove(PREF_RESTORE).apply();
-        } catch (IOException e) {
-            android.util.Log.e("flipendo", "could not put the renderer back: " + e);
+            String previous = prefs.getString(key, "");
+            File file = new File(FlipendoActivity.GAME_DIR, FlipendoActivity.rendererFile(hp3));
+            try {
+                if (previous.isEmpty()) {
+                    file.delete();
+                } else {
+                    writeSmallFile(file, previous);
+                }
+                prefs.edit().remove(key).apply();
+            } catch (IOException e) {
+                android.util.Log.e("flipendo", "could not put the renderer back: " + e);
+            }
         }
     }
 
     private void showRenderer() {
-        String r = readSmallFile(new File(FlipendoActivity.GAME_DIR, FlipendoActivity.RENDERER_FILE));
-        boolean gl = !"vulkan".equals(r); // OpenGL ES unless Vulkan was picked (android_main.cpp)
+        if (glPill == null) {
+            return;
+        }
+        String r = readSmallFile(rendererFile());
+        // SurrealEngine: OpenGL ES unless Vulkan was picked (android_main.cpp); HP3: Vulkan unless OpenGL ES was
+        boolean gl = isHp3() ? "opengl".equals(r) : !"vulkan".equals(r);
         glPill.setText("opengl-auto".equals(r) ? "OpenGL ES (auto)" : "OpenGL ES");
         stylePill(vulkanPill, !gl);
         stylePill(glPill, gl);
@@ -1705,12 +1784,13 @@ public class SetupActivity extends Activity {
     }
 
     private void chooseRenderer(String value) {
-        File file = new File(FlipendoActivity.GAME_DIR, FlipendoActivity.RENDERER_FILE);
+        File file = rendererFile();
+        String key = restoreKey(isHp3());
         android.content.SharedPreferences prefs = getSharedPreferences("setup", MODE_PRIVATE);
-        if (!remember.isChecked() && !prefs.contains(PREF_RESTORE)) {
+        if (!remember.isChecked() && !prefs.contains(key)) {
             // for this launch only: keep what to put back on the next one
             String previous = readSmallFile(file);
-            prefs.edit().putString(PREF_RESTORE, previous != null ? previous : "").apply();
+            prefs.edit().putString(key, previous != null ? previous : "").apply();
         }
         try {
             new File(FlipendoActivity.GAME_DIR).mkdirs();

@@ -31,6 +31,8 @@ public class Ps1Activity extends SDLActivity {
     public static final String EXTRA_SCALE = "ps1.scale";
     /** A BIOS file the player picked, used instead of the bundled OpenBIOS; absent or not 512 KB means OpenBIOS. */
     public static final String EXTRA_BIOS = "ps1.bios";
+    /** The core's GPU renderer: "opengl" (default, OpenGL ES, scalable) or "software" (any phone, native resolution). */
+    public static final String EXTRA_RENDERER = "ps1.renderer";
 
     /** Memory cards and states: /sdcard/FlipendoPS1/&lt;game&gt;/saves (the launcher's storage permission covers it). */
     public static final String ROOT = Ps1Setup.ROOT;
@@ -49,6 +51,7 @@ public class Ps1Activity extends SDLActivity {
 
     private File core, disc, systemDir, saveDir;
     private int scale = 2;
+    private String renderer = Ps1Setup.RENDERER_OPENGL;
     private String biosName = BUNDLED_BIOS;
     private Ps1PadView pad;
     private boolean menuOpen;
@@ -58,10 +61,10 @@ public class Ps1Activity extends SDLActivity {
         return new String[] {"SDL3", "ps1host"};
     }
 
-    /** What jni/ps1_host.cpp reads: core, disc, system dir, save dir, scale, BIOS name. */
+    /** What jni/ps1_host.cpp reads: core, disc, system dir, save dir, scale, BIOS name, renderer. */
     @Override
     protected String[] getArguments() {
-        return new String[] {core.getPath(), disc.getPath(), systemDir.getPath(), saveDir.getPath(), String.valueOf(scale), biosName};
+        return new String[] {core.getPath(), disc.getPath(), systemDir.getPath(), saveDir.getPath(), String.valueOf(scale), biosName, renderer};
     }
 
     @Override
@@ -73,6 +76,7 @@ public class Ps1Activity extends SDLActivity {
         if (mLayout != null) {
             pad = new Ps1PadView(this, new Ps1PadView.Listener() {
                 @Override public void onMenu() { showMenu(); }
+                @Override public void onEditDone() { nativePause(false); }
             });
             mLayout.addView(pad, new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         }
@@ -84,6 +88,7 @@ public class Ps1Activity extends SDLActivity {
         if (game == null) game = "ps1";
         String discPath = intent != null ? intent.getStringExtra(EXTRA_DISC) : null;
         scale = intent != null ? Ps1Setup.clampScale(intent.getIntExtra(EXTRA_SCALE, 2)) : 2;
+        renderer = Ps1Setup.renderer(intent != null ? intent.getStringExtra(EXTRA_RENDERER) : null);
         core = new File(getApplicationInfo().nativeLibraryDir, "libswanstation.so");
         systemDir = new File(getFilesDir(), "ps1/system");
         systemDir.mkdirs();
@@ -138,29 +143,35 @@ public class Ps1Activity extends SDLActivity {
     // ---- the menu -------------------------------------------------------------------------------------------------
 
     void showMenu() {
-        if (menuOpen) return;
+        if (menuOpen || (pad != null && pad.isEditing())) return;
         menuOpen = true;
         nativePause(true);
-        final String[] items = {tr("Resume"), tr("Save state"), tr("Load state"), tr("Quit game")};
+        final boolean[] editing = {false};
+        final String[] items = {tr("Resume"), tr("Save state"), tr("Load state"), tr("Control layout"), tr("Quit game")};
         new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                 .setTitle(tr("PS1"))
                 .setItems(items, new android.content.DialogInterface.OnClickListener() {
                     @Override public void onClick(android.content.DialogInterface d, int which) {
                         if (which == 1) nativeCommand(CMD_SAVE_STATE);
                         else if (which == 2) nativeCommand(CMD_LOAD_STATE);
-                        else if (which == 3) nativeCommand(CMD_QUIT);
+                        else if (which == 3 && pad != null) {
+                            // the game stays paused while the controls are moved; Done resumes it
+                            editing[0] = true;
+                            pad.startEditing();
+                        }
+                        else if (which == 4) nativeCommand(CMD_QUIT);
                     }
                 })
                 .setOnDismissListener(new android.content.DialogInterface.OnDismissListener() {
                     @Override public void onDismiss(android.content.DialogInterface d) {
                         menuOpen = false;
-                        nativePause(false);
+                        if (!editing[0]) nativePause(false);
                     }
                 })
                 .show();
     }
 
-    /** The back key opens the menu instead of ending the game. */
+    /** The back key opens the menu instead of ending the game (in the layout editor it does nothing: Done closes it). */
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (event.getKeyCode() == KeyEvent.KEYCODE_BACK) {

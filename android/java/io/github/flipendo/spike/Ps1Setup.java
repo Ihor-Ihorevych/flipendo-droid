@@ -21,6 +21,9 @@ public final class Ps1Setup {
     static final String PREF_DISC = "ps1.disc.";               // + game: an image file the player picked (wins over the folder)
     static final String PREF_SCALE = "ps1.scale";              // resolution scale 1 to 4 (default 2)
     static final String PREF_BIOS = "ps1.bios";                // a BIOS file the player picked (default: the built-in OpenBIOS)
+    static final String PREF_RENDERER = "ps1.renderer";        // "opengl" (default) or "software"
+
+    static final String RENDERER_OPENGL = "opengl", RENDERER_SOFTWARE = "software";
 
     /** The folder a game's disc is looked for in when the player picked nothing: /sdcard/FlipendoPS1/HP1 or HP2. */
     public static File defaultDir(String game) {
@@ -100,6 +103,11 @@ public final class Ps1Setup {
     /** True for a file that can serve as the PS1 BIOS: 512 KB. */
     public static boolean isBios(File f) {
         return f != null && f.isFile() && f.length() == BIOS_SIZE;
+    }
+
+    /** A renderer name as the host takes it: "software" when asked for, else the default "opengl". */
+    public static String renderer(String value) {
+        return RENDERER_SOFTWARE.equals(value) ? RENDERER_SOFTWARE : RENDERER_OPENGL;
     }
 
     public static int clampScale(int scale) {

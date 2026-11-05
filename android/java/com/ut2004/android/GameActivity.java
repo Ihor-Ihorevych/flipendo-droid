@@ -31,6 +31,14 @@ public class GameActivity extends FlipendoActivity {
 
     @Override
     protected void onCreate(android.os.Bundle savedInstanceState) {
+        // The renderer picked in the launcher or the settings panel, for the engine (HP3_BACKEND, read when it opens the
+        // GPU): "opengl" = OpenGL ES only; otherwise Vulkan, falling back to OpenGL ES when this phone's Vulkan fails.
+        // Set before the engine starts (super.onCreate); a value already in the environment (adb debugging) is kept.
+        try {
+            android.system.Os.setenv("HP3_BACKEND", hp3Backend(), false);
+        } catch (Exception e) {
+            android.util.Log.w("flipendo", "renderer choice: " + e);
+        }
         super.onCreate(savedInstanceState);
         saved = nativeSavedCount();
         getWindow().getDecorView().postDelayed(savePoll, 300);

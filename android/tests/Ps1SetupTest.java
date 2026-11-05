@@ -92,6 +92,7 @@ public final class Ps1SetupTest {
 
         // the resolution scale is kept between 1 and 4
         check(Ps1Setup.clampScale(0) == 1 && Ps1Setup.clampScale(2) == 2 && Ps1Setup.clampScale(9) == 4, "scaleIsClamped");
+        check(Ps1Setup.renderer(null).equals("opengl") && Ps1Setup.renderer("software").equals("software") && Ps1Setup.renderer("vulkan").equals("opengl"), "rendererDefaultsToOpenGl");
 
         System.out.println(failures == 0 ? "ALL PASS" : failures + " FAILED");
         System.exit(failures == 0 ? 0 : 1);

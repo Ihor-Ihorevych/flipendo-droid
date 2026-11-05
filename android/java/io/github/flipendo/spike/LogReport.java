@@ -173,6 +173,8 @@ final class LogReport {
         s.append("version: ").append(version(context)).append('\n');
         String renderer = SetupActivity.readSmallFile(new File(FlipendoActivity.GAME_DIR, FlipendoActivity.RENDERER_FILE));
         s.append("renderer: ").append(renderer != null && !renderer.isEmpty() ? renderer : "opengl (default)").append(" (the GPU and driver are in flipendo.log)\n");
+        String hp3 = SetupActivity.readSmallFile(new File(FlipendoActivity.GAME_DIR, FlipendoActivity.RENDERER_FILE_HP3));
+        s.append("HP3 renderer: ").append(hp3 != null && !hp3.isEmpty() ? hp3 : "auto (Vulkan, else OpenGL ES)").append(" (the GPU line of the hp3 log)\n");
         s.append("manufacturer: ").append(Build.MANUFACTURER).append('\n');
         s.append("brand: ").append(Build.BRAND).append('\n');
         s.append("model: ").append(Build.MODEL).append('\n');

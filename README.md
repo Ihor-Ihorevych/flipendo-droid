@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <b>Flipendo Droid: Harry Potter and the Sorcerer's Stone (2001) and the Chamber of Secrets (2002) on your Android phone.</b><br>
+  <b>Flipendo Droid: Harry Potter and the Sorcerer's Stone (2001), the Chamber of Secrets (2002) and the Prisoner of Azkaban (2004) on your Android phone.</b><br>
   <sub>The original PC games, played with touch controls or a gamepad. Based on <a href="https://github.com/kroplabeskidu/flipendo">Flipendo</a>.</sub>
 </p>
 
@@ -26,10 +26,10 @@
   <img src="images/screenshots/grand-staircase.jpg" alt="The grand staircase in the first level" width="100%">
 </p>
 
-Play the **2001 and 2002 PC games** *Harry Potter and the Philosopher's / Sorcerer's Stone* and *Harry Potter and the
-Chamber of Secrets* on a phone: the same levels, voices, music and cutscenes. Nothing is remade; your own copy of a game
-runs on a modern open-source engine, with controls made for a touch screen and support for gamepads. One app plays both:
-pick the game on the start screen.
+Play the **2001, 2002 and 2004 PC games** *Harry Potter and the Philosopher's / Sorcerer's Stone*, *Harry Potter and the
+Chamber of Secrets* and *Harry Potter and the Prisoner of Azkaban* on a phone: the same levels, voices, music and
+cutscenes. Nothing is remade; your own copy of a game runs on a modern open-source engine, with controls made for a touch
+screen and support for gamepads. One app plays them all: pick the game on the start screen.
 
 - **Harry Potter 1**: all levels are playable.
 - **Harry Potter 2**: playable from the first scene on, with saves, duels and shops; still being polished (see
@@ -59,8 +59,8 @@ pick the game on the start screen.
 2. **Install it.** Open the APK on the phone and allow installing apps from that source when Android asks.
 3. **Copy the game to the phone.** Connect the phone to the computer (file transfer mode) and copy the game folder to the
    phone, anywhere you like: internal storage or an SD card. The easiest places are a folder named **FlipendoHP**
-   (Harry Potter 1) and **FlipendoHP2** (Harry Potter 2) in the internal storage, so that each holds its own `System`,
-   `Maps` and so on: the app finds them there by itself.
+   (Harry Potter 1), **FlipendoHP2** (Harry Potter 2) and **FlipendoHP3** (Harry Potter 3) in the internal storage, so
+   that each holds its own `System`, `Maps` and so on: the app finds them there by itself.
 4. **Start Flipendo.** Allow **All files access** when it asks (the app needs it to read the games), then open it again.
    On the start screen pick **Harry Potter 1**, **2** or **3**. If that game isn't in its folder, tap **Choose folder**
    and pick the folder you copied (or the folder it is in); each game remembers its own folder. For Harry Potter 3 the
@@ -124,10 +124,10 @@ Open them with the gear (top right) or the View button on a gamepad. Everything 
 | **Invert wand** | flips the up/down aim of the wand button while the spell is held |
 | **First person** | the camera in Harry's head while he walks about (cutscenes, lessons, duels and shops keep the normal camera) |
 | **Control layout** | drag the wand, jump, arrow pad and toolbar where you want them and resize them (60-180%); Reset puts them back |
-| **Debug mode / Debug menu** | HP1: adds Level Select to the main menu. HP2: a menu to go to any level, set the story state or get all spells |
-| **Renderer** | OpenGL ES (the default) or Vulkan, also on the start screen before the game loads. Try the other one if the game is slow or looks wrong; from Vulkan it switches to OpenGL ES by itself if Vulkan does not start |
+| **Debug mode / Debug menu** | HP1: adds Level Select to the main menu. HP2: a menu to go to any level, set the story state or get all spells. HP3: level select and cheats |
+| **Renderer** | OpenGL ES (the default for HP1 and HP2) or Vulkan (the default for HP3), also on the start screen before the game loads; each game keeps its own choice. Try the other one if the game is slow or looks wrong; from Vulkan it switches to OpenGL ES by itself if Vulkan does not start |
 | **FPS limit** | 25 to 60 frames a second: lower saves battery and keeps the phone cooler |
-| **Language** | HP3: its menus and loading tips follow the launcher's language (English, Ukrainian, Belarusian, Georgian, Latvian; the voices and subtitles stay Russian). HP1: English or Russian text; *Добавить озвучку из папки…* adds a dubbing from its Sounds folder (such as the Russian voices) |
+| **Language** | HP3: follows the launcher's language. Menus and loading tips come in English, Russian, Ukrainian, Belarusian, Georgian, Latvian, German and Spanish; voices and subtitles are English or Russian, as the game folder has them. HP1: English or Russian text; *Добавить озвучку из папки…* adds a dubbing from its Sounds folder (such as the Russian voices) |
 | **Movement mod** | HP1: AdamJD's mod for better movement, camera and climbing: tap *Choose file* and pick its zip (download it from the mod's page), then switch it on or off here |
 | **Play HP1 / Play HP2** | in the header: restarts straight into the other game (tap twice; unsaved progress is lost) |
 | **Telegram** | opens the group |
@@ -183,21 +183,28 @@ in the group with a few words about what happened.
 
 Players don't need this: the [Releases](https://github.com/Ihor-Ihorevych/flipendo-droid/releases) page has the APK.
 For developers: on Windows with Git Bash, JDK 21 and the Android SDK (platform 35, build-tools 35.0.0, NDK 27.2.12479018,
-CMake 3.22.1):
+CMake 3.22.1). Harry Potter 3's engine, [R3paro](https://github.com/Ihor-Ihorevych/r3paro), is built with cargo (rustup
+target `aarch64-linux-android`) from a checkout next to this one (`../hp3-engine`, or `--hp3-rust <folder>`) and packed into
+the APK as `libhp3app.so`; without it the APK has no HP3 and the launcher hides its cover.
 
 ```sh
 git clone --recursive https://github.com/Ihor-Ihorevych/flipendo-droid
 cd flipendo-droid
 android/build-apk.sh                # android/dist/flipendo-droid.apk
+adb install -r android/dist/flipendo-droid.apk   # or: android/build-apk.sh --install
 ```
 
-How the port works, what it changes and every build option: [docs/android.md](docs/android.md).
+How the port works, what it changes and every build option: [docs/android.md](docs/android.md); the options are also
+listed at the top of `android/build-apk.sh`.
 
 ## About
 
 This is the Android port of [Flipendo](https://github.com/kroplabeskidu/flipendo), which plays the games on a PC (widescreen,
 modern renderers, mods) on top of [SurrealEngine](https://github.com/dpjudas/SurrealEngine), an open-source
 reimplementation of Unreal Engine 1. Improvements to the games themselves come from Flipendo and are merged in regularly.
+Harry Potter 3 runs on [R3paro](https://github.com/Ihor-Ihorevych/r3paro), a separate engine written in Rust, and the PS1
+versions on the [SwanStation](https://github.com/libretro/swanstation) emulator. Flipendo itself (HP1 and HP2 on a PC)
+builds like this:
 
 ```sh
 git clone --recursive https://github.com/kroplabeskidu/flipendo
@@ -257,9 +264,6 @@ and [docs/modding.md](docs/modding.md) to write a mod today.
 - **Bugs and ideas**: open an issue. Include your game version, what you did, and the log (`--logfile=...`).
 - **Help out**: playtesting, modding, C++. Most of it needs no programming:
   [CONTRIBUTING.md](CONTRIBUTING.md). Reverse engineering isn't open to outside help.
-- **Android port (unofficial)**: someone ported Flipendo to Android in a fork,
-  [flipendo-droid](https://github.com/Ihor-Ihorevych/flipendo-droid). It isn't part of this project: I haven't
-  reviewed it and don't endorse it. Try it at your own discretion. Thank you to its author for the work!
 
 ## Legal
 

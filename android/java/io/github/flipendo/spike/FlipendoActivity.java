@@ -678,6 +678,20 @@ public class FlipendoActivity extends SDLActivity {
     /** The renderer choice in GAME_DIR: "vulkan" (default), "opengl" (Settings) or "opengl-auto" (Vulkan failed; android_main.cpp). */
     static final String RENDERER_FILE = ".flipendo-renderer";
 
+    /** HP3's own renderer choice in GAME_DIR (its Rust engine is not SurrealEngine): none or "vulkan" = Vulkan, falling
+     *  back to OpenGL ES when this phone's Vulkan driver cannot run it; "opengl" = OpenGL ES (GameActivity: HP3_BACKEND). */
+    static final String RENDERER_FILE_HP3 = ".flipendo-renderer-hp3";
+
+    /** HP3_BACKEND for the Rust engine from HP3's renderer choice: "gl" when OpenGL ES was picked, else "auto". */
+    protected static String hp3Backend() {
+        return "opengl".equals(SetupActivity.readSmallFile(new File(GAME_DIR, RENDERER_FILE_HP3))) ? "gl" : "auto";
+    }
+
+    /** The renderer choice file of a game. */
+    static String rendererFile(boolean hp3) {
+        return hp3 ? RENDERER_FILE_HP3 : RENDERER_FILE;
+    }
+
     /** Needs "All files access" to read the game data; opens the system page for it on first launch. */
     private boolean ensureStorageAccess() {
         if (SetupActivity.hasStorageAccess(this)) {
@@ -1107,8 +1121,10 @@ public class FlipendoActivity extends SDLActivity {
         long rendererAskTime;
 
         {
-            String r = SetupActivity.readSmallFile(new File(GAME_DIR, RENDERER_FILE));
-            rendererGL = !"vulkan".equals(r); // OpenGL ES unless Vulkan was picked (android_main.cpp)
+            boolean hp3 = ((FlipendoActivity) getContext()).isHp3();
+            String r = SetupActivity.readSmallFile(new File(GAME_DIR, rendererFile(hp3)));
+            // SurrealEngine: OpenGL ES unless Vulkan was picked (android_main.cpp); HP3: Vulkan unless OpenGL ES was
+            rendererGL = hp3 ? "opengl".equals(r) : !"vulkan".equals(r);
             rendererAuto = "opengl-auto".equals(r);
         }
 
@@ -1143,8 +1159,8 @@ public class FlipendoActivity extends SDLActivity {
             if (rendererAsk && now - rendererAskTime < 5000) {
                 rendererAsk = false;
                 // a switch here is for good: the launcher must not put back the renderer from before a one-launch choice
-                getContext().getSharedPreferences("setup", MODE_PRIVATE).edit().remove(SetupActivity.PREF_RESTORE).apply();
-                ((FlipendoActivity) getContext()).restartWith(RENDERER_FILE, rendererGL ? "vulkan" : "opengl");
+                getContext().getSharedPreferences("setup", MODE_PRIVATE).edit().remove(SetupActivity.restoreKey(isHp3Game())).apply();
+                ((FlipendoActivity) getContext()).restartWith(rendererFile(isHp3Game()), rendererGL ? "vulkan" : "opengl");
                 return;
             }
             rendererAsk = true;

@@ -4,7 +4,8 @@
 // what the core needs from a host: docs/ps1.md.
 //
 // argv (Ps1Activity.getArguments): [1] core .so, [2] disc (.cue/.chd), [3] system dir (BIOS, shader cache), [4] save dir
-// (memory cards, save states), [5] resolution scale (1..4), [6] BIOS file name in the system dir.
+// (memory cards, save states), [5] resolution scale (1..4), [6] BIOS file name in the system dir, [7] renderer ("opengl" or
+// "software"; older launchers pass none: OpenGL).
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_system.h>
 #include <GLES3/gl3.h>
@@ -52,6 +53,10 @@ uint32_t g_gamepadBits = 0;           // from gamepads, keys
 uint32_t g_keyBits = 0;
 bool g_dpadFromStick[4] = {false, false, false, false};
 bool g_triggerL2 = false, g_triggerR2 = false;
+bool g_software = false;               // the core draws on the CPU: its frames are uploaded into g_tex
+bool g_softFrame = false;              // g_tex holds a software frame (top row first: shown flipped)
+retro_pixel_format g_pixelFormat = RETRO_PIXEL_FORMAT_0RGB1555;
+std::vector<uint32_t> g_rgba;          // a software frame converted to RGBA
 
 void LogCallback(enum retro_log_level level, const char* fmt, ...)
 {
@@ -102,7 +107,9 @@ bool Environment(unsigned cmd, void* data)
 		*static_cast<const char**>(data) = g_saveDir.c_str();
 		return true;
 	case RETRO_ENVIRONMENT_SET_PIXEL_FORMAT:
-		return true; // hardware frames only
+		// the format of software frames (hardware frames are in the framebuffer and have none)
+		g_pixelFormat = *static_cast<const retro_pixel_format*>(data);
+		return true;
 	case RETRO_ENVIRONMENT_GET_CAN_DUPE:
 		*static_cast<bool*>(data) = true;
 		return true;
@@ -158,9 +165,55 @@ bool Environment(unsigned cmd, void* data)
 	}
 }
 
-void VideoRefresh(const void* data, unsigned width, unsigned height, size_t)
+// A software frame (rows of pixels in the core's format, pitch bytes apart) as RGBA in g_tex: the blit shows it as it does a
+// hardware frame, flipped since its first row is the top one.
+void UploadSoftwareFrame(const void* data, unsigned width, unsigned height, size_t pitch)
 {
-	if (data == RETRO_HW_FRAME_BUFFER_VALID) { g_frameW = width; g_frameH = height; }
+	if (width == 0 || height == 0 || width > g_fboW || height > g_fboH)
+		return;
+	g_rgba.resize(static_cast<size_t>(width) * height);
+	const uint8_t* src = static_cast<const uint8_t*>(data);
+	for (unsigned y = 0; y < height; y++, src += pitch)
+	{
+		uint32_t* out = &g_rgba[static_cast<size_t>(y) * width];
+		if (g_pixelFormat == RETRO_PIXEL_FORMAT_XRGB8888)
+		{
+			const uint32_t* in = reinterpret_cast<const uint32_t*>(src);
+			for (unsigned x = 0; x < width; x++)
+			{
+				uint32_t p = in[x]; // 0x00RRGGBB; RGBA bytes in memory are R, G, B, A
+				out[x] = ((p >> 16) & 0xFF) | (p & 0xFF00) | ((p & 0xFF) << 16) | 0xFF000000u;
+			}
+		}
+		else
+		{
+			const uint16_t* in = reinterpret_cast<const uint16_t*>(src);
+			const bool rgb565 = g_pixelFormat == RETRO_PIXEL_FORMAT_RGB565;
+			for (unsigned x = 0; x < width; x++)
+			{
+				uint16_t p = in[x];
+				uint32_t r, g, b;
+				if (rgb565) { r = (p >> 11) & 31; g = (p >> 5) & 63; b = p & 31; g = (g << 2) | (g >> 4); }
+				else { r = (p >> 10) & 31; g = (p >> 5) & 31; b = p & 31; g = (g << 3) | (g >> 2); }
+				r = (r << 3) | (r >> 2);
+				b = (b << 3) | (b >> 2);
+				out[x] = r | (g << 8) | (b << 16) | 0xFF000000u;
+			}
+		}
+	}
+	glBindTexture(GL_TEXTURE_2D, g_tex);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, g_rgba.data());
+	g_frameW = width;
+	g_frameH = height;
+	g_softFrame = true;
+}
+
+void VideoRefresh(const void* data, unsigned width, unsigned height, size_t pitch)
+{
+	if (data == RETRO_HW_FRAME_BUFFER_VALID) { g_frameW = width; g_frameH = height; g_softFrame = false; }
+	else if (data) UploadSoftwareFrame(data, width, height, pitch);
+	// no data: the same frame again (GET_CAN_DUPE), the last one stays
 }
 
 size_t AudioBatch(const int16_t* samples, size_t frames)
@@ -309,7 +362,9 @@ void PresentFrame(SDL_Window* window)
 	glViewport(0, 0, ww, wh);
 	glClearColor(0, 0, 0, 1);
 	glClear(GL_COLOR_BUFFER_BIT);
-	glBlitFramebuffer(0, 0, g_frameW, g_frameH, x, y, x + static_cast<int>(dw), y + static_cast<int>(dh), GL_COLOR_BUFFER_BIT, GL_LINEAR);
+	// a software frame's first row is its top: drawn upside down onto the screen's bottom-up rows
+	const int top = y + static_cast<int>(dh);
+	glBlitFramebuffer(0, 0, g_frameW, g_frameH, x, g_softFrame ? top : y, x + static_cast<int>(dw), g_softFrame ? y : top, GL_COLOR_BUFFER_BIT, GL_LINEAR);
 	SDL_GL_SwapWindow(window);
 }
 
@@ -418,8 +473,10 @@ int RunHost(int argc, char** argv)
 	if (scale < 1) scale = 1;
 	if (scale > 4) scale = 4;
 	const char* bios = argv[6];
+	g_software = argc > 7 && strcmp(argv[7], "software") == 0;
+	LOGI("renderer %s, scale %d", g_software ? "software" : "OpenGL ES", scale);
 
-	g_options["swanstation_GPU_Renderer"] = "OpenGL";
+	g_options["swanstation_GPU_Renderer"] = g_software ? "Software" : "OpenGL";
 	g_options["swanstation_GPU_ResolutionScale"] = std::to_string(scale);
 	g_options["swanstation_BIOS_PathNTSCU"] = bios;
 	g_options["swanstation_BIOS_PathPAL"] = bios;
@@ -427,6 +484,8 @@ int RunHost(int argc, char** argv)
 
 	SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
 	SDL_SetHint(SDL_HINT_ENABLE_SCREEN_KEYBOARD, "0");
+	// a steadier device period than the smallest burst some phones' drivers ask for (fewer, larger callbacks)
+	SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, "1024");
 	if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMEPAD | SDL_INIT_EVENTS))
 	{
 		LOGE("SDL_Init: %s", SDL_GetError());
@@ -456,7 +515,7 @@ int RunHost(int argc, char** argv)
 		Toast("The disc could not be loaded");
 		return 5;
 	}
-	if (!g_hwSet)
+	if (!g_hwSet && !g_software)
 	{
 		LOGE("the core asked for no hardware renderer");
 		return 6;
@@ -475,13 +534,22 @@ int RunHost(int argc, char** argv)
 
 	SDL_AudioSpec spec{SDL_AUDIO_S16, 2, static_cast<int>(g_sampleRate)};
 	g_audio = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
-	if (g_audio) SDL_ResumeAudioStreamDevice(g_audio);
+	if (g_audio)
+	{
+		SDL_ResumeAudioStreamDevice(g_audio);
+		SDL_AudioSpec dev{};
+		int devFrames = 0;
+		if (SDL_GetAudioDeviceFormat(SDL_GetAudioStreamDevice(g_audio), &dev, &devFrames))
+			LOGI("audio device: %d Hz, %d channels, %d frames per period", dev.freq, dev.channels, devFrames);
+	}
 	else LOGE("no audio: %s", SDL_GetError());
 
 	const std::string statePath = g_saveDir + "/state1.sav";
 	bool quit = false, background = false, wasPaused = false;
 	uint64_t frames = 0;
 	const uint64_t startNs = SDL_GetTicksNS();
+	int underruns = 0, minQueued = INT32_MAX, sinceResume = 0; // the sound's health, logged every 600 frames
+	float lastRatio = 1.0f;
 	while (!quit)
 	{
 		SDL_Event e;
@@ -517,6 +585,7 @@ int RunHost(int argc, char** argv)
 		{
 			if (g_audio) { if (paused) SDL_PauseAudioStreamDevice(g_audio); else SDL_ResumeAudioStreamDevice(g_audio); }
 			wasPaused = paused;
+			sinceResume = 0; // the queue refills after a pause: not an underrun
 		}
 		if (paused)
 		{
@@ -525,19 +594,34 @@ int RunHost(int argc, char** argv)
 			continue;
 		}
 
-		// the audio device is the clock: wait while it has more than about two frames queued
+		// The audio device is the clock: a frame runs once the queue is below the target (about four frames of sound, room for
+		// a slow frame or a late vsync before the device runs dry). The playback rate follows the queue by up to half a percent
+		// (not audible), so the queue stays near the target although the screen's refresh and the sound's clock differ.
 		if (g_audio)
 		{
 			const int frameBytes = static_cast<int>(g_sampleRate / g_fps) * 4;
-			for (int i = 0; i < 40 && SDL_GetAudioStreamQueued(g_audio) > frameBytes * 2; i++)
+			const int target = frameBytes * 4;
+			for (int i = 0; i < 50 && SDL_GetAudioStreamQueued(g_audio) > target; i++)
 				SDL_Delay(1);
+			const int queued = SDL_GetAudioStreamQueued(g_audio);
+			if (sinceResume > 30 && queued == 0)
+				underruns++;
+			if (queued < minQueued)
+				minQueued = queued;
+			float ratio = 1.0f + 0.005f * static_cast<float>(queued - target) / static_cast<float>(target);
+			ratio = ratio < 0.995f ? 0.995f : ratio > 1.005f ? 1.005f : ratio;
+			SDL_SetAudioStreamFrequencyRatio(g_audio, ratio);
+			lastRatio = ratio;
 		}
+		sinceResume++;
 		core.run();
 		if (++frames % 600 == 0)
 		{
 			const double secs = (SDL_GetTicksNS() - startNs) / 1e9;
-			LOGI("frame %llu: %.1f fps, audio queued %d bytes, frame %ux%u", static_cast<unsigned long long>(frames), frames / secs,
-			     g_audio ? SDL_GetAudioStreamQueued(g_audio) : -1, g_frameW, g_frameH);
+			LOGI("frame %llu: %.1f fps, audio queued %d bytes (lowest %d), %d underruns, rate %.4f, frame %ux%u%s",
+			     static_cast<unsigned long long>(frames), frames / secs, g_audio ? SDL_GetAudioStreamQueued(g_audio) : -1,
+			     minQueued == INT32_MAX ? -1 : minQueued, underruns, lastRatio, g_frameW, g_frameH, g_softFrame ? " (software)" : "");
+			minQueued = INT32_MAX;
 		}
 		if (g_reinitVideo)
 		{
