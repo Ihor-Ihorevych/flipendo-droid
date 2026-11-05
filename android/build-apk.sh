@@ -8,7 +8,7 @@
 #   android/build-apk.sh --selfpack "C:/Games/HP" --lang ru="C:/Program Files/HPFarg"
 #                                                 one self pack with both languages; Settings > Language switches them in game
 #   android/build-apk.sh --selfpack "C:/Games/HP" --mod movement=movement.zip
-#                                                 the self pack also carries a mod (replacement .u packages) that Settings can switch
+#                                                 every APK carries the mod (replacement .u packages, Settings switches it); movement.zip by default
 #   android/build-apk.sh --selfpack "C:/Games/HP" --textures texture-packs/storybook-hd --menu-art texture-packs/menu-art
 #                                                 .dds texture packs (Textures/<package>/<group>/<name>.dds, the texture-overrides mod); menu art per language
 #   android/build-apk.sh --selfpack "C:/Games/HP" --hp2 "<HP2 folder>" [--hp2-texts "<harry2 folder>"]   ... HP2 in the self pack too
@@ -336,6 +336,32 @@ package() {
 	echo "built $out ($(du -h "$out" | cut -f1))"
 }
 
+# label of a mod in Settings
+mod_label() {
+	case "$1" in
+		movement) echo "Movement mod (AdamJD)" ;;
+		*) echo "$1" ;;
+	esac
+}
+
+# script mods go into every APK (light and self pack): assets/mods/, installed into the HP1 folder in use (SetupActivity.applyMod);
+# the movement mod is taken from movement.zip next to the repository's README when no --mod names one
+if [ ${#MODS[@]} -eq 0 ] && [ -f movement.zip ]; then
+	MODS=("movement=movement.zip")
+fi
+if [ ${#MODS[@]} -gt 0 ]; then
+	mkdir -p "$A/assets/mods"
+	: > "$A/assets/mods/mods.txt"
+	for m in "${MODS[@]}"; do
+		id="${m%%=*}"; zip="$(cygpath -u "${m#*=}")"
+		# only plain .u packages (no paths), whatever else the zip holds is ignored
+		mkdir -p "$A/assets/mods/$id"
+		unzip -qo -j "$zip" '*.u' -d "$A/assets/mods/$id"
+		echo "$id|$(mod_label "$id")" >> "$A/assets/mods/mods.txt"
+		echo "mod $id: $(ls "$A/assets/mods/$id" | tr '\n' ' ')"
+	done
+fi
+
 # 5. the plain APK: the game is copied to /sdcard/FlipendoHP/ by hand
 package android/dist/flipendo-droid.apk
 
@@ -347,14 +373,6 @@ game_files() {
 		! -iname 'drvmgt.dll' ! -iname 'secdrv.sys' ! -iname 'uninst.*' ! -iname '*.lnk' ! -iname '*.log' \
 		! -iname 'NEW.txt' ! -iname '*.usa' ! -iname 'GameSaveInfo*' ! -iname 'SE-*.ini' ! -iname 'User.ini' ! -iname 'flipendo*' \
 		-print0)
-}
-
-# label of a mod in Settings
-mod_label() {
-	case "$1" in
-		movement) echo "Movement mod (AdamJD)" ;;
-		*) echo "$1" ;;
-	esac
 }
 
 # language label for the in-game switch (assets/langs/langs.txt: "code|label", the first one is the base install)
@@ -476,19 +494,6 @@ for entry in "${SELFPACKS[@]}"; do
 			cp "$MENUART/Russian/Textures/MenuArt"/*.dds "$TEXPACKS/menuart/ru/"
 			echo "menu art: en, ru"
 		fi
-	fi
-	if [ ${#MODS[@]} -gt 0 ] && [ "$NAME" = flipendo-droid-selfpack.apk ]; then
-		mkdir -p "$A/data_stage/assets/mods"
-		: > "$A/data_stage/assets/mods/mods.txt"
-		for m in "${MODS[@]}"; do
-			id="${m%%=*}"; zip="$(cygpath -u "${m#*=}")"
-			# only plain .u packages (no paths), whatever else the zip holds is ignored
-			mkdir -p "$A/data_stage/assets/mods/$id"
-			unzip -qo -j "$zip" '*.u' -d "$A/data_stage/assets/mods/$id"
-			echo "$id|$(mod_label "$id")" >> "$A/data_stage/assets/mods/mods.txt"
-			echo "mod $id: $(ls "$A/data_stage/assets/mods/$id" | tr '
-' ' ')"
-		done
 	fi
 	# Harry Potter 2 in the same self pack: assets/hp2data, unpacked into FlipendoHP2 (SetupActivity.installHp2Data), once
 	if [ -n "$HP2DIR" ] && [ "$NAME" = flipendo-droid-selfpack.apk ]; then

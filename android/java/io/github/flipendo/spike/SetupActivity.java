@@ -3809,6 +3809,9 @@ public class SetupActivity extends Activity {
             known |= m[0].equals(wanted);
         }
         if (!known) {
+            if (wanted.equals(current)) {
+                return; // installed by a self pack and not carried by this APK (a plain update): it stays as it is
+            }
             wanted = "none"; // a mod this APK doesn't carry
         }
         File system = systemDir(gameDir);
