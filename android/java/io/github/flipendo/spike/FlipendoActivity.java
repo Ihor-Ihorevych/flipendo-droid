@@ -909,7 +909,7 @@ public class FlipendoActivity extends SDLActivity {
             if (layoutEdit) return b != skip; // the layout editor shows every control
             if (b == menu || b == gear) return true;
             if (b == skip) return cutsceneShown && !noSkip; // the skip button exists only in cutscenes (and not with Settings > No cutscene skip)
-            if (b == save && (noQuickSave || isHp3Game())) return false;
+            if (b == save && noQuickSave && !isHp3Game()) return false; // in HP3 this slot is the character switch
             if (cutsceneShown) return false;       // and they leave only the skip, settings and menu buttons
             if (padActive && (b == cast || b == jump || isArrow(b))) return false; // a gamepad is in use
             boolean game = !(menuShown || lessonShown);
@@ -1676,7 +1676,7 @@ public class FlipendoActivity extends SDLActivity {
         // The port's settings panel: the entry the pad is on
         static final int SET_RENDER = 0, SET_UI = 1, SET_FOV = 2, SET_FPS = 3, SET_SEG = 4, SET_JUMP = 5, SET_LANG = 6, SET_MOD = 7,
                 SET_DEBUG = 8, SET_TELEGRAM = 9, SET_DONE = 10, SET_RENDERER = 11, SET_FPS_LIMIT = 12, SET_LAYOUT = 13, SET_HELP = 14, SET_INVERT = 15, SET_SWITCH = 16, SET_FIRST = 17,
-                SET_TAB = 18 /* 18..20: the pages */, SET_NOSKIP = 21, SET_NOSAVE = 22, SET_FIX = 23, SET_PERF = 24, SET_WANDSENS = 25, SET_CAMERASENS = 26;
+                SET_TAB = 18 /* 18..20: the pages */, SET_NOSKIP = 21, SET_NOSAVE = 22, SET_FIX = 23, SET_PERF = 24, SET_WANDSENS = 25, SET_CAMERASENS = 26, SET_PICTURE = 27;
         int settingsFocus = -1;
         final java.util.List<android.graphics.RectF> setRects = new java.util.ArrayList<>();
         final java.util.List<Integer> setIds = new java.util.ArrayList<>();
@@ -1703,6 +1703,7 @@ public class FlipendoActivity extends SDLActivity {
             }
             addEntry(fpBtn, SET_FIRST);
             addEntry(fpsBtn, SET_FPS);
+            addEntry(pictureBtn, SET_PICTURE);
             if (!segStick.isEmpty()) { setRects.add(new android.graphics.RectF(segStick.left, segStick.top, segDpad.right, segDpad.bottom)); setIds.add(SET_SEG); }
             addEntry(autoJumpBtn, SET_JUMP);
             if (aimStick() || isHp2Game()) addEntry(invertBtn, SET_INVERT);
@@ -1784,6 +1785,7 @@ public class FlipendoActivity extends SDLActivity {
                 return;
             }
             switch (focused) {
+                case SET_PICTURE: nativeDebugCommand("resetpicture"); break;
                 case SET_FIX: settingsOpen = false; activity.openGraphicsFix(); break;
                 case SET_PERF: activity.applyPerfLog(!perfLog, true); break;
                 case SET_NOSKIP: noSkip = !noSkip; activity.saveScales(); break;
@@ -1980,7 +1982,7 @@ public class FlipendoActivity extends SDLActivity {
         static final String[] TAB_NAMES = { tr("Display"), tr("Controls"), tr("Game") };
         int settingsTab;         // the page of the settings panel: 0 Display, 1 Controls, 2 Game
         final android.graphics.RectF[] tabRects = { new android.graphics.RectF(), new android.graphics.RectF(), new android.graphics.RectF() };
-        final android.graphics.RectF noSkipBtn = new android.graphics.RectF(), noSaveBtn = new android.graphics.RectF(), perfBtn = new android.graphics.RectF();
+        final android.graphics.RectF noSkipBtn = new android.graphics.RectF(), noSaveBtn = new android.graphics.RectF(), perfBtn = new android.graphics.RectF(), pictureBtn = new android.graphics.RectF();
         String leftSection = "", rightSection = "";
         float secLeftY, secRightY, pageTop;
         // the page's content scrolls inside the viewport (a larger text size makes it taller than the card)
@@ -2159,7 +2161,7 @@ public class FlipendoActivity extends SDLActivity {
         float layoutPageRows(float y0) {
             float h = lh;
             for (android.graphics.RectF r : new android.graphics.RectF[] { fpBtn, fpsBtn, segStick, segDpad, autoJumpBtn, invertBtn, layoutBtn,
-                    languageBtn, modBtn, rendererBtn, debugBtn, fixBtn, perfBtn, switchBtn, noSkipBtn, noSaveBtn, wandSensBtn, cameraSensBtn }) r.setEmpty();
+                    languageBtn, modBtn, rendererBtn, debugBtn, fixBtn, perfBtn, switchBtn, noSkipBtn, noSaveBtn, wandSensBtn, cameraSensBtn, pictureBtn }) r.setEmpty();
             float rowH = 0.115f * h, rowGap = 0.02f * h;
             float knobR = 0.026f * lu;
             sliderX0 = colL0 + knobR;
@@ -2182,6 +2184,10 @@ public class FlipendoActivity extends SDLActivity {
                 yr += rowH + rowGap;
                 fpsBtn.set(colR0, yr, colR1, yr + rowH);
                 yr += rowH + rowGap;
+                if (isHp3Game()) { // HP3's own gamma, brightness and contrast sliders live in the game's menus
+                    pictureBtn.set(colR0, yr, colR1, yr + rowH);
+                    yr += rowH + rowGap;
+                }
             } else if (settingsTab == 1) {
                 // left: how Harry moves; right: what the game decides alone
                 leftSection = tr("CONTROLS");
@@ -2271,6 +2277,8 @@ public class FlipendoActivity extends SDLActivity {
                 languageTap();
             } else if (rendererBtn.contains(x, y)) {
                 rendererTap();
+            } else if (pictureBtn.contains(x, y)) {
+                nativeDebugCommand("resetpicture");
             } else if (fixBtn.contains(x, y)) {
                 settingsOpen = false;
                 activity.openGraphicsFix();
@@ -2458,6 +2466,7 @@ public class FlipendoActivity extends SDLActivity {
                 drawSliders(c);
                 drawSwitchRow(c, fpBtn, tr("First person"), tr("Camera in Harry's head while walking"), firstPerson, false);
                 drawSwitchRow(c, fpsBtn, tr("FPS counter"), tr("Frames per second by the toolbar"), showFps, false);
+                drawValueRow(c, pictureBtn, tr("Reset picture"), tr("Default gamma, brightness, contrast"), tr("Reset"), false);
             } else if (settingsTab == 1) {
                 drawSegments(c);
                 if (!autoJumpBtn.isEmpty()) drawSwitchRow(c, autoJumpBtn, tr("Auto jump"), tr("Harry jumps by himself at ledges"), autoJump, false);
@@ -2689,7 +2698,9 @@ public class FlipendoActivity extends SDLActivity {
         void setButton(Btn b, boolean down) {
             if (b == save) {
                 b.down = down;
-                if (down && !noQuickSave && !isHp3Game()) nativeRequestSave(); // saved by the game thread at its next tick, see onSaved
+                // HP3 saves from its own menus; there the button switches between Harry, Ron and Hermione (C, as on the PC).
+                if (isHp3Game()) { key(KeyEvent.KEYCODE_C, down); return; }
+                if (down && !noQuickSave) nativeRequestSave(); // saved by the game thread at its next tick, see onSaved
                 return;
             }
             if (b == gear) {
@@ -3544,6 +3555,14 @@ public class FlipendoActivity extends SDLActivity {
                     drawGear(c, b.cx, b.cy, b.r, b.down ? DARK : 0xFFFFFFFF);
                 } else if (b == skip) {
                     drawSkipIcon(c, b.cx, b.cy, b.r, b.down ? DARK : GOLD);
+                } else if (b == save && isHp3Game()) {
+                    // HP3's character switch: two arrows chasing each other.
+                    float size = text.getTextSize();
+                    text.setTextSize(size * 1.6f);
+                    text.setColor(b.down ? DARK : 0xFFFFFFFF);
+                    c.drawText("⇄", b.cx, b.cy + text.getTextSize() * 0.35f, text);
+                    text.setTextSize(size);
+                    text.setColor(0xCCFFFFFF);
                 } else if (b.icon != null) {
                     drawIcon(c, b, b.cx, b.cy, b.r * 0.8f);
                 } else {
