@@ -115,7 +115,7 @@ index cab04fab..771b6f29 100644
  	double height = actor->CollisionHeight();
  	double radius = actor->CollisionRadius();
 diff --git a/SurrealEngine/Collision/TopLevel/TraceTest.cpp b/SurrealEngine/Collision/TopLevel/TraceTest.cpp
-index 214511d2..6aee8336 100644
+index 24bba76d..0557809a 100644
 --- a/SurrealEngine/Collision/TopLevel/TraceTest.cpp
 +++ b/SurrealEngine/Collision/TopLevel/TraceTest.cpp
 @@ -1,5 +1,7 @@
@@ -400,8 +400,52 @@ index e3c87b45..286f8498 100644
  	if (Physics() == PHYS_Spider)
  		return;
  
+diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Base.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Base.cpp
+index a3942d45..17590968 100644
+--- a/SurrealEngine/Packages/Engine/Actors/UActor_Base.cpp
++++ b/SurrealEngine/Packages/Engine/Actors/UActor_Base.cpp
+@@ -10,6 +10,8 @@
+ #include "Utils/Logger.h"
+ #include "Engine.h"
+ #include "VM/ScriptCall.h"
++#include "KW.h"
++#include "KWMove.h"
+ 
+ void UActor::InitBase()
+ {
+@@ -22,7 +24,8 @@ void UActor::InitBase()
+ 			{
+ 				if (levelActor && levelActor->Tag() == attachTag)
+ 				{
+-					levelActor->SetBase(this, false);
++					SetBase(levelActor, false);
++					break;
+ 				}
+ 			}
+ 			return;
+@@ -33,10 +36,17 @@ void UActor::InitBase()
+ 	bool isDecorationInventoryOrPawn = UObject::TryCast<UDecoration>(this) || UObject::TryCast<UInventory>(this) || UObject::TryCast<UPawn>(this);
+ 	if (isDecorationInventoryOrPawn && !ActorBase() && bCollideWorld() && (Physics() == PHYS_None || Physics() == PHYS_Rotating))
+ 	{
+-		CollisionHitList hits = XLevel()->Collision.OverlapTest(this);
+-		if (!hits.empty())
++		if (engine->LaunchInfo.IsKnowWonder() && KW::UseKWPhysics())
+ 		{
+-			SetBase(hits.front().Actor, true);
++			KW::FindBase(this);
++		}
++		else
++		{
++			CollisionHitList hits = XLevel()->Collision.OverlapTest(this);
++			if (!hits.empty())
++			{
++				SetBase(hits.front().Actor, true);
++			}
+ 		}
+ 	}
+ 
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
-index c9036135..9e48553f 100644
+index 2d58be9f..acbe971a 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
 @@ -8,9 +8,25 @@
@@ -430,7 +474,7 @@ index c9036135..9e48553f 100644
  	for (float timeLeft = elapsed; timeLeft > 0.0f && !bDeleteMe(); timeLeft -= 0.02f)
  	{
  		float physTimeElapsed = std::min(timeLeft, 0.02f);
-@@ -214,7 +230,7 @@ UPawn* UActor::PreparePawnMovementTick()
+@@ -215,7 +231,7 @@ UPawn* UActor::PreparePawnMovementTick()
  	if (!pawn)
  		return nullptr;
  
@@ -439,7 +483,7 @@ index c9036135..9e48553f 100644
  		return nullptr;
  
  	OldLocation() = Location();
-@@ -259,6 +275,12 @@ std::pair<bool, vec3> UActor::CheckLocation(vec3 location, float radius, float h
+@@ -260,6 +276,12 @@ std::pair<bool, vec3> UActor::CheckLocation(vec3 location, float radius, float h
  	if (!check)
  		return { true, location };
  
@@ -452,7 +496,7 @@ index c9036135..9e48553f 100644
  	// What is a reasonable size for this grid? what did UE1 do?
  	int offset[] = { 0, 1, -1 };
  	bool found = false;
-@@ -425,7 +447,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
+@@ -426,7 +448,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
  				if (hit.Actor != Level())
  				{
  					bool isBlocking;
@@ -463,7 +507,7 @@ index c9036135..9e48553f 100644
  						isBlocking = hit.Actor->bBlockPlayers() && bBlockPlayers();
  					else
  						isBlocking = hit.Actor->bBlockActors() && bBlockActors();
-@@ -532,7 +556,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
+@@ -533,7 +557,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
  		{
  			// We can't touch stuff we are blocked by
  			bool isBlocking;
@@ -701,47 +745,3 @@ index 7076ca11..103b1418 100644
  	if (engine->LaunchInfo.IsUnrealTournament_469())
  	{
  		auto TouchingArray = Touching_UT469();
-diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Base.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Base.cpp
-index a3942d45..17590968 100644
---- a/SurrealEngine/Packages/Engine/Actors/UActor_Base.cpp
-+++ b/SurrealEngine/Packages/Engine/Actors/UActor_Base.cpp
-@@ -10,6 +10,8 @@
- #include "Utils/Logger.h"
- #include "Engine.h"
- #include "VM/ScriptCall.h"
-+#include "KW.h"
-+#include "KWMove.h"
- 
- void UActor::InitBase()
- {
-@@ -22,7 +24,8 @@ void UActor::InitBase()
- 			{
- 				if (levelActor && levelActor->Tag() == attachTag)
- 				{
--					levelActor->SetBase(this, false);
-+					SetBase(levelActor, false);
-+					break;
- 				}
- 			}
- 			return;
-@@ -33,10 +36,17 @@ void UActor::InitBase()
- 	bool isDecorationInventoryOrPawn = UObject::TryCast<UDecoration>(this) || UObject::TryCast<UInventory>(this) || UObject::TryCast<UPawn>(this);
- 	if (isDecorationInventoryOrPawn && !ActorBase() && bCollideWorld() && (Physics() == PHYS_None || Physics() == PHYS_Rotating))
- 	{
--		CollisionHitList hits = XLevel()->Collision.OverlapTest(this);
--		if (!hits.empty())
-+		if (engine->LaunchInfo.IsKnowWonder() && KW::UseKWPhysics())
- 		{
--			SetBase(hits.front().Actor, true);
-+			KW::FindBase(this);
-+		}
-+		else
-+		{
-+			CollisionHitList hits = XLevel()->Collision.OverlapTest(this);
-+			if (!hits.empty())
-+			{
-+				SetBase(hits.front().Actor, true);
-+			}
- 		}
- 	}
- 

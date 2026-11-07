@@ -1579,8 +1579,22 @@ index dfa376d1..52d434b8 100644
  	Package* package = nullptr;
 +	bool hp2Tokens = false;
  };
+diff --git a/SurrealEngine/VM/ExpressionEvaluator.cpp b/SurrealEngine/VM/ExpressionEvaluator.cpp
+index ff500427..379bd08f 100644
+--- a/SurrealEngine/VM/ExpressionEvaluator.cpp
++++ b/SurrealEngine/VM/ExpressionEvaluator.cpp
+@@ -204,7 +204,8 @@ void ExpressionEvaluator::Expr(ClassContextExpression* expr)
+ 	}
+ 	else
+ 	{
+-		Frame::ThrowException("Class reference is None");
++		Result.Result = StatementResult::AccessedNone;
++		Result.Value = ExpressionValue::NothingValue();
+ 	}
+ }
+ 
 diff --git a/SurrealEngine/VM/ExpressionValue.h b/SurrealEngine/VM/ExpressionValue.h
-index 908adb98..ef71d7a3 100644
+index c316914e..7a6dea39 100644
 --- a/SurrealEngine/VM/ExpressionValue.h
 +++ b/SurrealEngine/VM/ExpressionValue.h
 @@ -179,7 +179,11 @@ public:
@@ -1596,25 +1610,6 @@ index 908adb98..ef71d7a3 100644
  	}
  
  	void CheckType(ExpressionValueType type) const
-@@ -376,6 +380,7 @@ inline ExpressionValue ExpressionValue::DefaultValue(UProperty* prop)
- 	{
- 		ExpressionValue v(prop->ValueType);
- 		v.GetStructValue()->Init(static_cast<UStructProperty*>(prop)->Struct);
-+		v.Ptr = v.GetStructValue()->Ptr; // Init allocated new storage; don't rely on a copy on return to refresh Ptr
- 		return v;
- 	}
- 	case ExpressionValueType::ValueCoords: return CoordsValue({});
-@@ -387,7 +392,10 @@ inline ExpressionValue ExpressionValue::PropertyValue(UProperty* prop)
- {
- 	ExpressionValue v(prop->ValueType);
- 	if (prop->ValueType == ExpressionValueType::ValueStruct)
-+	{
- 		v.GetStructValue()->Init(static_cast<UStructProperty*>(prop)->Struct);
-+		v.Ptr = v.GetStructValue()->Ptr;
-+	}
- 	if (v.Type != ExpressionValueType::Nothing)
- 		return v;
- 	Exception::Throw("Unsupported expression value property type");
 diff --git a/SurrealEngine/VM/Frame.cpp b/SurrealEngine/VM/Frame.cpp
 index 456f993e..f0349b0a 100644
 --- a/SurrealEngine/VM/Frame.cpp
@@ -1888,20 +1883,6 @@ index 456f993e..f0349b0a 100644
  						PushValue(ExpressionValue::NothingValue());
  						PopExpr();
  					}
-diff --git a/SurrealEngine/VM/ExpressionEvaluator.cpp b/SurrealEngine/VM/ExpressionEvaluator.cpp
-index ff500427..379bd08f 100644
---- a/SurrealEngine/VM/ExpressionEvaluator.cpp
-+++ b/SurrealEngine/VM/ExpressionEvaluator.cpp
-@@ -204,7 +204,8 @@ void ExpressionEvaluator::Expr(ClassContextExpression* expr)
- 	}
- 	else
- 	{
--		Frame::ThrowException("Class reference is None");
-+		Result.Result = StatementResult::AccessedNone;
-+		Result.Value = ExpressionValue::NothingValue();
- 	}
- }
- 
 diff --git a/SurrealEngine/VM/Frame.h b/SurrealEngine/VM/Frame.h
 index d302a401..3395cc11 100644
 --- a/SurrealEngine/VM/Frame.h

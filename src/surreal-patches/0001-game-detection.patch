@@ -144,7 +144,7 @@ index bf6912eb..5f4daaa3 100644
  }
 \ No newline at end of file
 diff --git a/SurrealEngine/UE1GameDatabase.h b/SurrealEngine/UE1GameDatabase.h
-index c87149a8..f74d37a9 100644
+index c87149a8..96f9e1c7 100644
 --- a/SurrealEngine/UE1GameDatabase.h
 +++ b/SurrealEngine/UE1GameDatabase.h
 @@ -199,11 +199,38 @@ static const std::map<std::string, KnownUE1Games> SHA1Database = {
