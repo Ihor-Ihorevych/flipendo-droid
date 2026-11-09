@@ -104,9 +104,9 @@ public class GameActivity extends FlipendoActivity {
 
     private static final String[] DEBUG_NAMES = {
         "Go to level…", "God mode (on / off)", "Fly", "Ghost (fly through walls)", "Walk (normal)",
-        "All shields, cards and pixies", "100 beans", "Beat the boss", "Heal" };
+        "All shields, cards and pixies", "100 beans", "10 cauldron cakes (cupcakes)", "10 pumpkin pasties", "Beat the boss", "Heal" };
     private static final String[] DEBUG_COMMANDS = {
-        null, "cheat god", "cheat fly", "cheat ghost", "cheat walk", "cheat giveall", "cheat beans", "cheat beatboss", "cheat heal" };
+        null, "cheat god", "cheat fly", "cheat ghost", "cheat walk", "cheat giveall", "cheat beans", "cheat cakes", "cheat pasties", "cheat beatboss", "cheat heal" };
 
     /** HP3's debug menu (opened from the settings panel's Debug row): go to a level, or a cheat. */
     @Override
