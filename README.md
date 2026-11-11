@@ -54,7 +54,7 @@ The 2001 release is getting hard to run. SafeDisc copy protection doesn't work o
 - **No disc, no SafeDisc, no compatibility patches.** Point it at the installed game folder.
 - **The same game.** Nothing is remade or altered. Optional extras (skippable cutscenes and storybooks, fast forward) can all
   be switched off with `--vanilla`, or one at a time with `--no-mod=<id>`.
-- **Fixable.** Bugs in the original engine get fixed in source ([list](docs/re/hp1/original_bugs.md)).
+- **Fixable.** Bugs in the original engine get fixed in source (lists: [HP1](docs/re/hp1/original_bugs.md), [HP2](docs/re/hp2/original_bugs.md)).
 - **Windows, Linux and macOS.**
 
 ## Screenshots
@@ -189,6 +189,7 @@ one off, `--mod=<id>` one on (ids below, or `--list-mods`).
 | 60 FPS cap | `frame-limit` | HP1, HP2 | on | the game runs at most 60 frames a second, as the original was played (some of its movement goes wrong at high frame rates); `--fps=<n>` for another limit, `--fps=0` for none |
 | Improved movement | `improved-movement` | HP1 | on | HP2's controls: Left / Right strafe and the mouse turns (in the air too), Harry keeps moving while you hold a spell (the mouse aims it; he can jump with it or start one in the air, and climbs again once it is cast), the mouse looks up and down while you move, a ledge caught mid-jump is climbed at once, and AdamJD's smaller tweaks (even diagonal air control, softer blends, spells that hit a creature at once from up close). Saves work with it on or off |
 | Map fixes | `path-fixes` | HP1 | on | fixes broken paths in the original maps (Peeves now flies off after the Lev_Tut3b duel instead of drifting through the walls) |
+| Fire crab ledge fix | `firecrab-ledge-fix` | HP2 | on | a fire crab flipped on a lift turns back over instead of staying on its back or sliding to the far wall (Goyle's trap room in Adv6Goyle) |
 | Texture packs | `texture-overrides` | HP1, HP2 | on | `.dds` files in `Textures/<package>/<group>/<name>.dds` replace the game's textures: the layout of the DirectX 11 renderer's texture packs, such as the ESRGAN Upscale Pack (unpack it into the game folder) |
 | Splash skip | `splash-skip` | HP1, HP2 | on | no logo screens at start: HP1 opens on the main menu, HP2 on its start menu |
 | Intro skip | `intro-skip` | HP1 | off | New Game goes straight to the first level |
