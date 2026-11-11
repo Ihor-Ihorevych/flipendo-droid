@@ -144,10 +144,10 @@ index bf6912eb..5f4daaa3 100644
  }
 \ No newline at end of file
 diff --git a/SurrealEngine/UE1GameDatabase.h b/SurrealEngine/UE1GameDatabase.h
-index c87149a8..96f9e1c7 100644
+index c87149a8..3ea336a4 100644
 --- a/SurrealEngine/UE1GameDatabase.h
 +++ b/SurrealEngine/UE1GameDatabase.h
-@@ -199,11 +199,38 @@ static const std::map<std::string, KnownUE1Games> SHA1Database = {
+@@ -199,11 +199,41 @@ static const std::map<std::string, KnownUE1Games> SHA1Database = {
  	// Harry Potter 1 (UK), post-patched, archive.org cracked exe
  	{"7e675aa863f55049f3cf530dfea0b241b112d03a", KnownUE1Games::HARRYPOTTER1_433},
  
@@ -175,6 +175,9 @@ index c87149a8..96f9e1c7 100644
 +	// Harry Potter 1, reported in issue #18 from an original disc (language and release not known)
 +	{"597899fabeeb52e943356cf9134fa11ad657d29f", KnownUE1Games::HARRYPOTTER1_433},
 +
++	// Harry Potter 1 (EN), original CD, exe dated 2001-10-29, reported in issue #24 (SafeDisc or No-CD not known)
++	{"6974ec7218c29c93f5750434c75c2284270d4f28", KnownUE1Games::HARRYPOTTER1_433},
++
  	// Harry Potter 2 (UK)
  	{"3a43d9ec8be7ec441b18a8dc710b4bdd5b29bda3", KnownUE1Games::HARRYPOTTER2_433},
  
@@ -186,7 +189,7 @@ index c87149a8..96f9e1c7 100644
  };
  
  // Note: order matters here as we pick the first match.
-@@ -231,5 +258,14 @@ static const Array<std::string> knownUE1ExecutableNames = {
+@@ -231,5 +261,14 @@ static const Array<std::string> knownUE1ExecutableNames = {
  	"Game.exe",
  };
  
