@@ -111,6 +111,14 @@ In HP1's Lev_Tut1, `SpellLearnTrigger` calls `Teacher.TurnToward(Cam)` on Quirre
 frames that have code, so a pawn in a code-less state never polls it and never turns. SurrealEngine resumed that
 frame and ran off the end of the empty state. (HP1's Engine.dll; HP2 not checked.)
 
+HP2 does the same with every vendor: `VendorManager` state `EngageVendor` calls `harry.TurnTo(...)` (native 508) right
+after `CAPTURE` put Harry in `stateCutIdle`, whose code is only `stop`. Since that state has no `Begin` label,
+SurrealEngine's `GotoState` left the frame stopped at the statement index of the state before it (a level-start
+cutscene's `stateMovingToLoc`, say); the turn ended, the frame resumed past the end of `stateCutIdle` and the game
+stopped with "Unexpected end of code statements" (GitHub issue #19). So no latent native may resume a stopped state
+frame, whichever it is: `Frame::SetLatentState` ignores anything but `Stop` on a stopped frame for KnowWonder games;
+only `GotoState` / `GotoLabel` start it again.
+
 ## Division by zero
 
 `execDivide_IntInt` (Core.dll 0x10136FD0) returns 0 when the divisor is 0, and `execDivideEqual_ByteByte`

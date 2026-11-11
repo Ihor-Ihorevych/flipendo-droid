@@ -378,16 +378,14 @@ namespace KW
 			for (UActor* a : engine->Level->Actors)
 				if (a && a->Name.ToString() == otherName)
 					other = a;
-			int count = 0;
+			// collect first: Bump may spawn actors (a vendor's VendorManager), which grows Level->Actors
+			std::vector<UActor*> targets;
 			for (UActor* a : engine->Level->Actors)
-			{
 				if (other && a && a->Name.ToString().compare(0, prefix.size(), prefix) == 0)
-				{
-					CallEvent(a, EventName::Bump, { ExpressionValue::ObjectValue(other) });
-					count++;
-				}
-			}
-			LogMessage("HP1 exec: bumped " + std::to_string(count) + " actors");
+					targets.push_back(a);
+			for (UActor* a : targets)
+				CallEvent(a, EventName::Bump, { ExpressionValue::ObjectValue(other) });
+			LogMessage("HP1 exec: bumped " + std::to_string(targets.size()) + " actors");
 			return;
 		}
 		if (text.rfind("@polys ", 0) == 0)

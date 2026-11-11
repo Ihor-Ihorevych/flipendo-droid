@@ -1611,7 +1611,7 @@ index c316914e..7a6dea39 100644
  
  	void CheckType(ExpressionValueType type) const
 diff --git a/SurrealEngine/VM/Frame.cpp b/SurrealEngine/VM/Frame.cpp
-index 456f993e..f0349b0a 100644
+index 456f993e..9a7f2c6e 100644
 --- a/SurrealEngine/VM/Frame.cpp
 +++ b/SurrealEngine/VM/Frame.cpp
 @@ -1,5 +1,6 @@
@@ -1802,7 +1802,25 @@ index 456f993e..f0349b0a 100644
  	for (UClass* cls = Object->Class; cls != nullptr; cls = static_cast<UClass*>(cls->BaseStruct))
  	{
  		UState* state = cls->GetState(Func->Name);
-@@ -496,6 +561,17 @@ ExpressionEvalResult Frame::Run()
+@@ -483,6 +548,17 @@ void Frame::GotoLabel(const NameString& label)
+ 	LatentState = LatentRunState::Stop;
+ }
+ 
++void Frame::SetLatentState(LatentRunState state)
++{
++	// UE1 never polls a state frame whose code has stopped (`stop`, or a state with no labels), so a latent native called
++	// on it from a function starts nothing. Resuming that frame would run off the end ("Unexpected end of code
++	// statements"): HP2's VendorManager calls harry.TurnTo while Harry waits in stateCutIdle (only `stop`), and HP1's
++	// spell lesson calls Tut1Quirrell.TurnToward in his empty 'idle' state. GotoState / GotoLabel restart the frame.
++	if (engine->LaunchInfo.IsKnowWonder() && LatentState == LatentRunState::Stop && state != LatentRunState::Stop)
++		return;
++	LatentState = state;
++}
++
+ void Frame::Tick()
+ {
+ 	if (LatentState == LatentRunState::Continue)
+@@ -496,6 +572,17 @@ ExpressionEvalResult Frame::Run()
  
  	ActiveCallStackFrame activeFrame(this);
  
@@ -1820,7 +1838,7 @@ index 456f993e..f0349b0a 100644
  	if (!Func->Code->Statements.empty())
  		StepExpression = Func->Code->Statements[StatementIndex];
  
-@@ -505,7 +581,9 @@ ExpressionEvalResult Frame::Run()
+@@ -505,7 +592,9 @@ ExpressionEvalResult Frame::Run()
  		Break();
  	}
  
@@ -1831,7 +1849,7 @@ index 456f993e..f0349b0a 100644
  	int instructionsRetired = 0;
  	while (true)
  	{
-@@ -551,6 +629,11 @@ ExpressionEvalResult Frame::Run()
+@@ -551,6 +640,11 @@ ExpressionEvalResult Frame::Run()
  			break;
  		case StatementResult::GotoLabel:
  			{
@@ -1843,7 +1861,7 @@ index 456f993e..f0349b0a 100644
  				int index = Func->Code->FindLabelIndex(result.Label);
  				if (index != -1)
  				{
-@@ -635,14 +718,14 @@ ExpressionEvalResult Frame::Run()
+@@ -635,14 +729,14 @@ ExpressionEvalResult Frame::Run()
  			Iterators.pop_back();
  			break;
  		case StatementResult::AccessedNone:
@@ -1860,7 +1878,7 @@ index 456f993e..f0349b0a 100644
  			}
  			break;
  		}
-@@ -666,7 +749,12 @@ void Frame::ProcessSwitch(const ExpressionValue& condition)
+@@ -666,7 +760,12 @@ void Frame::ProcessSwitch(const ExpressionValue& condition)
  		{
  			//ExpressionValue casevalue = ExpressionEvaluator::Eval(caseexpr->Value, Object, Object, Variables).Value;
  			ExpressionValue casevalue = RunExpr(caseexpr->Value, Object, Object, Variables).Value;
@@ -1874,7 +1892,7 @@ index 456f993e..f0349b0a 100644
  				break;
  			else
  				StatementIndex = Func->Code->FindStatementIndex(caseexpr->NextOffset);
-@@ -1011,7 +1099,7 @@ ExpressionEvalResult Frame::RunExpr(Expression* statementExpr, UObject* self, UO
+@@ -1011,7 +1110,7 @@ ExpressionEvalResult Frame::RunExpr(Expression* statementExpr, UObject* self, UO
  					}
  					else
  					{
@@ -1884,10 +1902,10 @@ index 456f993e..f0349b0a 100644
  						PopExpr();
  					}
 diff --git a/SurrealEngine/VM/Frame.h b/SurrealEngine/VM/Frame.h
-index d302a401..3395cc11 100644
+index d302a401..95a234af 100644
 --- a/SurrealEngine/VM/Frame.h
 +++ b/SurrealEngine/VM/Frame.h
-@@ -81,7 +81,7 @@ public:
+@@ -81,15 +81,16 @@ public:
  
  	static std::unique_ptr<Iterator> CreatedIterator;
  
@@ -1896,7 +1914,9 @@ index d302a401..3395cc11 100644
  	~Frame();
  
  	void SetState(UStruct* func);
-@@ -90,6 +90,7 @@ public:
+-	void SetLatentState(LatentRunState state) { LatentState = state; }
++	void SetLatentState(LatentRunState state);
+ 	void GotoLabel(const NameString& label);
  	void Tick();
  
  	UStruct* GetFunc() const { return Func; }

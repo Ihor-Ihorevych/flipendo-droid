@@ -155,7 +155,7 @@ index 32736319..573aeef7 100644
  
  	void InitActorZone() override;
 diff --git a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
-index 48026a40..c80c2d72 100644
+index 48026a40..835cb76a 100644
 --- a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
 @@ -7,11 +7,10 @@
@@ -337,17 +337,13 @@ index 48026a40..c80c2d72 100644
  	if (StateFrame)
  		StateFrame->SetLatentState(LatentRunState::TurnTo);
  }
-@@ -335,12 +392,25 @@ void UPawn::TurnToward(UActor* newTarget)
+@@ -335,12 +392,22 @@ void UPawn::TurnToward(UActor* newTarget)
  	if (engine->LaunchInfo.ue1Version > 219)
  		FaceTarget() = newTarget;
  	Focus() = newTarget->Location();
--	if (StateFrame)
 +	if (engine->LaunchInfo.IsKnowWonder()) // execTurnToward starts turning at once
 +		KW::PawnTurnStep(this, Focus());
-+	// a state frame without code (stopped, or a state with no labels) is never polled in UE1, so the latent
-+	// turn does nothing. HP1's spell lesson calls Teacher.TurnToward on Tut1Quirrell in his empty 'idle' state; resuming
-+	// that frame ran off the end ("Unexpected end of code statements").
-+	if (StateFrame && !(engine->LaunchInfo.IsKnowWonder() && StateFrame->GetLatentState() == LatentRunState::Stop))
+ 	if (StateFrame)
  		StateFrame->SetLatentState(LatentRunState::TurnToward);
  }
  
