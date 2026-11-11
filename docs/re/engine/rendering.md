@@ -167,7 +167,13 @@ in HP2's PrivetDr with the keyhole WetTexture on a GestureSprite in front of a f
 
 ## HP1 and HP2
 
-HP2's DLLs not read yet for these; what to check there:
+Checked in HP2 (2026-11-11): `URender::DrawWorld` [HP2 Render 0x10B27930] is HP1's [HP1 Render 0x10B27BA0] with
+PlayerPawn's offsets moved (bBehindView bit 0 at +684 for HP1's +604, ViewTarget +1568 for +1268): RenderOverlays only
+without bBehindView, on the ViewTarget if any, else the player. Raising it in third person runs `Weapon.RenderOverlays`,
+whose `Canvas.DrawActor` leaves the weapon bHidden, so the wand drawn on Harry's bone (`baseWand.BecomeItem` sets
+bHidden false) disappears for good: HP2's wand was invisible from the first level until this rule covered both games.
+
+HP2's DLLs not read yet for the rest; what to check there:
 
 - The shadow block in SetupDynamics and the Opacity code in DrawLodMesh: expected to be the same. HP2's D3DDrv adds a
   blend for Lumos surfaces ([hp2/engine.md](../hp2/engine.md)).

@@ -233,7 +233,7 @@ index 3b522523..80f6309e 100644
  		FontGlyph glyph = Font->GetGlyph(c);
  		x += glyph.USize;
 diff --git a/SurrealEngine/Render/RenderCanvas.cpp b/SurrealEngine/Render/RenderCanvas.cpp
-index 56d705f2..1ad3e919 100644
+index 56d705f2..435f168c 100644
 --- a/SurrealEngine/Render/RenderCanvas.cpp
 +++ b/SurrealEngine/Render/RenderCanvas.cpp
 @@ -8,6 +8,7 @@
@@ -281,9 +281,9 @@ index 56d705f2..1ad3e919 100644
  	if (engine->viewport->Actor())
  	{
 -		if (engine->LaunchInfo.ue1Version > 219)
-+		if (engine->LaunchInfo.IsHarryPotter1())
++		if (engine->LaunchInfo.IsKnowWonder())
 +		{
-+			// URender::DrawWorld only raises RenderOverlays without bBehindView, on the ViewTarget if any.
++			// URender::DrawWorld (HP1 and HP2) only raises RenderOverlays without bBehindView, on the ViewTarget if any.
 +			// (Weapon.RenderOverlays draws the first person weapon with Canvas.DrawActor, which leaves it bHidden:
 +			// in third person that hid Harry's wand for good.)
 +			UPlayerPawn* player = engine->viewport->Actor();
