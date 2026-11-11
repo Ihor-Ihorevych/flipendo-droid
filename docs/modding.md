@@ -25,6 +25,7 @@ default. So `--vanilla --mod=improved-movement` is the original game with only t
 | `FastForward.cpp` | `fast-forward` | HP1, HP2 | on | hold Shift to run the game 2.5 times as fast (Shift is unbound in HP1) |
 | `FrameLimit.cpp` | `frame-limit` | HP1, HP2 | on at 60 fps (`--fps=<n>`; `--fps=0` also turns it off) | waits at the end of each frame's tick so the game runs at most n frames a second: HP1's per-frame movement breaks at high frame rates ([original_bugs.md](re/hp1/original_bugs.md)) |
 | `PathFixes.cpp` | `path-fixes` | HP1 | on | adds reach specs the original maps are missing, so `Pawn.FindPath` finds the route the designers meant: Lev_Tut3b's HPath_F3 → baseStation1, Peeves' exit after the duel ([original_bugs.md](re/hp1/original_bugs.md)) |
+| `FireCrabLedgeFix.cpp` | `firecrab-ledge-fix` | HP2 | on | `hgame.firecrab.OnALedge` also counts a mover under the crab as floor, so a flipped fire crab on a lift turns back over instead of sliding to the far wall on its back (Adv6Goyle's trap room, [original_bugs.md](re/hp2/original_bugs.md)) |
 | `TextureOverrides.cpp` | `texture-overrides` | HP1, HP2 | on | draws a texture from `Textures/<package>/<group>/<name>.dds` in the game folder when that file exists (DXT1/3/5, the layout D3D11Drv texture packs such as the ESRGAN Upscale Pack use); realtime and procedural textures are left alone. Vulkan only |
 | `FreeCamera.cpp` | `free-cam` | HP1 | off | independent smoothed mouse orbit, after AdamJD’s camera mod; keeps the original close distance and pulls in at obstacles. With `improved-movement`, movement is relative to the camera and Harry turns towards movement; without it, the original keyboard turning and movement remain. Aiming faces the camera. Uses configured keys and never enables another mod implicitly. |
 | `ImprovedMovement.cpp` | `improved-movement` | HP1 | on (also off with `--classic-movement`) | HP2's controls, after AdamJD's Mouse Fix and Strafing mod: Left / Right strafe (the mouse turns, in the air too), Harry keeps moving while a spell is held (the mouse aims it up and down; he can jump with it or start one in the air, but doesn't climb until it is cast), the mouse looks up and down while Harry moves, not only standing still, a ledge caught mid-jump is climbed at once, and AdamJD's smaller tweaks: half the sideways air control, slower blends, the idle while sliding with no input, spells hitting a pawn within 128 at once ([controls.md](re/hp1/controls.md)) |
@@ -36,7 +37,7 @@ default. So `--vanilla --mod=improved-movement` is the original game with only t
 A mod is a C++ file in `src/hp1/mods/`. The build picks up new files automatically (`src/hp1/hp1.cmake` globs `src/hp1/`). Mods are HP1's: they
 read HP1's script classes (`HPBase`, `HPMenu`). The exceptions read no scripts and run for HP2 too: `TextureOverrides.cpp`,
 `FastForward.cpp` (`ModsTimeScale`), `FrameLimit.cpp` (the only mod `TickMods` runs for HP2) and the splash skip
-(`HP1::ModsSkipSplash`, asked by HP2's front end); their hooks are gated `IsKnowWonder()`.
+(`HP1::ModsSkipSplash`, asked by HP2's front end); their hooks are gated `IsKnowWonder()`. `FireCrabLedgeFix.cpp` is HP2's: it replaces a function of HP2's `hgame.firecrab` and `TickMods` runs it for HP2 only.
 Mods hook in through these calls (`src/hp1/mods/HP1Mods.cpp`):
 
 | Hook | Called | Use it for |

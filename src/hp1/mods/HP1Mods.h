@@ -81,6 +81,9 @@ namespace HP1::Mods
 	// PathFixes.cpp
 	void TickPathFixes();
 
+	// FireCrabLedgeFix.cpp
+	void TickFireCrabLedgeFix();
+
 	// FastForward.cpp
 	float FastForwardTimeScale();
 
