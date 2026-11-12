@@ -45,6 +45,7 @@ VOICES=()    # "code=Sounds folder": a dubbing for --selfpack, an edition that i
 HP3DIR=""    # --hp3: an HP3 install (system/Core.u) that goes into the self pack too (assets/hp3data)
 PS1_HP1=""   # --ps1-hp1: the PS1 Harry Potter 1 disc image (a CHD: chdman createcd) that goes into the self pack (assets/ps1data/hp1)
 PS1_HP2=""   # --ps1-hp2: the same for PS1 Harry Potter 2
+HP3CACHEZIP="" # --hp3-cache-zip: also write HP3's data (as staged for the self pack, Movies included) as a zip with a FlipendoHP3 folder, to unpack into the phone's storage root for a light APK
 HP3ENG=""    # --hp3-eng: the English retail HP3 install, added to the base one as a second language (voices, texts, localised art)
 HP3_ENGINE="$ROOT/src/hp3-engine" # --hp3-engine: the engine repository (flipendo-droid-2004, branch hp3; the submodule by default, or any other checkout)
 HP3_HEADERS="$(cd "$ROOT/.." && pwd)/hp3-headers"        # --hp3-headers: HP3's generated EngineClasses.h (never in git)
@@ -57,6 +58,7 @@ while [ $# -gt 0 ]; do
 		--install) INSTALL=1 ;;
 		--hp3) shift; HP3DIR="$(cygpath -u "${1:?--hp3 needs the HP3 folder}")" ;;
 		--hp3-eng) shift; HP3ENG="$(cygpath -u "${1:?--hp3-eng needs the English HP3 folder}")" ;;
+		--hp3-cache-zip) shift; HP3CACHEZIP="${1:?--hp3-cache-zip needs the zip file to write}" ;;
 		--hp3-rust) shift; HP3_RUST="$(cygpath -u "${1:?--hp3-rust needs the Rust engine repository}")" ;;
 		--hp3-legacy) HP3_LEGACY=1 ;;
 		--hp3-engine) shift; HP3_ENGINE="$(cygpath -u "${1:?--hp3-engine needs the engine repository}")" ;;
@@ -530,13 +532,13 @@ for entry in "${SELFPACKS[@]}"; do
 		echo "HP2 data: $(find "$HP2STAGE" -type f | wc -l) files, $(du -sm "$HP2STAGE" | cut -f1) MB"
 	fi
 	# Harry Potter 3 in the same self pack: assets/hp3data, unpacked into FlipendoHP3 (SetupActivity.installBundle), once.
-	# The game's folders only: no installer files, help, Support, Windows binaries, logs or saves; no Movies (Bink video,
-	# which the engine does not play)
+	# The game's folders only: no installer files, help, Support, Windows binaries, logs or saves. Movies is in: the Rust engine
+	# plays its Bink videos as textures (the animals' fur in the Transfiguration class and the Shack, the newspaper's photograph).
 	if [ -n "$HP3DIR" ] && [ "$NAME" = flipendo-droid-selfpack.apk ]; then
 		HP3STAGE="$A/data_stage/assets/hp3data"
 		mkdir -p "$HP3STAGE"
 		(cd "$HP3DIR" && find . -type f \( -ipath './animations/*' -o -ipath './maps/*' -o -ipath './music/*' -o -ipath './sounds/*' \
-			-o -ipath './staticmeshes/*' -o -ipath './textures/*' -o -ipath './system/*' \) \
+			-o -ipath './staticmeshes/*' -o -ipath './textures/*' -o -ipath './system/*' -o -ipath './movies/*' \) \
 			! -iname '*.exe' ! -iname '*.dll' ! -iname '*.log' ! -iname '*.usa' -print0) \
 			| (cd "$HP3DIR" && tar --null -cf - --files-from=-) | (cd "$HP3STAGE" && tar xf -)
 		# A second edition (--hp3-eng): both languages live in the one folder and HP3's engine picks by the language the launcher wrote
@@ -564,13 +566,25 @@ for entry in "${SELFPACKS[@]}"; do
 					esac
 				fi
 			done < <(cd "$HP3ENG" && find . -type f \( -ipath './animations/*' -o -ipath './maps/*' -o -ipath './music/*' -o -ipath './sounds/*' \
-				-o -ipath './staticmeshes/*' -o -ipath './textures/*' -o -ipath './system/*' \) \
+				-o -ipath './staticmeshes/*' -o -ipath './textures/*' -o -ipath './system/*' -o -ipath './movies/*' \) \
 				! -iname '*.exe' ! -iname '*.dll' ! -iname '*.log' ! -iname '*.usa' -print0)
 			echo "HP3 English edition: $en_new files added, $en_art localised texture packages split"
 			[ "$en_new" -gt 0 ] || { echo "--hp3-eng $HP3ENG added nothing: is it an English install?" >&2; exit 1; }
 		fi
 		(cd "$HP3STAGE" && find . -type f ! -name .stamp -print0 | sort -z | xargs -0 sha1sum | sha1sum | cut -d' ' -f1) > "$HP3STAGE/.stamp"
 		echo "HP3 data: $(find "$HP3STAGE" -type f | wc -l) files, $(du -sm "$HP3STAGE" | cut -f1) MB"
+		# The same data as a cache zip for the light APK (like the HP1/HP2 ones): a FlipendoHP3 folder, with .nomedia, no stamp
+		if [ -n "$HP3CACHEZIP" ]; then
+			CZ="$A/hp3_zip_stage"
+			rm -rf "$CZ"; mkdir -p "$CZ/FlipendoHP3"
+			cp -a "$HP3STAGE/." "$CZ/FlipendoHP3/"
+			rm -f "$CZ/FlipendoHP3/.stamp"
+			: > "$CZ/FlipendoHP3/.nomedia"
+			rm -f "$HP3CACHEZIP"
+			(cd "$CZ" && 7z a -tzip -mx=1 "$(cygpath -w "$(cd "$ROOT" && realpath -m "$HP3CACHEZIP")")" FlipendoHP3 > /dev/null)
+			rm -rf "$CZ"
+			echo "HP3 cache zip: $HP3CACHEZIP ($(du -sm "$HP3CACHEZIP" | cut -f1) MB)"
+		fi
 	fi
 	# a stamp of what is inside (a hash of the contents: two installs can differ with the same sizes): the app only unpacks again when the data changes
 	# PS1 discs in the same self pack: assets/ps1data/hp1 and hp2 (one image each, a CHD by choice), unpacked into
