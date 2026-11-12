@@ -104,9 +104,59 @@ public class GameActivity extends FlipendoActivity {
 
     private static final String[] DEBUG_NAMES = {
         "Go to level…", "God mode (on / off)", "Fly", "Ghost (fly through walls)", "Walk (normal)",
-        "All shields, cards and pixies", "100 beans", "10 cauldron cakes (cupcakes)", "10 pumpkin pasties", "Beat the boss", "Heal" };
+        "All shields, cards and pixies", "100 beans", "10 cauldron cakes (cupcakes)", "10 pumpkin pasties", "Beat the boss", "Heal", "Carpe pulls crabs (on / off)" };
     private static final String[] DEBUG_COMMANDS = {
-        null, "cheat god", "cheat fly", "cheat ghost", "cheat walk", "cheat giveall", "cheat beans", "cheat cakes", "cheat pasties", "cheat beatboss", "cheat heal" };
+        null, "cheat god", "cheat fly", "cheat ghost", "cheat walk", "cheat giveall", "cheat beans", "cheat cakes", "cheat pasties", "cheat beatboss", "cheat heal", "cheat carpecrab" };
+
+    /** The engine state: bit 0 the characters' shadow is on, bit 1 Carpe is selected. */
+    static native int nativeGfxState();
+
+    /** The Carpe button is shown only while the player is Ron: bit 2 of the engine's state. */
+    @Override
+    protected boolean hp3PlayerIsRon() {
+        try {
+            return (nativeGfxState() & 4) != 0;
+        } catch (UnsatisfiedLinkError e) {
+            return false;
+        }
+    }
+
+    /** The Carpe button is lit while Carpe is selected: bit 1 of the engine's state. */
+    @Override
+    protected boolean hp3CarpeOn() {
+        try {
+            return (nativeGfxState() & 2) != 0;
+        } catch (UnsatisfiedLinkError e) {
+            return false;
+        }
+    }
+
+    /** HP3's graphics options (Settings > Game > Graphics): the characters' shadow. A choice runs the engine's
+     *  `gfx` command (it keeps the choice in its settings) and the dialog comes back showing the new state. */
+    @Override
+    protected void openHp3Graphics() {
+        runOnUiThread(new Runnable() {
+            @Override public void run() {
+                int state;
+                try {
+                    state = nativeGfxState();
+                } catch (UnsatisfiedLinkError e) {
+                    return;
+                }
+                final String[] items = { "Character shadows: " + ((state & 1) != 0 ? "On" : "Off") + "  (tap to change)" };
+                new android.app.AlertDialog.Builder(GameActivity.this).setTitle("Graphics")
+                    .setItems(items, new android.content.DialogInterface.OnClickListener() {
+                        @Override public void onClick(android.content.DialogInterface d, int which) {
+                            debugCommand("gfx shadows");
+                            // the engine takes the command on its next frame: show the dialog again with the new state
+                            getWindow().getDecorView().postDelayed(new Runnable() {
+                                @Override public void run() { openHp3Graphics(); }
+                            }, 300);
+                        }
+                    }).setNegativeButton("Close", null).show();
+            }
+        });
+    }
 
     /** HP3's debug menu (opened from the settings panel's Debug row): go to a level, or a cheat. */
     @Override

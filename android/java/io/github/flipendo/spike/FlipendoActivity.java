@@ -219,6 +219,20 @@ public class FlipendoActivity extends SDLActivity {
     protected void openHp3Debug() {
     }
 
+    /** HP3's graphics options (Settings > Game > Graphics): the Rust engine's activity builds the dialog. */
+    protected void openHp3Graphics() {
+    }
+
+    /** Whether the HP3 player is playing as Ron (the Carpe button is shown only then): the Rust engine's activity knows. */
+    protected boolean hp3PlayerIsRon() {
+        return false;
+    }
+
+    /** Whether Carpe is selected in HP3 (the Carpe button is lit): the Rust engine's activity knows. */
+    protected boolean hp3CarpeOn() {
+        return false;
+    }
+
     /** The game folder this run plays (found by the launcher or picked by the player); the default place if none was passed. */
     protected String gameDir() {
         String dir = getIntent() != null ? getIntent().getStringExtra(SetupActivity.EXTRA_GAME_DIR) : null;
@@ -551,6 +565,8 @@ public class FlipendoActivity extends SDLActivity {
     static native boolean nativeOnBroom();
     /** True while the player steers a creature (the rabbit, the dragon): the EXIT button sends Enter, which ends it. Rust HP3 engine only. */
     static native boolean nativeCreatureActive();
+    /** True while the player rides Buckbeak and wants a left-handed flight (HP3_LEFTY_FLIGHT=1 in the game folder's env.flag): the stick and look halves swap. Rust HP3 engine only. */
+    static native boolean nativeLeftyFlightActive();
 
     /** A debug command for the game thread (HP2: "level <map>", "state GSTATE020", "spells"); implemented in android_main.cpp. */
     static native void nativeDebugCommand(String command);
@@ -643,6 +659,14 @@ public class FlipendoActivity extends SDLActivity {
     static boolean creatureActive() {
         try {
             return nativeCreatureActive();
+        } catch (UnsatisfiedLinkError e) {
+            return false;
+        }
+    }
+
+    static boolean leftyFlightActive() {
+        try {
+            return nativeLeftyFlightActive();
         } catch (UnsatisfiedLinkError e) {
             return false;
         }
@@ -906,6 +930,8 @@ public class FlipendoActivity extends SDLActivity {
         /** Gameplay buttons are hidden while a menu is open; MENU stays as the way back. */
         boolean visible(Btn b) {
             if (b == exit) return creatureShown && !menuShown && !cutsceneShown && !layoutEdit && !settingsOpen;
+            // Carpe is Ron's spell: the button is there only while the player is Ron (the layout editor shows it always, to place it)
+            if (b == spell) return isHp3Game() && (layoutEdit || (((FlipendoActivity) getContext()).hp3PlayerIsRon() && !menuShown && !lessonShown && !cutsceneShown && !settingsOpen));
             if (layoutEdit) return b != skip; // the layout editor shows every control
             if (b == menu || b == gear) return true;
             if (b == skip) return cutsceneShown && !noSkip; // the skip button exists only in cutscenes (and not with Settings > No cutscene skip)
@@ -1676,7 +1702,7 @@ public class FlipendoActivity extends SDLActivity {
         // The port's settings panel: the entry the pad is on
         static final int SET_RENDER = 0, SET_UI = 1, SET_FOV = 2, SET_FPS = 3, SET_SEG = 4, SET_JUMP = 5, SET_LANG = 6, SET_MOD = 7,
                 SET_DEBUG = 8, SET_TELEGRAM = 9, SET_DONE = 10, SET_RENDERER = 11, SET_FPS_LIMIT = 12, SET_LAYOUT = 13, SET_HELP = 14, SET_INVERT = 15, SET_SWITCH = 16, SET_FIRST = 17,
-                SET_TAB = 18 /* 18..20: the pages */, SET_NOSKIP = 21, SET_NOSAVE = 22, SET_FIX = 23, SET_PERF = 24, SET_WANDSENS = 25, SET_CAMERASENS = 26, SET_PICTURE = 27;
+                SET_TAB = 18 /* 18..20: the pages */, SET_NOSKIP = 21, SET_NOSAVE = 22, SET_FIX = 23, SET_PERF = 24, SET_WANDSENS = 25, SET_CAMERASENS = 26, SET_PICTURE = 27, SET_GFX = 28;
         int settingsFocus = -1;
         final java.util.List<android.graphics.RectF> setRects = new java.util.ArrayList<>();
         final java.util.List<Integer> setIds = new java.util.ArrayList<>();
@@ -1715,6 +1741,7 @@ public class FlipendoActivity extends SDLActivity {
             if (languages.size() > 1) addEntry(languageBtn, SET_LANG);
             addEntry(rendererBtn, SET_RENDERER);
             addEntry(debugBtn, SET_DEBUG);
+            addEntry(gfxBtn, SET_GFX);
             addEntry(fixBtn, SET_FIX);
             addEntry(perfBtn, SET_PERF);
             addEntry(switchBtn, SET_SWITCH);
@@ -1787,6 +1814,7 @@ public class FlipendoActivity extends SDLActivity {
             switch (focused) {
                 case SET_PICTURE: nativeDebugCommand("resetpicture"); break;
                 case SET_FIX: settingsOpen = false; activity.openGraphicsFix(); break;
+                case SET_GFX: settingsOpen = false; activity.openHp3Graphics(); break;
                 case SET_PERF: activity.applyPerfLog(!perfLog, true); break;
                 case SET_NOSKIP: noSkip = !noSkip; activity.saveScales(); break;
                 case SET_NOSAVE: noQuickSave = !noQuickSave; activity.saveScales(); break;
@@ -1905,7 +1933,9 @@ public class FlipendoActivity extends SDLActivity {
         final Btn[] arrows = {
             new Btn("UP", KeyEvent.KEYCODE_DPAD_UP, 0, false), new Btn("DOWN", KeyEvent.KEYCODE_DPAD_DOWN, 0, false),
             new Btn("LEFT", KeyEvent.KEYCODE_DPAD_LEFT, 0, false), new Btn("RIGHT", KeyEvent.KEYCODE_DPAD_RIGHT, 0, false) };
-        final Btn[] buttons = { cast, jump, menu, save, gear, skip, exit, arrows[0], arrows[1], arrows[2], arrows[3] };
+        // HP3 only, under the toolbar: Carpe (select it to pull fire crabs, tap again to let go)
+        final Btn spell = new Btn("CARPE", 0, 0, false);
+        final Btn[] buttons = { cast, jump, menu, save, gear, skip, exit, spell, arrows[0], arrows[1], arrows[2], arrows[3] };
 
         // The prompt for a fixed-camera level (the movement mod can't aim there): a small panel that takes every touch.
         boolean promptOpen;
@@ -2071,6 +2101,8 @@ public class FlipendoActivity extends SDLActivity {
             gear.cx = save.cx - barSlot; gear.cy = barY; gear.r = barR;
             exit.r = barR * 1.25f; exit.cx = menu.cx; exit.cy = barY + barHalf + exit.r * 1.5f; // under the toolbar, a thumb's reach from the corner
             toolbar.set(gear.cx - barSlot / 2f, barY - barHalf, menu.cx + barSlot / 2f, barY + barHalf);
+            // HP3: the Carpe button in the top row, left of the FPS counter (the layout editor can move it)
+            spell.r = barR * 1.1f; spell.cx = toolbar.left - 0.24f * u - spell.r; spell.cy = barY;
             // bottom right: the wand, and the jump to its lower left; on the broom the wand is a stick whose long range ring must
             // clear the jump button: it sits higher (as in HP2, the same everywhere else)
             cast.r = Math.max(0.104f * u, 40f * dp);
@@ -2158,10 +2190,12 @@ public class FlipendoActivity extends SDLActivity {
         }
 
         /** Places the rows of the open page from y0 down; the bottom of the lower column. */
+        final android.graphics.RectF gfxBtn = new android.graphics.RectF(); // HP3: Settings > Game > Graphics
+
         float layoutPageRows(float y0) {
             float h = lh;
             for (android.graphics.RectF r : new android.graphics.RectF[] { fpBtn, fpsBtn, segStick, segDpad, autoJumpBtn, invertBtn, layoutBtn,
-                    languageBtn, modBtn, rendererBtn, debugBtn, fixBtn, perfBtn, switchBtn, noSkipBtn, noSaveBtn, wandSensBtn, cameraSensBtn, pictureBtn }) r.setEmpty();
+                    languageBtn, modBtn, rendererBtn, debugBtn, gfxBtn, fixBtn, perfBtn, switchBtn, noSkipBtn, noSaveBtn, wandSensBtn, cameraSensBtn, pictureBtn }) r.setEmpty();
             float rowH = 0.115f * h, rowGap = 0.02f * h;
             float knobR = 0.026f * lu;
             sliderX0 = colL0 + knobR;
@@ -2226,6 +2260,10 @@ public class FlipendoActivity extends SDLActivity {
                 yl += rowH + rowGap;
                 debugBtn.set(colR0, yr, colR1, yr + rowH);
                 yr += rowH + rowGap;
+                if (isHp3Game()) {
+                    gfxBtn.set(colR0, yr, colR1, yr + rowH);
+                    yr += rowH + rowGap;
+                }
                 fixBtn.set(colR0, yr, colR1, yr + rowH);
                 yr += rowH + rowGap;
                 perfBtn.set(colR0, yr, colR1, yr + rowH);
@@ -2273,6 +2311,9 @@ public class FlipendoActivity extends SDLActivity {
                 } else {
                     activity.applyDebugMode(!debugMode, true);
                 }
+            } else if (gfxBtn.contains(x, y)) {
+                settingsOpen = false;
+                activity.openHp3Graphics();
             } else if (languages.size() > 1 && languageBtn.contains(x, y)) {
                 languageTap();
             } else if (rendererBtn.contains(x, y)) {
@@ -2485,6 +2526,7 @@ public class FlipendoActivity extends SDLActivity {
                         rendererLabel(rendererGL) + (rendererAuto ? tr(" (auto)") : ""), rendererAsk);
                 if (isHp2Game() || isHp3Game()) drawValueRow(c, debugBtn, tr("Debug menu"), isHp3Game() ? tr("Level select, cheats") : tr("Level select, story state, spells"), tr("Open"), false);
                 else drawSwitchRow(c, debugBtn, tr("Debug mode"), tr("Level Select in the main menu"), debugMode, false);
+                if (!gfxBtn.isEmpty()) drawValueRow(c, gfxBtn, tr("Graphics"), tr("Character shadows"), tr("Open"), false);
                 drawValueRow(c, fixBtn, tr("Graphics fix"), tr("For OpenGL glitches"), tr("Open"), false);
                 drawSwitchRow(c, perfBtn, tr("Performance log"), tr("Frame timings in the log, to send"), perfLog, false);
                 drawValueRow(c, switchBtn, isHp2Game() ? tr("Play Harry Potter 1") : tr("Play Harry Potter 2"), switchAsk ? tr("Tap again: the game restarts") : tr("Switch to the other game"),
@@ -2706,6 +2748,11 @@ public class FlipendoActivity extends SDLActivity {
             if (b == gear) {
                 b.down = false;
                 if (down) openSettings();
+                return;
+            }
+            if (b == spell) {
+                b.down = down;
+                if (down) debugCommand("cheat spellswitch"); // the engine: select Carpe (pull crabs), or let go of it
                 return;
             }
             b.down = down;
@@ -2976,7 +3023,9 @@ public class FlipendoActivity extends SDLActivity {
                     } else if (cutsceneShown) {
                         // a cutscene holds Harry: the screen does not steer or look (the buttons above still work)
                     } else {
-                        roles.put(id, !dpadMode && x < getWidth() / 2f ? Role.STICK : Role.LOOK);
+                        // Riding Buckbeak with a left-handed flight (HP3_LEFTY_FLIGHT): the halves swap, the stick on the right and the look on the left.
+                        boolean leftHalf = x < getWidth() / 2f;
+                        roles.put(id, !dpadMode && (leftHalf != leftyFlightActive()) ? Role.STICK : Role.LOOK);
                         last.put(id, new float[] { x, y });
                         start.put(id, new float[] { x, y });
                         downAt.put(id, e.getEventTime());
@@ -3192,10 +3241,10 @@ public class FlipendoActivity extends SDLActivity {
         }
 
         // ---- Control layout (Settings > Control layout): each group of controls can be moved and resized ----
-        // groups: the wand button, the jump button, the arrow pad, the toolbar. A group keeps an offset from where it sits by
-        // default (fractions of the screen) and a scale; both are saved (preferences "flipendo", ctl_<group>_x / _y / _s).
-        static final int G_CAST = 0, G_JUMP = 1, G_PAD = 2, G_BAR = 3, GROUPS = 4;
-        static final String[] GROUP_NAMES = { tr("Wand button"), tr("Jump button"), tr("Arrow pad"), tr("Toolbar") };
+        // groups: the wand button, the jump button, the arrow pad, the toolbar, the Carpe button (HP3). A group keeps an offset from where it
+        // sits by default (fractions of the screen) and a scale; both are saved (preferences "flipendo", ctl_<group>_x / _y / _s).
+        static final int G_CAST = 0, G_JUMP = 1, G_PAD = 2, G_BAR = 3, G_CARPE = 4, GROUPS = 5;
+        static final String[] GROUP_NAMES = { tr("Wand button"), tr("Jump button"), tr("Arrow pad"), tr("Toolbar"), tr("Carpe button") };
         static final float CTL_MIN = 0.6f, CTL_MAX = 1.8f, CTL_STEP = 0.1f;
         final float[][] ctl = new float[GROUPS][3]; // dx, dy, scale
         boolean ctlLoaded;
@@ -3255,6 +3304,8 @@ public class FlipendoActivity extends SDLActivity {
                 b.r *= s;
             }
             toolbar.set(tcx + ox - hw, tcy + oy - hh, tcx + ox + hw, tcy + oy + hh);
+            g = ctl[G_CARPE];
+            spell.cx += g[0] * w; spell.cy += g[1] * h; spell.r *= g[2];
         }
 
         /** The area a group covers now. */
@@ -3263,6 +3314,7 @@ public class FlipendoActivity extends SDLActivity {
                 case G_CAST: out.set(cast.cx - cast.r, cast.cy - cast.r, cast.cx + cast.r, cast.cy + cast.r); break;
                 case G_JUMP: out.set(jump.cx - jump.r, jump.cy - jump.r, jump.cx + jump.r, jump.cy + jump.r); break;
                 case G_PAD: out.set(padX - padR, padY - padR, padX + padR, padY + padR); break;
+                case G_CARPE: out.set(spell.cx - spell.r, spell.cy - spell.r, spell.cx + spell.r, spell.cy + spell.r); break;
                 default: out.set(toolbar); break;
             }
         }
@@ -3274,6 +3326,7 @@ public class FlipendoActivity extends SDLActivity {
             int best = -1;
             float bestD = Float.MAX_VALUE;
             for (int g = 0; g < GROUPS; g++) {
+                if (g == G_CARPE && !isHp3Game()) continue; // only HP3 has the Carpe button
                 groupBounds(g, r);
                 r.inset(-0.015f * u, -0.015f * u);
                 if (!r.contains(x, y)) continue;
@@ -3385,6 +3438,7 @@ public class FlipendoActivity extends SDLActivity {
             float u = Math.min(getWidth(), getHeight());
             android.graphics.RectF r = new android.graphics.RectF();
             for (int g = 0; g < GROUPS; g++) {
+                if (g == G_CARPE && !isHp3Game()) continue;
                 groupBounds(g, r);
                 r.inset(-0.012f * u, -0.012f * u);
                 line.setColor(g == layoutSel ? GOLD : 0x66FFFFFF);
@@ -3595,6 +3649,17 @@ public class FlipendoActivity extends SDLActivity {
             if (visible(exit)) {
                 drawDisc(c, exit.cx, exit.cy, exit.down ? exit.r * 0.94f : exit.r, exit.down);
                 drawExitIcon(c, exit.cx, exit.cy, exit.r, exit.down ? DARK : 0xFFFFFFFF);
+            }
+            // HP3: the Carpe button under the toolbar: gold while Carpe is selected (it means pulling fire crabs)
+            if (visible(spell)) {
+                boolean on = ((FlipendoActivity) getContext()).hp3CarpeOn();
+                drawDisc(c, spell.cx, spell.cy, spell.down ? spell.r * 0.94f : spell.r, spell.down || on);
+                float tsize = text.getTextSize();
+                text.setTextSize(tsize * 0.62f);
+                text.setColor(spell.down || on ? DARK : 0xFFFFFFFF);
+                c.drawText(spell.label, spell.cx, spell.cy + text.getTextSize() * 0.35f, text);
+                text.setTextSize(tsize);
+                text.setColor(0xCCFFFFFF);
             }
             // bottom right: jump and the wand
             if (visible(jump)) {
