@@ -34,6 +34,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: Ihor-Ihorevych/r3paro
+          ref: 48788d0547a238a63dba1072622dbde561911415 # 0.8.1 with corrected Cargo.lock
           path: hp3-engine
           token: ${{ secrets.HP3_ENGINE_TOKEN || github.token }}
 
