@@ -61,6 +61,7 @@
 //                              "@state tut3peeves2 dieing" sends the matching actors to that script state;
 //                              "@travel Lev2_HogFront" changes level as the game's level exits do (carrying Harry's travel properties);
 //                              "@bump GridMover0 harry0" raises Bump(harry0) on the actors whose name starts with GridMover0;
+//                              "@call firecrabSmall6 HandleSpellFlipendo" calls that script function (no arguments) on the matching actors;
 //                              "@polys Mover17" logs the brush polygons (normal, PolyFlags, texture, vertices) of the matching movers;
 //                              "@surfs cosLogo1" logs the level's BSP surfaces drawn with that texture (flags, center; "*mirror": the mirrors);
 //                              "@sweep x y z x y z ex ey ez" runs KnowWonder's BSP line/point checks and the actor sweep with that box and logs them;
@@ -386,6 +387,22 @@ namespace KW
 			for (UActor* a : targets)
 				CallEvent(a, EventName::Bump, { ExpressionValue::ObjectValue(other) });
 			LogMessage("HP1 exec: bumped " + std::to_string(targets.size()) + " actors");
+			return;
+		}
+		if (text.rfind("@call ", 0) == 0)
+		{
+			// "@call <actor name prefix> <Fn>": call the script function Fn() without arguments on every matching actor
+			// (e.g. "@call firecrabSmall2 HandleSpellFlipendo" hits a crab with Flipendo from where Harry stands).
+			std::stringstream parts(text.substr(6));
+			std::string prefix, fn;
+			parts >> prefix >> fn;
+			std::vector<UActor*> targets;
+			for (UActor* a : engine->Level->Actors)
+				if (a && a->Name.ToString().compare(0, prefix.size(), prefix) == 0)
+					targets.push_back(a);
+			for (UActor* a : targets)
+				CallEvent(a, NameString(fn), {});
+			LogMessage("HP1 exec: called " + fn + " on " + std::to_string(targets.size()) + " actors");
 			return;
 		}
 		if (text.rfind("@polys ", 0) == 0)

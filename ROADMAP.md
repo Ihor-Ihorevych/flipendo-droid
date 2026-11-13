@@ -23,11 +23,6 @@ Legend: [~] partly done / in progress · [ ] not started
         moves with his lines in PrivetDr's intro and closes after; an `MV_SpringByTime` mover (find a map with one)
   - [ ] The in-game book's pages, rollover sounds, the folio, the map
   2. Known bugs
-  - [ ] Rictusempra challenge (the first challenge): the star at the end doesn't come down after some fire crabs
-        (issue #16, 2026-11-12, Flipendo 1.4 on Windows 11; the tester has a log and video). Probably the same as
-        #26: a crab on the rim of the sunken pit moves only a short hop per Flipendo and never falls in. In the
-        original scripts a crab with more than 9 of 16 probe directions still on floor gets a zero push and lies on
-        the edge; check with the crab's debug messages in this room whether that is the original game's behaviour
   - [ ] Bean bonus room after the house points ceremony: the game hangs if Harry moves and picks up a bean right
         after skipping the ceremony (issue #20, Windows 10, build 593bf9c). Not reproduced on Linux or Windows 11 with
         the reporter's save; waiting for a dump of the hung process

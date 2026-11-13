@@ -30,7 +30,7 @@ namespace HP1::Mods
 			{ "fast-forward", true, "HP1, HP2", nullptr, nullptr, "hold Shift to run 2.5x as fast" },
 			{ "frame-limit", true, "HP1, HP2", nullptr, nullptr, "at most --fps=<n> (60) frames a second" },
 			{ "path-fixes", true, "HP1", nullptr, nullptr, "reach specs the original maps are missing" },
-			{ "firecrab-ledge-fix", true, "HP2", nullptr, nullptr, "flipped fire crabs see lift floors as floor" },
+			{ "firecrab-ledge-fix", true, "HP2", nullptr, nullptr, "flipped fire crabs on a lift stay where they land" },
 			{ "texture-overrides", true, "HP1, HP2", nullptr, nullptr, "Textures/<package>/<group>/<name>.dds packs" },
 			{ "free-cam", false, "HP1", nullptr, nullptr, "camera-relative movement and independent mouse orbit" },
 			{ "improved-movement", true, "HP1", nullptr, "--classic-movement", "HP2's controls: strafe, move while aiming" },
