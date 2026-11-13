@@ -35,6 +35,9 @@ written for HP1 today is the code HP2 runs tomorrow. The rules with examples: `d
   (`tools/apply_patches.sh --reset`) before refreshing patches.
 - **Features the original game doesn't have go in `src/hp1/mods/`** (`docs/modding.md`): optional, off with
   `--vanilla`, hooked only through `HP1::TickMods`/`ModsKeyDown`/`PostRenderMods`/`ModsTimeScale`. Everything else is the faithful port.
+- **Fixes for the original's bugs are part of the game, not mods**: always on (also with `--vanilla`), in `src/knowwonder/`,
+  `src/hp1/` or `src/hp2/`, each listed in `docs/re/<game>/original_bugs.md`. A player must be able to finish the game
+  whatever flags they pass.
 - **Our code goes in `src/knowwonder/`, `src/hp1/` or `src/hp2/` (previous section), not in `src/engine/`.** `src/knowwonder/` files are `KW*.cpp`,
   `src/hp1/` `HP1*.cpp`, `src/hp2/` `HP2*.cpp`. `src/engine/` is SurrealEngine (actively developed); every line we change there
   is a future merge conflict. Engine files only get small hooks that call into `src/knowwonder/`/`src/hp1/`/`src/hp2/` (see
@@ -170,7 +173,7 @@ The steps (audit, scripts, IDA, HP2 check, registration, tag, rerun the audits):
   loads the map), `--skip-splash` goes straight to the main menu, `--skip-intro` skips the New Game storybook,
   `--vanilla` disables the default-on mods (`src/hp1/mods/`), `--no-mod=<id,...>` / `--mod=<id,...>` single ones
   (`--list-mods`).
-- **Starting the game for the user to playtest by hand:** always full screen (`CLAUDE.local.md`), never the small window. Never
+- **Starting the game for the user to playtest by hand:** a 1600x900 window (`CLAUDE.local.md`); full screen only when the user asks for it. Never
   kill or restart a game the user is playing; test in a second instance (`HP1_BACKGROUND=1`, its own `HP1_LOG`,
   `--slot=5` so their save slot is left alone), and rebuild only once they have quit (the exe is locked).
 - Tests (`docs/development.md#tests`): `FlipendoTests` (`src/tests/`, no game data; `ctest --test-dir build`) and

@@ -53,6 +53,9 @@ namespace HP2
 	// TickParent2, then its Owner (unless the actor is one of the owner's tick parents). UActor::Destroy calls
 	// ClearTickParents: no actor keeps the destroyed one as a tick parent.
 	UActor* TickBefore(UActor* actor, int i);
+	// src/hp2/HP2FireCrab.cpp (HP1::TickMods, also with --vanilla): wraps hgame.firecrab.pushDirection once its class
+	// is loaded, so a flipped crab on a mover lies where it landed and keeps its lying radius (issues #22, #26).
+	void TickFireCrabFix();
 	void ClearTickParents(UActor* destroyed);
 	// The special pause (src/hp2/HP2Tick.cpp): Engine::InputEvent hands every key over (Delete in debug mode toggles it),
 	// ULevel::TickActor asks SpecialPauseTick before an actor ticks (false: it doesn't)

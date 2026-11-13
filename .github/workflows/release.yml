@@ -51,20 +51,20 @@ jobs:
       - name: Build (Windows)
         if: matrix.platform == 'windows'
         run: |
-          cmake -S src/engine -B build -A x64
+          cmake -S src/engine -B build -A x64 -DFLIPENDO_VERSION="$TAG"
           cmake --build build --config Release --target SurrealEngine --parallel
 
       - name: Build (Linux)
         if: matrix.platform == 'linux'
         run: |
-          cmake -S src/engine -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-14 \
+          cmake -S src/engine -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DFLIPENDO_VERSION="$TAG" -DCMAKE_CXX_COMPILER=g++-14 \
             -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_BUILD_RPATH_USE_ORIGIN=ON
           cmake --build build --target SurrealEngine
 
       - name: Build (macOS)
         if: matrix.platform == 'macos'
         run: |
-          cmake -S src/engine -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64
+          cmake -S src/engine -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64 -DFLIPENDO_VERSION="$TAG"
           cmake --build build --target SurrealEngine --parallel $(sysctl -n hw.ncpu)
 
       - name: Package

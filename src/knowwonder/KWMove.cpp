@@ -44,6 +44,22 @@ namespace KW
 		return std::abs(v.x) < 0.000099999997f && std::abs(v.y) < 0.000099999997f && std::abs(v.z) < 0.000099999997f;
 	}
 
+	// Not in the original (it stops a mover at the first actor its bounding box sweeps into, HP1 Engine 0x103AA3A0):
+	// a mover's box is checked against the actor's own shape, the mover's brush is not, so a mover with a tall or wide
+	// brush is stopped by actors well clear of it. HP2's Ch1Rictusempra crab bucket (ElevatorMover3, its corner poles
+	// reach 700 units below the bucket) stalled on its way down with a fire crab lying on the floor of the shaft
+	// (firecrabSmall25, the first puzzle's crab, on Mover38) and the challenge couldn't be finished (issue #26). True when
+	// the actor's cylinder, swept against the mover's brush the other way, touches none of it: the mover moves on.
+	// docs/re/hp2/original_bugs.md
+	static bool MoverShapeMisses(UActor* mover, UActor* other, const vec3& delta)
+	{
+		if (!IsMover(mover) || IsMover(other) || other == LevelInfo() || other->bStatic())
+			return false;
+		CheckResult shapeHit;
+		vec3 extent(other->CollisionRadius(), other->CollisionRadius(), other->CollisionHeight());
+		return PrimitiveLineCheck(shapeHit, mover, other->Location() - delta, other->Location(), extent, 0);
+	}
+
 	// Actors whose MoveActor is still running further up the stack. A mover that is based on what it pushes (HP2's
 	// Entryhall_hub: Mover33, the plinth that slides StatueGregorySmarmy0 aside, has the statue as its Base in the map)
 	// would otherwise be carried by the statue it is pushing, before the statue has moved: it encroaches the statue
@@ -227,7 +243,7 @@ namespace KW
 					if ((ignoreBases && IsBasedOn(actor, other)) || IsBasedOn(other, actor))
 						continue;
 					examined = true;
-					if (IsBlockedBy(actor, other))
+					if (IsBlockedBy(actor, other) && !MoverShapeMisses(actor, other, testDelta))
 					{
 						hit = h;
 						break;

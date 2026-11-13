@@ -90,4 +90,6 @@ pushing a version tag also makes a draft release with the three zips, to check a
 every commit since the previous version tag, with a link to the full diff.
 Versions are `v<major>.<minor>`, starting at `v1.0`: the minor for fixes and new mods, the major for a big step
 (a game going from beta to stable, a new game). The tag `v1.1` gives the release "Flipendo 1.1" and
-`flipendo-v1.1-<platform>.zip`. The macOS app is ad-hoc signed, not notarised (the README-first says how to open it).
+`flipendo-v1.1-<platform>.zip`. The build shows its version in the window title and the log's first line: the workflow
+passes the tag (`-DFLIPENDO_VERSION=v1.1`, shown as 1.1), a local build takes `git describe` when CMake configures
+(`1.1-17-g9c0a8ed`, `-dirty` with uncommitted changes). The macOS app is ad-hoc signed, not notarised (the README-first says how to open it).

@@ -20,7 +20,7 @@ events whose FName the decompiler shows only as `` `string' ``:
 |---|---|---|
 | Update | `URender::SetupDynamics` [HP1 Render 0x10B2FB30], on `Actor.Shadow` ([rendering.md](rendering.md#actor-shadows-urendersetupdynamics-hp1-render-0x10b2fb30)) | `KW::UpdateActorShadows` |
 | DrawLevelInfo | `UGameEngine::LoadMap` `0x1039C3D0`, on the console ([rendering.md](rendering.md#the-loading-screen-ugameengineloadmap-hp1-0x1039c3d0)) | `KW::LoadMapLevelInfo` |
-| RenderOverlays | `URender::DrawWorld` [HP1 Render 0x10B27BA0] | SurrealEngine (`RenderSubsystem::RenderOverlays`) |
+| RenderOverlays | `URender::DrawWorld` [HP1 Render 0x10B27BA0] [HP2 Render 0x10B27930], only without bBehindView, on the ViewTarget ([rendering.md](rendering.md#hp1-and-hp2)) | SurrealEngine (`RenderSubsystem::RenderOverlays`) |
 | Generate | `URender::OccludeBsp` [HP1 Render 0x10B22480], on a WarpZoneInfo | not raised yet |
 
 So `Update` and `RenderOverlays` in "No native caller in HP1" below do have one.

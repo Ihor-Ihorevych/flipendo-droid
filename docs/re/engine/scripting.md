@@ -111,6 +111,21 @@ In HP1's Lev_Tut1, `SpellLearnTrigger` calls `Teacher.TurnToward(Cam)` on Quirre
 frames that have code, so a pawn in a code-less state never polls it and never turns. SurrealEngine resumed that
 frame and ran off the end of the empty state. (HP1's Engine.dll; HP2 not checked.)
 
+HP2 does the same with every vendor: `VendorManager` state `EngageVendor` calls `harry.TurnTo(...)` (native 508) right
+after `CAPTURE` put Harry in `stateCutIdle`, whose code is only `stop`. Since that state has no `Begin` label,
+SurrealEngine's `GotoState` left the frame stopped at the statement index of the state before it (a level-start
+cutscene's `stateMovingToLoc`, say); the turn ended, the frame resumed past the end of `stateCutIdle` and the game
+stopped with "Unexpected end of code statements" (GitHub issue #19). So no latent native may resume a stopped state
+frame, whichever it is: `Frame::SetLatentState` ignores anything but `Stop` on a stopped frame for KnowWonder games;
+only `GotoState` / `GotoLabel` start it again.
+
+A `GotoState` into a state without the label (no code, or only `stop`) also resets the frame's statement index to 0.
+The stale index of the state before pointed past the end of the new state's code, and printing the callstack (every
+Accessed None does) read that statement: HP2's large fire crab spawns `spellFireSmall` with no owner, its `stateIdle`
+code goes to `StateFlying` (only `stop`), whose `BeginState` → `GetTarget` reads `Owner.Location` (Accessed None,
+harmless) and the callstack read crashed the game (GitHub issue #21). The callstack printer also skips a frame whose
+index is outside its code.
+
 ## Division by zero
 
 `execDivide_IntInt` (Core.dll 0x10136FD0) returns 0 when the divisor is 0, and `execDivideEqual_ByteByte`

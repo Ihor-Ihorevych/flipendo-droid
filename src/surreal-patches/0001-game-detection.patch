@@ -144,10 +144,10 @@ index bf6912eb..5f4daaa3 100644
  }
 \ No newline at end of file
 diff --git a/SurrealEngine/UE1GameDatabase.h b/SurrealEngine/UE1GameDatabase.h
-index c87149a8..67b10dbd 100644
+index c87149a8..03abf046 100644
 --- a/SurrealEngine/UE1GameDatabase.h
 +++ b/SurrealEngine/UE1GameDatabase.h
-@@ -199,11 +199,30 @@ static const std::map<std::string, KnownUE1Games> SHA1Database = {
+@@ -199,11 +199,46 @@ static const std::map<std::string, KnownUE1Games> SHA1Database = {
  	// Harry Potter 1 (UK), post-patched, archive.org cracked exe
  	{"7e675aa863f55049f3cf530dfea0b241b112d03a", KnownUE1Games::HARRYPOTTER1_433},
  
@@ -161,11 +161,27 @@ index c87149a8..67b10dbd 100644
 +	// Harry Potter 1 (RU), EA Hit-Parade retail, SafeDisc-wrapped exe
 +	{"5d7ff458f6a9c3f6ff70725ecb3dada3b320998e", KnownUE1Games::HARRYPOTTER1_433},
 +
-+	// Harry Potter 1 (RU), EA Hit-Parade retail, No-CD exe shipped with the rutracker release
++	// Harry Potter 1, No-CD exe shipped with the RU EA Hit-Parade rutracker release and with the EN archive.org image (harry-potter-1_202303, Crack/HP.exe)
 +	{"7d5664c62634596fecf09013aa1aaf902a50cb27", KnownUE1Games::HARRYPOTTER1_433},
 +
 +	// Harry Potter 1 (EU, EN/FR/DE), retail release, reported in issue #11 (SafeDisc or No-CD not known)
 +	{"aac3b600dfc3ee689a2323021d3cf9f5c862cce9", KnownUE1Games::HARRYPOTTER1_433},
++
++	// Harry Potter 1 (ES/IT/PT CD), Italian install, reported in issue #15 (SafeDisc or No-CD not known)
++	{"526232593aa0a5ebb57beed89ddecc9b992ab04f", KnownUE1Games::HARRYPOTTER1_433},
++
++	// Harry Potter 1 (ES/IT/PT CD), Italian HP.exe with a community widescreen patch, reported in issue #15
++	{"061afa5b6a71a717fe0b4d52e00bdf34adac4847", KnownUE1Games::HARRYPOTTER1_433},
++
++	// Harry Potter 1, reported in issue #18 from an original disc (language and release not known)
++	{"597899fabeeb52e943356cf9134fa11ad657d29f", KnownUE1Games::HARRYPOTTER1_433},
++
++	// Harry Potter 1 (EN), original CD, exe dated 2001-10-29, reported in issue #24 (SafeDisc or No-CD not known)
++	{"6974ec7218c29c93f5750434c75c2284270d4f28", KnownUE1Games::HARRYPOTTER1_433},
++
++	// Harry Potter 1 (ES/IT/PT CD, 495 MB image), Italian install without patches or No-CD, reported in issue #27
++	// (same exe on the CD and installed)
++	{"3e08eeb037d77ce0fbd3b6d8fab57b35d7e3942e", KnownUE1Games::HARRYPOTTER1_433},
 +
  	// Harry Potter 2 (UK)
  	{"3a43d9ec8be7ec441b18a8dc710b4bdd5b29bda3", KnownUE1Games::HARRYPOTTER2_433},
@@ -178,7 +194,7 @@ index c87149a8..67b10dbd 100644
  };
  
  // Note: order matters here as we pick the first match.
-@@ -231,5 +250,14 @@ static const Array<std::string> knownUE1ExecutableNames = {
+@@ -231,5 +266,14 @@ static const Array<std::string> knownUE1ExecutableNames = {
  	"Game.exe",
  };
  

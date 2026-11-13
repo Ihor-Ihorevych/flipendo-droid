@@ -55,6 +55,7 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | File | Hook |
 |---|---|
 | `src/engine/CMakeLists.txt` | includes `src/flipendo.cmake` (`src/knowwonder/knowwonder.cmake`, `src/hp1/hp1.cmake`) |
+| `Engine.cpp` (OpenWindow, Run) | `IsKnowWonder()`: the window title is "<game> - Flipendo <version>" (`KW::FlipendoVersion`, `src/knowwonder/KWVersion.cpp`); the log's first line is "Flipendo <version>" (any game) |
 | `Engine.cpp` (OpenWindow) | window icon `KW::GameIcons`: the game's own `System/<exe>.ico` from the player's folder (HP1 `hp.ico`, grey background made transparent), else SurrealEngine's |
 | `Package/PackageManager.cpp` | `HP1::RegisterNatives()` after SurrealEngine natives |
 | `Package/PackageManager.cpp` (ScanFolder) | `IsKnowWonder()`: the plain package file wins over a language file next to it (`AllDialog.uax` over `AllDialog.int_uax`, [packages](re/engine/packages.md#language-files-appfindpackagefile-hp1-core-0x10153f40)); also fixes the doubled folder in a language file's path (any game) |
@@ -115,7 +116,8 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `VM/Frame.cpp` (Run) | Any game: more than 250 nested script calls is the script error "Infinite script recursion (250 calls) detected", as UE1's UObject::ProcessInternal, instead of overflowing the native stack; HP2's `harry.Summon` calls itself |
 | `VM/Frame.cpp` | `goto` to a label that doesn't exist logs "GotoLabel (x): Label not found" and stops the state code (UE1's UObject::GotoLabel) instead of a fatal error; HP1's `gargoyle.lookaround` does it (Lev4_Sneak, Lev3_Lumos) |
 | `VM/Frame.cpp` | Any game: "Accessed None" (also "when calling") is logged with its callstack once per script expression, not on every hit: since SurrealEngine runs statements on `Frame::RunExpr` it reports None inside sub-expressions too, and HP1's `BaseCam.CheckPosition` reads `PossibleVictim.Name` every frame when its trace hits nothing |
-| `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `TurnToward` on a pawn whose state frame has no code does nothing (UE1 never polls it) |
+| `VM/Frame.cpp` (GotoLabel, GetCallstack) | Any game: a GotoState / GotoLabel that finds no label resets the statement index with the stop, and the callstack printer skips an index outside the frame's code; HP2's fire crab spell crashed on the stale index when an Accessed None printed its callstack (issue #21, [re/engine/scripting.md](re/engine/scripting.md#latent-calls-on-other-actors)) |
+| `VM/Frame.cpp/.h` (SetLatentState) | `IsKnowWonder()`: a latent native (TurnTo, TurnToward, FinishAnim, Sleep, ...) never resumes a stopped state frame; UE1 never polls one. HP2's vendors call `harry.TurnTo` while Harry waits in `stateCutIdle` (issue #19), HP1's spell lesson `Tut1Quirrell.TurnToward` ([re/engine/scripting.md](re/engine/scripting.md#latent-calls-on-other-actors)) |
 | `Packages/Engine/Actors/Pawn/UPawn_Tick.cpp` | `KW::PawnStartMove` when MoveTo / MoveToward / StrafeTo / StrafeFacing start (their first step); MoveToward on a pawn: MoveTimer 1.2; StrafeFacing's DesiredSpeed and Focus |
 | `Packages/Engine/Resources/Level/UModel.cpp` | ungated: `FindRegion` takes the leaf on the point's side of the node, like the zone (it took the other side's, often -1) |
 | `Render/VisibleBrush.cpp` | ungated: mover polygons are one-sided like BSP surfaces (drawn only from in front, unless PF_TwoSided); the portcullis's plank back face filled its masked gate. Their texture's PolyFlags count like the polygon's, as for BSP surfaces (a masked bar drew its holes black) |
@@ -147,7 +149,7 @@ Paths are relative to `src/engine/SurrealEngine/` unless they start with `src/en
 | `Packages/Engine/Subsystems/USurrealAudioDevice.h` | ungated fix: includes `UActor.h` for `ESoundSlot` (an enum without a fixed type can't be declared ahead; GCC and Clang refuse it) |
 | `Packages/Engine/Actors/UActor_Touch.cpp` | `KW::BeginTouch` in `Touch` (one side at a time, the trigger is told even when the spell destroyed itself) |
 | `Render/VisibleMesh.cpp` | weapon on a skeletal pawn: `HP1::PawnWeaponFrame` (WeaponLoc/WeaponRot) + `Begin/EndWeaponDraw` around the weapon draw |
-| `Render/RenderCanvas.cpp` | RenderOverlays only without bBehindView, on the ViewTarget |
+| `Render/RenderCanvas.cpp` | `IsKnowWonder()`: RenderOverlays only without bBehindView, on the ViewTarget (else `Weapon.RenderOverlays` hides Harry's wand) |
 | `Package/PackageManager.cpp/.h`, `Package/Package.cpp` | missing data messages: a missing package names who imports it and every Paths folder searched; missing maps list the map folders; Paths folders that don't exist and imports a package lacks are logged ([troubleshooting](troubleshooting.md)) |
 | `Native/NObject.cpp` | DynamicLoadObject failures log why (missing package with the searched folders, or missing object) |
 | `UE1GameDatabase.cpp/.h`, `GameFolder.cpp/.h`, `GameApp.cpp` | a game folder given on the command line that isn't recognised says why (no such folder, the System folder itself, no known exe, unknown exe SHA-1) |

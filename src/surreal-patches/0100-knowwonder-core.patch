@@ -36,7 +36,7 @@ index 330b050a..492ba706 100644
  set_target_properties(SurrealCommon PROPERTIES CXX_STANDARD 20)
  target_precompile_headers(SurrealCommon PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/SurrealEngine/Precomp.h>)
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 2ddaf0a1..33ee724f 100644
+index 6908d4d7..d9b469ca 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,14 @@
@@ -54,7 +54,15 @@ index 2ddaf0a1..33ee724f 100644
  #include "Utils/File.h"
  #include "Utils/StrTools.h"
  #include "Utils/SHA1Sum.h"
-@@ -124,12 +132,25 @@ void Engine::Run()
+@@ -117,6 +125,7 @@ Engine::~Engine()
+ 
+ void Engine::Run()
+ {
++	LogMessage("Flipendo " + KW::FlipendoVersion());
+ 	LogMessage("Game: " + LaunchInfo.gameName + " (Version: " + LaunchInfo.gameVersionString + ")");
+ 	LoadEngineSettings();
+ 	LogMessage("Loaded Engine settings");
+@@ -124,12 +133,25 @@ void Engine::Run()
  	LogMessage("Loaded key bindings");
  	LogGamePackageSHA1Sums();
  
@@ -80,7 +88,7 @@ index 2ddaf0a1..33ee724f 100644
  		viewport->bWindowsMouseAvailable() = true;
  
  	window->LockCursor();
-@@ -149,9 +170,10 @@ void Engine::Run()
+@@ -149,9 +171,10 @@ void Engine::Run()
  
  	LoginPlayer();
  
@@ -94,7 +102,7 @@ index 2ddaf0a1..33ee724f 100644
  
  	bool firstCall = true;
  
-@@ -172,15 +194,19 @@ void Engine::Run()
+@@ -172,15 +195,19 @@ void Engine::Run()
  		float realTimeElapsed = CalcTimeElapsed();
  		float entryLevelElapsed = EntryLevel ? realTimeElapsed * clamp(EntryLevelInfo->TimeDilation() * currentZoneTimeDilation, 0.0025f, 25.0f) : 0.0f;
  		float levelElapsed = realTimeElapsed * clamp(LevelInfo->TimeDilation() * currentZoneTimeDilation, 0.0025f, 25.0f);
@@ -120,7 +128,7 @@ index 2ddaf0a1..33ee724f 100644
  
  		// Update the time fields
  		std::time_t now = std::time(nullptr);
-@@ -203,40 +229,67 @@ void Engine::Run()
+@@ -203,40 +230,67 @@ void Engine::Run()
  		}
  
  		UpdateInput(realTimeElapsed);
@@ -212,7 +220,7 @@ index 2ddaf0a1..33ee724f 100644
  
  		// Save the game if there is a request for it
  		if (SaveGameInfo.SaveGameSlot != DONT_SAVE_GAME)
-@@ -293,6 +346,8 @@ void Engine::Run()
+@@ -293,6 +347,8 @@ void Engine::Run()
  		{
  			UnrealURL url(ClientTravelInfo.URL);
  			LoadFromSaveFile(url);
@@ -221,7 +229,7 @@ index 2ddaf0a1..33ee724f 100644
  			PossessSavedPlayer();
  		}
  
-@@ -669,6 +724,8 @@ void Engine::LoadEntryMap()
+@@ -671,6 +727,8 @@ void Engine::LoadEntryMap()
  
  void Engine::UnloadMap()
  {
@@ -230,7 +238,7 @@ index 2ddaf0a1..33ee724f 100644
  	if (LevelPackage && LevelPackage != EntryLevelPackage)
  		packages->UnloadPackage(LevelPackage);
  
-@@ -687,6 +744,9 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
+@@ -689,6 +747,9 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
  {
  	ClientTravelInfo.URL.Clear();
  
@@ -240,7 +248,7 @@ index 2ddaf0a1..33ee724f 100644
  	if (Level)
  		CallEvent(console, EventName::NotifyLevelChange);
  
-@@ -699,6 +759,11 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
+@@ -701,6 +762,11 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
  
  	GetLevelInfoObject();
  
@@ -252,7 +260,7 @@ index 2ddaf0a1..33ee724f 100644
  	LevelInfo->ComputerName() = "MyComputer";
  	LevelInfo->HubStackLevel() = 0; // To do: handle level hubs
  	LevelInfo->EngineVersion() = LaunchInfo.gameVersionString + " SE";
-@@ -726,6 +791,9 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
+@@ -728,6 +794,9 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
  
  	LinkActorsToLevel();
  
@@ -262,7 +270,7 @@ index 2ddaf0a1..33ee724f 100644
  	// Find the game info class
  	UClass* gameInfoClass = packages->FindClass(LevelInfo->URL.GetOption("game"));
  	if (!gameInfoClass)
-@@ -760,6 +828,9 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
+@@ -762,6 +831,9 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
  		auto stringProp = GC::Alloc<UStringProperty>("", nullptr, ObjectFlags::NoFlags);
  		std::string error;
  
@@ -272,7 +280,7 @@ index 2ddaf0a1..33ee724f 100644
  		LevelInfo->bStartup() = true;
  		CallEvent(GameInfo, EventName::InitGame, { ExpressionValue::StringValue(options), ExpressionValue::Variable(&error, stringProp) });
  		if (!error.empty())
-@@ -768,10 +839,14 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
+@@ -770,10 +842,14 @@ void Engine::LoadMap(const UnrealURL& url, const std::map<std::string, std::stri
  		// Note: the events may spawn actors. We can't use iterators here.
  		// Spawned objects must be initialized twice.
  		// DX breaks if SetInitialState isn't called a second time on the spawned inventory after DeusExCarcass.PostBeginPlay finishes.
@@ -291,7 +299,7 @@ index 2ddaf0a1..33ee724f 100644
  
  		if (engine->LaunchInfo.IsDeusEx())
  		{
-@@ -805,12 +880,17 @@ void Engine::LoadFromSaveFile(const UnrealURL& url)
+@@ -807,12 +883,17 @@ void Engine::LoadFromSaveFile(const UnrealURL& url)
  	if (!savefilePackage)
  		return;
  
@@ -309,7 +317,7 @@ index 2ddaf0a1..33ee724f 100644
  
  	// Same as LoadMap: these are session/engine identity, not save data, and must be
  	// re-established on every load regardless of what the package/save file contains.
-@@ -997,6 +1077,8 @@ void Engine::LoginPlayer()
+@@ -999,6 +1080,8 @@ void Engine::LoginPlayer()
  	// Assign the pawn to the viewport
  	viewport->Actor() = pawn;
  	viewport->Actor()->Player() = viewport;
@@ -318,7 +326,7 @@ index 2ddaf0a1..33ee724f 100644
  	CallEvent(viewport->Actor(), EventName::Possess);
  
  	// Transfer travel actors to the new map
-@@ -1004,14 +1086,21 @@ void Engine::LoginPlayer()
+@@ -1006,14 +1089,21 @@ void Engine::LoginPlayer()
  	CallEvent(pawn, EventName::TravelPreAccept);
  
  	Array<UObject*> acceptedObjects;
@@ -342,7 +350,7 @@ index 2ddaf0a1..33ee724f 100644
  		{
  			acceptedObjects = ActorTravelInfo::Accept(pawn, it->second);
  		}
-@@ -1036,6 +1125,8 @@ void Engine::LoginPlayer()
+@@ -1038,6 +1128,8 @@ void Engine::LoginPlayer()
  
  	CallEvent(pawn, EventName::TravelPostAccept);
  	CallEvent(LevelInfo->Game(), EventName::PostLogin, { ExpressionValue::ObjectValue(pawn) });
@@ -351,7 +359,7 @@ index 2ddaf0a1..33ee724f 100644
  
  	render->OnMapLoaded();
  }
-@@ -1059,6 +1150,38 @@ UObject* Engine::FindObject(NameString name, NameString className)
+@@ -1061,6 +1153,38 @@ UObject* Engine::FindObject(NameString name, NameString className)
  	return nullptr;
  }
  
@@ -390,7 +398,7 @@ index 2ddaf0a1..33ee724f 100644
  float Engine::CalcTimeElapsed()
  {
  	using namespace std::chrono;
-@@ -1128,6 +1251,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1130,6 +1254,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  	for (char& c : command) c = std::tolower(c);
  
  	found = true;
@@ -405,7 +413,7 @@ index 2ddaf0a1..33ee724f 100644
  	if (command == "exit" || command == "quit")
  	{
  		quit = true;
-@@ -1170,8 +1301,8 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1172,8 +1304,8 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  	}*/
  	else if (command == "getres")
  	{
@@ -416,7 +424,7 @@ index 2ddaf0a1..33ee724f 100644
  		return window->GetAvailableResolutions();
  	}
  	else if (command == "getcolordepths")
-@@ -1185,6 +1316,10 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1187,6 +1319,10 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  
  		return std::to_string(width) + "x" + std::to_string(height);
  	}
@@ -427,7 +435,7 @@ index 2ddaf0a1..33ee724f 100644
  	else if (command == "getcurrentcolordepth")
  	{
  		return "32";
-@@ -1221,7 +1356,17 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1223,7 +1359,17 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  			{
  				ClientTravel(url.ToString(), ETravelType::TRAVEL_Absolute, false);
  				return {};
@@ -446,7 +454,7 @@ index 2ddaf0a1..33ee724f 100644
  		}
  
  		LogMessage("Couldn't find map " + maparg);
-@@ -1275,6 +1420,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1277,6 +1423,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  			return {};
  		}
  
@@ -461,7 +469,7 @@ index 2ddaf0a1..33ee724f 100644
  		SaveGameInfo.SaveGameSlot = slotNum;
  
  		if (args.size() == 3)
-@@ -1326,20 +1479,40 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1328,20 +1482,40 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  			}
  		}
  	}
@@ -510,7 +518,7 @@ index 2ddaf0a1..33ee724f 100644
  		if (LaunchInfo.IsDeusEx() && className == "inputext")
  		{
  			// DeusEx version of input handling. How does this differ from the other one?
-@@ -1444,6 +1617,12 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1446,6 +1620,12 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  	}
  	else
  	{
@@ -523,7 +531,7 @@ index 2ddaf0a1..33ee724f 100644
  		if (!ExecCommand(args))
  		{
  			LogMessage("Unknown command: " + commandline);
-@@ -1453,6 +1632,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
+@@ -1455,6 +1635,14 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
  	return {};
  }
  
@@ -538,7 +546,7 @@ index 2ddaf0a1..33ee724f 100644
  Array<std::string> Engine::GetArgs(const std::string& commandline)
  {
  	Array<std::string> args;
-@@ -1484,6 +1671,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
+@@ -1486,6 +1674,10 @@ Array<std::string> Engine::GetSubcommands(const std::string& command)
  			endpos = command.size();
  
  		std::string subcommand = command.substr(pos, endpos - pos);
@@ -549,7 +557,7 @@ index 2ddaf0a1..33ee724f 100644
  		if (!subcommand.empty())
  			subcommands.push_back(subcommand);
  		pos = endpos + 1;
-@@ -1496,8 +1687,16 @@ void Engine::LoadEngineSettings()
+@@ -1498,8 +1690,16 @@ void Engine::LoadEngineSettings()
  	if (packages->MissingSESystemIni())
  	{
  		client->LoadProperties("WinDrv.WindowsClient");
@@ -568,7 +576,7 @@ index 2ddaf0a1..33ee724f 100644
  	}
  	else
  	{
-@@ -1511,6 +1710,8 @@ void Engine::LoadEngineSettings()
+@@ -1513,6 +1713,8 @@ void Engine::LoadEngineSettings()
  #else
  	windowingSystemName = packages->GetIniValue("System", "Engine.SurrealWindowSystem", "WindowSystem", "SDL2");
  #endif
@@ -577,7 +585,7 @@ index 2ddaf0a1..33ee724f 100644
  }
  
  void Engine::LoadKeybindings()
-@@ -1540,11 +1741,13 @@ void Engine::LoadKeybindings()
+@@ -1542,11 +1744,13 @@ void Engine::LoadKeybindings()
  					std::string aliasCommand = alias.substr(commandStart.size(), pos - commandStart.size());
  					std::string aliasName = alias.substr(pos + commandSplit.size(), pos2 - pos - commandSplit.size());
  					if (!aliasName.empty() && aliasName != "None")
@@ -592,7 +600,7 @@ index 2ddaf0a1..33ee724f 100644
  }
  
  void Engine::UpdateInput(float timeElapsed)
-@@ -1577,7 +1780,15 @@ void Engine::UpdateInput(float timeElapsed)
+@@ -1579,7 +1783,15 @@ void Engine::UpdateInput(float timeElapsed)
  void Engine::OpenWindow()
  {
  	if (!window)
@@ -608,11 +616,16 @@ index 2ddaf0a1..33ee724f 100644
  
  	int width = client->StartupFullscreen ? client->FullscreenViewportX : client->WindowedViewportX;
  	int height = client->StartupFullscreen ? client->FullscreenViewportY : client->WindowedViewportY;
-@@ -1586,9 +1797,19 @@ void Engine::OpenWindow()
+@@ -1587,10 +1799,23 @@ void Engine::OpenWindow()
+ 
  	std::string versionString = !LaunchInfo.gameVersionString.empty() ? " (v" + LaunchInfo.gameVersionString + ")" : "";
  
- 	window->SetWindowTitle(LaunchInfo.gameName + versionString + " - Surreal Engine");
+-	window->SetWindowTitle(LaunchInfo.gameName + versionString + " - Surreal Engine");
 -	window->SetFrameGeometry(Rect::xywh(0.0, 0.0, width, height));
++	if (LaunchInfo.IsKnowWonder()) // the Flipendo version for bug reports, instead of the game's engine build
++		window->SetWindowTitle(LaunchInfo.gameName + " - Flipendo " + KW::FlipendoVersion());
++	else
++		window->SetWindowTitle(LaunchInfo.gameName + versionString + " - Surreal Engine");
 +	// A window placed at (0,0) has its title bar above the top of the screen, where it can't be dragged: center it
 +	double x = 0.0, y = 0.0;
 +	if (!fullscreen)
@@ -629,7 +642,7 @@ index 2ddaf0a1..33ee724f 100644
  	if (fullscreen)
  		window->ShowFullscreen();
  	else
-@@ -1604,6 +1825,9 @@ void Engine::TickWindow()
+@@ -1606,6 +1831,9 @@ void Engine::TickWindow()
  {
  	if (window && engine->LaunchInfo.ue1Version > 219)
  	{
@@ -639,7 +652,7 @@ index 2ddaf0a1..33ee724f 100644
  		if (viewport->bShowWindowsMouse() && viewport->bWindowsMouseAvailable())
  			window->UnlockCursor();
  		else
-@@ -1646,6 +1870,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
+@@ -1648,6 +1876,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
  	{
  		viewport->WindowsMouseX() = (float)(pos.x * window->GetDpiScale());
  		viewport->WindowsMouseY() = (float)(pos.y * window->GetDpiScale());
@@ -648,7 +661,7 @@ index 2ddaf0a1..33ee724f 100644
  	}
  }
  
-@@ -1719,6 +1945,11 @@ void Engine::OnWindowKeyChar(std::string chars)
+@@ -1736,6 +1966,11 @@ void Engine::OnWindowKeyChar(std::string chars)
  
  void Engine::OnWindowKeyDown(EInputKey key)
  {
@@ -660,7 +673,7 @@ index 2ddaf0a1..33ee724f 100644
  	if (playingAvi)
  	{
  		if (key == EInputKey::IK_Escape)
-@@ -1800,6 +2031,9 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
+@@ -1841,6 +2076,9 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
  	if (Frame::RunState != FrameRunState::Running || playingAvi)
  		return;
  
@@ -670,7 +683,7 @@ index 2ddaf0a1..33ee724f 100644
  	bool handled = CallEvent(console, EventName::KeyEvent, { ExpressionValue::ByteValue(key), ExpressionValue::ByteValue(type), ExpressionValue::FloatValue((float)delta) }).ToBool();
  	
  	if (!handled)
-@@ -1813,7 +2047,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
+@@ -1854,7 +2092,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
  
  			for (const std::string& command : GetSubcommands(keybindings[keynames[key]]))
  			{
@@ -680,7 +693,7 @@ index 2ddaf0a1..33ee724f 100644
  				{
  					InputCommand(it->second, key, delta);
 diff --git a/SurrealEngine/Engine.h b/SurrealEngine/Engine.h
-index cd676125..95009837 100644
+index 11b9d977..f4f57715 100644
 --- a/SurrealEngine/Engine.h
 +++ b/SurrealEngine/Engine.h
 @@ -102,6 +102,8 @@ public:

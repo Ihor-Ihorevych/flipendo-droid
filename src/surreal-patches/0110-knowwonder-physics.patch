@@ -115,7 +115,7 @@ index cab04fab..771b6f29 100644
  	double height = actor->CollisionHeight();
  	double radius = actor->CollisionRadius();
 diff --git a/SurrealEngine/Collision/TopLevel/TraceTest.cpp b/SurrealEngine/Collision/TopLevel/TraceTest.cpp
-index 214511d2..6aee8336 100644
+index 24bba76d..0557809a 100644
 --- a/SurrealEngine/Collision/TopLevel/TraceTest.cpp
 +++ b/SurrealEngine/Collision/TopLevel/TraceTest.cpp
 @@ -1,5 +1,7 @@
@@ -155,7 +155,7 @@ index 32736319..573aeef7 100644
  
  	void InitActorZone() override;
 diff --git a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
-index 48026a40..c80c2d72 100644
+index 48026a40..835cb76a 100644
 --- a/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/Pawn/UPawn_Tick.cpp
 @@ -7,11 +7,10 @@
@@ -337,17 +337,13 @@ index 48026a40..c80c2d72 100644
  	if (StateFrame)
  		StateFrame->SetLatentState(LatentRunState::TurnTo);
  }
-@@ -335,12 +392,25 @@ void UPawn::TurnToward(UActor* newTarget)
+@@ -335,12 +392,22 @@ void UPawn::TurnToward(UActor* newTarget)
  	if (engine->LaunchInfo.ue1Version > 219)
  		FaceTarget() = newTarget;
  	Focus() = newTarget->Location();
--	if (StateFrame)
 +	if (engine->LaunchInfo.IsKnowWonder()) // execTurnToward starts turning at once
 +		KW::PawnTurnStep(this, Focus());
-+	// a state frame without code (stopped, or a state with no labels) is never polled in UE1, so the latent
-+	// turn does nothing. HP1's spell lesson calls Teacher.TurnToward on Tut1Quirrell in his empty 'idle' state; resuming
-+	// that frame ran off the end ("Unexpected end of code statements").
-+	if (StateFrame && !(engine->LaunchInfo.IsKnowWonder() && StateFrame->GetLatentState() == LatentRunState::Stop))
+ 	if (StateFrame)
  		StateFrame->SetLatentState(LatentRunState::TurnToward);
  }
  
@@ -401,7 +397,7 @@ index e3c87b45..286f8498 100644
  		return;
  
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
-index c9036135..b73fe0d8 100644
+index 2d58be9f..b558b14d 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
 @@ -8,9 +8,25 @@
@@ -430,7 +426,7 @@ index c9036135..b73fe0d8 100644
  	for (float timeLeft = elapsed; timeLeft > 0.0f && !bDeleteMe(); timeLeft -= 0.02f)
  	{
  		float physTimeElapsed = std::min(timeLeft, 0.02f);
-@@ -214,7 +230,7 @@ UPawn* UActor::PreparePawnMovementTick()
+@@ -215,7 +231,7 @@ UPawn* UActor::PreparePawnMovementTick()
  	if (!pawn)
  		return nullptr;
  
@@ -439,7 +435,7 @@ index c9036135..b73fe0d8 100644
  		return nullptr;
  
  	OldLocation() = Location();
-@@ -259,6 +275,12 @@ std::pair<bool, vec3> UActor::CheckLocation(vec3 location, float radius, float h
+@@ -260,6 +276,12 @@ std::pair<bool, vec3> UActor::CheckLocation(vec3 location, float radius, float h
  	if (!check)
  		return { true, location };
  
@@ -452,7 +448,7 @@ index c9036135..b73fe0d8 100644
  	// What is a reasonable size for this grid? what did UE1 do?
  	int offset[] = { 0, 1, -1 };
  	bool found = false;
-@@ -312,6 +334,8 @@ UObject* UActor::Trace(vec3& hitLocation, vec3& hitNormal, const vec3& traceEnd,
+@@ -313,6 +335,8 @@ UObject* UActor::Trace(vec3& hitLocation, vec3& hitNormal, const vec3& traceEnd,
  	}
  
  	CollisionHit hit = XLevel()->Collision.TraceFirstHit(traceStart, traceEnd, this, extent, flags);
@@ -461,7 +457,7 @@ index c9036135..b73fe0d8 100644
  	hitNormal = hit.Normal;
  	hitLocation = traceStart + (traceEnd - traceStart) * hit.Fraction;
  	return hit.Actor;
-@@ -425,7 +449,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
+@@ -426,7 +450,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
  				if (hit.Actor != Level())
  				{
  					bool isBlocking;
@@ -472,7 +468,7 @@ index c9036135..b73fe0d8 100644
  						isBlocking = hit.Actor->bBlockPlayers() && bBlockPlayers();
  					else
  						isBlocking = hit.Actor->bBlockActors() && bBlockActors();
-@@ -532,7 +558,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
+@@ -533,7 +559,9 @@ CollisionHit UActor::TryMove(const vec3& delta, bool dryRun, bool isOwnBaseBlock
  		{
  			// We can't touch stuff we are blocked by
  			bool isBlocking;

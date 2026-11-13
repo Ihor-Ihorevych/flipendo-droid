@@ -94,7 +94,7 @@ index df526a71..4403509e 100644
  	{
  		Exception::Throw("Unsupported sound format: " + Format.ToString());
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
-index 9b3b3499..ec778ab6 100644
+index f6d52c05..a0f859e1 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 +++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 @@ -9,12 +9,31 @@
@@ -509,12 +509,12 @@ index 9b3b3499..ec778ab6 100644
  	m_Viewport = nullptr;
  }
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h
-index 3bd4c645..3a41b5fc 100644
+index d05ff0e4..3e4c1f24 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h
 +++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.h
-@@ -3,12 +3,12 @@
- #include "UAudioSubsystem.h"
+@@ -4,12 +4,12 @@
  #include "Packages/Engine/Resources/USound.h"
+ #include "Packages/Engine/Actors/UActor.h"
  #include "Audio/AudioDevice.h"
 +#include "Packages/Engine/Actors/UActor.h" // ESoundSlot (an enum without a fixed type can't be declared ahead in standard C++)
  
@@ -526,7 +526,7 @@ index 3bd4c645..3a41b5fc 100644
  
  struct PlayingSound
  {
-@@ -25,6 +25,20 @@ struct PlayingSound
+@@ -26,6 +26,20 @@ struct PlayingSound
  	float Radius = 1.0f;
  	float Pitch = 1.0f;
  	float StartTime = 0.0f;
@@ -547,7 +547,7 @@ index 3bd4c645..3a41b5fc 100644
  };
  
  class USurrealAudioDevice : public UAudioSubsystem
-@@ -45,8 +59,14 @@ public:
+@@ -46,8 +60,14 @@ public:
  	void SetViewport(UViewport* InViewport);
  	void Update();
  
@@ -563,7 +563,7 @@ index 3bd4c645..3a41b5fc 100644
  	void ActorDestroyed(UActor* Actor);
  	void StopSounds();
  
-@@ -65,6 +85,18 @@ public:
+@@ -66,6 +86,18 @@ public:
  	static ESoundSlot GetSoundSlot(int id);
  	static bool IsSameSoundId(int id1, int id2);
  
@@ -582,7 +582,7 @@ index 3bd4c645..3a41b5fc 100644
  private:
  	AudioDevice* GetDevice() { return m_Device.get(); } // DO NOT MAKE THIS PUBLIC!!!!
  	friend class USound; // To do: figure out what USound::GetSound() is doing and why it wants to talk directly to the device (it shouldn't)
-@@ -80,6 +112,8 @@ private:
+@@ -81,6 +113,8 @@ private:
  	void UpdateMusic();
  	void StopSound(size_t index);
  

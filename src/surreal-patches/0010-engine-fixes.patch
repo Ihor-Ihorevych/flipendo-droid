@@ -1802,7 +1802,7 @@ index ff500427..379bd08f 100644
  }
  
 diff --git a/SurrealEngine/VM/ExpressionValue.h b/SurrealEngine/VM/ExpressionValue.h
-index 908adb98..7c3a3783 100644
+index c316914e..2136d68e 100644
 --- a/SurrealEngine/VM/ExpressionValue.h
 +++ b/SurrealEngine/VM/ExpressionValue.h
 @@ -161,6 +161,7 @@ public:
@@ -1826,26 +1826,7 @@ index 908adb98..7c3a3783 100644
  	}
  
  	void CheckType(ExpressionValueType type) const
-@@ -376,6 +381,7 @@ inline ExpressionValue ExpressionValue::DefaultValue(UProperty* prop)
- 	{
- 		ExpressionValue v(prop->ValueType);
- 		v.GetStructValue()->Init(static_cast<UStructProperty*>(prop)->Struct);
-+		v.Ptr = v.GetStructValue()->Ptr; // Init allocated new storage; don't rely on a copy on return to refresh Ptr
- 		return v;
- 	}
- 	case ExpressionValueType::ValueCoords: return CoordsValue({});
-@@ -387,7 +393,10 @@ inline ExpressionValue ExpressionValue::PropertyValue(UProperty* prop)
- {
- 	ExpressionValue v(prop->ValueType);
- 	if (prop->ValueType == ExpressionValueType::ValueStruct)
-+	{
- 		v.GetStructValue()->Init(static_cast<UStructProperty*>(prop)->Struct);
-+		v.Ptr = v.GetStructValue()->Ptr;
-+	}
- 	if (v.Type != ExpressionValueType::Nothing)
- 		return v;
- 	Exception::Throw("Unsupported expression value property type");
-@@ -417,6 +426,7 @@ inline void ExpressionValue::Store(const ExpressionValue& rvalue)
+@@ -421,6 +426,7 @@ inline void ExpressionValue::Store(const ExpressionValue& rvalue)
  	case ExpressionValueType::ValueName: *PtrName = rvalue.ToName(); break;
  	case ExpressionValueType::ValueColor: *PtrColor = rvalue.ToColor(); break;
  	case ExpressionValueType::ValueStruct:
@@ -1853,7 +1834,7 @@ index 908adb98..7c3a3783 100644
  		if (UStruct* Struct = VariableProperty ? static_cast<UStructProperty*>(VariableProperty)->Struct : GetStructValue()->Struct)
  		{
  			for (UProperty* prop : Struct->Properties)
-@@ -426,6 +436,7 @@ inline void ExpressionValue::Store(const ExpressionValue& rvalue)
+@@ -430,6 +436,7 @@ inline void ExpressionValue::Store(const ExpressionValue& rvalue)
  		}
  		break;
  	case ExpressionValueType::ValueArray:
@@ -1862,7 +1843,7 @@ index 908adb98..7c3a3783 100644
  		{
  			Array->CopyArray(Ptr, rvalue.Ptr);
 diff --git a/SurrealEngine/VM/Frame.cpp b/SurrealEngine/VM/Frame.cpp
-index 456f993e..fe2bf13e 100644
+index 456f993e..2914f718 100644
 --- a/SurrealEngine/VM/Frame.cpp
 +++ b/SurrealEngine/VM/Frame.cpp
 @@ -1,5 +1,6 @@
@@ -1955,7 +1936,18 @@ index 456f993e..fe2bf13e 100644
  			{
  				v[i].~ExpressionValue();
  			}
-@@ -307,12 +312,22 @@ std::string Frame::GetCallstack()
+@@ -281,7 +286,9 @@ std::string Frame::GetCallstack()
+ 		std::string name = frame->GetName();
+ 		if (UStruct* func = frame->Func)
+ 		{
+-			if (frame->StatementIndex > 0) // StatementIndex points at the NEXT statement to be executed
++			// StatementIndex points at the NEXT statement to be executed. A state frame that GotoState moved to a state
++			// with no code or no matching label is stopped and may still hold the old state's index.
++			if (frame->StatementIndex > 0 && func->Code && frame->StatementIndex <= func->Code->Statements.size())
+ 			{
+ 				int line = func->GetStatementLine(func->Code->Statements[frame->StatementIndex - 1]);
+ 				if (line > 0)
+@@ -307,12 +314,22 @@ std::string Frame::GetCallstack()
  	return result;
  }
  
@@ -1980,7 +1972,7 @@ index 456f993e..fe2bf13e 100644
  		return ExpressionValue::NothingValue();
  	}
  
-@@ -329,6 +344,29 @@ ExpressionValue Frame::Call(UFunction* func, UObject* instance, const ArrayView<
+@@ -329,6 +346,29 @@ ExpressionValue Frame::Call(UFunction* func, UObject* instance, const ArrayView<
  	}
  	else
  	{
@@ -2010,7 +2002,7 @@ index 456f993e..fe2bf13e 100644
  		Frame frame(instance, func, 0, false);
  
  		// Store args in function frame local variables
-@@ -399,7 +437,13 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, const Arra
+@@ -399,7 +439,13 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, const Arra
  			}
  			else if (argindex < args.size())
  			{
@@ -2025,7 +2017,7 @@ index 456f993e..fe2bf13e 100644
  			}
  			else
  			{
-@@ -409,11 +453,16 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, const Arra
+@@ -409,11 +455,16 @@ ExpressionValue Frame::CallNative(UFunction* func, UObject* instance, const Arra
  		}
  	}
  
@@ -2044,7 +2036,7 @@ index 456f993e..fe2bf13e 100644
  
  	if (callback)
  	{
-@@ -465,6 +514,27 @@ void Frame::TraceCall(UFunction* func, UObject* instance, const ArrayView<Expres
+@@ -465,6 +516,30 @@ void Frame::TraceCall(UFunction* func, UObject* instance, const ArrayView<Expres
  
  void Frame::GotoLabel(const NameString& label)
  {
@@ -2065,6 +2057,9 @@ index 456f993e..fe2bf13e 100644
 +					return;
 +				}
 +			}
++		// No label: the frame stops. Drop the old state's statement index, which means nothing in this state's code
++		// (HP2's spellFireSmall goes from stateIdle's code to StateFlying, which has none).
++		StatementIndex = 0;
 +		LatentState = LatentRunState::Stop;
 +		return;
 +	}
@@ -2072,7 +2067,29 @@ index 456f993e..fe2bf13e 100644
  	for (UClass* cls = Object->Class; cls != nullptr; cls = static_cast<UClass*>(cls->BaseStruct))
  	{
  		UState* state = cls->GetState(Func->Name);
-@@ -496,6 +566,17 @@ ExpressionEvalResult Frame::Run()
+@@ -480,9 +555,21 @@ void Frame::GotoLabel(const NameString& label)
+ 			}
+ 		}
+ 	}
++	StatementIndex = 0;
+ 	LatentState = LatentRunState::Stop;
+ }
+ 
++void Frame::SetLatentState(LatentRunState state)
++{
++	// UE1 never polls a state frame whose code has stopped (`stop`, or a state with no labels), so a latent native called
++	// on it from a function starts nothing. Resuming that frame would run off the end ("Unexpected end of code
++	// statements"): HP2's VendorManager calls harry.TurnTo while Harry waits in stateCutIdle (only `stop`), and HP1's
++	// spell lesson calls Tut1Quirrell.TurnToward in his empty 'idle' state. GotoState / GotoLabel restart the frame.
++	if (engine->LaunchInfo.IsKnowWonder() && LatentState == LatentRunState::Stop && state != LatentRunState::Stop)
++		return;
++	LatentState = state;
++}
++
+ void Frame::Tick()
+ {
+ 	if (LatentState == LatentRunState::Continue)
+@@ -496,6 +583,17 @@ ExpressionEvalResult Frame::Run()
  
  	ActiveCallStackFrame activeFrame(this);
  
@@ -2090,7 +2107,7 @@ index 456f993e..fe2bf13e 100644
  	if (!Func->Code->Statements.empty())
  		StepExpression = Func->Code->Statements[StatementIndex];
  
-@@ -505,7 +586,9 @@ ExpressionEvalResult Frame::Run()
+@@ -505,7 +603,9 @@ ExpressionEvalResult Frame::Run()
  		Break();
  	}
  
@@ -2101,7 +2118,7 @@ index 456f993e..fe2bf13e 100644
  	int instructionsRetired = 0;
  	while (true)
  	{
-@@ -551,6 +634,11 @@ ExpressionEvalResult Frame::Run()
+@@ -551,6 +651,11 @@ ExpressionEvalResult Frame::Run()
  			break;
  		case StatementResult::GotoLabel:
  			{
@@ -2113,7 +2130,7 @@ index 456f993e..fe2bf13e 100644
  				int index = Func->Code->FindLabelIndex(result.Label);
  				if (index != -1)
  				{
-@@ -635,14 +723,14 @@ ExpressionEvalResult Frame::Run()
+@@ -635,14 +740,14 @@ ExpressionEvalResult Frame::Run()
  			Iterators.pop_back();
  			break;
  		case StatementResult::AccessedNone:
@@ -2130,7 +2147,7 @@ index 456f993e..fe2bf13e 100644
  			}
  			break;
  		}
-@@ -666,7 +754,12 @@ void Frame::ProcessSwitch(const ExpressionValue& condition)
+@@ -666,7 +771,12 @@ void Frame::ProcessSwitch(const ExpressionValue& condition)
  		{
  			//ExpressionValue casevalue = ExpressionEvaluator::Eval(caseexpr->Value, Object, Object, Variables).Value;
  			ExpressionValue casevalue = RunExpr(caseexpr->Value, Object, Object, Variables).Value;
@@ -2144,7 +2161,7 @@ index 456f993e..fe2bf13e 100644
  				break;
  			else
  				StatementIndex = Func->Code->FindStatementIndex(caseexpr->NextOffset);
-@@ -1011,7 +1104,7 @@ ExpressionEvalResult Frame::RunExpr(Expression* statementExpr, UObject* self, UO
+@@ -1011,7 +1121,7 @@ ExpressionEvalResult Frame::RunExpr(Expression* statementExpr, UObject* self, UO
  					}
  					else
  					{
@@ -2154,10 +2171,10 @@ index 456f993e..fe2bf13e 100644
  						PopExpr();
  					}
 diff --git a/SurrealEngine/VM/Frame.h b/SurrealEngine/VM/Frame.h
-index d302a401..3395cc11 100644
+index d302a401..95a234af 100644
 --- a/SurrealEngine/VM/Frame.h
 +++ b/SurrealEngine/VM/Frame.h
-@@ -81,7 +81,7 @@ public:
+@@ -81,15 +81,16 @@ public:
  
  	static std::unique_ptr<Iterator> CreatedIterator;
  
@@ -2166,7 +2183,9 @@ index d302a401..3395cc11 100644
  	~Frame();
  
  	void SetState(UStruct* func);
-@@ -90,6 +90,7 @@ public:
+-	void SetLatentState(LatentRunState state) { LatentState = state; }
++	void SetLatentState(LatentRunState state);
+ 	void GotoLabel(const NameString& label);
  	void Tick();
  
  	UStruct* GetFunc() const { return Func; }

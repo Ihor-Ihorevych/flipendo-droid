@@ -35,15 +35,27 @@ struct SceneNode;
 struct GouraudVertex;
 
 class Image;
+class UClass;
+class UFunction;
+class ExpressionValue;
 
 namespace KW
 {
+	// Flipendo's version, from the release tag or git describe (src/flipendo.cmake): "1.1", "1.1-17-g9c0a8ed", "dev".
+	std::string FlipendoVersion();
+
 	// Engine::OpenWindow: the game's own icon from the player's folder (System/<exe>.ico, src/knowwonder/KWIcon.cpp); empty if missing.
 	std::vector<std::shared_ptr<Image>> GameIcons(const std::string& gameRootFolder, const std::string& exeName);
 
 	// Script property helpers: an object reference / bool property by name (nullptr / false if absent).
 	UObject* ObjectProperty(UObject* obj, const char* name);
 	bool BoolProperty(UObject* obj, const char* name);
+
+	// Replaces a script function of the class (of its state, or its own with state nullptr) with a native handler
+	// (args: one ExpressionValue per parameter) and returns the script function, which the handler can still run with
+	// Frame::Call. nullptr, and nothing replaced, if the state or function is missing or already native. Package
+	// files are left alone, so saves don't depend on it (src/knowwonder/KWNatives.cpp).
+	UFunction* WrapScriptFunction(UClass* cls, const char* state, const char* function, void (*handler)(UObject* self, ExpressionValue* args));
 
 	// PackageManager::RegisterFunctions, after upstream registered its natives.
 	void RegisterNatives();

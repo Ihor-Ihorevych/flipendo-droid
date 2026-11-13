@@ -1,5 +1,5 @@
 #include "Precomp.h"
-#include "HP1Mods.h"
+#include "HP1.h"
 #include "Packages/Core/UObject.h"
 #include "Packages/Engine/Actors/NavigationPoint/UNavigationPoint.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
@@ -9,11 +9,11 @@
 #include <cctype>
 #include <cstring>
 
-// Path fixes (on by default, off with --vanilla): reach specs the original maps are missing, so the station-to-station
+// Path fixes (part of the game, also with --vanilla): reach specs the original maps are missing, so the station-to-station
 // AI (Pawn.FindPath) finds the way the level designers meant (docs/re/hp1/original_bugs.md).
 // Lev_Tut3b: Peeves leaves after the duel along HPath_F1 to baseStation1, but HPath_F3 was never linked to
 // baseStation1, so FindPath fails at HPath_F1 and Peeves drifts off in his reference pose instead of flying out.
-namespace HP1::Mods
+namespace HP1
 {
 	namespace
 	{
@@ -87,7 +87,7 @@ namespace HP1::Mods
 	{
 		static ULevel* checkedLevel = nullptr;
 		ULevel* level = engine->Level;
-		if (!IsOn("path-fixes") || !level || level == checkedLevel)
+		if (!level || level == checkedLevel)
 			return;
 		checkedLevel = level;
 
