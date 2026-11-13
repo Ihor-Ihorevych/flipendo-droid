@@ -11,9 +11,11 @@ OUT=build-android-tests
 rm -rf "$OUT"
 mkdir -p "$OUT"
 J=android/java/io/github/flipendo/spike
-javac -Xlint:-options -source 8 -target 8 -d "$OUT" $J/Hp3Setup.java $J/UpdateRules.java $J/Ps1DiscConverter.java $J/Ps1PadLayout.java $J/Ps1Setup.java \
-	android/tests/Hp3SetupTest.java android/tests/UpdateRulesTest.java android/tests/Ps1DiscConverterTest.java android/tests/Ps1PadLayoutTest.java android/tests/Ps1SetupTest.java
+javac -Xlint:-options -source 8 -target 8 -d "$OUT" $J/Hp3Setup.java $J/UpdateRules.java $J/Ps1DiscConverter.java $J/Ps1PadLayout.java $J/Ps1Setup.java $J/IniRepair.java \
+	android/tests/Hp3SetupTest.java android/tests/UpdateRulesTest.java android/tests/Ps1DiscConverterTest.java android/tests/Ps1PadLayoutTest.java android/tests/Ps1SetupTest.java \
+	android/tests/IniRepairTest.java
 java -cp "$OUT" io.github.flipendo.spike.Hp3SetupTest
+java -cp "$OUT" io.github.flipendo.spike.IniRepairTest
 java -cp "$OUT" io.github.flipendo.spike.UpdateRulesTest
 java -cp "$OUT" io.github.flipendo.spike.Ps1DiscConverterTest
 java -cp "$OUT" io.github.flipendo.spike.Ps1PadLayoutTest

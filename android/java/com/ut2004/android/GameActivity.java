@@ -83,32 +83,8 @@ public class GameActivity extends FlipendoActivity {
         return map == null || map.isEmpty() ? new String[] { root } : new String[] { root, map };
     }
 
-    /** The maps in the game folder, sorted, without their extension (the level select list). */
-    private String[] mapNames() {
-        java.io.File dir = null;
-        for (String name : new String[] { "Maps", "maps" }) {
-            java.io.File d = new java.io.File(gameDir(), name);
-            if (d.isDirectory()) { dir = d; break; }
-        }
-        java.util.ArrayList<String> maps = new java.util.ArrayList<String>();
-        java.io.File[] files = dir != null ? dir.listFiles() : null;
-        if (files != null) {
-            for (java.io.File f : files) {
-                String n = f.getName();
-                if (n.toLowerCase(java.util.Locale.ROOT).endsWith(".unr")) maps.add(n.substring(0, n.length() - 4));
-            }
-        }
-        java.util.Collections.sort(maps, String.CASE_INSENSITIVE_ORDER);
-        return maps.toArray(new String[0]);
-    }
-
-    private static final String[] DEBUG_NAMES = {
-        "Go to level…", "God mode (on / off)", "Fly", "Ghost (fly through walls)", "Walk (normal)",
-        "All shields, cards and pixies", "100 beans", "10 cauldron cakes (cupcakes)", "10 pumpkin pasties", "Beat the boss", "Heal", "Carpe pulls crabs (on / off)" };
-    private static final String[] DEBUG_COMMANDS = {
-        null, "cheat god", "cheat fly", "cheat ghost", "cheat walk", "cheat giveall", "cheat beans", "cheat cakes", "cheat pasties", "cheat beatboss", "cheat heal", "cheat carpecrab" };
-
-    /** The engine state: bit 0 the characters' shadow is on, bit 1 Carpe is selected. */
+    /** The engine state: bit 0 the characters' shadow is on, bit 1 Carpe is selected, bit 2 the player is Ron, bit 3 the shadow's
+     *  High quality. */
     static native int nativeGfxState();
 
     /** The Carpe button is shown only while the player is Ron: bit 2 of the engine's state. */
@@ -131,59 +107,18 @@ public class GameActivity extends FlipendoActivity {
         }
     }
 
-    /** HP3's graphics options (Settings > Game > Graphics): the characters' shadow. A choice runs the engine's
-     *  `gfx` command (it keeps the choice in its settings) and the dialog comes back showing the new state. */
+    /** HP3's graphics options (Settings > Game > Graphics, the toolbar's graphics button): the engine's own Settings view, the
+     *  same screen the PC has (apps/hp3/src/settingsmenu.rs), opened on its Graphics tab. While it is open the engine says a menu
+     *  is up, so the touch controls step aside and a finger taps its entries. */
     @Override
     protected void openHp3Graphics() {
-        runOnUiThread(new Runnable() {
-            @Override public void run() {
-                int state;
-                try {
-                    state = nativeGfxState();
-                } catch (UnsatisfiedLinkError e) {
-                    return;
-                }
-                final String[] items = { "Character shadows: " + ((state & 1) != 0 ? "On" : "Off") + "  (tap to change)" };
-                new android.app.AlertDialog.Builder(GameActivity.this).setTitle("Graphics")
-                    .setItems(items, new android.content.DialogInterface.OnClickListener() {
-                        @Override public void onClick(android.content.DialogInterface d, int which) {
-                            debugCommand("gfx shadows");
-                            // the engine takes the command on its next frame: show the dialog again with the new state
-                            getWindow().getDecorView().postDelayed(new Runnable() {
-                                @Override public void run() { openHp3Graphics(); }
-                            }, 300);
-                        }
-                    }).setNegativeButton("Close", null).show();
-            }
-        });
+        debugCommand("menu graphics");
     }
 
-    /** HP3's debug menu (opened from the settings panel's Debug row): go to a level, or a cheat. */
+    /** HP3's debug menu (the settings panel's Debug row): the engine's Settings view on its Cheats tab (its other tabs hold the
+     *  level list, Quidditch and the debug actions). */
     @Override
     protected void openHp3Debug() {
-        runOnUiThread(new Runnable() {
-            @Override public void run() {
-                new android.app.AlertDialog.Builder(GameActivity.this).setTitle("HP3 debug")
-                    .setItems(DEBUG_NAMES, new android.content.DialogInterface.OnClickListener() {
-                        @Override public void onClick(android.content.DialogInterface d, int which) {
-                            if (DEBUG_COMMANDS[which] != null) {
-                                debugCommand(DEBUG_COMMANDS[which]);
-                                return;
-                            }
-                            final String[] maps = mapNames();
-                            if (maps.length == 0) {
-                                android.widget.Toast.makeText(GameActivity.this, "No maps found in " + gameDir(), android.widget.Toast.LENGTH_LONG).show();
-                                return;
-                            }
-                            new android.app.AlertDialog.Builder(GameActivity.this).setTitle("Go to level")
-                                .setItems(maps, new android.content.DialogInterface.OnClickListener() {
-                                    @Override public void onClick(android.content.DialogInterface d2, int i) {
-                                        debugCommand("level " + maps[i]);
-                                    }
-                                }).show();
-                        }
-                    }).show();
-            }
-        });
+        debugCommand("menu cheats");
     }
 }

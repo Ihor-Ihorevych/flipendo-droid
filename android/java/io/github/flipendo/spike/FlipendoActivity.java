@@ -664,6 +664,18 @@ public class FlipendoActivity extends SDLActivity {
         }
     }
 
+    /** True while HP3's player stands by the Quidditch captain in the Grounds hub: the TALK button sends E, which opens the
+     *  captain's offer (its answers are tapped like a menu's). Rust HP3 engine only. */
+    static native boolean nativeCaptainNear();
+
+    static boolean captainNear() {
+        try {
+            return nativeCaptainNear();
+        } catch (UnsatisfiedLinkError e) {
+            return false;
+        }
+    }
+
     static boolean leftyFlightActive() {
         try {
             return nativeLeftyFlightActive();
@@ -783,6 +795,13 @@ public class FlipendoActivity extends SDLActivity {
         android.util.Log.i("flipendo", tr("Flipendo for Android ") + LogReport.version(this));
         if (ensureStorageAccess()) {
             installResources();
+            // HP2: the ini files the engine wrote on an earlier run are checked against the game's own before it reads them
+            // (a damaged SE-Game.ini lost a player's textures). Before super.onCreate, which starts the engine.
+            if (!isHp3() && SetupActivity.isHp2Folder(gameDir())) {
+                for (String fix : IniRepair.repairHp2(new File(gameDir()))) {
+                    android.util.Log.w("flipendo", "ini repair: " + fix);
+                }
+            }
         }
         super.onCreate(savedInstanceState);
         getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -875,6 +894,7 @@ public class FlipendoActivity extends SDLActivity {
         boolean lessonShown;     // last polled lesson state: hides the gameplay buttons too
         boolean cutsceneShown;   // last polled cutscene state: only SKIP, settings and menu are shown, the screen does not steer or look
         boolean creatureShown;   // last polled creature state: the EXIT button (Enter) is offered
+        boolean captainShown;    // HP3: last polled "next to the Quidditch captain": the TALK button (E) is offered
         // Harry on the broom (the player is a BroomHarry): the wand button is a steering stick that presses nothing (its left
         // mouse is the broom's brake, and the script drops the boost while the brake is held), and JUMP (the right mouse:
         // the boost) is a toggle, so the right thumb steers while the boost stays on
@@ -885,9 +905,12 @@ public class FlipendoActivity extends SDLActivity {
         final Runnable poll = new Runnable() {
             public void run() {
                 boolean m = menuActive(), l = lessonDrawing(), cs = cutsceneActive(), br = onBroom(), cr = creatureActive();
-                if (m != menuShown || l != lessonShown || cs != cutsceneShown || br != broomShown || cr != creatureShown) {
+                boolean cap = isHp3Game() && captainNear();
+                if (m != menuShown || l != lessonShown || cs != cutsceneShown || br != broomShown || cr != creatureShown || cap != captainShown) {
                     if (!cr && exit.down) setButton(exit, false);
+                    if (!cap && talk.down) setButton(talk, false);
                     creatureShown = cr;
+                    captainShown = cap;
                     menuShown = m;
                     lessonShown = l;
                     cutsceneShown = cs;
@@ -930,6 +953,7 @@ public class FlipendoActivity extends SDLActivity {
         /** Gameplay buttons are hidden while a menu is open; MENU stays as the way back. */
         boolean visible(Btn b) {
             if (b == exit) return creatureShown && !menuShown && !cutsceneShown && !layoutEdit && !settingsOpen;
+            if (b == talk) return captainShown && !creatureShown && !menuShown && !cutsceneShown && !layoutEdit && !settingsOpen;
             // Carpe is Ron's spell: the button is there only while the player is Ron (the layout editor shows it always, to place it)
             if (b == spell) return isHp3Game() && (layoutEdit || (((FlipendoActivity) getContext()).hp3PlayerIsRon() && !menuShown && !lessonShown && !cutsceneShown && !settingsOpen));
             if (layoutEdit) return b != skip; // the layout editor shows every control
@@ -1935,7 +1959,9 @@ public class FlipendoActivity extends SDLActivity {
             new Btn("LEFT", KeyEvent.KEYCODE_DPAD_LEFT, 0, false), new Btn("RIGHT", KeyEvent.KEYCODE_DPAD_RIGHT, 0, false) };
         // HP3 only, under the toolbar: Carpe (select it to pull fire crabs, tap again to let go)
         final Btn spell = new Btn("CARPE", 0, 0, false);
-        final Btn[] buttons = { cast, jump, menu, save, gear, skip, exit, spell, arrows[0], arrows[1], arrows[2], arrows[3] };
+        // HP3 only: talks to the Quidditch captain (E); shown only next to him, in the EXIT button's place (the two never show together)
+        final Btn talk = new Btn("TALK", KeyEvent.KEYCODE_E, 0, false);
+        final Btn[] buttons = { cast, jump, menu, save, gear, skip, exit, spell, talk, arrows[0], arrows[1], arrows[2], arrows[3] };
 
         // The prompt for a fixed-camera level (the movement mod can't aim there): a small panel that takes every touch.
         boolean promptOpen;
@@ -2100,6 +2126,7 @@ public class FlipendoActivity extends SDLActivity {
             skip.cx = save.cx; skip.cy = save.cy; skip.r = save.r; // the book's place: the book is hidden in cutscenes
             gear.cx = save.cx - barSlot; gear.cy = barY; gear.r = barR;
             exit.r = barR * 1.25f; exit.cx = menu.cx; exit.cy = barY + barHalf + exit.r * 1.5f; // under the toolbar, a thumb's reach from the corner
+            talk.r = exit.r; talk.cx = exit.cx; talk.cy = exit.cy;
             toolbar.set(gear.cx - barSlot / 2f, barY - barHalf, menu.cx + barSlot / 2f, barY + barHalf);
             // HP3: the Carpe button in the top row, left of the FPS counter (the layout editor can move it)
             spell.r = barR * 1.1f; spell.cx = toolbar.left - 0.24f * u - spell.r; spell.cy = barY;
@@ -2526,7 +2553,7 @@ public class FlipendoActivity extends SDLActivity {
                         rendererLabel(rendererGL) + (rendererAuto ? tr(" (auto)") : ""), rendererAsk);
                 if (isHp2Game() || isHp3Game()) drawValueRow(c, debugBtn, tr("Debug menu"), isHp3Game() ? tr("Level select, cheats") : tr("Level select, story state, spells"), tr("Open"), false);
                 else drawSwitchRow(c, debugBtn, tr("Debug mode"), tr("Level Select in the main menu"), debugMode, false);
-                if (!gfxBtn.isEmpty()) drawValueRow(c, gfxBtn, tr("Graphics"), tr("Character shadows"), tr("Open"), false);
+                if (!gfxBtn.isEmpty()) drawValueRow(c, gfxBtn, tr("Graphics"), tr("Shadows, anti-aliasing, effects"), tr("Open"), false);
                 drawValueRow(c, fixBtn, tr("Graphics fix"), tr("For OpenGL glitches"), tr("Open"), false);
                 drawSwitchRow(c, perfBtn, tr("Performance log"), tr("Frame timings in the log, to send"), perfLog, false);
                 drawValueRow(c, switchBtn, isHp2Game() ? tr("Play Harry Potter 1") : tr("Play Harry Potter 2"), switchAsk ? tr("Tap again: the game restarts") : tr("Switch to the other game"),
@@ -3649,6 +3676,16 @@ public class FlipendoActivity extends SDLActivity {
             if (visible(exit)) {
                 drawDisc(c, exit.cx, exit.cy, exit.down ? exit.r * 0.94f : exit.r, exit.down);
                 drawExitIcon(c, exit.cx, exit.cy, exit.r, exit.down ? DARK : 0xFFFFFFFF);
+            }
+            // HP3: TALK next to the Quidditch captain, gold so it is seen
+            if (visible(talk)) {
+                drawDisc(c, talk.cx, talk.cy, talk.down ? talk.r * 0.94f : talk.r, true);
+                float tsize = text.getTextSize();
+                text.setTextSize(tsize * 0.62f);
+                text.setColor(DARK);
+                c.drawText(talk.label, talk.cx, talk.cy + text.getTextSize() * 0.35f, text);
+                text.setTextSize(tsize);
+                text.setColor(0xCCFFFFFF);
             }
             // HP3: the Carpe button under the toolbar: gold while Carpe is selected (it means pulling fire crabs)
             if (visible(spell)) {
