@@ -61,21 +61,6 @@ TEST(ModList_IdsUnique)
 	CHECK(ids.count("improved-movement") == 1);
 }
 
-TEST(FireCrabLedgeFix_OnUnlessVanilla)
-{
-	bool found = false;
-	for (const ModInfo& mod : HP1::Mods::ModList())
-	{
-		if (std::string(mod.Id) != "firecrab-ledge-fix")
-			continue;
-		found = true;
-		CHECK(Resolve(mod, {}));
-		CHECK(!Resolve(mod, { "--vanilla" }));
-		CHECK(!Resolve(mod, {}, "", "firecrab-ledge-fix"));
-	}
-	CHECK(found);
-}
-
 TEST(FreeCamera_DefaultOff)
 {
 	bool found = false;

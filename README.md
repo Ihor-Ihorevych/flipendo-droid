@@ -188,8 +188,6 @@ one off, `--mod=<id>` one on (ids below, or `--list-mods`).
 | Discord status | `discord` | HP1 | on | friends on Discord see which level you're in and Gryffindor's house points |
 | 60 FPS cap | `frame-limit` | HP1, HP2 | on | the game runs at most 60 frames a second, as the original was played (some of its movement goes wrong at high frame rates); `--fps=<n>` for another limit, `--fps=0` for none |
 | Improved movement | `improved-movement` | HP1 | on | HP2's controls: Left / Right strafe and the mouse turns (in the air too), Harry keeps moving while you hold a spell (the mouse aims it; he can jump with it or start one in the air, and climbs again once it is cast), the mouse looks up and down while you move, a ledge caught mid-jump is climbed at once, and AdamJD's smaller tweaks (even diagonal air control, softer blends, spells that hit a creature at once from up close). Saves work with it on or off |
-| Map fixes | `path-fixes` | HP1 | on | fixes broken paths in the original maps (Peeves now flies off after the Lev_Tut3b duel instead of drifting through the walls) |
-| Fire crab ledge fix | `firecrab-ledge-fix` | HP2 | on | a fire crab flipped on a lift stays where it landed instead of sliding to the far wall (Goyle's trap room in Adv6Goyle) |
 | Texture packs | `texture-overrides` | HP1, HP2 | on | `.dds` files in `Textures/<package>/<group>/<name>.dds` replace the game's textures: the layout of the DirectX 11 renderer's texture packs, such as the ESRGAN Upscale Pack (unpack it into the game folder) |
 | Splash skip | `splash-skip` | HP1, HP2 | on | no logo screens at start: HP1 opens on the main menu, HP2 on its start menu |
 | Intro skip | `intro-skip` | HP1 | off | New Game goes straight to the first level |

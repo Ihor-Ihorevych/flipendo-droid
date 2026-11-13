@@ -1,6 +1,7 @@
 #include "Precomp.h"
 #include "HP1.h"
 #include "HP1Mods.h"
+#include "HP2.h"
 #include "Packages/Core/UObject.h"
 #include "Packages/Core/UClass.h"
 #include "Packages/Core/UState.h"
@@ -29,8 +30,6 @@ namespace HP1::Mods
 			{ "discord", true, "HP1", nullptr, "--no-discord", "Discord Rich Presence" },
 			{ "fast-forward", true, "HP1, HP2", nullptr, nullptr, "hold Shift to run 2.5x as fast" },
 			{ "frame-limit", true, "HP1, HP2", nullptr, nullptr, "at most --fps=<n> (60) frames a second" },
-			{ "path-fixes", true, "HP1", nullptr, nullptr, "reach specs the original maps are missing" },
-			{ "firecrab-ledge-fix", true, "HP2", nullptr, nullptr, "flipped fire crabs on a lift stay where they land" },
 			{ "texture-overrides", true, "HP1, HP2", nullptr, nullptr, "Textures/<package>/<group>/<name>.dds packs" },
 			{ "free-cam", false, "HP1", nullptr, nullptr, "camera-relative movement and independent mouse orbit" },
 			{ "improved-movement", true, "HP1", nullptr, "--classic-movement", "HP2's controls: strafe, move while aiming" },
@@ -152,40 +151,6 @@ namespace HP1::Mods
 		SpaceQueued = false;
 	}
 
-	UFunction* WrapScriptFunction(UClass* cls, const char* stateName, const char* functionName, void (*handler)(UObject* self, ExpressionValue* args))
-	{
-		if (!cls)
-			return nullptr;
-		UState* state = stateName ? cls->GetState(NameString(stateName)) : nullptr;
-		if (stateName && !state)
-			return nullptr;
-		std::map<NameString, UFunction*>& functions = state ? state->Functions : cls->Functions;
-		auto it = functions.find(NameString(functionName));
-		if (it == functions.end() || AllFlags(it->second->FuncFlags, FunctionFlags::Native))
-			return nullptr;
-		UFunction* original = it->second;
-
-		// A native as Frame::CallNative runs it: found by name and state or class (NativeStruct), its frame one
-		// ExpressionValue per property (what UFunction::Load sets up for natives loaded from a package)
-		auto wrapper = GC::Alloc<UFunction>(original->Name, original->Class, original->Flags);
-		wrapper->StructParent = original->StructParent; // Frame::GetName: Harry.PlayerWalking.PlayerMove in call stacks
-		wrapper->BaseStruct = original->BaseStruct;
-		wrapper->Line = original->Line;
-		wrapper->Properties = original->Properties;
-		wrapper->ParmsSize = original->ParmsSize;
-		wrapper->NumParms = original->NumParms;
-		wrapper->ReturnValueOffset = original->ReturnValueOffset;
-		wrapper->FuncFlags = original->FuncFlags | FunctionFlags::Native;
-		wrapper->NativeStruct = state ? static_cast<UStruct*>(state) : cls;
-		wrapper->NativeFuncIndex = 0;
-		wrapper->IsNativeFunc = true;
-		wrapper->StructAlignment = alignof(ExpressionValue);
-		wrapper->StructSize = wrapper->Properties.size() * sizeof(ExpressionValue);
-		NativeFunctions::NativeByName[{ original->Name, wrapper->NativeStruct->Name }] = handler;
-		it->second = wrapper;
-		return original;
-	}
-
 	bool SpacePressed()
 	{
 		return SpacePressedNow;
@@ -236,8 +201,8 @@ namespace HP1
 			return;
 		if (engine->LaunchInfo.IsHarryPotter2())
 		{
+			HP2::TickFireCrabFix(); // a fix the game needs, not a mod: also with --vanilla
 			// The other mods read HP1's script classes
-			Mods::TickFireCrabLedgeFix();
 			Mods::TickFrameLimit();
 			return;
 		}
@@ -246,7 +211,7 @@ namespace HP1
 		LevelStartTick();
 		Mods::TickStorybookSkip();
 		Mods::TickDiscordPresence(realElapsed);
-		Mods::TickPathFixes();
+		TickPathFixes(); // a fix the game needs, not a mod: also with --vanilla
 		Mods::TickImprovedMovement();
 		Mods::TickFreeCamera();
 		Mods::TickFrameLimit();

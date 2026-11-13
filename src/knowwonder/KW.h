@@ -35,6 +35,9 @@ struct SceneNode;
 struct GouraudVertex;
 
 class Image;
+class UClass;
+class UFunction;
+class ExpressionValue;
 
 namespace KW
 {
@@ -47,6 +50,12 @@ namespace KW
 	// Script property helpers: an object reference / bool property by name (nullptr / false if absent).
 	UObject* ObjectProperty(UObject* obj, const char* name);
 	bool BoolProperty(UObject* obj, const char* name);
+
+	// Replaces a script function of the class (of its state, or its own with state nullptr) with a native handler
+	// (args: one ExpressionValue per parameter) and returns the script function, which the handler can still run with
+	// Frame::Call. nullptr, and nothing replaced, if the state or function is missing or already native. Package
+	// files are left alone, so saves don't depend on it (src/knowwonder/KWNatives.cpp).
+	UFunction* WrapScriptFunction(UClass* cls, const char* state, const char* function, void (*handler)(UObject* self, ExpressionValue* args));
 
 	// PackageManager::RegisterFunctions, after upstream registered its natives.
 	void RegisterNatives();

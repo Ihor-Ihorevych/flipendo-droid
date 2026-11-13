@@ -1,5 +1,6 @@
 #include "Precomp.h"
-#include "HP1Mods.h"
+#include "HP2.h"
+#include "KW.h"
 #include "Packages/Core/UClass.h"
 #include "Packages/Core/Properties/UProperty.h"
 #include "Packages/Engine/Actors/UActor.h"
@@ -10,7 +11,7 @@
 #include "Engine.h"
 #include <unordered_map>
 
-// Fire crab ledge fix (HP2, on by default; docs/re/hp2/original_bugs.md, issues #22 and #26). hgame.firecrab.OnALedge
+// Fire crab fix (HP2, part of the game, also with --vanilla: docs/re/hp2/original_bugs.md, issues #22 and #26). hgame.firecrab.OnALedge
 // calls a spot a ledge when FastTrace finds nothing in the 35 units below it, and FastTrace sees only the level's BSP,
 // not movers. A crab flipped on a mover floor therefore goes to FallOverLedge and stays on its back for good, as in the
 // original; Ch1Rictusempra's lift pit puzzle is built on that (the crab on Mover16 stays flipped while Harry pushes it
@@ -19,7 +20,7 @@
 // The fix keeps OnALedge as it is and makes pushDirection return (0,0,-1) for a crab standing on a mover, which is what
 // the original returns in the middle of such a floor: the crab lies where it landed. It also stops a pushed crab from
 // shrinking below its lying radius (NPushDirection).
-namespace HP1::Mods
+namespace HP2
 {
 	namespace
 	{
@@ -60,16 +61,13 @@ namespace HP1::Mods
 		}
 	}
 
-	void TickFireCrabLedgeFix()
+	void TickFireCrabFix()
 	{
-		static const bool on = IsOn("firecrab-ledge-fix");
-		if (!on)
-			return;
 		UClass* cls = engine->packages->FindClass("hgame.firecrab");
 		if (cls && cls != FireCrabClass)
 		{
 			FireCrabClass = cls;
-			OriginalPushDirection = WrapScriptFunction(cls, nullptr, "pushDirection", &NPushDirection);
+			OriginalPushDirection = KW::WrapScriptFunction(cls, nullptr, "pushDirection", &NPushDirection);
 		}
 	}
 }

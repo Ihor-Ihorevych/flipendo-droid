@@ -40,11 +40,7 @@ namespace HP1::Mods
 	using KW::ObjectProperty; // src/knowwonder/KWActor.cpp
 	using KW::BoolProperty;
 
-	// Replaces a script function of the class (of its state, or its own with state nullptr) with a native handler
-	// (args: one ExpressionValue per parameter) and returns the script function, which the handler can still run with
-	// Frame::Call. nullptr, and nothing replaced, if the state or function is missing or already native. Package
-	// files are left alone, so saves don't depend on it.
-	UFunction* WrapScriptFunction(UClass* cls, const char* state, const char* function, void (*handler)(UObject* self, ExpressionValue* args));
+	using KW::WrapScriptFunction;
 
 	// Space went down since the last tick (from the window's key events, so it works in menus and in game).
 	bool SpacePressed();
@@ -77,12 +73,6 @@ namespace HP1::Mods
 
 	// FrameLimit.cpp
 	void TickFrameLimit();
-
-	// PathFixes.cpp
-	void TickPathFixes();
-
-	// FireCrabLedgeFix.cpp
-	void TickFireCrabLedgeFix();
 
 	// FastForward.cpp
 	float FastForwardTimeScale();

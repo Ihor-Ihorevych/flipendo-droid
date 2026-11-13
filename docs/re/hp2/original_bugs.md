@@ -2,12 +2,12 @@
 
 Bugs the retail game has that Flipendo should fix rather than reproduce. Same rules as HP1's list
 ([../hp1/original_bugs.md](../hp1/original_bugs.md)): each entry gives where, what happens, the known workaround in the
-original, and the state of our fix. A fix that changes original behaviour is a mod in `src/hp1/mods/` (on by default,
-off with `--vanilla`, [modding.md](../../modding.md)).
+original, and the state of our fix. Fixes are part of the game, not mods: always on, also with `--vanilla`.
 
 | Where | Bug | Workaround in the original | Fix |
 |---|---|---|---|
-| Adv6Goyle, the fire crab trap room (firecrabSmall0/1 on Mover22, the lift floor), issue #22 | A flipped small fire crab pushed near a side wall slides on its back to the opposite wall. `firecrab.OnALedge` treats a spot as a ledge when `FastTrace` finds nothing in the 35 units below it, and `FastTrace` sees only the level's BSP, not movers (HP2 `execFastTrace` [HP2 0x1041AF80]: `UModel::FastLineCheck`). On the lift every spot is a ledge, so the crab stays on its back (`FallOverLedge`), and `pushDirection` finds floor only in the headings that reach past a wall (details below). Seen 2026-11-13 with `--vanilla`: firecrabSmall0 pushed north with Flipendo to y 469 slid back to the south wall (y 152) and stayed there. | push the crab with Flipendo into the gap the west wall opens (not tested) | `src/hp1/mods/FireCrabLedgeFix.cpp` (`firecrab-ledge-fix`): `pushDirection` returns (0,0,-1) for a crab based on a mover, so it lies where it landed; a pushed crab keeps its lying radius (below). `OnALedge` stays the original's (below: Ch1Rictusempra needs it) |
+| Adv6Goyle, the fire crab trap room (firecrabSmall0/1 on Mover22, the lift floor), issue #22 | A flipped small fire crab pushed near a side wall slides on its back to the opposite wall. `firecrab.OnALedge` treats a spot as a ledge when `FastTrace` finds nothing in the 35 units below it, and `FastTrace` sees only the level's BSP, not movers (HP2 `execFastTrace` [HP2 0x1041AF80]: `UModel::FastLineCheck`). On the lift every spot is a ledge, so the crab stays on its back (`FallOverLedge`), and `pushDirection` finds floor only in the headings that reach past a wall (details below). Seen 2026-11-13 with `--vanilla`: firecrabSmall0 pushed north with Flipendo to y 469 slid back to the south wall (y 152) and stayed there. | push the crab with Flipendo into the gap the west wall opens (not tested) | `src/hp2/HP2FireCrab.cpp`: `pushDirection` returns (0,0,-1) for a crab based on a mover, so it lies where it landed; a pushed crab keeps its lying radius (below). `OnALedge` stays the original's (below: Ch1Rictusempra needs it) |
+| Ch1Rictusempra, the crab bucket at the challenge's end (ElevatorMover3), issue #26 | The bucket stops for good on its way down to the fourth keyframe (z -145.7 instead of -304, playtest 2026-11-13), so the star never comes down. `MoveActor` sweeps a mover's whole bounding box and stops it at the first actor in it (HP1 Engine 0x103AA3A0; HP2 skips the sweep only for `MoverEncroachType` 4-7), and the bucket's brush has corner poles reaching about 700 units below it. The first puzzle's crab (firecrabSmall25), left lying on Mover38 at the bottom of the shaft, is inside that box though nowhere near the brush. Not watched in the original; same code, so it should stall there too whenever that crab lies there | none known | `src/knowwonder/KWMove.cpp` (`MoverShapeMisses`): a mover's sweep that hits an actor (not a mover, not static) also checks the actor's cylinder against the mover's brush and moves on when it touches none of it. Checked headless 2026-11-13 from the playtest's save with four crabs placed in the bucket (`@place`): the bucket and FinalStar0 go down the whole 352 units |
 
 ## Fire crab ledge logic (`hgame.firecrab`, `firecrabSmall`)
 
@@ -39,11 +39,11 @@ Each push of a crab lying on a ledge also shrinks it again: `DoFlip.Tick` sets `
 sends the crab to `FallOverLedge`, and only `firecrab.Landed` of a large crab (`DrawScale != default.DrawScale` and
 `IsA('firecrabLarge')`) gives the size back. firecrabSmall6 goes 18, 8, -2 after its first push; with a negative radius
 the spell cursor can't target it and spells fly through it (seen in a playtest 2026-11-13, spellFlipendo passing 1 unit
-from its axis). Same scripts in the original, not watched there. `firecrab-ledge-fix` puts the crab back to its first
+from its axis). Same scripts in the original, not watched there. The fire crab fix (`src/hp2/HP2FireCrab.cpp`) puts the crab back to its first
 radius before each shrink, so it lies at 8.
 
 The challenge's end (the crab bucket): four `ElevatorTrigger`s (`CrabBucket1LiftTrigger1`-`4`, class proximity
 `firecrabSmall`, trigger once) send `ElevatorMover3` (`CrabBucket1`) to keyframes 1-4 (z 0, -64, -128, -192, -352).
 `ElevatorMover.MoveKeyframe` ignores a call while the mover is still moving (`bMoveKey` false), so two crabs arriving
 within its 1 s move would lose one step for good. Checked 2026-11-13 by triggering the four tags 4 s apart: the bucket
-reaches keyframe 4.
+reaches keyframe 4. With firecrabSmall25 lying under the shaft the bucket stopped at -145.7 instead (the row above).

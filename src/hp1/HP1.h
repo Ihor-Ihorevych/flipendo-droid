@@ -48,4 +48,8 @@ namespace HP1
 	void LevelStartPlayer(UPlayerPawn* pawn, const std::string& map);
 	// HP1::TickMods (runs with --vanilla too): selects --level's save slot once the menu book exists.
 	void LevelStartTick();
+
+	// src/hp1/HP1PathFixes.cpp (HP1::TickMods, also with --vanilla): adds the reach specs the original maps are
+	// missing once per level (docs/re/hp1/original_bugs.md).
+	void TickPathFixes();
 }

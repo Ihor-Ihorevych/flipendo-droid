@@ -61,6 +61,7 @@
 //                              "@state tut3peeves2 dieing" sends the matching actors to that script state;
 //                              "@travel Lev2_HogFront" changes level as the game's level exits do (carrying Harry's travel properties);
 //                              "@bump GridMover0 harry0" raises Bump(harry0) on the actors whose name starts with GridMover0;
+//                              "@place firecrabSmall3 3500 -40 -100" moves that actor there;
 //                              "@call firecrabSmall6 HandleSpellFlipendo" calls that script function (no arguments) on the matching actors;
 //                              "@polys Mover17" logs the brush polygons (normal, PolyFlags, texture, vertices) of the matching movers;
 //                              "@surfs cosLogo1" logs the level's BSP surfaces drawn with that texture (flags, center; "*mirror": the mirrors);
@@ -318,6 +319,25 @@ namespace KW
 							element.DataOffset = previous + i * sizeof(vec3);
 							a->Value<vec3>(element) += delta;
 						}
+					}
+				}
+			}
+			return;
+		}
+		if (text.rfind("@place ", 0) == 0)
+		{
+			// "@place <actor> x y z": move the actor with that exact name there (SetLocation: collision and touches
+			// as a teleport), e.g. a fire crab onto a lift.
+			char name[128];
+			vec3 pos;
+			if (sscanf(text.c_str() + 7, "%127s %f %f %f", name, &pos.x, &pos.y, &pos.z) == 4)
+			{
+				for (UActor* a : engine->Level->Actors)
+				{
+					if (a && a->Name.ToString() == name)
+					{
+						bool ok = a->SetLocation(pos);
+						LogMessage(std::string("HP1 exec: place ") + name + (ok ? " ok" : " blocked"));
 					}
 				}
 			}
