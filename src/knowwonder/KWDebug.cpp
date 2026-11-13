@@ -601,7 +601,7 @@ namespace KW
 		{
 			// "@console[.Prop[.Prop]] Fn [arg...]": follow object properties from the console, then call Fn. A number is
 			// passed as an int (SlotPage SetSelectedSlot 0), True / False as a bool, Class'Pkg.Name' as that class
-			// (@console.Viewport.Actor.Weapon StartChargingSpell True False Class'hgame.spellLumos'), anything else
+			// (@console.Viewport.Actor.Weapon StartChargingSpell True False Class'hgame.spellLumos'), Actor'Name' as that actor, anything else
 			// as a string (then the whole rest is one string).
 			std::stringstream parts(text);
 			std::string path, fn, rest;
@@ -620,6 +620,14 @@ namespace KW
 					return ExpressionValue::IntValue(std::atoi(arg.c_str()));
 				if (arg.rfind("Class'", 0) == 0 && arg.back() == '\'')
 					return ExpressionValue::ObjectValue(engine->packages->FindClass(arg.substr(6, arg.size() - 7)));
+				if (arg.rfind("Actor'", 0) == 0 && arg.back() == '\'')
+				{
+					std::string name = arg.substr(6, arg.size() - 7);
+					for (UActor* a : engine->Level->Actors)
+						if (a && a->Name.ToString() == name)
+							return ExpressionValue::ObjectValue(a);
+					return ExpressionValue::ObjectValue(nullptr);
+				}
 				return ExpressionValue::StringValue(arg);
 			};
 			// Several arguments when none of them is a string; else the whole rest is one string
