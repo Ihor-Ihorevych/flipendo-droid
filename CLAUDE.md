@@ -170,7 +170,7 @@ The steps (audit, scripts, IDA, HP2 check, registration, tag, rerun the audits):
   loads the map), `--skip-splash` goes straight to the main menu, `--skip-intro` skips the New Game storybook,
   `--vanilla` disables the default-on mods (`src/hp1/mods/`), `--no-mod=<id,...>` / `--mod=<id,...>` single ones
   (`--list-mods`).
-- **Starting the game for the user to playtest by hand:** always full screen (`CLAUDE.local.md`), never the small window. Never
+- **Starting the game for the user to playtest by hand:** a 1600x900 window (`CLAUDE.local.md`); full screen only when the user asks for it. Never
   kill or restart a game the user is playing; test in a second instance (`HP1_BACKGROUND=1`, its own `HP1_LOG`,
   `--slot=5` so their save slot is left alone), and rebuild only once they have quit (the exe is locked).
 - Tests (`docs/development.md#tests`): `FlipendoTests` (`src/tests/`, no game data; `ctest --test-dir build`) and
