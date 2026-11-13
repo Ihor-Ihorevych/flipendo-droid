@@ -873,6 +873,14 @@ public class SetupActivity extends Activity {
                     startPs1();
                     return;
                 }
+                if (gameMissing) {
+                    if (missingPicked != null) {
+                        showWrongFolder(missingPicked);
+                    } else {
+                        showMissingGame();
+                    }
+                    return;
+                }
                 playPressed = true;
                 splashUntil = 0;
                 tryStart();
@@ -896,6 +904,8 @@ public class SetupActivity extends Activity {
         String text = tr("Play");
         if (isPs1()) {
             // PS1: just Play (the slots and the start choice are the PC game's)
+        } else if (gameMissing) {
+            text = tr("Add game files");
         } else if (isHp2()) {
             String start = getSharedPreferences("setup", MODE_PRIVATE).getString(PREF_START, "new");
             text = tr("Start a new game");
@@ -1053,7 +1063,14 @@ public class SetupActivity extends Activity {
     private void setPlatform(String platform) {
         getSharedPreferences("setup", MODE_PRIVATE).edit().putString(Ps1Setup.PREF_PLATFORM, platform).apply();
         applyPlatform();
+        if (started && !isPs1() && !pcBegun) {
+            begin(); // the PC game was not looked for yet (the app started on the PS1 tab)
+        }
     }
+
+    // the PC game's files are missing (shown in place, not as a card that takes the menu away)
+    private boolean gameMissing, pcBegun, inProblemCard;
+    private String missingPicked;
 
     /** The PC panel (the saved games, the renderer) and the PS1 panel, one over the other; one is shown. */
     private LinearLayout detailsHolder() {
@@ -1079,6 +1096,12 @@ public class SetupActivity extends Activity {
                 // PS1 needs no unpacking: Play is there at once, the PC game's progress is out of the way
                 bar.setVisibility(android.view.View.GONE);
                 status.setVisibility(android.view.View.GONE);
+                play.setVisibility(android.view.View.VISIBLE);
+            } else if (gameMissing) {
+                bar.setVisibility(android.view.View.GONE);
+                status.setVisibility(android.view.View.VISIBLE);
+                status.setText(pick(chosenGame(), tr("Harry Potter 1"), tr("Harry Potter 2"), tr("Harry Potter 3"))
+                        + tr(" game files not found on this phone. The other games and the PS1 tab work without them."));
                 play.setVisibility(android.view.View.VISIBLE);
             } else {
                 bar.setVisibility(gameReady ? android.view.View.GONE : android.view.View.VISIBLE);
@@ -1880,6 +1903,14 @@ public class SetupActivity extends Activity {
 
     /** Unpacks the game data if this APK carries it, then starts the game. */
     private void begin() {
+        if (isPs1()) {
+            // The PS1 games need no PC files: the PC game is looked for when the PC tab is opened.
+            pcBegun = false;
+            applyPlatform();
+            return;
+        }
+        pcBegun = true;
+        gameMissing = false;
         new Thread(new Runnable() {
             public void run() {
                 // a folder with only Game.exe picked under the HP1 key (an early build) belongs to HP2
@@ -2020,13 +2051,15 @@ public class SetupActivity extends Activity {
                 ui.post(new Runnable() {
                     public void run() {
                         if (game == null) {
-                            if (picked != null) {
-                                showWrongFolder(picked);
-                            } else {
-                                showMissingGame();
-                            }
+                            // The menu stays usable (other games, the PS1 tab, the folder settings): the missing files are said
+                            // in place, and Play turns into "Add game files", which opens the card that explains it.
+                            gameMissing = true;
+                            missingPicked = picked;
+                            gameReady = false;
+                            applyPlatform();
                             return;
                         }
+                        gameMissing = false;
                         gameDir = game.getPath();
                         gameReady = true;
                         tryStart();
@@ -2541,6 +2574,7 @@ public class SetupActivity extends Activity {
 
     /** Back from a problem card to the start screen (progress, then the game). */
     private void backToStart() {
+        inProblemCard = false;
         setContentView(startScreen);
         bar.setVisibility(android.view.View.VISIBLE);
         status.setVisibility(android.view.View.VISIBLE);
@@ -2691,6 +2725,7 @@ public class SetupActivity extends Activity {
 
     private void closeFolderSettings() {
         inFolderSettings = false;
+        inProblemCard = false;
         if (foldersChanged && started) {
             foldersChanged = false;
             backToStart(); // the game is looked for again in its folder
@@ -2704,6 +2739,10 @@ public class SetupActivity extends Activity {
     public void onBackPressed() {
         if (inFolderSettings) {
             closeFolderSettings();
+            return;
+        }
+        if (inProblemCard) {
+            leaveProblemCard();
             return;
         }
         super.onBackPressed();
@@ -2806,20 +2845,38 @@ public class SetupActivity extends Activity {
 
     /** There is no game on the phone yet: say where to put it, or let the player pick the folder it is in. */
     private void showMissingGame() {
-        showCard(tr("Game data not found"),
+        String game = chosenGame();
+        String name = pick(game, tr("Harry Potter 1"), tr("Harry Potter 2"), tr("Harry Potter 3"));
+        inProblemCard = true;
+        showCard(name + tr(": game data not found"),
                 tr("Copy the game folder from your PC (the one that contains System, Maps, Textures, Sounds and Music) to the phone, ")
-                        + tr("into Internal storage / FlipendoHP, then tap Check again.\n\n")
-                        + tr("Already copied it somewhere else? Tap Choose folder and pick it (or the folder it is in)."),
-                tr("Choose folder"), pickFolder, tr("Check again"), checkAgain, tr("Send logs"), sendLogs);
+                        + tr("into Internal storage / ") + new File(defaultDir(game)).getName() + tr(", then tap Check again.\n\n")
+                        + tr("Already copied it somewhere else? Tap Choose folder and pick it (or the folder it is in).") + "\n\n"
+                        + tr("Only this game needs these files. The other games and the PS1 tab work without them."),
+                tr("Choose folder"), pickFolder, tr("Check again"), checkAgain, tr("Back"), backFromProblem);
+    }
+
+    private final android.view.View.OnClickListener backFromProblem = new android.view.View.OnClickListener() {
+        public void onClick(android.view.View v) {
+            leaveProblemCard();
+        }
+    };
+
+    /** Back from the missing-files card to the menu, without looking for the game again. */
+    private void leaveProblemCard() {
+        inProblemCard = false;
+        setContentView(startScreen);
+        applyPlatform();
     }
 
     /** The folder the player picked has no game in it. */
     private void showWrongFolder(String path) {
+        inProblemCard = true;
         showCard(tr("This isn't the game folder"),
-                tr("There is no game in ") + path + tr(" (looked for System/HP.exe there and one or two folders deeper).\n\n")
+                tr("There is no game in ") + path + tr(" (looked for System/") + exeName(chosenGame()) + tr(" there and one or two folders deeper)") + ".\n\n"
                         + tr("Pick the folder you copied from the PC: it contains System, Maps, Textures, Sounds and Music. ")
                         + tr("Or copy the game into Internal storage / ") + new File(defaultDir(chosenGame())).getName() + tr(" and tap Check again."),
-                tr("Choose another folder"), pickFolder, tr("Check again"), checkAgain, tr("Send logs"), sendLogs);
+                tr("Choose another folder"), pickFolder, tr("Check again"), checkAgain, tr("Back"), backFromProblem);
     }
 
     /** Set when the game stopped on its own (FlipendoActivity.onGameStopped) or the last run of the app crashed. */

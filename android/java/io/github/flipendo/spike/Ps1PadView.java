@@ -116,9 +116,21 @@ final class Ps1PadView extends View {
 
     // ---- drawing --------------------------------------------------------------------------------------------------
 
+    /** A real gamepad is in use: the touch controls are hidden until the next touch (not while the layout editor is open). */
+    private boolean padActive;
+
+    /** Called from the UI thread by Ps1Activity when a button or stick of a physical controller is used. */
+    void onRealPadInput() {
+        if (padActive || editing) return;
+        padActive = true;
+        if (sent > 0) release(); // a finger left on a control must not stay pressed under the controller's input
+        invalidate();
+    }
+
     @Override
     protected void onDraw(Canvas canvas) {
         if (layout == null) return;
+        if (padActive && !editing) return;
         float h = getHeight();
         line.setStrokeWidth(Math.max(2f, h * 0.004f));
         drawDpad(canvas);
@@ -367,6 +379,12 @@ final class Ps1PadView extends View {
             return true;
         }
         int action = e.getActionMasked();
+        if (padActive && action == MotionEvent.ACTION_DOWN) {
+            // a touch brings the controls back and acts as usual
+            padActive = false;
+            invalidate();
+        }
+        if (padActive) return false; // a stray pointer while hidden does nothing
         if (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN) {
             int i = e.getActionIndex();
             if (layout.isMenu(e.getX(i), e.getY(i))) {

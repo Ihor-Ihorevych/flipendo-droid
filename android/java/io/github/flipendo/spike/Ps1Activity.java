@@ -79,6 +79,7 @@ public class Ps1Activity extends SDLActivity {
                 @Override public void onEditDone() { nativePause(false); }
             });
             mLayout.addView(pad, new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            if (padConnected()) pad.onRealPadInput(); // a controller is already connected: start without the touch controls
         }
     }
 
@@ -178,6 +179,48 @@ public class Ps1Activity extends SDLActivity {
             if (event.getAction() == KeyEvent.ACTION_UP) showMenu();
             return true;
         }
+        if (pad != null && event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0 && isPadKey(event)) {
+            pad.onRealPadInput(); // a controller is in use: the touch controls step aside until the next touch
+        }
         return super.dispatchKeyEvent(event);
+    }
+
+    /** A stick pushed clearly (resting drift is ignored) hides the touch controls too; SDL still gets the event. */
+    @Override
+    public boolean dispatchGenericMotionEvent(android.view.MotionEvent event) {
+        if (pad != null && event.getAction() == android.view.MotionEvent.ACTION_MOVE
+                && (event.getSource() & android.view.InputDevice.SOURCE_JOYSTICK) == android.view.InputDevice.SOURCE_JOYSTICK) {
+            int[] axes = {android.view.MotionEvent.AXIS_X, android.view.MotionEvent.AXIS_Y, android.view.MotionEvent.AXIS_Z,
+                    android.view.MotionEvent.AXIS_RZ, android.view.MotionEvent.AXIS_HAT_X, android.view.MotionEvent.AXIS_HAT_Y,
+                    android.view.MotionEvent.AXIS_LTRIGGER, android.view.MotionEvent.AXIS_RTRIGGER};
+            for (int axis : axes) {
+                if (Math.abs(event.getAxisValue(axis)) >= 0.5f) {
+                    pad.onRealPadInput();
+                    break;
+                }
+            }
+        }
+        return super.dispatchGenericMotionEvent(event);
+    }
+
+    private static boolean isPadKey(KeyEvent event) {
+        int source = event.getSource();
+        return (source & android.view.InputDevice.SOURCE_GAMEPAD) == android.view.InputDevice.SOURCE_GAMEPAD
+                || (source & android.view.InputDevice.SOURCE_JOYSTICK) == android.view.InputDevice.SOURCE_JOYSTICK
+                || KeyEvent.isGamepadButton(event.getKeyCode());
+    }
+
+    /** Whether a gamepad is connected right now (the controls start hidden then). */
+    private static boolean padConnected() {
+        for (int id : android.view.InputDevice.getDeviceIds()) {
+            android.view.InputDevice d = android.view.InputDevice.getDevice(id);
+            if (d == null || d.isVirtual()) continue;
+            int s = d.getSources();
+            if ((s & android.view.InputDevice.SOURCE_GAMEPAD) == android.view.InputDevice.SOURCE_GAMEPAD
+                    || (s & android.view.InputDevice.SOURCE_JOYSTICK) == android.view.InputDevice.SOURCE_JOYSTICK) {
+                return true;
+            }
+        }
+        return false;
     }
 }
