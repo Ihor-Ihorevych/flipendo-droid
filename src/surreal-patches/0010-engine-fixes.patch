@@ -1,4 +1,4 @@
-flipendo: fixes to SurrealEngine bugs (any game): VM (and HP2's bytecode tokens), properties, ini files (UTF-16 localization files), packages (Unicode strings), UTF-16 strings and file names that differ in case on Linux, GetLanguage, fonts (character remap, text drawn by code point, runtime-made fonts), crash reports, music streaming and following the default audio device (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties
+flipendo: fixes to SurrealEngine bugs (any game): VM (and HP2's bytecode tokens), properties, ini files (UTF-16 and Windows-1252 localization files), packages (Unicode strings), UTF-16 strings and file names that differ in case on Linux, GetLanguage, fonts (character remap, text drawn by code point, runtime-made fonts), crash reports, music streaming and following the default audio device (and an optional linear sound falloff, off unless a game asks), BSP regions, travel of fixed arrays and struct properties
 
 diff --git a/SurrealEngine/Audio/AudioDevice.h b/SurrealEngine/Audio/AudioDevice.h
 index c334c781..12c7e097 100644
@@ -807,7 +807,7 @@ index 1559ad63..e3e759f0 100644
  			{
  				std::string propertyNameStr;
 diff --git a/SurrealEngine/Package/IniFile.cpp b/SurrealEngine/Package/IniFile.cpp
-index 6aab46e1..8ae9faff 100644
+index 6aab46e..27808d9 100644
 --- a/SurrealEngine/Package/IniFile.cpp
 +++ b/SurrealEngine/Package/IniFile.cpp
 @@ -3,6 +3,7 @@
@@ -818,11 +818,75 @@ index 6aab46e1..8ae9faff 100644
  #include "MurmurHash3/MurmurHash3.h"
  #include <algorithm>
  
-@@ -18,9 +19,25 @@ static uint32_t HashIniString(const std::string& str)
+@@ -18,9 +19,91 @@ static uint32_t HashIniString(const std::string& str)
  	return hash;
  }
  
-+// Localization files of non-English releases (Russian HP1's .rus) are UTF-16 LE with a BOM; the engine works in UTF-8
++// True if the text is well-formed UTF-8 (no stray continuation bytes, overlong forms, surrogates or code points
++// above U+10FFFF). Pure ASCII is valid UTF-8.
++static bool IsValidUTF8(const std::string& text)
++{
++	const auto* s = reinterpret_cast<const uint8_t*>(text.data());
++	size_t i = 0, n = text.size();
++	while (i < n)
++	{
++		uint8_t c = s[i];
++		if (c < 0x80) { i++; continue; }
++		size_t len; uint32_t cp, min;
++		if ((c & 0xe0) == 0xc0) { len = 2; cp = c & 0x1f; min = 0x80; }
++		else if ((c & 0xf0) == 0xe0) { len = 3; cp = c & 0x0f; min = 0x800; }
++		else if ((c & 0xf8) == 0xf0) { len = 4; cp = c & 0x07; min = 0x10000; }
++		else return false;
++		if (i + len > n) return false;
++		for (size_t k = 1; k < len; k++)
++		{
++			if ((s[i + k] & 0xc0) != 0x80) return false;
++			cp = (cp << 6) | (s[i + k] & 0x3f);
++		}
++		if (cp < min || cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff)) return false;
++		i += len;
++	}
++	return true;
++}
++
++// Windows-1252 to UTF-8. 0x00-0x7F is ASCII and 0xA0-0xFF is Latin-1; 0x80-0x9F holds the typographic characters
++// (curly quotes, dashes, euro sign, ...). The five bytes Windows-1252 leaves undefined map to the C1 control of the
++// same value, as Windows' MultiByteToWideChar does.
++static std::string DecodeWindows1252(const std::string& text)
++{
++	static const uint16_t c1[32] = {
++		0x20ac, 0x0081, 0x201a, 0x0192, 0x201e, 0x2026, 0x2020, 0x2021, 0x02c6, 0x2030, 0x0160, 0x2039, 0x0152, 0x008d, 0x017d, 0x008f,
++		0x0090, 0x2018, 0x2019, 0x201c, 0x201d, 0x2022, 0x2013, 0x2014, 0x02dc, 0x2122, 0x0161, 0x203a, 0x0153, 0x009d, 0x017e, 0x0178
++	};
++	std::string out;
++	out.reserve(text.size() + text.size() / 8);
++	for (char ch : text)
++	{
++		uint8_t b = (uint8_t)ch;
++		uint32_t cp = (b >= 0x80 && b < 0xa0) ? c1[b - 0x80] : b;
++		if (cp < 0x80)
++		{
++			out.push_back((char)cp);
++		}
++		else if (cp < 0x800)
++		{
++			out.push_back((char)(0xc0 | (cp >> 6)));
++			out.push_back((char)(0x80 | (cp & 0x3f)));
++		}
++		else
++		{
++			out.push_back((char)(0xe0 | (cp >> 12)));
++			out.push_back((char)(0x80 | ((cp >> 6) & 0x3f)));
++			out.push_back((char)(0x80 | (cp & 0x3f)));
++		}
++	}
++	return out;
++}
++
++// Localization files of non-English releases (Russian HP1's .rus) are UTF-16 LE with a BOM; the engine works in UTF-8.
++// Files without a BOM are 8-bit text from the Windows ANSI code page (the Nordic HP1's .swe/.nor/.dan/.fin and the
++// English .int/.eng files are Windows-1252: å ä ö æ ø, ë in the credits, ’ and non-breaking spaces in the dialogue),
++// so text that isn't valid UTF-8 is decoded as Windows-1252. ASCII and real UTF-8 files pass through unchanged.
 +static std::string DecodeIniText(const std::string& text)
 +{
 +	if (text.size() >= 2 && (uint8_t)text[0] == 0xff && (uint8_t)text[1] == 0xfe)
@@ -835,6 +899,8 @@ index 6aab46e1..8ae9faff 100644
 +	}
 +	if (text.size() >= 3 && (uint8_t)text[0] == 0xef && (uint8_t)text[1] == 0xbb && (uint8_t)text[2] == 0xbf)
 +		return text.substr(3);
++	if (!IsValidUTF8(text))
++		return DecodeWindows1252(text);
 +	return text;
 +}
 +
@@ -845,7 +911,7 @@ index 6aab46e1..8ae9faff 100644
  	size_t pos = 0;
  	std::string line;
  	std::string sectionName;
-@@ -303,18 +320,11 @@ void IniFile::UpdateFile(const std::string& filename)
+@@ -303,18 +386,11 @@ void IniFile::UpdateFile(const std::string& filename)
  				std::string key_without_brackets = key; // Will differ from key if the said key contains brackets
  				std::string value_from_file = line.substr(equal_pos + 1);
  
