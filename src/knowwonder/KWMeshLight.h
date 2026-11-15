@@ -20,6 +20,21 @@ namespace KW
 		bool Dark = false;
 	};
 
+	// A volumetric light (VolumeRadius) fogging the mesh, relative to the camera.
+	struct MeshFogLight
+	{
+		vec3 Offset;            // light location - camera location
+		float OffsetSqr = 0.0f;
+		float RadiusSqr = 0.0f; // WorldVolumetricRadius squared
+		float InvRadius = 0.0f;
+		float InvRadiusSqr = 0.0f;
+		float Density = 0.0f;   // VolumeBrightness / 64 * the light's brightness this frame
+		vec3 Color;             // the light's colour this frame (GlobalLighting) * Level.Brightness * brightness
+		float Fog = 0.0f;       // VolumeFog / 255
+		bool CameraInside = false;
+		bool Ambient = false;   // LD_Ambient: uniform fog by distance
+	};
+
 	struct MeshLighting
 	{
 		vec3 Ambient = vec3(0.0f);
@@ -31,9 +46,13 @@ namespace KW
 		vec3 ViewLocation = vec3(0.0f);
 		MeshLightInfo Lights[16];
 		int NumLights = 0;
+		MeshFogLight FogLights[16];
+		int NumFogLights = 0;
 
 		// The light of a world space vertex with a unit (or zero) normal.
 		vec3 Light(const vec3& location, const vec3& normal) const;
+		// The volumetric fog of a world space vertex: colour, and how much of the vertex's own colour it replaces.
+		vec4 Fog(const vec3& location) const;
 	};
 
 	// Sets up the lighting of a mesh actor: ambient from its zone, and the lights picked for lightActor (the actor
