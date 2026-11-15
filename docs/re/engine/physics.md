@@ -277,6 +277,14 @@ SurrealEngine approximated): reached at 16 units horizontally (and |dz| < max(Co
 walking); the sideways velocity component is damped when moving fast, so the path bends towards the target;
 DesiredSpeed is halved once when the next physics step would pass the target; air control only in low gravity zones.
 
+HP2's `moveToward` [HP2 0x103E6ED0] has no arrival radius. With `step = Location - OldLocation` (the last physics
+step): a pawn that didn't move but has a velocity (stalled) arrives within 4 units horizontally, and its `MoveTimer`
+is cut to at most 0.25 s, so it gives up soon; any other pawn arrives only once it has passed the destination (it
+stepped towards it, `dot(Destination - OldLocation, step) > 0`, the destination is now behind it,
+`dot(step, Destination - Location) < 0`, and less than three steps away). The |dz| test, the damping and the slow-down
+are HP1's. With HP1's 16 units, Draco stopped short of `FV_DracoMoveOtherLoc` in Grandstaircase_hub's cutscene
+`04070FollowVoiceB` and walked into the two Hufflepuffs instead of between them, stuck for 2 s (issue #34).
+
 - `execPollMoveToward` (0x103D89C0): Destination = MoveTarget's location (flying towards a pawn aims at 0.7 of its
   height), Focus = Destination. A walking pawn with bAdvancedTactics gets `AlterDestination` for this step, which is
   then put back. A pawn target keeps DesiredSpeed; one in a water zone ends the move for a pawn that can't swim.
