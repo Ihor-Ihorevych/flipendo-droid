@@ -155,6 +155,18 @@ SurrealEngine lost all of it (2026-10-05: 180 house points and 52 beans came out
   struct's start (`bHasCard=True` landed on `ID`). Both fixed for every game (patch 0010): arrays travel as
   `Name[i]` per element, struct fields are written at their offsets. All of Harry's wizard cards now come through.
 
+A travel asked for while the new level loads is dropped. `UGameEngine::Tick` (HP1 0x103A0900, HP2 0x103A9910; "Server
+switch level") makes the URL from `LevelInfo.NextURL`, calls `Browse`, and then empties `NextURL` of `GLevel`, which by
+then is the new level. Whatever the new level's scripts asked for during `LoadMap` and `SpawnPlayActor` is lost, for
+example a `ServerTravel` from a `Touch` raised by `TravelPostAccept` moving Harry to his `SmartStart` with
+`SetLocation`. `LevelInfo.ServerTravel` and `GameInfo.ProcessServerTravel` still run (the log shows "Changing level
+to:", and `PreClientTravel` sets Harry's `PreviousLevelName`), but the level stays. HP2 depends on this: in
+`Ch6WizardCard` (the Gold Card Challenge), `SmartStart2` (from Grandstaircase_hub, -1317,2540,706) lies inside
+`TriggerChangeLevel0`, the exit back to the hub (-1416,2558,721, radius 120, height 40). Harry touches it as he
+arrives, and SurrealEngine kept that `NextURL`, so the challenge sent him straight back to the hub (issue #33). The
+engine loop now empties `NextURL` after the switch for KnowWonder (patch 0100). Walking out of the trigger and back in
+still leaves the challenge.
+
 `HP1_EXEC="9:@travel Lev2_HogFront"` changes level the way the exits do, and `@get harry WizardCards` logs every card.
 
 ## Not ported
