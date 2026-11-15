@@ -36,14 +36,14 @@ index 330b050a..492ba706 100644
  set_target_properties(SurrealCommon PROPERTIES CXX_STANDARD 20)
  target_precompile_headers(SurrealCommon PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/SurrealEngine/Precomp.h>)
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 6908d4d7..26a7c649 100644
+index 6908d4d7..c038171e 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,14 @@
  
  #include "Precomp.h"
-+#ifdef __ANDROID__
 +#include "KWProf.h"
++#ifdef __ANDROID__
 +#include <atomic>
 +extern std::atomic<bool> g_androidMenuActive; // defined in android_main.cpp: true while a menu wants the touch cursor
 +#endif
