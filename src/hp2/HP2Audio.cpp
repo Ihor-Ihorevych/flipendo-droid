@@ -376,9 +376,9 @@ namespace HP2
 	}
 
 	// IDA ALAudio.dll: ?Update@UALAudioSubsystem@@UAEXPAUFSceneNode@@@Z [HP2 ALAudio 0x100052D0] (each sound)
-	// An ambient sound takes its actor's SoundVolume and SoundPitch every frame; a sound of an actor with a light is
-	// scaled by its LightBrightness (a flickering torch's sound flickers with it). A sound not at the listener moves
-	// with its actor's velocity (kept when it is 300 m/s or more).
+	// An ambient sound takes its actor's SoundVolume (times ALAudio's SoundVolume) and SoundPitch every frame; a sound
+	// of an actor with a light is scaled by its LightBrightness (a flickering torch's sound flickers with it). A sound
+	// not at the listener moves with its actor's velocity (kept when it is 300 m/s or more).
 	float UpdateSound(USurrealAudioDevice* audio, int channel, PlayingSound& playing, float volume)
 	{
 		UActor* actor = playing.Actor;
@@ -388,7 +388,7 @@ namespace HP2
 			playing.Pitch = actor->SoundPitch() / 64.0f;
 		if (IsAmbient(playing.Id))
 		{
-			playing.Volume = actor->SoundVolume() / 255.0f;
+			playing.Volume = actor->SoundVolume() / 255.0f * audio->GetSoundVolume() / 255.0f;
 			volume = playing.Volume;
 		}
 		if (actor->LightType() != 0)

@@ -105,6 +105,12 @@ hearing range or BSP occlusion.
 Still SurrealEngine's: OpenAL's panning instead of Galaxy's pan law and near-field centring; no Doppler on ambient
 sounds; ambient sounds out of range are stopped instead of left to the priority; the priority is clamped at 0.
 
+A sound's buffer holds exactly its samples. SurrealEngine's `USound::CheckSoundSamples` rounded the length up with
+`ALIGN(x, 4)` (`(x & ~3) + 4`, so always 1-4 extra zero samples), and a looping sound played that silence at every
+wrap. HP2's XA sounds carry their sample count (`water_turbulence`: 75793 samples, 2707 blocks of 28 decoded) and
+ALAudio's stream ends there. Found 2026-11-15 looking into issue #34 (crackling in Adv3DungeonQuest), which turned out
+to be the level's music itself: `sm_cda_dadaShaft-S_02.ogg` has a sharp percussion hit, panned right, every 2.93 s.
+
 ## HP1 and HP2
 
 HP2's `PlaySound` adds `optional bool Disable3D, optional bool Loop`, and HP2 plays through ALAudio.dll (OpenAL)

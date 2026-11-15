@@ -110,6 +110,10 @@ one in the story (checked 2026-10-05 over every `.unr` in HP1's `Maps`).
   bytes of their declared size, which SurrealEngine doesn't keep). Classes are looked up in `[Editor.EditorEngine]
   EditPackages`. Tested 2026-10-20 between Entryhall_hub and Grounds_hub: a changed property, a picked-up bean and
   an actor only the file has come back as they should.
+  The header's size and time are the map file's in the `*.unr` Paths folder, as the original's: until 2026-11-14 they
+  came from the loaded level package, which for a level loaded from a save is `SaveN.usa`, so a hub left after a load
+  got a header for the save and its cache was thrown away on the next visit (found in a player's `Adv6Goyle_pa.usa`,
+  issue #23). Checked headless: `LoadGame 7` in Adv6Goyle, then `SavePActors` writes 5196990 bytes, the map's size.
 - Also needed for it: actors spawned at runtime had names a map actor already used (SurrealEngine numbered them from
   0 per class: a spawned `Jellybean0` next to the map's), which made two persistent actors share a name. Spawned
   names now skip names in use (KnowWonder games).
@@ -340,6 +344,18 @@ be hit. Sprite trailers are unchanged. Port: an `IsHP2()` branch in `KW::PhysTra
     lowest priority below its own, else `FindLeastImportantSound`: the ambient sound playing in the most copies gives
     up its least important copy, and with no ambience playing any sound below the new one does (an ambient sound may
     only push out another ambient sound). `[ALAudio.ALAudioSubsystem] Channels` sources, at most 32.
+  - Volume (read 2026-11-13, `PlaySound` [0x100040F0], `StaticConstructor` [ALAudio 0x10002A10]): a sound's gain is its
+    volume times ALAudio's float `SoundVolume` (+0xAC, the ini's 0.9), from 0.01 to 1, and that product is also the
+    volume its priority uses; an ambient sound's every frame is its actor's SoundVolume / 255 times the same. Music
+    has its own `MusicVolume` (+0xA8). Nothing halves the effects. Flipendo first played every HP2 effect at
+    SurrealEngine's half volume while the music played at full, so quiet sounds such as a large fire crab's shot heard
+    from below its ledge (0.35 through BSP) got lost under the music (issue #29).
+  - Which sounds a large fire crab makes (`firecrabLarge.throwing`): within `GrenadeOnlyDistance` (500) of Harry it
+    plays `firecrab_preattack`, then `firecrab_large_attack` with each of its four small fireballs; further away only
+    `firecrab_preattack` before it lobs one `spellFireLarge`, which, like its effects (Crabfireball, Crabfire) and the
+    small fireballs, makes no sound of its own. The crab mesh's animations have no notifies. Both calls pass no radius:
+    heard within 1600 (`execPlaySound`'s default), played at 450 (`GAudioDefaultRadius`; only ALAudio's debug command
+    `WEAPONRADIUS` changes it).
   - Ambience is the driver's, not the engine's: every 0.2 s while the viewport is realtime and the game isn't paused,
     every actor with an AmbientSound that isn't playing is a candidate, one the player views from (its ViewTarget) or
     owns without position wherever it is, any other within SoundRadius * 100. The radius is the **byte** SoundRadius,

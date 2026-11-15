@@ -462,6 +462,51 @@ namespace KW
 		return false;
 	}
 
+	// A line check or box sweep against a brush actor, only along the part of the line inside the brush's bounding box
+	// (grown by the box and 1 unit of slack). A brush whose two-sided NotSolid faces are NF_NotCsg nodes in its BSP is
+	// solid in the whole strip those faces would have closed, and its leaf hulls run out to 32768: Adv7SlythComRoom's
+	// gates (Mover47/48, 2 units thick) blocked every trace and spell through the room's slabs y -2176..-2016 and
+	// -1952..-1792 (in the hash cells next to the gates), so the spell cursor stuck at the camera or mid-room and Diffindo
+	// couldn't reach the ropes (issue #23). The original game doesn't block there.
+	// NOT reversed: a Flipendo rule; UModel::LineCheck itself is ModelLineCheck above. docs/re/engine/collision.md
+	bool BrushLineCheck(CheckResult& hit, UActor* actor, const vec3& end, const vec3& start, const vec3& extent, uint8_t extraNodeFlags)
+	{
+		ModelFrame frame = ModelFrame::Brush(actor);
+		const BBox& box = frame.Model->BoundingBox;
+		if (!(box.min.x <= box.max.x && box.min.y <= box.max.y && box.min.z <= box.max.z))
+			return ModelLineCheck(hit, frame, end, start, extent, extraNodeFlags);
+		// the box's extent in the brush's frame, whatever its rotation (scale ignored: a bound, not exact)
+		float grow = 1.0f + std::max(extent.x, std::max(extent.y, extent.z)) * 1.7321f;
+
+		vec4 s4 = frame.WorldToLocal * vec4(start, 1.0f);
+		vec4 e4 = frame.WorldToLocal * vec4(end, 1.0f);
+		vec3 s(s4.x, s4.y, s4.z), d = vec3(e4.x, e4.y, e4.z) - s;
+		float t0 = 0.0f, t1 = 1.0f;
+		for (int axis = 0; axis < 3; axis++)
+		{
+			float lo = box.min[axis] - grow, hi = box.max[axis] + grow;
+			if (std::abs(d[axis]) < 1e-6f)
+			{
+				if (s[axis] < lo || s[axis] > hi)
+					return true;
+				continue;
+			}
+			float a = (lo - s[axis]) / d[axis], b = (hi - s[axis]) / d[axis];
+			if (a > b)
+				std::swap(a, b);
+			t0 = std::max(t0, a);
+			t1 = std::min(t1, b);
+			if (t0 > t1)
+				return true;
+		}
+
+		vec3 dir = end - start;
+		if (ModelLineCheck(hit, frame, start + dir * t1, start + dir * t0, extent, extraNodeFlags))
+			return true;
+		hit.Time = t0 + hit.Time * (t1 - t0);
+		return false;
+	}
+
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Point / box at a location
 

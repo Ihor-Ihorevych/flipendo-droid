@@ -44,6 +44,27 @@ namespace KW
 		return std::abs(v.x) < 0.000099999997f && std::abs(v.y) < 0.000099999997f && std::abs(v.z) < 0.000099999997f;
 	}
 
+	// Not in the original (MoveActor and FarMoveActor take any vector, HP1 Engine 0x103AA3A0 / 0x103A9DE0): a move by a
+	// NaN or infinite delta, or to such a spot, is refused and the actor stays where it is. HP2's scripts make one: a
+	// pickup flies to its HUD counter, and StatusGroup.GetItemLocation divides by the StatusManager's canvas size, which
+	// is 0 until the status HUD is first drawn. HPHud hides it for the first 2 s of a level that opens with a cutscene,
+	// so a bean picked up then flew to NaN; the original survives an actor at NaN, Flipendo froze on players' machines
+	// (issue #20). docs/re/hp2/original_bugs.md
+	static bool IsFiniteVec(const vec3& v)
+	{
+		return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z);
+	}
+
+	static void LogNonFiniteMove(UActor* actor, const vec3& v)
+	{
+		static int logged = 0;
+		if (logged < 20)
+		{
+			logged++;
+			LogMessage("Refused moving " + actor->Name.ToString() + " by or to a non-finite vector (" + std::to_string(v.x) + "," + std::to_string(v.y) + "," + std::to_string(v.z) + ")");
+		}
+	}
+
 	// Not in the original (it stops a mover at the first actor its bounding box sweeps into, HP1 Engine 0x103AA3A0):
 	// a mover's box is checked against the actor's own shape, the mover's brush is not, so a mover with a tall or wide
 	// brush is stopped by actors well clear of it. HP2's Ch1Rictusempra crab bucket (ElevatorMover3, its corner poles
@@ -193,6 +214,15 @@ namespace KW
 	{
 		if (actor->bStatic() || !actor->bMovable())
 			return false;
+
+		if (!IsFiniteVec(delta))
+		{
+			LogNonFiniteMove(actor, delta);
+			hit = CheckResult();
+			hit.Time = 1.0f;
+			return false;
+		}
+
 		if (IsTiny(delta))
 		{
 			if (newRotation == actor->Rotation())
@@ -509,6 +539,11 @@ namespace KW
 	{
 		if (actor->bStatic() || !actor->bMovable())
 			return false;
+		if (!IsFiniteVec(destIn))
+		{
+			LogNonFiniteMove(actor, destIn);
+			return false;
+		}
 		if (actor->bCollideActors())
 			actor->XLevel()->Collision.RemoveFromCollision(actor);
 

@@ -18,6 +18,7 @@
 #include "Packages/Engine/Actors/UActor.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
+#include "Utils/File.h"
 #include "Utils/Logger.h"
 #include "Utils/StrTools.h"
 #include "Utils/UTF16.h"
@@ -632,14 +633,34 @@ namespace HP2
 			return CacheFolder() / (base + "_pa." + engine->packages->GetSaveExtension());
 		}
 
+		// The map file in the Maps folder (USystem +0x4C: the folder of the "*.unr" Paths entry, relative to System),
+		// never the loaded package: a level loaded from a save is SaveN.usa, and a header with the save's size and
+		// time is rejected on the next visit (the beans and secrets come back; seen in a cache a player attached to issue #23).
+		fs::path MapFilePath(const std::string& mapFile)
+		{
+			std::string mask = "*." + engine->packages->GetMapExtension();
+			for (const std::string& entry : engine->packages->GetIniValues("system", "Core.System", "Paths"))
+			{
+				fs::path entryPath = convert_path_separators(entry);
+				if (!StrTools::equals_ignore_case(entryPath.filename().string(), mask))
+					continue;
+				fs::path folder = (engine->packages->GetSystemFolderPath() / entryPath).lexically_normal().parent_path();
+				fs::path path = File::find_ignoring_case(folder / mapFile);
+				std::error_code ec;
+				if (fs::is_regular_file(path, ec))
+					return path;
+			}
+			return {};
+		}
+
 		// GFileManager's FileSize and GetGlobalTime (the _stat modification time, in seconds since 1970) of the map file
-		void MapFileInfo(int32_t& size, int64_t& time)
+		void MapFileInfo(const std::string& mapFile, int32_t& size, int64_t& time)
 		{
 			size = -1;
 			time = 0;
-			if (!engine->LevelPackage)
+			fs::path path = MapFilePath(mapFile);
+			if (path.empty())
 				return;
-			fs::path path = engine->LevelPackage->GetPackageFilePath();
 			std::error_code ec;
 			auto fileSize = fs::file_size(path, ec);
 			if (ec)
@@ -693,7 +714,7 @@ namespace HP2
 		fs::path path = PersistentFile(mapFile);
 		int32_t mapSize;
 		int64_t mapTime;
-		MapFileInfo(mapSize, mapTime);
+		MapFileInfo(mapFile, mapSize, mapTime);
 
 		LogMessage("*** Starting to Save Persistent Actors for map " + mapFile);
 		Writer w;
@@ -776,7 +797,7 @@ namespace HP2
 		}
 		int32_t mapSize;
 		int64_t mapTime;
-		MapFileInfo(mapSize, mapTime);
+		MapFileInfo(mapFile, mapSize, mapTime);
 		if (r.Int32() != mapSize)
 		{
 			LogMessage("ULevelBase::LoadPersistentActors ERROR: Loading map FileSize that this PA file is for!");

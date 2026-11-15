@@ -13,6 +13,16 @@ SurrealEngine only read the one-byte form and stopped with `ObjectStream::ReadSt
 count. Lev_Tut3b has such a string, so the level change from Lev_Tut3 crashed. Flipendo (engine fixes patch, any game)
 reads the UTF-16 form and keeps the string as UTF-8.
 
+## Compact indexes of INT_MIN
+
+A compact index stores the sign in the first byte's top bit and the magnitude below it (6 bits, then 7 per byte, at
+most 5 bytes). HP2's Adv12Chamber level BSP (Model1) has a vertex (BSP vertex 5265) whose point index reads as INT_MIN
+(-2147483648); seen 2026-11-13, not looked at in the original. SurrealEngine negated the value to get the magnitude:
+for INT_MIN that stays negative, the arithmetic shift settles at -1, and the writer wrote 0xFF bytes forever. Every save
+in Adv12Chamber (the autosave on entering from Adv11bSecrets first) hung on a black loading screen while `Save0.tmp`
+grew by gigabytes (issue #29). Flipendo (engine fixes patch, any game) reads and writes the magnitude as unsigned, so
+INT_MIN takes five bytes and reads back as INT_MIN.
+
 ## Language files (`appFindPackageFile` [HP1 Core 0x10153F40])
 
 A package can have a language file next to it: the language code goes before the extension (`AllDialog.int_uax`,

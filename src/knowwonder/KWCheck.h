@@ -51,6 +51,8 @@ namespace KW
 
 	// UModel::LineCheck: returns true when nothing was hit (UE1's convention), else fills hit.
 	bool ModelLineCheck(CheckResult& hit, const ModelFrame& frame, const vec3& end, const vec3& start, const vec3& extent, uint8_t extraNodeFlags);
+	// ModelLineCheck against a brush actor along only the part of the line inside the brush's bounding box (issue #23).
+	bool BrushLineCheck(CheckResult& hit, UActor* actor, const vec3& end, const vec3& start, const vec3& extent, uint8_t extraNodeFlags);
 	// UModel::PointCheck: returns true when the box (extent zero: the point) touches nothing.
 	bool ModelPointCheck(CheckResult& hit, const ModelFrame& frame, const vec3& location, const vec3& extent, uint8_t extraNodeFlags);
 	// UModel::FastLineCheck: true when the line is clear.

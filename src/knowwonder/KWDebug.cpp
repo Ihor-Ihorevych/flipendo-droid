@@ -529,6 +529,15 @@ namespace KW
 				ModelFrame frame = ModelFrame::Brush(a);
 				UModel* model = a->Brush();
 				char buf[400];
+				snprintf(buf, sizeof(buf), "HP1 hull %s RootOutside=%d", a->Name.ToString().c_str(), (int)model->RootOutside);
+				LogMessage(buf);
+				for (int node = 0; node < (int)model->Nodes.size(); node++)
+				{
+					const BspNode& n = model->Nodes[node];
+					vec4 w = frame.WorldPlane(vec4(n.PlaneX, n.PlaneY, n.PlaneZ, n.PlaneW));
+					snprintf(buf, sizeof(buf), "HP1 hull %s bsp node=%d plane=(%.3f,%.3f,%.3f,%.2f) front=%d back=%d coplanar=%d verts=%d flags=0x%02x surf=%d", a->Name.ToString().c_str(), node, w.x, w.y, w.z, w.w, n.Front, n.Back, n.Plane, (int)n.NumVertices, (int)n.NodeFlags, n.Surf);
+					LogMessage(buf);
+				}
 				for (int node = 0; node < (int)model->Nodes.size(); node++)
 				{
 					int bound = model->Nodes[node].CollisionBound;

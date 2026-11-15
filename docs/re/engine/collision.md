@@ -83,6 +83,16 @@ at edges and corners.
   `SpellCursor` traces from the camera, which only stops at the level and `bBlockCamera` actors and can end up inside a
   gate mover: by the code its cursor then lands on the camera there in the original too (an Android fork skips the mover
   in that case; not ported, not checked in the original game).
+- **A brush is never solid outside its bounding box** (Flipendo's rule, not reversed). A mover whose two-sided NotSolid
+  faces are NF_NotCsg nodes in its BSP is solid in the whole strip those faces would close: the ray walk keeps "inside"
+  across a NotCsg node, and the editor's leaf hulls run out to 32768. Adv7SlythComRoom's gates (Mover47/48, 2 units
+  thick at x 30..32, tag OpenGates) made the slabs y -2176..-2016 and -1952..-1792 (z -416..-160) solid across the
+  whole room, for every trace and box sweep whose line touches the gates' 256-unit hash cell (x 0..256). The spell
+  cursor stuck at the camera or mid-room and Diffindo stopped short of the near rope (issue #23); the original game
+  doesn't block there, although HP2's `ActorLineCheck`, `GetActorExtent`, `UModel::LineCheck`, the ray walk and
+  `execTrace` read the same as ours. `BrushLineCheck` therefore runs `UModel::LineCheck` on a brush actor only along
+  the part of the line inside the brush's bounding box (grown by the box's extent and 1 unit); the gate still stops a
+  line that crosses it. Checked in play: both ropes cut, the gates open.
 - **Point / box at a location** (`UModel::PointCheck` 0x104271D0; `sub_10427630` with an extent): the box is out of a
   hull when it is wholly in front of any of its planes; else the hit is the shallowest penetration, pushed out 1.02
   times as far.

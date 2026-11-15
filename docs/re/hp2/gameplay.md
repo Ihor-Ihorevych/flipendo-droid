@@ -121,6 +121,24 @@ options page's `get ini:Engine.Engine GameRenderDevice` (`[Engine] Engine`), whi
 same way (logged as "Could not find class 'None'"). The settings are kept anyway: the input options by the
 `SaveConfig`, the difficulty and object detail as the player's `Difficulty` / `ObjectDetail`, which the pages set directly and the save game keeps.
 
+## Pickups flying to the HUD
+
+A bean (`Jellybean`, `PickupFlyTo` 2 = `FT_HudPosition`) or other `HProp` touched by Harry goes to state `PickupProp`:
+PHYS_Flying, no actor collision, and for `fTotalFlyTime` (0.25 s) its `Tick` moves it with `MoveSmooth` towards
+`vectHudLocation`, then `managerStatus.PickupItem` counts it and it is destroyed. The target comes from
+`StatusManager.GetHudLocation` → `StatusGroup.GetItemLocation`, which works in the StatusManager's `nCanvasSizeX/Y`.
+Those are only set by `StatusManager.RenderHudItemManager`, so they are 0 until the status HUD is first drawn, and then
+`GetItemLocation` divides 0 by 0 (`nHudX / (nCanvasSizeX / 2)`): the target is NaN. Both games' `Divide_FloatFloat` is a
+plain x87 divide (HP1 Core 0x10138810), so the original computes the same NaN.
+
+`HPHud` starts in state `Loading`: when the map has a `CutScene` with `bLevelLoadStarts`, `bHideStatus` is true for
+2 s and `PostRender` skips the StatusManager (Harry's health, the lightning bolt in the top left, isn't drawn either).
+In such a map, a bean picked up in those first 2 s flies to NaN. BeanRewardRoom, the bean bonus room after the first
+house points ceremony, is one: Harry starts next to a row of beans. Checked 2026-11-13 with a player's save (issue
+#20): running forward from the first frame, the first bean (Jellybean24) is at NaN, velocity too, the next frame.
+Flipendo refuses moves by a non-finite vector ([original_bugs.md](original_bugs.md)), so the bean stays where it was
+for its 0.25 s and still counts.
+
 ## Collision
 
 Two new collide types, `CT_AlignedOvalCylinder` and `CT_OrientedOvalCylinder` ([collision.md](../engine/collision.md#hp1-and-hp2)).

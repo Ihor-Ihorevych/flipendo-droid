@@ -1,7 +1,7 @@
 flipendo: KnowWonder sound and music (HP2's XA ADPCM sounds)
 
 diff --git a/SurrealEngine/Packages/Engine/Resources/USound.cpp b/SurrealEngine/Packages/Engine/Resources/USound.cpp
-index df526a71..4403509e 100644
+index df526a71..15b9c9f9 100644
 --- a/SurrealEngine/Packages/Engine/Resources/USound.cpp
 +++ b/SurrealEngine/Packages/Engine/Resources/USound.cpp
 @@ -2,6 +2,7 @@
@@ -93,8 +93,18 @@ index df526a71..4403509e 100644
  	else
  	{
  		Exception::Throw("Unsupported sound format: " + Format.ToString());
+@@ -58,7 +108,8 @@ void USound::CheckSoundSamples()
+ 
+ 	#define ALIGN(x, a) ((x & ~(a-1)) + a)
+ 	samples.resize(ALIGN(source->GetSamples(), 4));
+-	samples.resize(ALIGN(source->ReadSamples(samples.data(), samples.size()), 4));
++	// Keep exactly the samples read: ALIGN always adds 1-4 zeros, which a looping sound played as a gap at every wrap
++	samples.resize(source->ReadSamples(samples.data(), samples.size()));
+ 
+ 	frequency = source->GetFrequency();
+ 	duration = samples.size() / (float)frequency;
 diff --git a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
-index f6d52c05..a0f859e1 100644
+index f6d52c05..054fe4c4 100644
 --- a/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 +++ b/SurrealEngine/Packages/Engine/Subsystems/USurrealAudioDevice.cpp
 @@ -9,12 +9,31 @@
@@ -251,7 +261,7 @@ index f6d52c05..a0f859e1 100644
  	if (!engine->LaunchInfo.IsDeusEx())
  		return;
  	if (!Playing.Actor)
-@@ -324,35 +374,74 @@ void USurrealAudioDevice::UpdateSounds()
+@@ -324,35 +374,75 @@ void USurrealAudioDevice::UpdateSounds()
  	if (!m_Viewport || !m_Viewport->Actor())
  		return;
  
@@ -283,8 +293,9 @@ index f6d52c05..a0f859e1 100644
  			float globalVolume = SoundVolume / 255.0f * 0.5f;
  			if (engine->LaunchInfo.IsDeusEx() && GetSoundSlot(Playing.Id) == SLOT_Talk)
  				globalVolume = SpeechVolume / 255.0f * 0.5f;
-+			if (hp2 && HP2::SoundsMuted())
-+				globalVolume = 0.0f;
++			// HP2 has its SoundVolume in the sound's volume already (PlaySound, HP2::UpdateSound), without halving
++			if (hp2)
++				globalVolume = HP2::SoundsMuted() ? 0.0f : 1.0f;
  
 +			// HP2's StopSound fade-out (UALAudioSubsystem::Update): linear over FadeOutTime, a step of at most 1 s, then stopped
 +			float volume = Playing.Volume;
@@ -332,7 +343,7 @@ index f6d52c05..a0f859e1 100644
  				if (!m_Device->IsPlaying((int)i))
  				{
  					ClearLipSync(Playing);
-@@ -425,12 +514,29 @@ bool USurrealAudioDevice::IsSameSoundId(int id1, int id2)
+@@ -425,12 +515,30 @@ bool USurrealAudioDevice::IsSameSoundId(int id1, int id2)
  	return (id1 & ~1) == (id2 & ~1);
  }
  
@@ -351,8 +362,9 @@ index f6d52c05..a0f859e1 100644
 -	if (GetSoundSlot(Id) == SLOT_Talk && engine->LaunchInfo.IsDeusEx())
 +	if (engine->LaunchInfo.IsHarryPotter2())
 +	{
-+		// ALAudio: the volume from 0.01 to full, the pitch from 0.1 to 2
-+		Volume = std::clamp(Volume, 0.01f, 1.0f);
++		// ALAudio: the volume times its SoundVolume (the ini's 0.9), from 0.01 to full, the pitch from 0.1 to 2.
++		// The product is the sound's volume for its gain and its priority; UpdateSounds adds no global factor.
++		Volume = std::clamp(Volume * SoundVolume / 255.0f, 0.01f, 1.0f);
 +		Pitch = std::clamp(Pitch, 0.1f, 2.0f);
 +	}
 +	else if (engine->LaunchInfo.IsKnowWonder())
@@ -365,7 +377,7 @@ index f6d52c05..a0f859e1 100644
  	{
  		// Should this still be directional?
  		Volume *= 2.0f;
-@@ -447,16 +553,41 @@ bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 L
+@@ -447,16 +555,41 @@ bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 L
  	if (!m_Viewport || !Sound)
  		return false;
  
@@ -410,7 +422,7 @@ index f6d52c05..a0f859e1 100644
  	{
  		PlayingSound& Playing = PlayingSounds[i];
  		if (IsSameSoundId(Playing.Id, Id))
-@@ -478,7 +609,11 @@ bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 L
+@@ -478,7 +611,11 @@ bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 L
  
  	// If no sound, or its priority is overruled, stop it
  	if (Index == PlayingSounds.size())
@@ -422,7 +434,7 @@ index f6d52c05..a0f859e1 100644
  
  	Sound->CheckSoundSamples();
  
-@@ -486,6 +621,9 @@ bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 L
+@@ -486,6 +623,9 @@ bool USurrealAudioDevice::PlaySound(UActor* Actor, int Id, USound* Sound, vec3 L
  	StopSound(Index);
  	PlayingSounds[Index] = PlayingSound(Actor, Id, Sound, Location, Volume, Radius, Pitch, Priority);
  	PlayingSounds[Index].StartTime = engine->LevelInfo->TimeSeconds();
@@ -432,7 +444,7 @@ index f6d52c05..a0f859e1 100644
  
  	return true;
  }
-@@ -522,6 +660,63 @@ void USurrealAudioDevice::StopSound(UActor* Actor, int Id)
+@@ -522,6 +662,63 @@ void USurrealAudioDevice::StopSound(UActor* Actor, int Id)
  	}
  }
  
@@ -496,7 +508,7 @@ index f6d52c05..a0f859e1 100644
  void USurrealAudioDevice::StopSound(size_t index)
  {
  	PlayingSound& Playing = PlayingSounds[index];
-@@ -541,6 +736,11 @@ void USurrealAudioDevice::StopSounds()
+@@ -541,6 +738,11 @@ void USurrealAudioDevice::StopSounds()
  	for (size_t i = 0; i < PlayingSounds.size(); i++)
  		StopSound(i);
  

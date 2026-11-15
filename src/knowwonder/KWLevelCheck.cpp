@@ -228,7 +228,7 @@ namespace KW
 	{
 		switch (ActorPrimitive(actor))
 		{
-		case PrimitiveKind::Brush: return ModelLineCheck(hit, ModelFrame::Brush(actor), end, start, extent, extraNodeFlags);
+		case PrimitiveKind::Brush: return BrushLineCheck(hit, actor, end, start, extent, extraNodeFlags);
 		case PrimitiveKind::Box:
 		case PrimitiveKind::Mesh: return BoxLineCheck(hit, actor, end, start, extent);
 		case PrimitiveKind::OrientedCylinder: return OrientedCylinderLineCheck(hit, actor, end, start, extent);
