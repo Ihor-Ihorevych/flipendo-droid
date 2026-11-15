@@ -28,8 +28,6 @@ Legend: [~] partly done / in progress · [ ] not started
   - [ ] Bean bonus room after the house points ceremony: the game hangs if Harry moves and picks up a bean right
         after skipping the ceremony (issue #20, Windows 10, build 593bf9c). Not reproduced on Linux or Windows 11 with
         the reporter's save; waiting for a dump of the hung process
-  - [ ] Can't enter the Slytherin common room as Goyle (issue #23). Not reproduced by jumping into the room; waiting
-        for a save from just before the drop
   - [ ] Mirrors look wrong (playtest 2026-10-21, after PrivetDr's intro). PrivetDr's only mirror surface
         (`@surfs *mirror`) is an outside window, `extwindow_PD` (surface 991, PolyFlags 0x08000000, center -832,776,272):
         SurrealEngine draws the reflection and seals the surface invisible, so the window texture never shows. Check how
