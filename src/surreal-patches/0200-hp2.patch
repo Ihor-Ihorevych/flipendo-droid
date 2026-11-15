@@ -43,7 +43,7 @@ index 5088612a..7011ea88 100644
  	actor->Tick(elapsed);
  
 diff --git a/SurrealEngine/Packages/Engine/Resources/USound.cpp b/SurrealEngine/Packages/Engine/Resources/USound.cpp
-index df526a71..4403509e 100644
+index df526a71..15b9c9f9 100644
 --- a/SurrealEngine/Packages/Engine/Resources/USound.cpp
 +++ b/SurrealEngine/Packages/Engine/Resources/USound.cpp
 @@ -2,6 +2,7 @@
@@ -135,6 +135,16 @@ index df526a71..4403509e 100644
  	else
  	{
  		Exception::Throw("Unsupported sound format: " + Format.ToString());
+@@ -58,7 +108,8 @@ void USound::CheckSoundSamples()
+ 
+ 	#define ALIGN(x, a) ((x & ~(a-1)) + a)
+ 	samples.resize(ALIGN(source->GetSamples(), 4));
+-	samples.resize(ALIGN(source->ReadSamples(samples.data(), samples.size()), 4));
++	// Keep exactly the samples read: ALIGN always adds 1-4 zeros, which a looping sound played as a gap at every wrap
++	samples.resize(source->ReadSamples(samples.data(), samples.size()));
+ 
+ 	frequency = source->GetFrequency();
+ 	duration = samples.size() / (float)frequency;
 diff --git a/SurrealEngine/Packages/Engine/Resources/USound.h b/SurrealEngine/Packages/Engine/Resources/USound.h
 index c937674f..4db521f2 100644
 --- a/SurrealEngine/Packages/Engine/Resources/USound.h
