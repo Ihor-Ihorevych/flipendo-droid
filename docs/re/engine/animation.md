@@ -25,6 +25,12 @@ Both games run the same system (the HP1 vs HP2 code comparison):
   `bAnimNotReplaceable` are left alone. Flipendo: one `KW::CreateAnimChannel` with the extra flag, the HP2 adapter in
   `src/hp2/HP2Natives.cpp`, and `ClearChannels` skips those channels for HP2.
 - **HP2 only:** `Actor.BoneRot` (native 328, `src/hp2/HP2Natives.cpp`).
+- **Looping, checked in HP2:** `AActor::Tick` [HP2 0x103C0E10] wraps a looping `AnimFrame` at 1.0 (constant at
+  0x10474E84) like HP1, and `ApplyAnim` [HP2 0x1042A520] samples at `min(AnimFrame, 1) * TrackTime` with the same
+  wrap to key 0. HP2's exported loops end on a copy of key 0: Harry's `run` has its last key at 1.2 s, the same pose
+  as key 0, and TrackTime 1.2333, so the pose holds still for the last 1/37 of every cycle (about 37 ms at
+  AnimRate 0.73, a 1.37 s cycle). That is the original's behaviour, not a port difference (looked into for issue #34, "movement
+  hitch"; Harry's position moves steadily at 210 u/s through it).
 
 ## Data: `UAnimation` (sizeof 156)
 
