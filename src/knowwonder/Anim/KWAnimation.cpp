@@ -67,6 +67,39 @@ namespace KW
 		return -1;
 	}
 
+	// Our own fix, not the original's code (docs/re/hp1/original_bugs.md and hp2/original_bugs.md, looping animations). Many loops (HP2
+	// Harry's run) end on a copy of key 0 a little before TrackTime, and ApplyAnim then spends that last bit going
+	// from key 0 to key 0: the pose stands still once per loop. Returns the time of that last key when every animated
+	// track ends on a copy of its key 0 at the same time, else 0.
+	static float FindLoopEnd(const AnimMove& move)
+	{
+		float loopEnd = 0.0f;
+		for (const AnimTrack& track : move.AnimTracks)
+		{
+			size_t numKeys = track.KeyTime.size();
+			if (numKeys <= 1 || track.KeyQuat.size() != numKeys)
+				continue; // a still bone (one key) doesn't move
+			if (track.KeyPos.size() != 1 && track.KeyPos.size() != numKeys)
+				return 0.0f;
+
+			const quaternion& a = track.KeyQuat[0];
+			const quaternion& b = track.KeyQuat[numKeys - 1];
+			if (std::abs(a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w) < 0.99999f)
+				return 0.0f;
+			if (track.KeyPos.size() == numKeys && length(track.KeyPos[numKeys - 1] - track.KeyPos[0]) > 0.01f)
+				return 0.0f;
+
+			float last = 0.0f;
+			for (size_t k = 1; k < numKeys; k++)
+				last += track.KeyTime[k] * track.KeyTimeScale;
+			if (loopEnd == 0.0f)
+				loopEnd = last;
+			else if (std::abs(last - loopEnd) > 0.0001f)
+				return 0.0f;
+		}
+		return (loopEnd > 0.0f && loopEnd < move.TrackTime - 0.0001f) ? loopEnd : 0.0f;
+	}
+
 	// UAnimation::Serialize in HP1 Engine.dll:
 	//   RefBones  array of AnimBone  { name, flags, parent index }
 	//   Moves     array of AnimMove  { RootSpeed3D, TrackTime, StartBone, Flags, BoneIndices[], AnimTracks[] }
@@ -190,6 +223,7 @@ namespace KW
 				for (int k = 0; k < c.Time; k++)
 					track.KeyTime.push_back((float)keyTimes[timePos++]);
 			}
+			move.LoopEnd = FindLoopEnd(move);
 		}
 
 		AnimationTable[anim] = std::move(data);

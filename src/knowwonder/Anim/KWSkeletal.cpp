@@ -325,7 +325,10 @@ namespace KW
 
 				if (!move->AnimTracks.empty())
 				{
-					float time = std::min(actor->AnimFrame(), 1.0f) * move->TrackTime;
+					// A loop whose last key repeats key 0 plays its keys over the whole loop instead of holding
+					// that pose until TrackTime (our fix, docs/re/hp2/original_bugs.md).
+					float loopTime = (move->LoopEnd > 0.0f && actor->bAnimLoop()) ? move->LoopEnd : move->TrackTime;
+					float time = std::min(actor->AnimFrame(), 1.0f) * loopTime;
 					float tween = (cache.HasPose && actor->TweenRate() != 0.0f) ? 1.0f - TweenAlpha(actor) : 0.0f;
 
 					for (size_t i = 0; i < numBones; i++)
