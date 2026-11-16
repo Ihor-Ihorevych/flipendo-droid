@@ -19,7 +19,7 @@ index c334c781..12c7e097 100644
  	virtual void Update() = 0;
  };
 diff --git a/SurrealEngine/Audio/AudioSource.cpp b/SurrealEngine/Audio/AudioSource.cpp
-index 241acddf..4083604c 100644
+index 241acddf..d1ba36e7 100644
 --- a/SurrealEngine/Audio/AudioSource.cpp
 +++ b/SurrealEngine/Audio/AudioSource.cpp
 @@ -367,6 +367,10 @@ public:
@@ -33,7 +33,20 @@ index 241acddf..4083604c 100644
  	}
  
  	size_t ReadSamples(float* output, size_t requestedsamples) override
-@@ -392,6 +396,9 @@ public:
+@@ -387,20 +391,32 @@ public:
+ 					stream_eof = true;
+ 					break;
+ 				}
++				// A damaged frame decodes to noise far past full scale (HP2's sm_DRC_DRACO_Theme_LP starts with
++				// samples up to 133 in one channel); a channel's frame with any sample past 1.5 plays silent
++				for (int j = 0; j < stream_info.channels && j < 8; j++)
++				{
++					pcm_damaged[j] = false;
++					for (int i = 0; i < pcm_samples && !pcm_damaged[j]; i++)
++						pcm_damaged[j] = std::abs(pcm[j][i]) > 1.5f;
++				}
+ 			}
+ 
  			int samples = pcm_samples - pcm_position;
  			if (samples > data_left) samples = data_left;
  
@@ -43,6 +56,25 @@ index 241acddf..4083604c 100644
  			int buffer_pos = (data_requested - data_left) * stream_info.channels;
  			int c = stream_info.channels;
  			for (int j = 0; j < c; j++)
+ 			{
+ 				const float* src = &pcm[j][pcm_position];
+ 				float* dst = &output[buffer_pos + j];
++				bool damaged = j < 8 && pcm_damaged[j];
+ 				for (int i = 0; i < samples; i++)
+ 				{
+-					*dst = src[i];
++					*dst = damaged ? 0.0f : src[i];
+ 					dst += c;
+ 				}
+ 			}
+@@ -417,6 +433,7 @@ public:
+ 
+ 	Array<uint8_t> filedata;
+ 	bool stream_eof = false;
++	bool pcm_damaged[8] = {};
+ 
+ 	stb_vorbis* handle = nullptr;
+ 	stb_vorbis_info stream_info = {};
 diff --git a/SurrealEngine/Audio/OpenAL/ALSoundSource.cpp b/SurrealEngine/Audio/OpenAL/ALSoundSource.cpp
 index 9056d016..44526ab0 100644
 --- a/SurrealEngine/Audio/OpenAL/ALSoundSource.cpp

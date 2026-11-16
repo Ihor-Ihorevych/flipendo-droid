@@ -65,6 +65,25 @@ second with `MTRAN_SlowFade`) and `MU12` twice keep the stream (fade, no restart
 switches; `MU7` (silence) fades and stops. Checked 2026-10-05: `MU3` ends after ~14 s with
 `Song = None`, `bSongFinished = True`; `JS_GreenCauldron_24` (~25 s, looping) still plays at 70 s.
 
+## Damaged songs (HP2)
+
+Four of HP2's Ogg Vorbis songs have damaged frames that decode (libvorbis, ffmpeg and stb_vorbis alike) to noise far
+past full scale in one channel:
+
+| Song | Where | Channel | Peak |
+|---|---|---|---|
+| `sm_DRC_DRACO_Theme_LP` | first 3 ms | left | 133 |
+| `sm_wwa_skurgeExploreEdit_01_ogg` | first 33 ms | left | 179 |
+| `SM_QUD_Boost_01` | first 3 ms | right | 171 |
+| `SM_SCL_StealthSneak_01_mx` | 55.43 to 55.77 s | right | 126 |
+
+Heard as a crack, in one ear, when the song starts (issue #34: Grandstaircase_hub's follow-the-voice cutscene starts
+Draco's theme; the Skurge challenge). The original's decoder output was 16-bit, so it would have played the same noise
+clipped to full scale. Our Vorbis source (`Audio/AudioSource.cpp`, `OggAudioSource::ReadSamples`) plays a channel's
+frame silent when any of its samples is past 1.5 (a sound song stays under about 1.1). Found by scanning every song in
+`Music/` for samples past 1.2; no other song has any. Checked 2026-11-16 with OpenAL Soft's wave writer: the cutscene's
+mix has no noise left at 19.4 s, where Draco's theme starts.
+
 ## Level changes and saves
 
 `UGameEngine::LoadMap` [HP1 0x1039C3D0] only calls `Audio->SetViewport(Audio->GetViewport())` (vtable +0x60, the same
