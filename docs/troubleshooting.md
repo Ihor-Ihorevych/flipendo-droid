@@ -27,11 +27,14 @@ relative to `System/`. If two folders contain a package with the same name, the 
 
 ### `no known game found` + a reason
 
-The folder you gave isn't a recognised game folder. The reason line says why:
+The folder you gave isn't a recognised game folder (also shown when you press Play with no game in the launcher's
+list). Giving the game's `System` folder or dragging `System/HP.exe` onto `SurrealEngine.exe` works too; both mean
+the install folder above. The reason line says why:
 
 | Reason | Fix |
 |---|---|
 | `folder does not exist` | Check the path. Quote it if it contains spaces. |
+| `Add the game's install folder ... on the Folders tab` | The launcher's list is empty: add the install folder on the Folders tab, then pick the game on the Play tab. |
 | `looks like the game's System folder` | Use the folder above `System/`. |
 | `no known game executable in its System folder` | The folder has no `System/HP.exe` (also found as `Harry Potter and the Philosophers Stone.exe` or the Sorcerer's Stone name). Use the install folder, not the disc or a parent folder. |
 | `System/HP.exe is not a recognised version (SHA-1 ...)` | Your game release isn't in the list yet. [Open an issue](../CONTRIBUTING.md#other-game-versions) with the SHA-1, language and release. |

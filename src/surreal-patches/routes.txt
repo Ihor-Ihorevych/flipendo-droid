@@ -11,11 +11,11 @@
 #   0200-0299  free for game-specific additions (HP2)
 # Patches split by file, so a file has exactly one owner.
 
-[0001-game-detection.patch] flipendo: recognise the HP1 retail (SafeDisc) and No-CD HP.exe builds (also under the long exe names some releases use), say why a folder isn't a game
+[0001-game-detection.patch] flipendo: recognise the HP1 retail (SafeDisc) and No-CD HP.exe builds (also under the long exe names some releases use), say why a folder isn't a game, accept the System folder or the exe itself as the game folder
 SurrealEngine/UE1GameDatabase.*
 SurrealEngine/GameFolder.*
 
-[0002-launcher-flags.patch] flipendo: --autolaunch, --logfile and --level command line flags
+[0002-launcher-flags.patch] flipendo: --autolaunch, --logfile and --level command line flags; Play with no recognised game says why instead of starting without one
 SurrealEngine/GameApp.cpp
 
 [0003-cursor-focus.patch] flipendo: only recenter the mouse cursor, and only act on raw mouse/keyboard input, while the game window is the active (foreground) window; window icons the right way up; macOS: a window started in fullscreen goes fullscreen reliably, and held mouse buttons count as held keys

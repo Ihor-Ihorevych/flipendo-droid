@@ -1,10 +1,18 @@
-flipendo: recognise the HP1 retail (SafeDisc) and No-CD HP.exe builds (also under the long exe names some releases use), say why a folder isn't a game
+flipendo: recognise the HP1 retail (SafeDisc) and No-CD HP.exe builds (also under the long exe names some releases use), say why a folder isn't a game, accept the System folder or the exe itself as the game folder
 
 diff --git a/SurrealEngine/GameFolder.cpp b/SurrealEngine/GameFolder.cpp
-index 473146a7..bf256223 100644
+index 473146a7..b38b9b73 100644
 --- a/SurrealEngine/GameFolder.cpp
 +++ b/SurrealEngine/GameFolder.cpp
-@@ -9,16 +9,21 @@
+@@ -2,6 +2,7 @@
+ #include "Precomp.h"
+ #include "GameFolder.h"
+ #include "Utils/File.h"
++#include "Utils/StrTools.h"
+ #include "Utils/UTF16.h"
+ #include "UE1GameDatabase.h"
+ #include "LauncherSettings.h"
+@@ -9,17 +10,24 @@
  #include <filesystem>
  
  Array<GameLaunchInfo> GameFolderSelection::Games;
@@ -15,27 +23,70 @@ index 473146a7..bf256223 100644
  	Games.clear();
 +	Problems.clear();
  
- 	for (const std::string& folder : commandline->GetItems())
- 	{
+-	for (const std::string& folder : commandline->GetItems())
+-	{
 -		GameLaunchInfo game = ExamineFolder(folder);
++	auto examine = [](const std::string& folder) {
 +		std::string problem;
 +		GameLaunchInfo game = ExamineFolder(folder, &problem);
  		if (!game.gameName.empty())
  			Games.push_back(game);
+-	}
 +		else if (!problem.empty())
 +			Problems.push_back(problem);
- 	}
++	};
++
++	for (const std::string& folder : commandline->GetItems())
++		examine(folder);
  
  	if (Games.empty())
-@@ -57,14 +62,14 @@ GameLaunchInfo GameFolderSelection::GetLaunchInfo(int selectedGame)
+ 	{
+@@ -35,12 +43,9 @@ void GameFolderSelection::UpdateList()
+ 
+ 	if (Games.empty())
+ 	{
++		// the launcher's folder list: keep the reason a folder isn't a game, so Play on an empty list can say it
+ 		for (const std::string& folder : FindGameFolders())
+-		{
+-			GameLaunchInfo game = ExamineFolder(folder);
+-			if (!game.gameName.empty())
+-				Games.push_back(game);
+-		}
++			examine(folder);
+ 	}
+ }
+ 
+@@ -57,14 +62,36 @@ GameLaunchInfo GameFolderSelection::GetLaunchInfo(int selectedGame)
  	return info;
  }
  
 -GameLaunchInfo GameFolderSelection::ExamineFolder(const std::string& path)
-+GameLaunchInfo GameFolderSelection::ExamineFolder(const std::string& path, std::string* problem)
++// The game folder for what a player gave: the folder itself, or the one above when they gave the game's executable
++// (dragged onto SurrealEngine.exe) or its System folder.
++std::string GameFolderSelection::GameRootFromPath(std::string path)
++{
++	if (path.size() >= 2 && path.front() == '"' && path.back() == '"')
++		path = path.substr(1, path.size() - 2);
++	while (path.size() > 1 && (path.back() == '/' || path.back() == '\\') && path[path.size() - 2] != ':')
++		path.pop_back();
++	if (path.empty())
++		return path;
++
++	std::error_code ec;
++	fs::path folder(path);
++	if (fs::is_regular_file(folder, ec))
++		folder = folder.parent_path();
++	if (StrTools::equals_ignore_case(folder.filename().string(), "System") && !fs::exists(File::find_ignoring_case(folder / "System"), ec) &&
++		fs::is_directory(folder.parent_path(), ec))
++		folder = folder.parent_path();
++	return folder.string();
++}
++
++GameLaunchInfo GameFolderSelection::ExamineFolder(const std::string& givenPath, std::string* problem)
  {
  	GameLaunchInfo info;
  
++	const std::string path = GameRootFromPath(givenPath);
  	if (path.empty())
  		return info;
  
@@ -45,7 +96,7 @@ index 473146a7..bf256223 100644
  	if (ue1_game.first != KnownUE1Games::UE1_GAME_NOT_FOUND)
  	{
 diff --git a/SurrealEngine/GameFolder.h b/SurrealEngine/GameFolder.h
-index 1a03615b..dfacd75e 100644
+index 1a03615b..b4546294 100644
 --- a/SurrealEngine/GameFolder.h
 +++ b/SurrealEngine/GameFolder.h
 @@ -24,6 +24,8 @@ struct GameLaunchInfo
@@ -57,12 +108,15 @@ index 1a03615b..dfacd75e 100644
  	bool IsNerfArenaBlast() const { return gameExecutableName == "nerf" || gameExecutableName == "Nerf"; }
  };
  
-@@ -34,9 +36,11 @@ public:
+@@ -34,9 +36,14 @@ public:
  	static GameLaunchInfo GetLaunchInfo(int selectedGame);
  
  	static Array<GameLaunchInfo> Games;
-+	// why each folder given on the command line wasn't recognised
++	// why each folder given on the command line or in the launcher's list wasn't recognised
 +	static Array<std::string> Problems;
++
++	// the install folder for a path a player gave: the folder, its System folder or the game's exe
++	static std::string GameRootFromPath(std::string path);
  
  private:
 -	static GameLaunchInfo ExamineFolder(const std::string& path);
