@@ -85,6 +85,12 @@ the wand picks the spell from the target, `baseWand.ChooseSpell`):
 The counts come from the maps' actors (dumped with UELib). A save made in the level before is still the way
 to test with an exact state.
 
+HP2's `--level` (`src/hp2/HP2LevelStart.cpp`) gives Harry the spells the lessons have taught him by the story state he
+reaches the map in ([re/hp2/gameplay.md](re/hp2/gameplay.md#spells)): Rictusempra from GSTATE030 (Ch1Rictusempra on),
+Skurge from GSTATE060, Diffindo from GSTATE090, Spongify from GSTATE140; Flipendo, Lumos and Alohomora every Harry
+has. The state is `--gamestate`'s, else the one the story enters the map in, else Harry's own; a hub without one
+(Harry placed with "None") gets all four. Nothing else is set yet (no story flow, cards, beans or save slot).
+
 ### Automated route through Lev_Tut1
 
 `HP1_GOTO` waypoints ([debug-tools.md](debug-tools.md)) that take Harry through Lev_Tut1 (`--url=Lev_Tut1`): stairs →

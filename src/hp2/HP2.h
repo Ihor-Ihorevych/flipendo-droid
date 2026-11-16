@@ -9,6 +9,7 @@ class AudioDevice;
 class ULevel;
 class UActor;
 class UPawn;
+class UPlayerPawn;
 class BspSurface;
 struct PlayingSound;
 class USurrealAudioDevice;
@@ -46,6 +47,10 @@ namespace HP2
 	// After a map loads (not Entry): sets each actor's bInCurrentGameState from the player's CurrentGameState and raises
 	// OnResolveGameState (src/hp2/HP2GameState.cpp)
 	void ScreenActorsByGameState(ULevel* level);
+
+	// --level=<map> (src/hp2/HP2LevelStart.cpp). Engine::LoginPlayer, before Possess: the first level started with
+	// --level gives Harry the spells the story has taught him by then.
+	void LevelStartPlayer(UPlayerPawn* pawn, const std::string& map);
 
 	// src/hp2/HP2Tick.cpp: ULevel::TickActor ticks TickBefore(actor, 0..2) before the actor: its TickParent, its
 	// TickParent2, then its Owner (unless the actor is one of the owner's tick parents). UActor::Destroy calls
