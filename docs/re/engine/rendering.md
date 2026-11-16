@@ -111,6 +111,13 @@ ViewLocation, which a BSP mirror's reflection then kept at the real camera, so i
 eye from the frame's view transform (`VisibleFrame::EyeLocation`, also used by the skeletal meshes' one-sided test, which had kept Harry's far side in the reflection); and mover polygons weren't reversed in mirror frames as BSP surfaces are
 (`VisibleNode`), so the device culled them by their flipped winding.
 
+Sky portals go before mirrors. SurrealEngine drew a frame's portals in BSP order and doesn't cut a portal's frame to
+its spans on the GPU, so a sky portal drawn after a mirror covered the reflection with its sky dome wherever the
+sky's polygons reached. HP2's PrivetDr bedroom mirror (surface `extwindow_PD`, Mirrored, on a frame 8 units out from
+the wall at y 784), seen from the side, showed the night sky over half the room it reflects: the bedroom window's sky
+portal came after it. Flipendo (render patch, any game) draws a frame's sky portals first. Checked 2026-11-16 with
+three PrivetDr views; Lev_Tut3's and Lev4_Sneak2's mirrors look the same as before.
+
 ## Warp zones and mirrors in portals (`URender::OccludeBsp` [HP1 Render 0x10B22480])
 
 Checked in HP1's Render.dll. A portal into a `WarpZoneInfo`'s zone is drawn as a warp only below portal depth 3 and
