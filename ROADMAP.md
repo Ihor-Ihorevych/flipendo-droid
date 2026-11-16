@@ -8,12 +8,13 @@ Legend: [~] partly done / in progress · [ ] not started
 
 ## HP2: Chamber of Secrets
 - [~] HP2 (UE1 build 433), on the same engine as HP1 (groundwork: [docs/one-engine.md](docs/one-engine.md)).
-  Status (2026-11-15): players are now playtesting it (issue #16, releases 1.3 to 1.7) and reporting bugs; four were
+  Status (2026-11-16): players are now playtesting it (issue #16, releases 1.3 to 1.8) and reporting bugs; four were
   fixed on 2026-11-11 (vendor trading crash #19, large fire crabs' fireballs crash #21, flipped crab on a lift #22,
   invisible wand #25), and on 2026-11-13 the first challenge (Ch1Rictusempra, #26, #16: fire crabs and the crab bucket;
   in 1.5), and in 1.6 (2026-11-14) the hang entering the Chamber and its quiet sound effects (#29), a freeze on
   picking up a bean early in the bean bonus room (#20) and hub beans coming back after a load (#23), and in 1.7 (2026-11-15) the Gold Card Challenge sending Harry straight
-  back to the hub (#33) and Diffindo stopping short of the ropes behind Adv7SlythComRoom's gates (#23). Nobody has played it through to the end yet, so how close it is to the original isn't known.
+  back to the hub (#33) and Diffindo stopping short of the ropes behind Adv7SlythComRoom's gates (#23), and in 1.8 (2026-11-16) the fire crabs looking faded in Adv3DungeonQuest, Draco walking in place in
+  Grandstaircase_hub's cutscene and cracking audio (#34), and the Privet Drive mirror showing the sky (#35). Nobody has played it through to the end yet, so how close it is to the original isn't known.
   Known to work: Game.exe's front end (splashes, New Game, Load Game, Options), the intro and its
   cutscenes with subtitles (Enter skips them), the in-game book and options at any resolution, saving and loading,
   hub persistence; contributors have played on into later levels (Peeves' Skurge fight, Aragog's web). The HP2 sound
