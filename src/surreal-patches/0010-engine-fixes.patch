@@ -170,10 +170,22 @@ index 442234ad..898ea7bd 100644
 +	float maxVolume = 1.0f;
  };
 diff --git a/SurrealEngine/Audio/OpenAL/OpenALAudioDevice.cpp b/SurrealEngine/Audio/OpenAL/OpenALAudioDevice.cpp
-index 09176379..cf1b3f72 100644
+index 09176379..36bc17a9 100644
 --- a/SurrealEngine/Audio/OpenAL/OpenALAudioDevice.cpp
 +++ b/SurrealEngine/Audio/OpenAL/OpenALAudioDevice.cpp
-@@ -45,6 +45,9 @@ OpenALAudioDevice::OpenALAudioDevice(int inFrequency, int numVoices, int inMusic
+@@ -38,13 +38,20 @@ OpenALAudioDevice::OpenALAudioDevice(int inFrequency, int numVoices, int inMusic
+ 		ALC_SYNC, ALC_FALSE
+ 	};
+ 
+-	alContext = alcCreateContext(alDevice, nullptr);
++	// Several loud sounds at once add up past full scale; the output limiter brings those peaks down smoothly
++	// instead of leaving them to be cut off at the device, which is heard as a crack
++	static const ALCint limiterAttribs[] = { ALC_OUTPUT_LIMITER_SOFT, ALC_TRUE, 0 };
++
++	alContext = alcCreateContext(alDevice, limiterAttribs);
+ 	if (alContext == nullptr)
+ 		Exception::Throw("Failed to initialize OpenAL context");
+ 
  	if (alcMakeContextCurrent(alContext) == ALC_FALSE)
  		Exception::Throw("Failed to make OpenAL context current");
  
@@ -183,7 +195,7 @@ index 09176379..cf1b3f72 100644
  	// init listener state
  	ALfloat listenerOri[] = { 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, -1.0f };
  	alListener3f(AL_POSITION, 0, 0, 0.0f);
-@@ -102,6 +105,7 @@ int OpenALAudioDevice::GetTotalChannels()
+@@ -102,6 +109,7 @@ int OpenALAudioDevice::GetTotalChannels()
  
  void OpenALAudioDevice::AddSound(USound* sound)
  {
@@ -191,7 +203,7 @@ index 09176379..cf1b3f72 100644
  	sounds.push_back(sound);
  
  	ALenum format = AL_FORMAT_MONO_FLOAT32;
-@@ -120,6 +124,7 @@ void OpenALAudioDevice::AddSound(USound* sound)
+@@ -120,6 +128,7 @@ void OpenALAudioDevice::AddSound(USound* sound)
  
  void OpenALAudioDevice::RemoveSound(USound* sound)
  {
@@ -199,7 +211,7 @@ index 09176379..cf1b3f72 100644
  	auto it = sounds.begin();
  	while (it != sounds.end())
  	{
-@@ -135,6 +140,7 @@ void OpenALAudioDevice::RemoveSound(USound* sound)
+@@ -135,6 +144,7 @@ void OpenALAudioDevice::RemoveSound(USound* sound)
  
  bool OpenALAudioDevice::IsPlaying(int channel)
  {
@@ -207,7 +219,7 @@ index 09176379..cf1b3f72 100644
  	ALSoundSource& source = sources[channel];
  	return source.IsPlaying();
  }
-@@ -148,6 +154,7 @@ void OpenALAudioDevice::PlayMusic(std::unique_ptr<AudioSource> source)
+@@ -148,6 +158,7 @@ void OpenALAudioDevice::PlayMusic(std::unique_ptr<AudioSource> source)
  
  void OpenALAudioDevice::PlaySound(int channel, USound* sound, vec3& location, float volume, float radius, float pitch)
  {
@@ -215,7 +227,7 @@ index 09176379..cf1b3f72 100644
  	if (!std::isfinite(volume) || volume < 0.0f || !std::isfinite(pitch) || channel >= sources.size())
  		Exception::Throw("Invalid PlaySound arguments");
  
-@@ -169,6 +176,7 @@ void OpenALAudioDevice::PlaySound(int channel, USound* sound, vec3& location, fl
+@@ -169,6 +180,7 @@ void OpenALAudioDevice::PlaySound(int channel, USound* sound, vec3& location, fl
  
  void OpenALAudioDevice::UpdateSound(int channel, vec3& location, float volume, float radius, float pitch)
  {
@@ -223,7 +235,7 @@ index 09176379..cf1b3f72 100644
  	if (!std::isfinite(volume) || volume < 0.0f || !std::isfinite(pitch) || channel >= sources.size())
  		Exception::Throw("Invalid PlaySound arguments");
  
-@@ -184,15 +192,23 @@ void OpenALAudioDevice::UpdateSound(int channel, vec3& location, float volume, f
+@@ -184,15 +196,23 @@ void OpenALAudioDevice::UpdateSound(int channel, vec3& location, float volume, f
  
  void OpenALAudioDevice::StopSound(int channel)
  {
@@ -236,20 +248,20 @@ index 09176379..cf1b3f72 100644
  
 -std::string OpenALAudioDevice::getALErrorString()
 +void OpenALAudioDevice::SetLooping(int channel, bool loop)
-+{
+ {
+-	switch (alGetError())
 +	std::lock_guard alLock(alMutex);
 +	if (channel < (int)sources.size())
 +		sources[channel].SetLooping(loop);
 +}
 +
 +std::string OpenALAudioDevice::getALErrorString(ALenum error)
- {
--	switch (alGetError())
++{
 +	switch (error)
  	{
  	case AL_NO_ERROR:
  		return "AL_NO_ERROR";
-@@ -221,20 +237,21 @@ void OpenALAudioDevice::PlayMusicBuffer(AudioSource* music)
+@@ -221,20 +241,21 @@ void OpenALAudioDevice::PlayMusicBuffer(AudioSource* music)
  	{
  		alBufferData(alMusicBuffers[i], format, musicQueue.Pop(), musicBufferSize * 4, freq);
  		if ((error = alGetError()) != AL_NO_ERROR)
@@ -276,7 +288,7 @@ index 09176379..cf1b3f72 100644
  	ALint status;
  	alGetSourcei(alMusicSource, AL_BUFFERS_PROCESSED, &status);
  
-@@ -247,12 +264,12 @@ void OpenALAudioDevice::UpdateMusicBuffer(AudioSource* music)
+@@ -247,12 +268,12 @@ void OpenALAudioDevice::UpdateMusicBuffer(AudioSource* music)
  		int freq = music->GetFrequency();
  
  		alBufferData(buffer, format, musicQueue.Pop(), musicBufferSize * 4, freq);
@@ -293,7 +305,7 @@ index 09176379..cf1b3f72 100644
  
  		status--;
  	}
-@@ -261,24 +278,67 @@ void OpenALAudioDevice::UpdateMusicBuffer(AudioSource* music)
+@@ -261,24 +282,67 @@ void OpenALAudioDevice::UpdateMusicBuffer(AudioSource* music)
  	if (status == AL_STOPPED)
  	{
  		alSourcePlay(alMusicSource);
@@ -364,7 +376,7 @@ index 09176379..cf1b3f72 100644
  
  		vec3 at, left, up;
  		Coords::Rotation(listener->Rotation()).GetAxes(at, left, up);
-@@ -294,6 +354,7 @@ void OpenALAudioDevice::MusicThreadMain()
+@@ -294,6 +358,7 @@ void OpenALAudioDevice::MusicThreadMain()
  {
  	std::unique_ptr<AudioSource> currentMusic;
  	bool musicPlaying = false;
@@ -372,7 +384,7 @@ index 09176379..cf1b3f72 100644
  
  	while (true)
  	{
-@@ -305,42 +366,125 @@ void OpenALAudioDevice::MusicThreadMain()
+@@ -305,42 +370,126 @@ void OpenALAudioDevice::MusicThreadMain()
  		{
  			if (musicPlaying)
  			{
@@ -510,7 +522,8 @@ index 09176379..cf1b3f72 100644
 +		nextDeviceCheck = now + std::chrono::seconds(lostRetrySeconds);
 +		lostRetrySeconds = std::min(lostRetrySeconds * 2, 30);
 +	}
-+	if (alcReopenDevice(alDevice, nullptr, nullptr))
++	static const ALCint reopenAttribs[] = { ALC_OUTPUT_LIMITER_SOFT, ALC_TRUE, 0 };
++	if (alcReopenDevice(alDevice, nullptr, reopenAttribs))
 +		LogMessage(std::string("Audio device: now ") + alcGetString(alDevice, ALC_ALL_DEVICES_SPECIFIER) + (connected ? "" : " (the last one was lost)") + ", system default " + newDefault);
 +}
 diff --git a/SurrealEngine/Audio/OpenAL/OpenALAudioDevice.h b/SurrealEngine/Audio/OpenAL/OpenALAudioDevice.h
@@ -807,7 +820,7 @@ index 1559ad63..e3e759f0 100644
  			{
  				std::string propertyNameStr;
 diff --git a/SurrealEngine/Package/IniFile.cpp b/SurrealEngine/Package/IniFile.cpp
-index 6aab46e..27808d9 100644
+index 6aab46e1..27808d9e 100644
 --- a/SurrealEngine/Package/IniFile.cpp
 +++ b/SurrealEngine/Package/IniFile.cpp
 @@ -3,6 +3,7 @@
