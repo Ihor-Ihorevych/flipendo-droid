@@ -1220,7 +1220,7 @@ index 331caac5..81574634 100644
  	bool needTranslucentPass = false;
  
 diff --git a/SurrealEngine/Render/VisibleNode.cpp b/SurrealEngine/Render/VisibleNode.cpp
-index 57a391a6..529e0d14 100644
+index 57a391a6..9409ccf4 100644
 --- a/SurrealEngine/Render/VisibleNode.cpp
 +++ b/SurrealEngine/Render/VisibleNode.cpp
 @@ -3,6 +3,7 @@
@@ -1231,7 +1231,18 @@ index 57a391a6..529e0d14 100644
  #include "Engine.h"
  #include "Packages/Engine/Resources/Level/ULevel.h"
  #include "Packages/Engine/Resources/Level/UModel.h"
-@@ -71,13 +72,19 @@ void VisibleNode::Draw(VisibleFrame* frame)
+@@ -20,7 +21,9 @@ void VisibleNode::Draw(VisibleFrame* frame)
+ 
+ 	engine->render->UpdateTexture(surface.Material);
+ 
+-	auto zoneActor = engine->GetZoneActor(Front ? Node->Zone0 : Node->Zone1);
++	// Front: the camera is in front of the node's plane (VisibleFrame::ProcessNodeSurface), so the surface takes the zone on
++	// that side (Zone1) for its ambient light and texture panning
++	auto zoneActor = engine->GetZoneActor(Front ? Node->Zone1 : Node->Zone0);
+ 
+ 	// If no ZoneInfo is found, use the values from LevelInfo instead.
+ 	float ZoneUPanSpeed = zoneActor->TexUPanSpeed();
+@@ -71,13 +74,19 @@ void VisibleNode::Draw(VisibleFrame* frame)
  		}
  	}
  

@@ -140,7 +140,11 @@ the front zone with the back leaf, so actors often had leaf -1 (fixed for every 
   viewer's side of the surface: for a wall seen from the front that's the node's front zone, `iZone[1]`. SurrealEngine
   passed the opposite side (its `Front` flag was true when the camera was behind the plane), so walls took the solid
   side's zone 0 (LevelInfo, usually no ambient). Lev_Tut2's courtyard facades lost ZoneInfo0's blue ambient
-  (brightness 50) and were nearly black (fixed 2026-10-05, ungated, `Render/VisibleFrame.cpp`). The Lev_Tut1 intro
+  (brightness 50) and were nearly black (fixed 2026-10-05, ungated, `Render/VisibleFrame.cpp`). SurrealEngine's own
+  fix of the same flag (c41d349e, in our update of 2026-10-26) flipped `VisibleNode::Draw`'s zone pick back, and with
+  our flag that took the solid side again: on HP2's Quidditch pitch (Quidditch_Intro, ZoneInfo1 ambient 50) the tower
+  faces turned away from the sun, which have no light in their light map, drew pure black until 2026-11-17 (issue
+  #39). `VisibleNode::Draw` now takes `Zone1` when `Front` (the camera is in front of the node's plane). The Lev_Tut1 intro
   Before that fix the Lev_Tut1 intro calibration (below) had been measured with the wrong zone's ambient.
 - **Light map values** are 7 bits per channel, 127 = full. The ambient fill is `floor(FGetHSV(zone ambient) * 64)`
   (`0.25 * 256`), alpha 127. Each light adds `min(colour * L, 127)` per channel through a 256-entry palette (L = the
