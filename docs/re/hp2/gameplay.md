@@ -107,7 +107,9 @@ sends Harry to the challenge:
 | Spongify | Grandstaircase_hub (`SpellLessonSpongifyTrigger`) | `13060SpongeEnd` | GSTATE140 | Ch4Spongify |
 
 The duelling spells are never added in the story; the duels select them with `bForceSelection`. `--level` gives Harry
-the lessons' spells by the story state he reaches the map in (`src/hp2/HP2LevelStart.cpp`, issue #41).
+the lessons' spells by the story state he reaches the map in (`src/hp2/HP2LevelStart.cpp`, issue #41). The hubs place
+Harry with the state "None" (nothing is screened); `--level` sets the first state the story reaches the hub in
+(`LevelStart_GroundsHub_GState010`, `LevelStart_EntryHallHub_GState010`, `levelStart_GrandStaircaseHub_GState020`).
 
 The spell symbol on a target (a chest's keyhole for Alohomora) is `SpellCursor.SpellGesture`, a `GestureSprite`: a plain
 translucent sprite (`Sprite`, DT_Sprite) whose Texture is the spell's WetTexture (`SpellShapes.SpellFX.AlohomoraWet1`,

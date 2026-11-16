@@ -53,7 +53,7 @@ Times are seconds since the first frame.
 `--url=<hub>.unr` gives HP2's Harry a new game's `CurrentGameState` "None", so the map's actors aren't screened by the
 story state: every state's level-start cutscene runs at once and every state's characters stand around (two Filchs in
 Grandstaircase_hub). The original skips the screening for "None" too. Set a state and travel back into the map, which
-carries it over: `HP1_EXEC="1:@set Harry1 CurrentGameState GSTATE050;1.5:@travel Grandstaircase_hub"`. On a map that places Harry with a state (PrivetDr), `--gamestate=<GSTATExxx>` (HP2's `GAMESTATE=`) starts in another one. `--loadgame=<n>` (HP2's `-LOADGAME=<n>`) loads the save folder's `Save<n>.usa` once the first map is in (with `--url`, the folder is `Save/` itself, not a slot). `HP1_GOD` is HP1
+carries it over: `HP1_EXEC="1:@set Harry1 CurrentGameState GSTATE050;1.5:@travel Grandstaircase_hub"`. On a map that places Harry with a state (PrivetDr, or a hub started with `--level`), `--gamestate=<GSTATExxx>` (HP2's `GAMESTATE=`) starts in another one. `--loadgame=<n>` (HP2's `-LOADGAME=<n>`) loads the save folder's `Save<n>.usa` once the first map is in (with `--url`, the folder is `Save/` itself, not a slot). `HP1_GOD` is HP1
 only (HP2's Harry has no `MaxLifePotions`; the game stops with a fatal error).
 
 ## Starting a level: `--level`
@@ -88,8 +88,11 @@ to test with an exact state.
 HP2's `--level` (`src/hp2/HP2LevelStart.cpp`) gives Harry the spells the lessons have taught him by the story state he
 reaches the map in ([re/hp2/gameplay.md](re/hp2/gameplay.md#spells)): Rictusempra from GSTATE030 (Ch1Rictusempra on),
 Skurge from GSTATE060, Diffindo from GSTATE090, Spongify from GSTATE140; Flipendo, Lumos and Alohomora every Harry
-has. The state is `--gamestate`'s, else the one the story enters the map in, else Harry's own; a hub without one
-(Harry placed with "None") gets all four. Nothing else is set yet (no story flow, cards, beans or save slot).
+has. The state is `--gamestate`'s, else the one the story enters the map in, else Harry's own. On a hub (Grounds_hub,
+Entryhall_hub, Grandstaircase_hub), which places Harry with "None", `--level` also sets that state, so only its
+level-start cutscene and characters take part: the first state the story reaches the hub in (GSTATE010, 010, 020), or
+`--gamestate=<GSTATExxx>` for a later visit, e.g. `--level=Grandstaircase_hub --gamestate=GSTATE100`. Nothing else is
+set yet (cards, beans or save slot).
 
 ### Automated route through Lev_Tut1
 

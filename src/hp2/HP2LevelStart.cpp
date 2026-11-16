@@ -24,7 +24,11 @@
 //
 // The story state Harry reaches the map in is --gamestate's, else the map's below (from the cutscenes that change the
 // state and load the map, and the hub level-start cutscenes that open its entrance), else his own CurrentGameState.
-// Without one (the hubs place Harry with "None": every state's actors take part) he gets all four.
+// Without one he gets all four.
+//
+// The hubs place Harry with the state "None", so with --url every state's level-start cutscene and characters take
+// part at once. --level gives Harry there the first state the story reaches the hub in (its earliest LevelStart_*
+// cutscene), or --gamestate's, before ScreenActorsByGameState screens the actors by it.
 
 namespace HP2
 {
@@ -63,6 +67,13 @@ namespace HP2
 			{ "GreatHall_G", 180 },
 		};
 
+		const MapState HubStates[] =
+		{
+			{ "Grounds_hub", 10 },			// LevelStart_GroundsHub_GState010
+			{ "Entryhall_hub", 10 },		// LevelStart_EntryHallHub_GState010
+			{ "Grandstaircase_hub", 20 },	// levelStart_GrandStaircaseHub_GState020
+		};
+
 		struct Lesson
 		{
 			int state; // the state the lesson's end cutscene moves to
@@ -85,6 +96,12 @@ namespace HP2
 			return s;
 		}
 
+		std::string StateToken(int state)
+		{
+			std::string number = std::to_string(state);
+			return "GSTATE" + std::string(3 - std::min<size_t>(number.size(), 3), '0') + number;
+		}
+
 		// "GSTATE095" -> 95, anything else -> -1
 		int StateNumber(const std::string& token)
 		{
@@ -105,13 +122,26 @@ namespace HP2
 			return;
 
 		int state = StateNumber(commandline->GetArg("", "--gamestate", ""));
+		bool hub = false;
+		for (const MapState& entry : HubStates)
+		{
+			if (Lower(entry.map) == Lower(map))
+			{
+				hub = true;
+				if (state < 0)
+					state = entry.state;
+			}
+		}
 		for (const MapState& entry : EntryStates)
 		{
 			if (state < 0 && Lower(entry.map) == Lower(map))
 				state = entry.state;
 		}
-		if (state < 0 && pawn->HasProperty("CurrentGameState"))
-			state = StateNumber(*static_cast<std::string*>(pawn->GetProperty("CurrentGameState")));
+		std::string* current = pawn->HasProperty("CurrentGameState") ? static_cast<std::string*>(pawn->GetProperty("CurrentGameState")) : nullptr;
+		if (state < 0 && current)
+			state = StateNumber(*current);
+		if (hub && current && state >= 0 && Lower(*current) == "none")
+			*current = StateToken(state);
 
 		std::string learned;
 		for (const Lesson& lesson : Lessons)
@@ -125,7 +155,7 @@ namespace HP2
 			learned += std::string(learned.empty() ? "" : ", ") + (lesson.spell + 11); // after "hgame.spell"
 		}
 
-		std::string at = state >= 0 ? "GSTATE" + std::string(state < 100 ? "0" : "") + (state < 10 ? "0" : "") + std::to_string(state) : "no story state";
+		std::string at = state >= 0 ? StateToken(state) : "no story state";
 		LogMessage("--level " + map + ": " + at + ", spells learned in the lessons: " + (learned.empty() ? "none" : learned));
 	}
 }
