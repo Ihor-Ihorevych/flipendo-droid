@@ -130,7 +130,7 @@ namespace KW
 		pawn->Rotation() = rot;
 	}
 
-	// IDA Engine.dll: ?moveToward@APawn@@QAEHABVFVector@@@Z [HP1 0x103D96F0]
+	// IDA Engine.dll: ?moveToward@APawn@@QAEHABVFVector@@@Z [HP1 0x103D96F0] [HP2 0x103E6ED0]
 	// IDA Engine.dll: ?execPollMoveTo@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D8730], ?execPollMoveToward@APawn@@QAEXAAUFFrame@@QAX@Z [HP1 0x103D89C0]
 	bool PawnMoveToward(UPawn* pawn, const vec3& dest)
 	{
@@ -166,7 +166,27 @@ namespace KW
 		float distance = length(direction);
 		bool glider = !pawn->bCanStrafe() && (physics == PHYS_Flying || physics == PHYS_Swimming);
 
-		if (direction.x * direction.x + direction.y * direction.y < 256.0f && std::abs(direction.z) < std::max(pawn->CollisionHeight(), 48.0f))
+		// HP2 has no arrival radius: a pawn that moved last step arrives once it has passed the destination (it
+		// moved towards it, the destination is now behind it, and less than 3 steps away); one that didn't move
+		// arrives within 4 units, and otherwise gets at most 0.25 s more (MoveTimer).
+		float dist2dSq = direction.x * direction.x + direction.y * direction.y;
+		bool stalled = false;
+		bool reached;
+		if (IsHP2())
+		{
+			vec3 step = pawn->Location() - pawn->OldLocation();
+			stalled = step == vec3(0.0f) && length(pawn->Velocity()) != 0.0f;
+			if (stalled)
+				reached = dist2dSq < 16.0f;
+			else
+				reached = dot(dest - pawn->OldLocation(), step) > 0.0f && dot(step, direction) < 0.0f &&
+					dist2dSq / 9.0f < step.x * step.x + step.y * step.y;
+		}
+		else
+		{
+			reached = dist2dSq < 256.0f;
+		}
+		if (reached && std::abs(direction.z) < std::max(pawn->CollisionHeight(), 48.0f))
 		{
 			if (!glider)
 				pawn->Acceleration() = vec3(0.0f);
@@ -180,6 +200,8 @@ namespace KW
 
 		pawn->Acceleration() = direction * pawn->AccelRate();
 
+		if (stalled)
+			pawn->MoveTimer() = std::min(pawn->MoveTimer(), 0.25f);
 		if (pawn->MoveTimer() < 0.0f)
 			return true;
 

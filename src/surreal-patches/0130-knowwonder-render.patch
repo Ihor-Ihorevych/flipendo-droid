@@ -894,7 +894,7 @@ index 36448a66..3f69fb58 100644
  	bool DrawBrushPoly(VisibleFrame* frame, UModel* model, const Poly& poly, int pass, UMover* mover, bool translucentPass);
  };
 diff --git a/SurrealEngine/Render/VisibleFrame.cpp b/SurrealEngine/Render/VisibleFrame.cpp
-index 818aa65d..ace7926e 100644
+index 818aa65d..1e50db33 100644
 --- a/SurrealEngine/Render/VisibleFrame.cpp
 +++ b/SurrealEngine/Render/VisibleFrame.cpp
 @@ -1,7 +1,9 @@
@@ -1099,7 +1099,20 @@ index 818aa65d..ace7926e 100644
  	for (VisibleCorona &corona : Coronas)
  		corona.Draw(this);
  }
-@@ -395,6 +473,7 @@ void VisibleFrame::DrawPortals()
+@@ -381,6 +459,12 @@ void VisibleFrame::DrawTranslucent()
+ 
+ void VisibleFrame::DrawPortals()
+ {
++	// A portal's frame isn't cut to its spans on the GPU: its polygons are drawn whole, over whatever an earlier portal
++	// drew there (the depth buffer is cleared between portals). The sky is the far background, so its frames go
++	// first: drawn after a mirror's reflection, the sky dome covered the reflection, and HP2's PrivetDr bedroom
++	// mirror, seen from the side, showed the night sky over half the room it reflects.
++	std::stable_partition(Portals.begin(), Portals.end(), [](const VisiblePortal& p) { return p.SkyZone != nullptr; });
++
+ 	for (VisiblePortal& portal : Portals)
+ 	{
+ 		// BspClipper requires the visible spans list to be sorted
+@@ -395,6 +479,7 @@ void VisibleFrame::DrawPortals()
  				Coords::Location(portal.SkyZone->Location()).ToMatrix();
  
  			VisibleFrame skyframe;
@@ -1107,7 +1120,7 @@ index 818aa65d..ace7926e 100644
  			skyframe.Process(portal.SkyZone->Location(), skyToView, ViewRotation * Coords::Rotation(portal.SkyZone->Rotation()), MirrorFlag, PortalDepth + 1, portal.Spans);
  			Device->SetSceneNode(&skyframe.Frame);
  			skyframe.Draw();
-@@ -403,14 +482,16 @@ void VisibleFrame::DrawPortals()
+@@ -403,14 +488,16 @@ void VisibleFrame::DrawPortals()
  		else if (portal.WarpZone)
  		{
  			// Warp camera
@@ -1126,7 +1139,7 @@ index 818aa65d..ace7926e 100644
  			vec3 p = WarpLocationToOtherSide(portal.WarpZone, plane.xyz() * -plane.w);
  			vec3 n = WarpNormalToOtherSide(portal.WarpZone, vec3(node->PlaneX, node->PlaneY, node->PlaneZ));
  			vec4 portalPlane(n, -dot(p,n));
-@@ -425,15 +506,35 @@ void VisibleFrame::DrawPortals()
+@@ -425,15 +512,35 @@ void VisibleFrame::DrawPortals()
  		}
  		else // Mirror
  		{
@@ -1167,7 +1180,7 @@ index 818aa65d..ace7926e 100644
  			Device->SetSceneNode(&mirrorframe.Frame);
  			mirrorframe.Draw();
  			Device->ClearZ();
-@@ -444,6 +545,8 @@ void VisibleFrame::DrawPortals()
+@@ -444,6 +551,8 @@ void VisibleFrame::DrawPortals()
  	Device->SetSceneNode(&Frame);
  	for (VisiblePortal& portal : Portals)
  	{
@@ -1412,7 +1425,7 @@ index 331caac5..5aec3a3b 100644
  	bool needTranslucentPass = false;
  
 diff --git a/SurrealEngine/Render/VisibleNode.cpp b/SurrealEngine/Render/VisibleNode.cpp
-index 57a391a6..529e0d14 100644
+index 57a391a6..9409ccf4 100644
 --- a/SurrealEngine/Render/VisibleNode.cpp
 +++ b/SurrealEngine/Render/VisibleNode.cpp
 @@ -3,6 +3,7 @@
@@ -1423,7 +1436,18 @@ index 57a391a6..529e0d14 100644
  #include "Engine.h"
  #include "Packages/Engine/Resources/Level/ULevel.h"
  #include "Packages/Engine/Resources/Level/UModel.h"
-@@ -71,13 +72,19 @@ void VisibleNode::Draw(VisibleFrame* frame)
+@@ -20,7 +21,9 @@ void VisibleNode::Draw(VisibleFrame* frame)
+ 
+ 	engine->render->UpdateTexture(surface.Material);
+ 
+-	auto zoneActor = engine->GetZoneActor(Front ? Node->Zone0 : Node->Zone1);
++	// Front: the camera is in front of the node's plane (VisibleFrame::ProcessNodeSurface), so the surface takes the zone on
++	// that side (Zone1) for its ambient light and texture panning
++	auto zoneActor = engine->GetZoneActor(Front ? Node->Zone1 : Node->Zone0);
+ 
+ 	// If no ZoneInfo is found, use the values from LevelInfo instead.
+ 	float ZoneUPanSpeed = zoneActor->TexUPanSpeed();
+@@ -71,13 +74,19 @@ void VisibleNode::Draw(VisibleFrame* frame)
  		}
  	}
  

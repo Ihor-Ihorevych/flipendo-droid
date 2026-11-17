@@ -28,6 +28,7 @@ namespace KW
 	{
 		vec3 RootSpeed3D = vec3(0.0f);
 		float TrackTime = 0.0f;
+		float LoopEnd = 0.0f; // > 0: every track's last key (at this time) repeats key 0, see LoopTime()
 		int StartBone = 0;
 		uint32_t Flags = 0;
 		Array<int> BoneIndices;

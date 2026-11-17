@@ -466,9 +466,30 @@ namespace KW
 				if (mirrors ? ((surf.PolyFlags | texFlags) & PF_Mirrored) == 0 : (!surf.Material || !StrTools::equals_ignore_case(surf.Material->Name.ToString(), texName)))
 					continue;
 				char buf[256];
-				snprintf(buf, sizeof(buf), "HP1 surfs %s %d: flags=0x%08x texflags=0x%08x center=(%.0f,%.0f,%.0f) radius=%.0f",
-					surf.Material ? surf.Material->Name.ToString().c_str() : "None", (int)i, surf.PolyFlags, texFlags, surf.Center.x, surf.Center.y, surf.Center.z, surf.Radius);
-				LogMessage(buf);
+				const UModel* model = engine->Level->Model;
+				vec3 normal = model->Vectors[surf.vNormal];
+				snprintf(buf, sizeof(buf), "HP1 surfs %s %d: flags=0x%08x texflags=0x%08x center=(%.0f,%.0f,%.0f) radius=%.0f normal=(%.2f,%.2f,%.2f)",
+					surf.Material ? surf.Material->Name.ToString().c_str() : "None", (int)i, surf.PolyFlags, texFlags, surf.Center.x, surf.Center.y, surf.Center.z, surf.Radius,
+					normal.x, normal.y, normal.z);
+				std::string line = buf;
+				// The zones on both sides of its first node (iZone[0] behind, iZone[1] in front)
+				for (const BspNode& node : model->Nodes)
+				{
+					if (node.Surf == (int)i)
+					{
+						auto zoneName = [&](int z) { UActor* a = z < (int)model->Zones.size() ? model->Zones[z].ZoneActor : nullptr; return a ? a->Name.ToString() : std::string("None"); };
+						line += " zones=" + zoneName(node.Zone0) + "/" + zoneName(node.Zone1);
+						break;
+					}
+				}
+				// The light map's static lights (the editor's light build)
+				if (surf.LightMap >= 0 && model->LightMap[surf.LightMap].LightActors >= 0)
+				{
+					line += " lights:";
+					for (UActor* const* light = &model->Lights[model->LightMap[surf.LightMap].LightActors]; *light; light++)
+						line += " " + (*light)->Name.ToString();
+				}
+				LogMessage(line);
 			}
 			return;
 		}

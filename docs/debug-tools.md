@@ -43,7 +43,7 @@ Times are seconds since the first frame.
 | `@bump <actor> <other>` | raise `Bump(other)` on every actor whose name starts with `<actor>` (push a GridMover without aiming a spell: `@set GridMover0 bProjTarget False` first, so it takes the player as the bumper); HP2: bump a vendor into Harry to open a trade (`@set GOldMaleSly2 CharacterSells 0` first if it is out of stock) |
 | `@call <actor> <Fn>` | call the script function `Fn()` without arguments on every actor whose name starts with `<actor>`, e.g. `@call firecrabSmall6 HandleSpellFlipendo` (a Flipendo hit, pushed away from where Harry stands) |
 | `@place <actor> x y z` | move the actor with exactly that name to x y z as a teleport (`SetLocation`, the log says `ok` or `blocked`), e.g. fire crabs onto Ch1Rictusempra's crab bucket: `@state firecrabSmall19 stayFlipped` then `@place firecrabSmall19 3580.7 -123.9 -112` |
-| `@surfs <texture>` | log every BSP surface of the level drawn with that texture: PolyFlags, the texture's own flags, center |
+| `@surfs <texture>` | log every BSP surface of the level drawn with that texture: PolyFlags, the texture's own flags, center, normal, the zones behind / in front of it, and the static lights of its light map (from the editor's light build) |
 | `@polys <actor>` | log the brush polygons of every actor whose name starts with `<actor>`: normal, PolyFlags (0x1000 = mountable), texture, vertices (brush space) |
 | `@sweep sx sy sz ex ey ez bx by bz` | KnowWonder's BSP line check from start to end with a box of half size b, point checks at both ends (zone, leaf, push-out), and every actor the box sweep hits (MultiLineCheck), and the hit node's coplanar polygons with their flags and vertices: debugging collision and ledge grabs |
 | `@hull <actor>` | log the brush's BSP nodes (world plane, children, vertices, NodeFlags) and every collision leaf hull: its planes in world space (node, flipped) and its local box: where a mover is solid |
@@ -53,7 +53,7 @@ Times are seconds since the first frame.
 `--url=<hub>.unr` gives HP2's Harry a new game's `CurrentGameState` "None", so the map's actors aren't screened by the
 story state: every state's level-start cutscene runs at once and every state's characters stand around (two Filchs in
 Grandstaircase_hub). The original skips the screening for "None" too. Set a state and travel back into the map, which
-carries it over: `HP1_EXEC="1:@set Harry1 CurrentGameState GSTATE050;1.5:@travel Grandstaircase_hub"`. On a map that places Harry with a state (PrivetDr), `--gamestate=<GSTATExxx>` (HP2's `GAMESTATE=`) starts in another one. `--loadgame=<n>` (HP2's `-LOADGAME=<n>`) loads the save folder's `Save<n>.usa` once the first map is in (with `--url`, the folder is `Save/` itself, not a slot). `HP1_GOD` is HP1
+carries it over: `HP1_EXEC="1:@set Harry1 CurrentGameState GSTATE050;1.5:@travel Grandstaircase_hub"`. On a map that places Harry with a state (PrivetDr, or a hub started with `--level`), `--gamestate=<GSTATExxx>` (HP2's `GAMESTATE=`) starts in another one. `--loadgame=<n>` (HP2's `-LOADGAME=<n>`) loads the save folder's `Save<n>.usa` once the first map is in (with `--url`, the folder is `Save/` itself, not a slot). `HP1_GOD` is HP1
 only (HP2's Harry has no `MaxLifePotions`; the game stops with a fatal error).
 
 ## Starting a level: `--level`
@@ -84,6 +84,15 @@ the wand picks the spell from the target, `baseWand.ChooseSpell`):
 
 The counts come from the maps' actors (dumped with UELib). A save made in the level before is still the way
 to test with an exact state.
+
+HP2's `--level` (`src/hp2/HP2LevelStart.cpp`) gives Harry the spells the lessons have taught him by the story state he
+reaches the map in ([re/hp2/gameplay.md](re/hp2/gameplay.md#spells)): Rictusempra from GSTATE030 (Ch1Rictusempra on),
+Skurge from GSTATE060, Diffindo from GSTATE090, Spongify from GSTATE140; Flipendo, Lumos and Alohomora every Harry
+has. The state is `--gamestate`'s, else the one the story enters the map in, else Harry's own. On a hub (Grounds_hub,
+Entryhall_hub, Grandstaircase_hub), which places Harry with "None", `--level` also sets that state, so only its
+level-start cutscene and characters take part: the first state the story reaches the hub in (GSTATE010, 010, 020), or
+`--gamestate=<GSTATExxx>` for a later visit, e.g. `--level=Grandstaircase_hub --gamestate=GSTATE100`. Nothing else is
+set yet (cards, beans or save slot).
 
 ### Automated route through Lev_Tut1
 

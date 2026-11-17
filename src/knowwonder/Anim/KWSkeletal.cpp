@@ -325,7 +325,10 @@ namespace KW
 
 				if (!move->AnimTracks.empty())
 				{
-					float time = std::min(actor->AnimFrame(), 1.0f) * move->TrackTime;
+					// A loop whose last key repeats key 0 plays its keys over the whole loop instead of holding
+					// that pose until TrackTime (our fix, docs/re/hp2/original_bugs.md).
+					float loopTime = (move->LoopEnd > 0.0f && actor->bAnimLoop()) ? move->LoopEnd : move->TrackTime;
+					float time = std::min(actor->AnimFrame(), 1.0f) * loopTime;
 					float tween = (cache.HasPose && actor->TweenRate() != 0.0f) ? 1.0f - TweenAlpha(actor) : 0.0f;
 
 					for (size_t i = 0; i < numBones; i++)
@@ -741,6 +744,7 @@ namespace KW
 
 	// IDA Engine.dll: none: drawing is our own (HP1 renders through Render.dll/D3DDrv); pose and skinning come from GetFrame above
 	// IDA Render.dll: ?DrawLodMesh@URender@@QAEXPAUFSceneNode@@PAUFDynamicSprite@@PAVAActor@@ABVFCoords@@K@Z [HP1 0x10B0FF00] (vertex normals and lighting only)
+	// IDA D3DDrv.dll: ?DrawTriangles@UD3DRenderDevice@@UAEXPAUFSceneNode@@AAUFTextureInfo@@PAPAUFTransTexture@@HPAGHKPAVFSpanBuffer@@@Z [HP1 0x10005B60] [HP2 0x10005B80] (which faces get fog, and fog is added)
 	bool DrawSkeletalMesh(VisibleFrame* frame, UActor* actor, UActor* lightLocationActor, USkeletalMesh* mesh, bool translucentPass)
 	{
 		static Array<vec3> verts;
@@ -782,8 +786,6 @@ namespace KW
 		for (vec3& n : normals)
 			n *= 1.0f / std::sqrt(dot(n, n) + 0.001f);
 
-		auto lightsys = &engine->Level->Light;
-
 		uint32_t polyFlags = 0;
 		switch (actor->Style())
 		{
@@ -799,9 +801,6 @@ namespace KW
 		if (actor->bUnlit()) polyFlags |= PF_Unlit;
 
 		UZoneInfo* zoneActor = engine->GetZoneActor(actor->Region().ZoneNumber);
-		VertexLight vertexLight; // fog only; the light is HP1's (src/knowwonder/KWMeshLight.cpp)
-		BBox bounds = GetRenderBoundingBox(actor, mesh); // fogballs between the camera and this sphere fog the mesh
-		lightsys->InitVertexLight(vertexLight, lightLocationActor, zoneActor, vec4(bounds.center(), length(bounds.extents())));
 		MeshLighting lighting;
 		SetupMeshLighting(lighting, actor, lightLocationActor, zoneActor);
 		static Array<vec3> vertexLights;
@@ -821,6 +820,8 @@ namespace KW
 				continue;
 
 			uint32_t renderflags = material.PolyFlags | polyFlags;
+			// D3DDrv fogs a face only without PF_Translucent / PF_Modulated (a faded mesh's faces have PF_Translucent).
+			bool fogged = (renderflags & (PF_Translucent | PF_Modulated)) == 0 && opacity >= 1.0f;
 			ApplyOpacityFlags(opacity, renderflags);
 			UTexture* tex = (renderflags & PF_Environment) ? engine->render->Mesh.envmap : (material.TextureIndex < engine->render->Mesh.textures.size() ? engine->render->Mesh.textures[material.TextureIndex] : nullptr);
 			if (!tex)
@@ -886,7 +887,8 @@ namespace KW
 			for (int i = 0; i < 3; i++)
 			{
 				vertices[i].Light = (renderflags & PF_Unlit) ? lighting.Unlit : vertexLights[faceVerts[i]];
-				vertices[i].Fog = vertexLight.GetVertexFog(vertices[i].Point);
+				// The fog colour is added (D3D's specular colour); its alpha never darkens the face.
+				vertices[i].Fog = fogged ? vec4(lighting.Fog(vertices[i].Point).xyz(), 0.0f) : vec4(0.0f);
 			}
 
 			ApplyOpacityVertices(opacity, vertices, 3);

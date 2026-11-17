@@ -7,6 +7,7 @@
 #include "Packages/Engine/Actors/Info/UZoneInfo.h"
 #include "Packages/Engine/Actors/Info/ULevelInfo.h"
 #include "Packages/Engine/Resources/Level/ULevel.h"
+#include "Packages/Engine/Resources/Level/UModel.h"
 #include "Packages/Engine/Resources/Textures/UTexture.h"
 #include "Packages/Engine/Resources/UPalette.h"
 #include "Packages/Core/UClass.h"
@@ -245,6 +246,43 @@ namespace KW
 			info.Color = -info.Color;
 	}
 
+	// The volumetric lights that fog a mesh: the original's sprite collects them from the BSP leaves it is drawn in
+	// (each leaf's volumetric light list, sub_10B319A0), SetupForActor gives each its fog terms (sub_10B06920) and
+	// sorts them, ambient-source lights last. Here: the leaves' list of the actor's own leaf (Region.iLeaf) only.
+	// IDA Render.dll: not exported: sub_10B319A0 [HP1 0x10B319A0] (adds a leaf's volumetric lights to the sprite)
+	// IDA Render.dll: not exported: sub_10B06920 [HP1 0x10B06920] (the fog terms at its end: radius, density, colour)
+	static void SetupFogLights(MeshLighting& out, UActor* lightActor)
+	{
+		UModel* model = engine->Level->Model;
+		int leaf = lightActor->Region().BspLeaf;
+		if (leaf < 0 || leaf >= (int)model->Leaves.size() || model->Leaves[leaf].Volumetric < 0)
+			return;
+
+		vec3 view = engine->CameraLocation;
+		for (int i = model->Leaves[leaf].Volumetric; i < (int)model->Lights.size() && model->Lights[i]; i++)
+		{
+			UActor* light = model->Lights[i];
+			if (light->bDeleteMe() || out.NumFogLights >= (int)std::size(out.FogLights))
+				continue;
+
+			MeshFogLight& f = out.FogLights[out.NumFogLights];
+			float brightness = light->LightBrightness() * (1.0f / 255.0f);
+			f.Color = GlobalLighting(light, brightness) * (light->Level()->Brightness() * brightness);
+			f.Density = light->VolumeBrightness() * brightness * 0.015625f;
+			f.Fog = light->VolumeFog() * 0.0039215689f;
+			float radius = light->WorldVolumetricRadius();
+			f.RadiusSqr = radius * radius;
+			f.InvRadius = 1.0f / radius;
+			f.InvRadiusSqr = f.InvRadius * f.InvRadius;
+			f.Offset = light->Location() - view;
+			f.OffsetSqr = dot(f.Offset, f.Offset);
+			f.CameraInside = f.OffsetSqr < f.RadiusSqr;
+			f.Ambient = LightSource(light) == LD_Ambient;
+			out.NumFogLights++;
+		}
+		std::stable_partition(out.FogLights, out.FogLights + out.NumFogLights, [](const MeshFogLight& f) { return !f.Ambient; });
+	}
+
 	// IDA Render.dll: not exported: sub_10B098F0 [HP1 0x10B098F0] (the light manager's SetupForActor: GLightManager's
 	// vtable off_10B386D4, slot +8; called by ?DrawLodMesh@URender@@QAEXPAUFSceneNode@@PAUFDynamicSprite@@PAVAActor@@ABVFCoords@@K@Z)
 	// IDA Render.dll: not exported: sub_10B097B0 [HP1 0x10B097B0] (adds a light to the frame's list)
@@ -273,6 +311,7 @@ namespace KW
 		out.Unlit = vec3(unlit);
 
 		out.NumLights = 0;
+		out.NumFogLights = 0;
 		if (actor->bUnlit() || lightActor->Region().BspLeaf == -1)
 			return;
 
@@ -364,6 +403,8 @@ namespace KW
 			if (c.Fade > 1 && cache.Lights.size() < 16)
 				cache.Lights.push_back({ light, c.Fade });
 		}
+
+		SetupFogLights(out, lightActor);
 	}
 
 	// IDA Render.dll: not exported: sub_10B02B10 [HP1 0x10B02B10] (the light manager's Light: GLightManager's vtable
@@ -429,5 +470,79 @@ namespace KW
 			return bits >= 0x3F800000 ? 1.0f : v;
 		};
 		return vec3(clampChannel(result.x), clampChannel(result.y), clampChannel(result.z));
+	}
+
+	// The fog part of the light manager's Light: for every fog light, the density along the ray from the camera to
+	// the vertex inside the light's sphere (the integral of 3 * (1 - r^2 / R^2), times Density, at most 1), doubled;
+	// it adds that times the light's colour and replaces that times VolumeFog of the colour so far. An ambient-source
+	// light fogs uniformly: distance / R * Density. SurrealEngine's own mesh fog used every fogball between the camera
+	// and the mesh, with another density, which turned the fire crabs in Adv3DungeonQuest's green room see-through.
+	// IDA Render.dll: not exported: sub_10B02B10 [HP1 0x10B02B10] (the block under flag 0x40000000, vertex +64..+76)
+	vec4 MeshLighting::Fog(const vec3& location) const
+	{
+		vec4 fog(0.0f);
+		vec3 V = location - ViewLocation;
+		float depthSqr = dot(V, V);
+		for (int i = 0; i < NumFogLights; i++)
+		{
+			const MeshFogLight& f = FogLights[i];
+			float amount;
+			if (f.Ambient)
+			{
+				amount = std::min(f.InvRadius * f.Density * std::sqrt(depthSqr), 1.0f);
+			}
+			else
+			{
+				float proj = dot(f.Offset, V);
+				if ((!f.CameraInside && proj < 0.0f) || depthSqr <= 0.0f)
+					continue;
+				float distSqr = f.OffsetSqr - proj * proj / depthSqr; // squared distance from the light to the ray
+				if (f.RadiusSqr < distSqr)
+					continue;
+				float depth = std::sqrt(depthSqr);
+				float closest = proj / depth;
+				float half = std::sqrt(f.RadiusSqr - distSqr);
+				float lo = closest - depth, hi;
+				bool whole = false;
+				if (closest <= half)
+				{
+					hi = closest;
+					lo = std::max(lo, -half);
+				}
+				else
+				{
+					hi = half;
+					if (lo < -half)
+					{
+						lo = -half;
+						whole = true;
+					}
+				}
+				if (lo >= hi)
+					continue;
+				float k = 3.0f - distSqr * f.InvRadiusSqr * 3.0f;
+				float a = hi * f.InvRadius;
+				if (whole)
+				{
+					amount = 2.0f * a * (k - a * a) * f.Density;
+				}
+				else
+				{
+					float b = lo * f.InvRadius;
+					amount = (a * (k - a * a) - (k - b * b) * b) * f.Density;
+				}
+				if (amount <= 0.0f)
+					continue;
+				amount = std::min(amount, 1.0f);
+			}
+
+			amount += amount;
+			float alpha = std::min(amount * f.Fog, 1.0f);
+			fog.x = std::min(amount * f.Color.x + (1.0f - alpha) * fog.x, 1.0f);
+			fog.y = std::min(amount * f.Color.y + (1.0f - alpha) * fog.y, 1.0f);
+			fog.z = std::min(amount * f.Color.z + (1.0f - alpha) * fog.z, 1.0f);
+			fog.w = std::min(fog.w + alpha, 1.0f);
+		}
+		return fog;
 	}
 }

@@ -72,6 +72,31 @@ GLightManager's vtable is `off_10B386D4` (+8 SetupForActor, +24 Light per vertex
   an unsigned compare, so a negative channel also becomes 1.
 - The original lights in camera space but takes LD_Plane's direction in world space; we light in world space.
 
+## A vertex's fog (the same function, flag 0x40000000)
+
+Volumetric lights (VolumeRadius) fog a mesh. The sprite collects the volumetric lights of the BSP leaves it is drawn in
+(each leaf's volumetric list, `sub_10B319A0`); SetupForActor sets the flag when there are any, gives each light its
+fog terms (end of `sub_10B06920`) and sorts them, LD_Ambient lights last:
+
+- R = `(VolumeRadius + 1) * 25`; density = `VolumeBrightness / 64 * brightness` (the light's brightness after its
+  LightType); colour = the light's GlobalLighting colour `* Level.Brightness * brightness`; fog = `VolumeFog / 255`.
+- Per vertex, along the ray from the camera to it: no fog when the ray misses the sphere, or the light is behind the
+  camera while the camera is outside it. Otherwise the density integrated over the part of the ray inside the sphere,
+  in units of R: the integral of `3 * (1 - r²/R²)` (r = distance from the light), times density, at most 1. An
+  LD_Ambient light gives `distance / R * density` (at most 1) instead.
+- With `amount = 2 *` that: fog colour = `min(amount * colour + (1 - a) * fog colour so far, 1)` with
+  `a = min(amount * fog, 1)`, and fog alpha += a (at most 1).
+
+D3DDrv's `DrawTriangles` (HP1 0x10005B60, HP2 0x10005B80, D3DDrv.dll) puts the fog colour in D3D's specular colour,
+which is added to `texture * light`; the fog alpha is not used, so fog never darkens a mesh. It fogs only with
+`VolumetricLighting` on (HP2's default.ini: True) and on faces without PF_Translucent or PF_Modulated (a faded mesh
+has PF_Translucent).
+
+Flipendo (`MeshLighting::Fog`): the volumetric list of the actor's own leaf only. SurrealEngine's mesh fog took every
+fogball between the camera and the mesh, with another density, and blended `fog + colour * (1 - alpha)`: the fire
+crabs inside Light150's sphere (R 425, VolumeFog 128) in Adv3DungeonQuest's green room kept a fifth of their colour and
+looked see-through (issue #34).
+
 # Light maps
 
 The light manager's light map builder is `sub_10B077F0` (Render.dll). It fills the map with the zone ambient, sets up
@@ -115,7 +140,11 @@ the front zone with the back leaf, so actors often had leaf -1 (fixed for every 
   viewer's side of the surface: for a wall seen from the front that's the node's front zone, `iZone[1]`. SurrealEngine
   passed the opposite side (its `Front` flag was true when the camera was behind the plane), so walls took the solid
   side's zone 0 (LevelInfo, usually no ambient). Lev_Tut2's courtyard facades lost ZoneInfo0's blue ambient
-  (brightness 50) and were nearly black (fixed 2026-10-05, ungated, `Render/VisibleFrame.cpp`). The Lev_Tut1 intro
+  (brightness 50) and were nearly black (fixed 2026-10-05, ungated, `Render/VisibleFrame.cpp`). SurrealEngine's own
+  fix of the same flag (c41d349e, in our update of 2026-10-26) flipped `VisibleNode::Draw`'s zone pick back, and with
+  our flag that took the solid side again: on HP2's Quidditch pitch (Quidditch_Intro, ZoneInfo1 ambient 50) the tower
+  faces turned away from the sun, which have no light in their light map, drew pure black until 2026-11-17 (issue
+  #39). `VisibleNode::Draw` now takes `Zone1` when `Front` (the camera is in front of the node's plane). The Lev_Tut1 intro
   Before that fix the Lev_Tut1 intro calibration (below) had been measured with the wrong zone's ambient.
 - **Light map values** are 7 bits per channel, 127 = full. The ambient fill is `floor(FGetHSV(zone ambient) * 64)`
   (`0.25 * 256`), alpha 127. Each light adds `min(colour * L, 127)` per channel through a 256-entry palette (L = the

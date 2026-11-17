@@ -1,7 +1,7 @@
-flipendo: --autolaunch, --logfile, --level and --renderer command line flags
+flipendo: --autolaunch, --logfile, --level and --renderer command line flags; Play with no recognised game says why instead of starting without one
 
 diff --git a/SurrealEngine/GameApp.cpp b/SurrealEngine/GameApp.cpp
-index 3b059e5c..959e086e 100644
+index 3b059e5c..57b81b46 100644
 --- a/SurrealEngine/GameApp.cpp
 +++ b/SurrealEngine/GameApp.cpp
 @@ -6,17 +6,26 @@
@@ -31,7 +31,7 @@ index 3b059e5c..959e086e 100644
  	try
  	{
  		CommandLine cmd(args);
-@@ -27,20 +36,78 @@ int GameApp::main(Array<std::string> args)
+@@ -27,20 +36,85 @@ int GameApp::main(Array<std::string> args)
  
  		if (commandline->HasArg("-h", "--help"))
  		{
@@ -90,6 +90,13 @@ index 3b059e5c..959e086e 100644
  		if (selectedGameIndex >= 0)
  		{
  			GameLaunchInfo info = GameFolderSelection::GetLaunchInfo(selectedGameIndex);
++			// Play with an empty list (no folder recognised) would start without a game folder
++			if (info.gameRootFolder.empty())
++			{
++				if (GameFolderSelection::Problems.empty())
++					throw std::runtime_error("no known game found.\nAdd the game's install folder (the one that contains System, Maps, Textures) on the Folders tab.");
++				throw noGameFound("");
++			}
 +			// --level=<map>: start in that map like --url; the game adds the state a player arrives with (HP1)
 +			std::string level = commandline->GetArg("", "--level", "");
 +			if (!level.empty())

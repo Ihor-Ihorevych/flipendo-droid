@@ -93,6 +93,24 @@ ParticleFX that shows the spell's `GestureSprite`), teaches with `SpellLessonTri
 `spellDuelMimblewimble`, `spellDuelRictusempra`) and `SpellChallengeTrigger`. None of them calls the Gesture natives
 ([gestures.md](../engine/gestures.md)). Not studied yet.
 
+Harry's spells are `harry.SpellBook[32]`, a `travel` array indexed by the spell's `SpellType`; a wand only selects a
+spell that is in it (`baseWand.SetCurrentSpell` → `harry.IsInSpellBook`, unless `bNoSpellBookCheck`, which
+`TriggerTurnOnAllSpells` sets). `harry.PreBeginPlay` adds Flipendo, Lumos and Alohomora to every new Harry; the other four
+come from the lessons (`SpellLessonTrigger.EndLesson` by `LessonShape`), whose end cutscene moves the story state on and
+sends Harry to the challenge:
+
+| Spell | Lesson (map, SpellLessonTrigger tag) | End cutscene | State after | Challenge |
+| --- | --- | --- | --- | --- |
+| Rictusempra | DADA, Grandstaircase_hub (`SpellLessonRictuTrigger`) | `02080DADARictaEnd` | GSTATE030 | Ch1Rictusempra |
+| Skurge | Charms, Grandstaircase_hub (group `CharmsClass,GState050`) | `05060CharmSkurgEnd` | GSTATE060 | Ch2Skurge |
+| Diffindo | Herbology, Grounds_hub | `08060HerbDiffEnd` | GSTATE090 | Ch3Diffindo |
+| Spongify | Grandstaircase_hub (`SpellLessonSpongifyTrigger`) | `13060SpongeEnd` | GSTATE140 | Ch4Spongify |
+
+The duelling spells are never added in the story; the duels select them with `bForceSelection`. `--level` gives Harry
+the lessons' spells by the story state he reaches the map in (`src/hp2/HP2LevelStart.cpp`, issue #41). The hubs place
+Harry with the state "None" (nothing is screened); `--level` sets the first state the story reaches the hub in
+(`LevelStart_GroundsHub_GState010`, `LevelStart_EntryHallHub_GState010`, `levelStart_GrandStaircaseHub_GState020`).
+
 The spell symbol on a target (a chest's keyhole for Alohomora) is `SpellCursor.SpellGesture`, a `GestureSprite`: a plain
 translucent sprite (`Sprite`, DT_Sprite) whose Texture is the spell's WetTexture (`SpellShapes.SpellFX.AlohomoraWet1`,
 `FlipendoWet1`, ...), shown by `TurnOnSpellGestureFX`. The symbols aren't symmetric top to bottom, so they showed that

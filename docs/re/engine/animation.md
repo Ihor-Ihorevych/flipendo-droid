@@ -126,6 +126,11 @@ MeshCoords (GetMeshCoords), root motion accumulators.
   (key 0 at time 0). Find the first key with time > t; prev = the one before. Exactly on prev → prev. Past the
   last key → interpolate from the last key to key 0 at TrackTime. Quat: SlerpQuat; pos: lerp (KeyPos.Num == 1
   → KeyPos[0] for every key).
+- Loops that hold a pose: many sequences end on a copy of key 0 one 30 fps frame (two for a few) before TrackTime
+  (HP2 Harry's `run`: last key 1.2 s, TrackTime 1.2333; HP1 Harry's `run`: 0.6 / 0.6333), so a loop spends that last
+  bit going from key 0 to key 0 and the pose stands still once per cycle. Counted on load: 230 of 631 moves in HP2's
+  Adv3DungeonQuest, 70 of 295 in HP1's Lev_Tut1; `Walk` and `runback` in HP1 don't. Both games do this
+  (time = AnimFrame * TrackTime in both ApplyAnims); we don't (the looping-animation entry in both games' original_bugs.md).
 - Bone 0: if the mesh root isn't the animation root, the ancestors' keys are folded in
   (quat = -(child * parent), pos = FCoords(parent) applied to the child pos).
 - bAnimMove: root position replaced by the reference pose position; its movement is banked for GetRootMovement.

@@ -105,6 +105,13 @@ hearing range or BSP occlusion.
 Still SurrealEngine's: OpenAL's panning instead of Galaxy's pan law and near-field centring; no Doppler on ambient
 sounds; ambient sounds out of range are stopped instead of left to the priority; the priority is clamped at 0.
 
+The mix is limited, not clipped. Each sound's gain stays at most 1 (HP2's ALAudio `PlaySound` [HP2 ALAudio 0x100040F0]:
+volume times SoundVolume, from 0.01 to 1), but sounds add up past full scale, and SurrealEngine created its OpenAL
+context with no attributes, so OpenAL Soft's output limiter was off for float output and the device cut such peaks off.
+The context (and a reopened device) now asks for `ALC_OUTPUT_LIMITER_SOFT`. The crack heard in Grandstaircase_hub's
+follow-the-voice cutscene (issue #34) was a damaged song, not this ([music.md](music.md#damaged-songs-hp2)). Mixes are
+checked with OpenAL Soft's wave writer (`ALSOFT_CONF` with `drivers=wave`), which records the exact output.
+
 A sound's buffer holds exactly its samples. SurrealEngine's `USound::CheckSoundSamples` rounded the length up with
 `ALIGN(x, 4)` (`(x & ~3) + 4`, so always 1-4 extra zero samples), and a looping sound played that silence at every
 wrap. HP2's XA sounds carry their sample count (`water_turbulence`: 75793 samples, 2707 blocks of 28 decoded) and
