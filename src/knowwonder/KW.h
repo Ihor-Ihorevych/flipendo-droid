@@ -60,6 +60,15 @@ namespace KW
 	// PackageManager::RegisterFunctions, after upstream registered its natives.
 	void RegisterNatives();
 
+	// PackageManager (constructor): the folder the SE-*.ini files are written to and SavePath is relative to. The game's
+	// System folder when it can be written, else <local app data>/Flipendo/<UserFolderName>/System, an install under
+	// Program Files (src/knowwonder/KWUserFolder.cpp).
+	std::filesystem::path WritableSystemFolder(const std::filesystem::path& gameRoot, const std::filesystem::path& systemFolder);
+	// "<install folder name>-<hash of its full path>"
+	std::string UserFolderName(const std::filesystem::path& gameRoot);
+	// Whether a file can be created in the folder (a probe file, removed again).
+	bool FolderWritable(const std::filesystem::path& folder);
+
 	// UAnimation::Load: HP1's packed animation format.
 	void LoadAnimation(UAnimation* anim, ObjectStream* stream);
 

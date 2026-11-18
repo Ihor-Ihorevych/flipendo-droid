@@ -21,6 +21,11 @@ KnowWonder's `GameSaveInfo` file for the slot page; the script side around them 
   The screenshot code ("Snap 3", "SaveSnap") is commented out: thumbnails are pre-made BMPs (below).
 - **Loading**: `FESlotPage.LoadSelectedSlot` → `ConsoleCommand("open save" $slot $".usa")`. HP1's ini has
   `Paths=../save/*.usa`, so the save is opened like a map.
+- **Where (Flipendo)**: SavePath is relative to the System folder, and the original writes there even under Program
+  Files (HP.exe has no manifest, so Windows redirects its writes to VirtualStore). Flipendo can't count on that and
+  starts SavePath from the player's own folder when the game folder can't be written (`KW::WritableSystemFolder`);
+  a save that still fails ends the saving screen anyway: until issue #37 the error left `LevelAction` at
+  `LEVACT_Saving` and `baseConsole.DrawLevelAction` kept drawing `nearly_nick_40` over the game.
 
 ## HP2's flow (hgame scripts)
 

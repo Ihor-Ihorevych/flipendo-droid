@@ -435,7 +435,16 @@ namespace KW
 		// HP2 draws no progress frame while the player's loading screen is up (a save on arriving in a level)
 		if (!IsHP2() || !(engine->viewport && BoolProperty(engine->viewport->Actor(), "bShowLoadingScreen")))
 			PaintProgress();
-		engine->SaveGameToSlot(slot, description);
+		// A failed save (a folder that can't be written) still ends the saving screen: the error used to leave
+		// LevelAction at LEVACT_Saving, and baseConsole kept drawing nearly_nick_40 over the game (issue #37).
+		try
+		{
+			engine->SaveGameToSlot(slot, description);
+		}
+		catch (const std::exception& e)
+		{
+			LogMessage("Could not save the game in " + engine->packages->GetSaveFolderPath().string() + ": " + e.what());
+		}
 		if (level)
 			level->LevelAction() = 0;
 		if (IsHP2())
