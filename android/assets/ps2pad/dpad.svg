@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The arrow buttons of stick.svg's ring while pressed, as FlipendoActivity draws a pressed arrow: a gold disc (0xE6E8C15A, 0.85 of the button's
+     radius) behind a dark chevron (0xFF1A1A1A). Layers: up, right, down, left. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 330 330">
+  <g id="up">
+    <circle cx="165" cy="60" r="48" fill="#E8C15A" fill-opacity="0.902"/>
+    <path d="M 144 69.5 L 165 48.5 L 186 69.5" fill="none" stroke="#1A1A1A" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="right" transform="rotate(90 165 165)">
+    <circle cx="165" cy="60" r="48" fill="#E8C15A" fill-opacity="0.902"/>
+    <path d="M 144 69.5 L 165 48.5 L 186 69.5" fill="none" stroke="#1A1A1A" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="down" transform="rotate(180 165 165)">
+    <circle cx="165" cy="60" r="48" fill="#E8C15A" fill-opacity="0.902"/>
+    <path d="M 144 69.5 L 165 48.5 L 186 69.5" fill="none" stroke="#1A1A1A" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="left" transform="rotate(270 165 165)">
+    <circle cx="165" cy="60" r="48" fill="#E8C15A" fill-opacity="0.902"/>
+    <path d="M 144 69.5 L 165 48.5 L 186 69.5" fill="none" stroke="#1A1A1A" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

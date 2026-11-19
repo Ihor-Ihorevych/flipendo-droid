@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The stick's ring, the arrows pad of FlipendoActivity (a 0x55181722 disc, a 0x33FFFFFF rim, a faint centre dot, four chevrons at 0.64 of the
+     radius, stroke 0.16 of a button radius, round caps). Layers: base, glow (finger down: the rim in gold, as the wand's aim ring). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 330 330">
+  <circle cx="165" cy="165" r="163" fill="#181722" fill-opacity="0.333"/>
+  <circle cx="165" cy="165" r="163" fill="none" stroke="#FFFFFF" stroke-opacity="0.2" stroke-width="3" vector-effect="non-scaling-stroke"/>
+  <circle cx="165" cy="165" r="21" fill="#FFFFFF" fill-opacity="0.133"/>
+  <g fill="none" stroke="#FFFFFF" stroke-opacity="0.9" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 144 69.5 L 165 48.5 L 186 69.5"/>
+    <path d="M 144 69.5 L 165 48.5 L 186 69.5" transform="rotate(90 165 165)"/>
+    <path d="M 144 69.5 L 165 48.5 L 186 69.5" transform="rotate(180 165 165)"/>
+    <path d="M 144 69.5 L 165 48.5 L 186 69.5" transform="rotate(270 165 165)"/>
+  </g>
+  <g id="glow">
+    <circle cx="165" cy="165" r="163" fill="none" stroke="#E8C15A" stroke-opacity="0.6" stroke-width="3" vector-effect="non-scaling-stroke"/>
+  </g>
+</svg>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SELECT: a small list (bullets and lines), in the stroke style of images/android/exit.svg. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 10 7 H 20 M 10 12 H 20 M 10 17 H 20"/>
+    <path d="M 4.8 7 H 4.81 M 4.8 12 H 4.81 M 4.8 17 H 4.81" stroke-width="3"/>
+  </g>
+</svg>

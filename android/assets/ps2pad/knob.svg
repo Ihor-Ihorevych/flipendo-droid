@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The stick's knob: the floating stick's knob of FlipendoActivity, a gold disc (0xCCE8C15A), 0.4 of the ring's radius. Layer: base. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 164 164">
+  <circle cx="82" cy="82" r="82" fill="#E8C15A" fill-opacity="0.8"/>
+</svg>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The triangle symbol in the stroke style of images/android/exit.svg (24 units, stroke 2, round); currentColor = white, dark on a pressed (gold) button. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 12 5 L 20.5 19.5 H 3.5 Z"/>
+  </g>
+</svg>

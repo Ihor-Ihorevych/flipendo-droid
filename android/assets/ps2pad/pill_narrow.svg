@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A narrower pill (START, the menu button): the toolbar's pill of FlipendoActivity; pressed: gold. Layers: base, down. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 72">
+  <rect x="1" y="1" width="148" height="70" rx="35" fill="#181722" fill-opacity="0.502"/>
+  <rect x="1" y="1" width="148" height="70" rx="35" fill="none" stroke="#FFFFFF" stroke-opacity="0.333" stroke-width="3" vector-effect="non-scaling-stroke"/>
+  <g id="down">
+    <rect x="1" y="1" width="148" height="70" rx="35" fill="#E8C15A" fill-opacity="0.902"/>
+    <rect x="1" y="1" width="148" height="70" rx="35" fill="none" stroke="#E8C15A" stroke-width="3" vector-effect="non-scaling-stroke"/>
+  </g>
+</svg>

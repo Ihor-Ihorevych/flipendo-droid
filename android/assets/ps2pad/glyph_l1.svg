@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- L1: the left shoulder (a bracket round the top-left corner) over one pip. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 3.5 13 V 11.5 Q 3.5 8 7 8 H 20.5"/>
+    <path d="M 12 17.5 H 12.01" stroke-width="3.6"/>
+  </g>
+</svg>

@@ -873,6 +873,10 @@ public class SetupActivity extends Activity {
                     startPs1();
                     return;
                 }
+                if (isPs2()) {
+                    startPs2();
+                    return;
+                }
                 if (gameMissing) {
                     if (missingPicked != null) {
                         showWrongFolder(missingPicked);
@@ -904,6 +908,8 @@ public class SetupActivity extends Activity {
         String text = tr("Play");
         if (isPs1()) {
             // PS1: just Play (the slots and the start choice are the PC game's)
+        } else if (isPs2()) {
+            if (!ps2Prepared()) text = tr("Prepare the game (first time)");   // translated and compiled on this phone once
         } else if (gameMissing) {
             text = tr("Add game files");
         } else if (isHp2()) {
@@ -944,7 +950,7 @@ public class SetupActivity extends Activity {
     }
 
     private void showGame() {
-        String game = isPs1() ? ps1Game() : chosenGame();
+        String game = isPs2() ? "hp2" : isPs1() ? ps1Game() : chosenGame();
         if (hp1Pill != null) {
             styleCover(hp1Pill, "hp1".equals(game));
             styleCover(hp2Pill, "hp2".equals(game));
@@ -960,12 +966,18 @@ public class SetupActivity extends Activity {
         if (isPs1()) {
             refreshPs1();
         }
+        if (isPs2()) {
+            refreshPs2();
+        }
         refreshSlots();
         updatePlayLabel();
     }
 
     /** Picks the game for this and later launches; the game data is looked for again (its own folder). */
     private void chooseGame(String value) {
+        if (isPs2()) {
+            return;   // the PS2 tab has one game
+        }
         if (isPs1()) {
             // the PS1 tab has its own choice (HP1 or HP2); the PC game's stays as it was
             if ("hp1".equals(value) || "hp2".equals(value)) {
@@ -991,8 +1003,8 @@ public class SetupActivity extends Activity {
     // (ps1.game), so the PC game chosen on the other tab does not change.
 
     private static final int REQUEST_PS1_FOLDER = 31, REQUEST_PS1_DISC = 32, REQUEST_PS1_BIOS = 33;
-    private TextView tabPc, tabPs1;
-    private LinearLayout pcPanel, ps1Panel;
+    private TextView tabPc, tabPs1, tabPs2;
+    private LinearLayout pcPanel, ps1Panel, ps2Panel;
     private TextView ps1Title, ps1DiscText, ps1BiosText, ps1Note, ps1Message;
     private final TextView[] ps1ScaleButtons = new TextView[4];
     private TextView ps1GlPill, ps1SoftPill, ps1RendererHint;
@@ -1001,6 +1013,15 @@ public class SetupActivity extends Activity {
 
     private boolean isPs1() {
         return "ps1".equals(getSharedPreferences("setup", MODE_PRIVATE).getString(Ps1Setup.PREF_PLATFORM, "pc"));
+    }
+
+    private boolean isPs2() {
+        return "ps2".equals(getSharedPreferences("setup", MODE_PRIVATE).getString(Ps1Setup.PREF_PLATFORM, "pc"));
+    }
+
+    /** The PC game's own files and unpacking matter only on the PC tab. */
+    private boolean isPcTab() {
+        return !isPs1() && !isPs2();
     }
 
     /** The asset folder of a game's disc in a self pack (build-apk.sh --ps1-hp1 / --ps1-hp2): assets/ps1data/hp1 with a .stamp. */
@@ -1033,11 +1054,15 @@ public class SetupActivity extends Activity {
         tabs.setOrientation(LinearLayout.HORIZONTAL);
         tabPc = platformTab("PC", "pc");
         tabPs1 = platformTab("PS1", "ps1");
+        tabPs2 = platformTab("PS2", "ps2");
         LinearLayout.LayoutParams t1 = new LinearLayout.LayoutParams(0, dp(40), 1f);
         LinearLayout.LayoutParams t2 = new LinearLayout.LayoutParams(0, dp(40), 1f);
+        LinearLayout.LayoutParams t3 = new LinearLayout.LayoutParams(0, dp(40), 1f);
         t2.leftMargin = dp(8);
+        t3.leftMargin = dp(8);
         tabs.addView(tabPc, t1);
         tabs.addView(tabPs1, t2);
+        tabs.addView(tabPs2, t3);
         col.addView(tabs, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         LinearLayout row = coverShelf(wide);
         LinearLayout.LayoutParams rl = wide ? new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, 0, 1f)
@@ -1063,8 +1088,8 @@ public class SetupActivity extends Activity {
     private void setPlatform(String platform) {
         getSharedPreferences("setup", MODE_PRIVATE).edit().putString(Ps1Setup.PREF_PLATFORM, platform).apply();
         applyPlatform();
-        if (started && !isPs1() && !pcBegun) {
-            begin(); // the PC game was not looked for yet (the app started on the PS1 tab)
+        if (started && isPcTab() && !pcBegun) {
+            begin(); // the PC game was not looked for yet (the app started on the PS1 or PS2 tab)
         }
     }
 
@@ -1078,21 +1103,27 @@ public class SetupActivity extends Activity {
         holder.setOrientation(LinearLayout.VERTICAL);
         pcPanel = launchPanel();
         ps1Panel = buildPs1Panel();
+        ps2Panel = buildPs2Panel();
         holder.addView(pcPanel, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         holder.addView(ps1Panel, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        holder.addView(ps2Panel, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         return holder;
     }
 
     /** Shows the tab that is on: its panel, its covers and what the footer says. */
     private void applyPlatform() {
-        boolean ps1 = isPs1();
-        styleTab(tabPc, !ps1);
+        final boolean ps2 = isPs2();
+        final boolean ps1 = isPs1();
+        styleTab(tabPc, !ps1 && !ps2);
         styleTab(tabPs1, ps1);
-        if (pcPanel != null) pcPanel.setVisibility(ps1 ? android.view.View.GONE : android.view.View.VISIBLE);
+        styleTab(tabPs2, ps2);
+        if (pcPanel != null) pcPanel.setVisibility(ps1 || ps2 ? android.view.View.GONE : android.view.View.VISIBLE);
         if (ps1Panel != null) ps1Panel.setVisibility(ps1 ? android.view.View.VISIBLE : android.view.View.GONE);
-        if (hp3Pill != null) hp3Pill.setVisibility(ps1 ? android.view.View.GONE : android.view.View.VISIBLE);
+        if (ps2Panel != null) ps2Panel.setVisibility(ps2 ? android.view.View.VISIBLE : android.view.View.GONE);
+        if (hp3Pill != null) hp3Pill.setVisibility(ps1 || ps2 ? android.view.View.GONE : android.view.View.VISIBLE);
+        if (hp1Pill != null) hp1Pill.setVisibility(ps2 ? android.view.View.GONE : android.view.View.VISIBLE);   // the PS2 tab has HP2 only
         if (play != null) {
-            if (ps1) {
+            if (ps1 || ps2) {
                 // PS1 needs no unpacking: Play is there at once, the PC game's progress is out of the way
                 bar.setVisibility(android.view.View.GONE);
                 status.setVisibility(android.view.View.GONE);
@@ -1191,6 +1222,7 @@ public class SetupActivity extends Activity {
             scales.addView(i == 0 ? ps1ScaleButtons[i] : spaced(ps1ScaleButtons[i]));
         }
         panel.addView(scales, lp(6));
+
 
         ps1BiosText = new TextView(this);
         ps1BiosText.setTextSize(13);
@@ -1394,6 +1426,197 @@ public class SetupActivity extends Activity {
             }
         }
         refreshPs1();
+    }
+
+    // ---- PS2: Harry Potter 2 recompiled on the phone from the player's own disc (Ps2Activity, docs/ps2.md) -----------------
+    // The tab has the HP2 cover and this panel: where the disc is (an image, its CUE sheet, or the folder of an unpacked disc), the
+    // resolution, and what Play will do: the first time it translates and compiles the game on the phone (Ps2Activity in prepare mode).
+
+    private static final int REQUEST_PS2_FOLDER = 34, REQUEST_PS2_DISC = 35;
+    private TextView ps2Title, ps2DiscText, ps2Note, ps2Message;
+    private boolean ps2Starting;
+
+    private boolean ps2Prepared() {
+        return Ps2Toolchain.prepared(this, Ps2Setup.GAMES[0][1]);
+    }
+
+    private LinearLayout buildPs2Panel() {
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(14), dp(12), dp(14), dp(12));
+        panel.setBackground(rounded(0x14FFFFFF, 14, 0x22FFFFFF));
+
+        ps2Title = new TextView(this);
+        ps2Title.setTextColor(GOLD);
+        ps2Title.setTextSize(12);
+        ps2Title.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        ps2Title.setLetterSpacing(0.12f);
+        panel.addView(ps2Title);
+
+        ps2DiscText = new TextView(this);
+        ps2DiscText.setTextSize(14);
+        ps2DiscText.setTextIsSelectable(true);
+        ps2DiscText.setLineSpacing(0, 1.1f);
+        panel.addView(ps2DiscText, lp(6));
+
+        LinearLayout discButtons = new LinearLayout(this);
+        discButtons.setOrientation(LinearLayout.HORIZONTAL);
+        discButtons.addView(smallPill(tr("Choose folder"), new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) { pickPs2Folder(); }
+        }));
+        discButtons.addView(spaced(smallPill(tr("Choose image file"), new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) { pickPs2File(); }
+        })));
+        discButtons.addView(spaced(smallPill(tr("Use default place"), new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) { clearPs2Disc(); }
+        })));
+        panel.addView(discButtons, lp(8));
+
+
+        ps2Note = new TextView(this);
+        ps2Note.setTextColor(MUTED);
+        ps2Note.setTextSize(12);
+        panel.addView(ps2Note, lp(12));
+
+        ps2Message = new TextView(this);
+        ps2Message.setTextColor(PARCHMENT);
+        ps2Message.setTextSize(13);
+        panel.addView(ps2Message, lp(8));
+        return panel;
+    }
+
+    /** The disc of the PS2 tab: the image or folder the player picked, else what is in the default folder. Null when there is none. */
+    private File ps2Disc() {
+        android.content.SharedPreferences p = getSharedPreferences("setup", MODE_PRIVATE);
+        return hasStorageAccess(this) ? Ps2Setup.resolveDisc(p.getString(Ps2Setup.PREF_DISC + "hp2", null), p.getString(Ps2Setup.PREF_FOLDER + "hp2", null),
+                Ps2Setup.defaultDir("hp2")) : null;
+    }
+
+    private void refreshPs2() {
+        if (ps2Panel == null) return;
+        android.content.SharedPreferences p = getSharedPreferences("setup", MODE_PRIVATE);
+        ps2Title.setText("PS2  ·  " + tr("HARRY POTTER 2: CHAMBER OF SECRETS"));
+        File disc = ps2Disc();
+        boolean picked = p.getString(Ps2Setup.PREF_DISC + "hp2", null) != null || p.getString(Ps2Setup.PREF_FOLDER + "hp2", null) != null;
+        if (disc != null) {
+            String serial = Ps2Setup.serialOf(disc);
+            String game = Ps2Setup.gameOf(serial);
+            if (game != null) {
+                ps2DiscText.setTextColor(0xFF9BE39B);
+                ps2DiscText.setText(disc.getPath() + "\n" + serial);
+            } else {
+                ps2DiscText.setTextColor(0xFFFF8A80);
+                ps2DiscText.setText(disc.getPath() + "\n" + (serial == null ? tr("This is not a PS2 disc, or it cannot be read.")
+                        : tr("This disc is ") + serial + tr(", which this app does not know yet (Harry Potter and the Chamber of Secrets, SLES-51192, only).")));
+            }
+        } else if (picked) {
+            ps2DiscText.setTextColor(0xFFFF8A80);
+            ps2DiscText.setText(tr("No disc found in the place you chose."));
+        } else {
+            ps2DiscText.setTextColor(MUTED);
+            ps2DiscText.setText(tr("No disc yet. Copy your own disc of the game (an .iso, or a .bin with its .cue, or the unpacked files) into ")
+                    + Ps2Setup.defaultDir("hp2").getPath() + tr(", or choose where it is."));
+        }
+        ps2Note.setText((ps2Prepared() ? tr("The game is ready on this phone. ") : tr("The first time, the game's code is translated and compiled on this phone (some minutes, once). "))
+                + tr("Saves: ") + new File(Ps2Setup.defaultDir("hp2"), "saves").getPath());
+        if (!ps2Starting) ps2Message.setText("");
+        updatePlayLabel();
+    }
+
+    private void clearPs2Disc() {
+        getSharedPreferences("setup", MODE_PRIVATE).edit().remove(Ps2Setup.PREF_DISC + "hp2").remove(Ps2Setup.PREF_FOLDER + "hp2").apply();
+        refreshPs2();
+    }
+
+    private void pickPs2Folder() {
+        try {
+            startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), REQUEST_PS2_FOLDER);
+        } catch (RuntimeException e) {
+            toast(tr("No folder picker on this phone: copy the disc into ") + Ps2Setup.defaultDir("hp2").getPath() + tr(" instead"));
+        }
+    }
+
+    private void pickPs2File() {
+        try {
+            Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            pick.addCategory(Intent.CATEGORY_OPENABLE);
+            pick.setType("*/*"); // .cue and .bin have no usable type
+            startActivityForResult(pick, REQUEST_PS2_DISC);
+        } catch (RuntimeException e) {
+            toast(tr("No file picker on this phone: copy the disc into ") + Ps2Setup.defaultDir("hp2").getPath() + tr(" instead"));
+        }
+    }
+
+    /** The answer of the PS2 folder and disc image pickers. */
+    private void handlePs2Pick(int request, int resultCode, Intent data) {
+        if (resultCode == RESULT_OK && data != null && data.getData() != null) {
+            android.content.SharedPreferences.Editor ed = getSharedPreferences("setup", MODE_PRIVATE).edit();
+            if (request == REQUEST_PS2_FOLDER) {
+                String path = treeUriToPath(data.getData());
+                File picked = path == null ? null : Ps2Setup.resolveDisc(null, path, new File("/nonexistent"));
+                if (path == null) {
+                    toast(tr("That place can't be read as a folder: pick one on the phone or an SD card"));
+                } else if (picked == null) {
+                    toast(tr("No disc image or disc files (SYSTEM.CNF) in ") + path);
+                } else {
+                    ed.putString(Ps2Setup.PREF_FOLDER + "hp2", path).remove(Ps2Setup.PREF_DISC + "hp2").apply();
+                }
+            } else {
+                String id = null;
+                try {
+                    id = android.provider.DocumentsContract.getDocumentId(data.getData());
+                } catch (IllegalArgumentException ignored) {
+                    // not a document: handled as "no path" below
+                }
+                String path = "com.android.externalstorage.documents".equals(data.getData().getAuthority())
+                        || "com.android.providers.downloads.documents".equals(data.getData().getAuthority())
+                        ? Ps1Setup.documentIdToPath(id, Environment.getExternalStorageDirectory().getPath()) : null;
+                if (path == null) {
+                    toast(tr("That file can't be read from there: pick it in Internal storage or on an SD card"));
+                } else if (!Ps2Setup.isImageName(new File(path).getName())) {
+                    toast(tr("That is not a disc image (.iso, .bin with its .cue)"));
+                } else {
+                    ed.putString(Ps2Setup.PREF_DISC + "hp2", Ps2Setup.normalizePicked(new File(path)).getPath()).apply();
+                }
+            }
+        }
+        refreshPs2();
+    }
+
+    /** Play on the PS2 tab: checks the disc, then prepares the game on the phone (the first time) or plays it. */
+    private void startPs2() {
+        if (ps2Starting) return;
+        if (!hasStorageAccess(this)) {
+            ps2Message.setTextColor(0xFFFF8A80);
+            ps2Message.setText(tr("Flipendo needs access to the phone's storage to read the disc. Open the app again to allow it."));
+            return;
+        }
+        final File disc = ps2Disc();
+        if (disc == null) {
+            ps2Message.setTextColor(0xFFFF8A80);
+            ps2Message.setText(tr("There is no disc to play: choose a folder or an image file above."));
+            return;
+        }
+        final String serial = Ps2Setup.serialOf(disc);
+        if (Ps2Setup.gameOf(serial) == null) {
+            ps2Message.setTextColor(0xFFFF8A80);
+            ps2Message.setText(serial == null ? tr("This is not a PS2 disc, or it cannot be read.")
+                    : tr("This disc is ") + serial + tr(", which this app does not know yet."));
+            return;
+        }
+        if (!Ps2Toolchain.present(this)) {
+            ps2Message.setTextColor(0xFFFF8A80);
+            ps2Message.setText(tr("This build of the app has no PS2 support (the compiler is missing)."));
+            return;
+        }
+        final boolean prepare = !ps2Prepared();
+        ps2Message.setTextColor(PARCHMENT);
+        ps2Message.setText(prepare ? tr("Preparing the game: it is translated and compiled on this phone, once...") : tr("Starting..."));
+        Intent intent = new Intent(SetupActivity.this, Ps2Activity.class);
+        intent.putExtra(Ps2Activity.EXTRA_DISC, disc.getPath()).putExtra(Ps2Activity.EXTRA_GAME, "hp2")
+                .putExtra(Ps2Activity.EXTRA_PREPARE, prepare)
+                .putExtra(Ps2Activity.EXTRA_SCALE, Ps2Setup.clampScale(getSharedPreferences("setup", MODE_PRIVATE).getInt(Ps2Setup.PREF_SCALE, 50)));
+        startActivity(intent); // the launcher stays behind: leaving the game (or the end of the preparation) comes back to it
     }
 
     /** Play on the PS1 tab: finds the disc, converts an .mdf to BIN/CUE once, and starts the emulator. */
@@ -1832,6 +2055,9 @@ public class SetupActivity extends Activity {
         }
         showRenderer(); // readable only once storage access is granted
         refreshSlots();
+        if (isPs2()) {
+            refreshPs2(); // back from the PS2 game or its preparation: Play says what comes next
+        }
         if (splashUntil == Long.MAX_VALUE) {
             splashUntil = android.os.SystemClock.uptimeMillis() + 800; // back from the channel
             tryStart();
@@ -1903,8 +2129,8 @@ public class SetupActivity extends Activity {
 
     /** Unpacks the game data if this APK carries it, then starts the game. */
     private void begin() {
-        if (isPs1()) {
-            // The PS1 games need no PC files: the PC game is looked for when the PC tab is opened.
+        if (isPs1() || isPs2()) {
+            // The PS1 and PS2 games need no PC files: the PC game is looked for when the PC tab is opened.
             pcBegun = false;
             applyPlatform();
             return;
@@ -2790,6 +3016,10 @@ public class SetupActivity extends Activity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQUEST_PS1_FOLDER || requestCode == REQUEST_PS1_DISC || requestCode == REQUEST_PS1_BIOS) {
             handlePs1Pick(requestCode, resultCode, data);
+            return;
+        }
+        if (requestCode == REQUEST_PS2_FOLDER || requestCode == REQUEST_PS2_DISC) {
+            handlePs2Pick(requestCode, resultCode, data);
             return;
         }
         if (requestCode == REQUEST_PICK_HD) {

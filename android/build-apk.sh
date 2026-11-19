@@ -250,6 +250,16 @@ done
 # the PS1 emulator: the host (Ps1Activity's entry) and the SwanStation core it loads by name (lib*.so, so it is unpacked next to the others)
 cp "$BUILD/libps1host.so" "$A/lib/arm64-v8a/"
 cp "$BUILD/ps1core/swanstation_libretro_android.so" "$A/lib/arm64-v8a/libswanstation.so"
+# PS2: the recompiling runner (libps2main.so), SDL2's API over SDL3 for it (libSDL2ps2.so) and the compiler the phone translates a game
+# with (clang and lld as library files, the sysroot as an asset): made by android/ps2/build-ps2.sh into android/deps/ps2out. Without
+# them the APK has no PS2 support (the PS2 tab says so).
+PS2OUT=android/deps/ps2out
+if [ -f "$PS2OUT/libps2main.so" ] && [ -f "$PS2OUT/libps2clang.so" ] && [ -f "$PS2OUT/sysroot.zip" ]; then
+	cp "$PS2OUT/libps2main.so" "$PS2OUT/libSDL2ps2.so" "$PS2OUT/libps2clang.so" "$PS2OUT/libps2lld.so" "$A/lib/arm64-v8a/"
+	mkdir -p "$A/assets/ps2" && cp "$PS2OUT/sysroot.zip" "$A/assets/ps2/"
+else
+	echo "PS2: no android/deps/ps2out (run android/ps2/build-ps2.sh): this APK has no PS2 support"
+fi
 # HP3's engine: the game, its SDL2, its process bridge and the C++ runtime it is built against (its own NDK's); Flipendo's
 # libopenal.so serves it too (the engine binds libopenal.so by name)
 if [ "$HP3_MODE" = rust ]; then
@@ -283,6 +293,8 @@ paste -sd' ' android/dist/symbols/build-info.txt > "$A/assets/build-info.txt"
 jar --create --no-manifest --file "$A/assets/SurrealEngine.pk3" -C src/engine/Resources .
 # the touch buttons' icons (images/android/*.png) are loaded from assets/icons/ by the overlay
 mkdir -p "$A/assets/icons" && cp images/android/*.png "$A/assets/icons/"
+# the PS2 pad's vector art (android/assets/ps2pad/*.svg), drawn at run time by Ps2Svg
+mkdir -p "$A/assets/ps2pad" && cp android/assets/ps2pad/*.svg "$A/assets/ps2pad/"
 # the Russian text translation (android/lang/ru-text, UTF-16 .rus files): in every APK, as the game's .int files in
 # Windows-1251, whose Cyrillic the game draws with glyphs from Noto Sans (src/hp1/HP1Cyrillic.cpp)
 # HP3's interface texts in the launcher's other languages (android/lang/hp3: HpMenu and SaveTips per language, UTF-8)

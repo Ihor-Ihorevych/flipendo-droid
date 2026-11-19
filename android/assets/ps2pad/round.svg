@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A round pad button as FlipendoActivity.Overlay.drawDisc draws it: a dark translucent disc (0x80181722) with a 3 px rim (0x55FFFFFF);
+     pressed: a gold disc (0xE6E8C15A) with a gold rim. Layers: base, down (replaces base while pressed). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <circle cx="100" cy="100" r="98" fill="#181722" fill-opacity="0.502"/>
+  <circle cx="100" cy="100" r="98" fill="none" stroke="#FFFFFF" stroke-opacity="0.333" stroke-width="3" vector-effect="non-scaling-stroke"/>
+  <g id="down">
+    <circle cx="100" cy="100" r="98" fill="#E8C15A" fill-opacity="0.902"/>
+    <circle cx="100" cy="100" r="98" fill="none" stroke="#E8C15A" stroke-width="3" vector-effect="non-scaling-stroke"/>
+  </g>
+</svg>
