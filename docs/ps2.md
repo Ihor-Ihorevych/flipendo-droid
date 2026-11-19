@@ -32,12 +32,19 @@ runner translates the game's program to C++ and compiles it on the phone, once, 
 
 ## Building
 
+The runner and the compiler are built in the repository [hp2ps2recomp](https://github.com/Ihor-Ihorevych/hp2ps2recomp) (the Flipendo fork of
+ps2-native-recomp; `flipendo/README.md` there), whose GitHub workflow publishes them as releases. **GitHub builds of Flipendo Droid download those
+releases** (`.github/workflows/android.yml`), so the CI APK has PS2. For a local build, the same five files go into `android/deps/ps2out`
+(`libps2main.so`, `libSDL2ps2.so`, `libps2clang.so`, `libps2lld.so`, `sysroot.zip`): download them from the releases, or build them here:
+
 ```sh
 . /c/Users/Ihor/CFR2Recomp/env.sh                       # llvm-mingw, CMake, Ninja on the PATH
-bash android/ps2/build-toolchain.sh                      # once: clang + lld for the phone, the sysroot (a long build)
+bash android/ps2/build-toolchain.sh                      # once: clang + lld for the phone, the sysroot (a long build; the release has them)
 PS2RECOMP=/c/Users/Ihor/CFR2Recomp/ps2-native-recomp bash android/ps2/build-ps2.sh
 android/build-apk.sh --install                           # takes android/deps/ps2out; without it the APK has no PS2 support
 ```
+
+`android/ps2/*.sh` here and `flipendo/*.sh` there are the same scripts with other folders; change both.
 
 ## Tests
 

@@ -1,6 +1,7 @@
 # Builds the light Android APK (no game data) on a Windows runner with the same script as a local build
 # (android/build-apk.sh, Git Bash). A pushed tag android-* also publishes it as a GitHub release; a manual run keeps it as an
-# artifact of the run. See docs/android.md ("Builds on GitHub").
+# artifact of the run. The APK has the PS2 tab working: the runner and the compiler it carries are built by the repository
+# Ihor-Ihorevych/hp2ps2recomp and downloaded here. See docs/android.md ("Builds on GitHub") and docs/ps2.md.
 name: Android APK
 
 on:
@@ -10,6 +11,12 @@ on:
 
 permissions:
   contents: write
+
+env:
+  # The PS2 tab's files, from the releases of https://github.com/Ihor-Ihorevych/hp2ps2recomp (its workflow "Flipendo Android" makes them):
+  # the compiler the phone translates a game with, and the runner. Update the runner's tag when that repository's runner is newer.
+  PS2_TOOLCHAIN_TAG: toolchain-llvm20.1.8-ndk28.2
+  PS2_RUNNER_TAG: runner-14539f1af
 
 jobs:
   build:
@@ -74,6 +81,17 @@ jobs:
             echo "::error::Tag $GITHUB_REF_NAME does not match android/VERSION ($VERSION): tag android-v$VERSION"
             exit 1
           fi
+
+      # build-apk.sh packs android/deps/ps2out when it is complete (libps2main.so, libSDL2ps2.so, libps2clang.so, libps2lld.so, sysroot.zip);
+      # without it the APK has no PS2 support
+      - name: PS2 runner and compiler
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p android/deps/ps2out
+          gh release download "$PS2_TOOLCHAIN_TAG" --repo Ihor-Ihorevych/hp2ps2recomp --dir android/deps/ps2out --clobber             --pattern libps2clang.so --pattern libps2lld.so --pattern sysroot.zip
+          gh release download "$PS2_RUNNER_TAG" --repo Ihor-Ihorevych/hp2ps2recomp --dir android/deps/ps2out --clobber             --pattern libps2main.so --pattern libSDL2ps2.so
+          for f in libps2main.so libSDL2ps2.so libps2clang.so libps2lld.so sysroot.zip; do test -s "android/deps/ps2out/$f" || { echo "::error::missing PS2 file $f"; exit 1; }; done
 
       - name: Build
         run: android/build-apk.sh --hp3-rust "$GITHUB_WORKSPACE/hp3-engine"
