@@ -2,7 +2,7 @@
 
 Source port of KnowWonder's Harry Potter games on SurrealEngine (a dependency: git submodule + small patches): one
 engine for Harry Potter and the Philosopher's Stone (PC 2001, UE1 build 433) and Chamber of Secrets (HP2, same engine
-build). HP1 is the current focus, HP2 follows on the same code. Read `README.md` and `docs/development.md` first for
+build). Both games are finished and play through; the work now is bug fixes. Read `README.md` and `docs/development.md` first for
 layout, build and run commands, and the next section before writing any engine code.
 
 ## HP1, HP2 and src/knowwonder/: one engine, no duplication
@@ -117,7 +117,6 @@ Each file has one job; keep them apart:
 - `README.md`: for players (what, why, screenshots, status, how to play, extras, community). Keep it short, plain
   and free of developer detail; link to `CONTRIBUTING.md` and `docs/`.
 - `CONTRIBUTING.md`: for contributors (ways to help, building, developer flags, ground rules, the AI/SurrealEngine note).
-- `ROADMAP.md`: the phase checklist of open work and what's next. Remove an item when it lands (no done items). No how-it-works detail.
 - `docs/`: all other documentation, how things work (index: `docs/README.md`). Player-facing error messages in
   `docs/troubleshooting.md`; modding in `docs/modding.md`, debug env vars in `docs/debug-tools.md`; workflow in
   `docs/development.md`, the src/knowwonder/hp1/hp2 split in `docs/one-engine.md`, every SurrealEngine hook in

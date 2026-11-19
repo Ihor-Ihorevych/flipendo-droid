@@ -4,12 +4,12 @@ There's work for every skill level, and much of it needs no programming.
 
 ## Ways to help
 
-- **Playtesters**: play a level, compare it with the original game, report what looks or behaves differently.
+- **Players**: report bugs, and anything that looks or behaves differently from the original game.
   Side-by-side screenshots or short clips help most. Attach the log (`--logfile=flipendo.log`).
 - **Owners of other game versions**: see [below](#other-game-versions).
 - **Modders**: build an extra in `src/hp1/mods/` ([docs/modding.md](docs/modding.md)).
 - **C++ developers**: start with [docs/development.md](docs/development.md) (layout, ground rules, reference
-  material), [docs/one-engine.md](docs/one-engine.md) (one code path for both games) and the [roadmap](ROADMAP.md).
+  material), [docs/one-engine.md](docs/one-engine.md) (one code path for both games) and the open [issues](https://github.com/kroplabeskidu/flipendo/issues).
 - **Writers and artists**: documentation, guides, screenshots and clips for the README.
 
 Reverse engineering isn't open to outside help. What was learned is in [docs/re/](docs/re/README.md).

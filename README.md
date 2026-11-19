@@ -9,7 +9,7 @@
 <p align="center">
   <b>Play the first two Harry Potter PC games on a modern PC:<br>
   native resolution, real widescreen, no SafeDisc, moddable.</b><br>
-  <sub>Philosopher's Stone / Sorcerer's Stone (2001) and Chamber of Secrets (2002) are both playable from start to finish.<br>
+  <sub>Philosopher's Stone / Sorcerer's Stone (2001) and Chamber of Secrets (2002): both finished, playable from start to end.<br>
   One open-source engine for both.</sub>
 </p>
 
@@ -19,8 +19,7 @@
   <a href="#how-to-play">How to play</a> ·
   <a href="#extras-and-mods">Extras &amp; mods</a> ·
   <a href="#community">Community</a> ·
-  <a href="CONTRIBUTING.md">Contributing</a> ·
-  <a href="ROADMAP.md">Roadmap</a>
+  <a href="CONTRIBUTING.md">Contributing</a>
 </p>
 
 <p align="center">
@@ -32,16 +31,14 @@ Flipendo is one engine for KnowWonder's first two Harry Potter games on PC, buil
 
 - **Harry Potter and the Philosopher's Stone** (*Sorcerer's Stone* in the US; 2001): **finished**, the whole story
   plays through.
-- **Harry Potter and the Chamber of Secrets** (2002): **playable**, players have finished the whole story in it;
-  smaller differences from the original are still being fixed.
+- **Harry Potter and the Chamber of Secrets** (2002): **finished**, the whole story plays through.
 
 Point it at your installed game and it plays that game. The levels, scripts, voices and music all come from your own
 installation; Flipendo replaces only the engine underneath them.
 
 **You need your own copy of the game.** Flipendo contains no game data.
 
-Everything below is about Philosopher's Stone unless it says otherwise; Chamber of Secrets has its own
-[status section](#chamber-of-secrets-playable).
+Both games have their own [status section](#status).
 
 ## Why play it this way?
 
@@ -84,7 +81,7 @@ All taken in Flipendo at 1920x1080 from the original game files.
 ### Philosopher's Stone: finished
 
 > **The whole story has been played through, start to finish, in Flipendo** (October 2026). [Download it for
-> Windows, Linux or macOS](https://github.com/kroplabeskidu/flipendo/releases/latest). Follow progress in [`ROADMAP.md`](ROADMAP.md).
+> Windows, Linux or macOS](https://github.com/kroplabeskidu/flipendo/releases/latest).
 
 | | |
 |---|---|
@@ -93,22 +90,20 @@ All taken in Flipendo at 1920x1080 from the original game files.
 | 🍎 macOS | Plays on Apple Silicon (tested on macOS 26) |
 | ⚪ Not tested | The Quidditch League |
 
-Playtesters are welcome: anything that looks or behaves differently from the original is a useful bug report.
-
-### Chamber of Secrets: playable
+### Chamber of Secrets: finished
 
 > **Players have finished the whole story in Flipendo** (November 2026, releases 1.3 to 1.7, reports in
 > [#30](https://github.com/kroplabeskidu/flipendo/issues/30) and [#35](https://github.com/kroplabeskidu/flipendo/issues/35)).
-> Every bug that stopped someone finishing it has been fixed. [Download it](https://github.com/kroplabeskidu/flipendo/releases/latest)
+> [Download it for Windows, Linux or macOS](https://github.com/kroplabeskidu/flipendo/releases/latest)
 > and point it at your Chamber of Secrets folder (retail 1.0, the one with `system/Game.exe`).
 
 | | |
 |---|---|
 | ✅ Works | The whole story from Privet Drive to the Chamber, played through. All wizard duels, all Quidditch matches, the Gold Card Challenge, the spell challenges, the menus and the in-game book, cutscenes with subtitles, saving and loading |
-| 🔧 Being fixed | Smaller differences from the original: lighting, a few visual and sound effects ([roadmap](ROADMAP.md#hp2-chamber-of-secrets)) |
 
-Anything that looks, sounds or behaves differently from the original is a useful bug report: one
-[issue](https://github.com/kroplabeskidu/flipendo/issues) per problem, with the level and a log (`--logfile=flipendo.log`).
+Found a bug in either game, or something that looks, sounds or behaves differently from the original? Open an
+[issue](https://github.com/kroplabeskidu/flipendo/issues), one per problem, with the level and a log
+(`--logfile=flipendo.log`).
 
 ## How to play
 
@@ -118,7 +113,7 @@ Anything that looks, sounds or behaves differently from the original is a useful
   `Maps/`, `Textures/` and so on. Known versions: UK 1.1, EN retail and a community No-CD,
   Russian (EA Hit-Parade) and its No-CD. If yours isn't
   recognised, the error shows a code (SHA-1); please [report it](CONTRIBUTING.md#other-game-versions).
-- Or **Chamber of Secrets for PC (2002)**, retail 1.0 ([status](#chamber-of-secrets-playable)).
+- Or **Chamber of Secrets for PC (2002)**, retail 1.0.
 - **Windows 10/11**, **Linux** (a distribution from 2024 or later), or a **Mac** with Apple Silicon.
 
 ### Get it running
@@ -193,13 +188,12 @@ one off, `--mod=<id>` one on (ids below, or `--list-mods`).
 | Splash skip | `splash-skip` | HP1, HP2 | on | no logo screens at start: HP1 opens on the main menu, HP2 on its start menu |
 | Intro skip | `intro-skip` | HP1 | off | New Game goes straight to the first level |
 
-More is coming (an in-game page to switch these, more extras): see the [roadmap](ROADMAP.md#extras-for-hp1-srchp1mods),
-and [docs/modding.md](docs/modding.md) to write a mod today.
+To write your own, see [docs/modding.md](docs/modding.md).
 
 ## Community
 
 - **Bugs and ideas**: open an issue. Include your game version, what you did, and the log (`--logfile=...`).
-- **Help out**: playtesting, modding, C++. Most of it needs no programming:
+- **Help out**: bug reports, modding, C++. Most of it needs no programming:
   [CONTRIBUTING.md](CONTRIBUTING.md). Reverse engineering isn't open to outside help.
 - **Android port (unofficial)**: someone ported Flipendo to Android in a fork,
   [flipendo-droid](https://github.com/Ihor-Ihorevych/flipendo-droid). It isn't part of this project: I haven't

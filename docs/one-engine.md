@@ -4,8 +4,8 @@ Flipendo is one engine for KnowWonder's Harry Potter games: point it at an HP1 f
 HP2 and it plays HP2. Each game must behave exactly like its own original, and no behaviour may exist twice. This page
 is how the code is split to get there; the same split sorts the reverse-engineering notes ([re/](re/README.md)).
 
-HP2 status: boots. `IsKnowWonder()` (GameFolder.h) covers both games, so `src/knowwonder/` and `src/hp2/` run for HP2;
-its scripts load (HP2's bytecode tokens), and a run starts a new game: the first map loads and starts its intro. The rest of the port is in [ROADMAP.md](../ROADMAP.md).
+Both games are finished and play through from start to end. `IsKnowWonder()` (GameFolder.h) covers both games, so
+`src/knowwonder/` runs for HP1 and HP2, `src/hp1/` and `src/hp2/` only for their own game.
 
 ## How alike the games are
 

@@ -1,8 +1,7 @@
 # Troubleshooting
 
 Flipendo runs the game files from your own installation. Most startup problems are a wrong folder or missing
-files, and the error message says which. Harry Potter and the Philosopher's Stone (HP1) is the game that plays today;
-Chamber of Secrets (HP2) is recognised but not playable yet. Run with `--logfile=flipendo.log` to keep the full log; it survives
+files, and the error message says which. Both Philosopher's Stone (HP1) and Chamber of Secrets (HP2) play through. Run with `--logfile=flipendo.log` to keep the full log; it survives
 crashes.
 
 ## Where the game files are expected
