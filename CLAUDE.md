@@ -114,7 +114,7 @@ written for HP1 today is the code HP2 runs tomorrow. The rules with examples: `d
 
 Each file has one job; keep them apart:
 
-- `README.md`: for players (what, why, screenshots, status, how to play, extras, community). Keep it short, plain
+- `README.md`: for players (what, why, screenshots, how to play, extras, community). Keep it short, plain
   and free of developer detail; link to `CONTRIBUTING.md` and `docs/`.
 - `CONTRIBUTING.md`: for contributors (ways to help, building, developer flags, ground rules, the AI/SurrealEngine note).
 - `docs/`: all other documentation, how things work (index: `docs/README.md`). Player-facing error messages in

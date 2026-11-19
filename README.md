@@ -15,7 +15,6 @@
 
 <p align="center">
   <a href="#screenshots">Screenshots</a> ·
-  <a href="#status">Status</a> ·
   <a href="#how-to-play">How to play</a> ·
   <a href="#extras-and-mods">Extras &amp; mods</a> ·
   <a href="#community">Community</a> ·
@@ -37,8 +36,6 @@ Point it at your installed game and it plays that game. The levels, scripts, voi
 installation; Flipendo replaces only the engine underneath them.
 
 **You need your own copy of the game.** Flipendo contains no game data.
-
-Both games have their own [status section](#status).
 
 ## Why play it this way?
 
@@ -75,35 +72,6 @@ All taken in Flipendo at 1920x1080 from the original game files.
     <td colspan="2"><img src="images/screenshots/dungeon.jpg" alt="Harry in a torch-lit dungeon corridor"></td>
   </tr>
 </table>
-
-## Status
-
-### Philosopher's Stone: finished
-
-> **The whole story has been played through, start to finish, in Flipendo** (October 2026). [Download it for
-> Windows, Linux or macOS](https://github.com/kroplabeskidu/flipendo/releases/latest).
-
-| | |
-|---|---|
-| ✅ Works | The whole story, every level from the first lesson to the final encounter with Voldemort, tested by playing it through. Menus and options (incl. key rebinding), widescreen at any resolution, music, cutscenes, characters and their animations, spells and particle effects, doors, NPCs, Peeves, jelly beans, wizard cards, saving and loading |
-| 🐧 Linux | Plays (tested on Fedora) |
-| 🍎 macOS | Plays on Apple Silicon (tested on macOS 26) |
-| ⚪ Not tested | The Quidditch League |
-
-### Chamber of Secrets: finished
-
-> **Players have finished the whole story in Flipendo** (November 2026, releases 1.3 to 1.7, reports in
-> [#30](https://github.com/kroplabeskidu/flipendo/issues/30) and [#35](https://github.com/kroplabeskidu/flipendo/issues/35)).
-> [Download it for Windows, Linux or macOS](https://github.com/kroplabeskidu/flipendo/releases/latest)
-> and point it at your Chamber of Secrets folder (retail 1.0, the one with `system/Game.exe`).
-
-| | |
-|---|---|
-| ✅ Works | The whole story from Privet Drive to the Chamber, played through. All wizard duels, all Quidditch matches, the Gold Card Challenge, the spell challenges, the menus and the in-game book, cutscenes with subtitles, saving and loading |
-
-Found a bug in either game, or something that looks, sounds or behaves differently from the original? Open an
-[issue](https://github.com/kroplabeskidu/flipendo/issues), one per problem, with the level and a log
-(`--logfile=flipendo.log`).
 
 ## How to play
 
