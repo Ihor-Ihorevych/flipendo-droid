@@ -1,35 +1,31 @@
 # Roadmap
 
-What's left to do on Flipendo: Philosopher's Stone (HP1) is finished; the work now is Chamber of Secrets (HP2) on the
-same engine, plus optional extras and releases. Only open work is listed: remove an item when it lands (what was done
-is in the git history, how it works in `docs/`, [docs/README.md](docs/README.md)).
+What's left to do on Flipendo: Philosopher's Stone (HP1) is finished and Chamber of Secrets (HP2) plays through to
+the end; the work now is HP2's remaining differences from the original, plus optional extras and releases. Only open
+work is listed: remove an item when it lands (what was done is in the git history, how it works in `docs/`, [docs/README.md](docs/README.md)).
 
 Legend: [~] partly done / in progress · [ ] not started
 
 ## HP2: Chamber of Secrets
 - [~] HP2 (UE1 build 433), on the same engine as HP1 (groundwork: [docs/one-engine.md](docs/one-engine.md)).
-  Status (2026-11-17): players are now playtesting it (issue #16, releases 1.3 to 1.9) and reporting bugs; four were
-  fixed on 2026-11-11 (vendor trading crash #19, large fire crabs' fireballs crash #21, flipped crab on a lift #22,
-  invisible wand #25), and on 2026-11-13 the first challenge (Ch1Rictusempra, #26, #16: fire crabs and the crab bucket;
-  in 1.5), and in 1.6 (2026-11-14) the hang entering the Chamber and its quiet sound effects (#29), a freeze on
-  picking up a bean early in the bean bonus room (#20) and hub beans coming back after a load (#23), and in 1.7 (2026-11-15) the Gold Card Challenge sending Harry straight
-  back to the hub (#33) and Diffindo stopping short of the ropes behind Adv7SlythComRoom's gates (#23), and in 1.8 (2026-11-16) the fire crabs looking faded in Adv3DungeonQuest, Draco walking in place in
-  Grandstaircase_hub's cutscene and cracking audio (#34), and the Privet Drive mirror showing the sky (#35), and in 1.9 (2026-11-17) the Quidditch towers and stand panels drawing black (#39). Nobody has played it through to the end yet, so how close it is to the original isn't known.
-  Known to work: Game.exe's front end (splashes, New Game, Load Game, Options), the intro and its
-  cutscenes with subtitles (Enter skips them), the in-game book and options at any resolution, saving and loading,
-  hub persistence; contributors have played on into later levels (Peeves' Skurge fight, Aragog's web). The HP2 sound
-  system, music, voices, lip sync, movers, walking, stair smoothing and tick order are ported from HP2's DLLs but
-  mostly not checked in play.
-  1. A full playtest
-  - [ ] Play the 43 maps through, incl. the 10 duels and Quidditch, and list what differs from the original
+  Status (2026-11-19): playable from start to finish. Players finished the whole story on releases 1.3 to 1.7
+  (issues #30, #35; playtest call #16), and between them played all wizard duels, all Quidditch matches and the Gold
+  Card Challenge. Every blocker they hit is fixed (#19 to #26, #29, #33). Releases 1.8 and 1.9 fixed what they
+  reported after that (#34, #35, #39, #41). What's left are differences from the original that don't stop play.
+  Still ported but mostly not checked against the original in play: the HP2 sound system, voices, lip sync, movers,
+  stair smoothing and tick order.
+  1. Compare with the original
   - [ ] Check in play what was ported but not seen yet: dialogue lines play (`Sounds/AllDialog.USA_uax`); a mover's
         sound loops while it moves, Harry's own sounds and dialogue play centred, StopSound fades out; Dobby's mouth
         moves with his lines in PrivetDr's intro and closes after; an `MV_SpringByTime` mover (find a map with one)
-  - [ ] The in-game book's pages, rollover sounds, the folio, the map
+  - [ ] The in-game book's pages, rollover sounds, the folio, the map; the book's menu items lack the original's
+        warping haze when the mouse moves over them (#38)
   2. Known bugs
-  - [ ] Bean bonus room after the house points ceremony: the game hangs if Harry moves and picks up a bean right
-        after skipping the ceremony (issue #20, Windows 10, build 593bf9c). Not reproduced on Linux or Windows 11 with
-        the reporter's save; waiting for a dump of the hung process
+  - [ ] Saves in a game folder under Program Files: fixed in master (8099632, saves go to `%LOCALAPPDATA%\Flipendo\`),
+        ships in the next release; confirm with the reporter (#37)
+  - [ ] Gryffindor common room, before following Ron to Hagrid's hut: the mouse stops turning Harry until he leaves
+        for the grounds (reported in #16 on 2026-11-17, version not given,
+        Windows 11, log attached there)
   - [ ] Mirrors look wrong (playtest 2026-10-21, after PrivetDr's intro). PrivetDr's only mirror surface
         (`@surfs *mirror`) is an outside window, `extwindow_PD` (surface 991, PolyFlags 0x08000000, center -832,776,272):
         SurrealEngine draws the reflection and seals the surface invisible, so the window texture never shows. Check how

@@ -9,7 +9,7 @@
 <p align="center">
   <b>Play the first two Harry Potter PC games on a modern PC:<br>
   native resolution, real widescreen, no SafeDisc, moddable.</b><br>
-  <sub>Philosopher's Stone / Sorcerer's Stone (2001) is playable from start to finish; Chamber of Secrets (2002) is in progress.<br>
+  <sub>Philosopher's Stone / Sorcerer's Stone (2001) and Chamber of Secrets (2002) are both playable from start to finish.<br>
   One open-source engine for both.</sub>
 </p>
 
@@ -32,8 +32,8 @@ Flipendo is one engine for KnowWonder's first two Harry Potter games on PC, buil
 
 - **Harry Potter and the Philosopher's Stone** (*Sorcerer's Stone* in the US; 2001): **finished**, the whole story
   plays through.
-- **Harry Potter and the Chamber of Secrets** (2002): **work in progress**. It starts and plays its first cutscenes;
-  it isn't playable through yet.
+- **Harry Potter and the Chamber of Secrets** (2002): **playable**, players have finished the whole story in it;
+  smaller differences from the original are still being fixed.
 
 Point it at your installed game and it plays that game. The levels, scripts, voices and music all come from your own
 installation; Flipendo replaces only the engine underneath them.
@@ -41,7 +41,7 @@ installation; Flipendo replaces only the engine underneath them.
 **You need your own copy of the game.** Flipendo contains no game data.
 
 Everything below is about Philosopher's Stone unless it says otherwise; Chamber of Secrets has its own
-[status section](#chamber-of-secrets-needs-a-playtest).
+[status section](#chamber-of-secrets-playable).
 
 ## Why play it this way?
 
@@ -95,19 +95,20 @@ All taken in Flipendo at 1920x1080 from the original game files.
 
 Playtesters are welcome: anything that looks or behaves differently from the original is a useful bug report.
 
-### Chamber of Secrets: needs a playtest
+### Chamber of Secrets: playable
 
-Most of the engine work is shared with the first game, so Chamber of Secrets reuses it; what differs is being ported
-now. Development is moving quickly, so we don't know exactly how close it is to the original yet: parts we haven't
-played through may already work, and others may not. It needs a full playtest; the [roadmap](ROADMAP.md) has what we
-know about.
+> **Players have finished the whole story in Flipendo** (November 2026, releases 1.3 to 1.7, reports in
+> [#30](https://github.com/kroplabeskidu/flipendo/issues/30) and [#35](https://github.com/kroplabeskidu/flipendo/issues/35)).
+> Every bug that stopped someone finishing it has been fixed. [Download it](https://github.com/kroplabeskidu/flipendo/releases/latest)
+> and point it at your Chamber of Secrets folder (retail 1.0, the one with `system/Game.exe`).
 
-> **Playtesters wanted.** We're looking for players to play Chamber of Secrets through to the end and report the bugs
-> they find, above all anything that stops you finishing the game (a crash, a door that won't open, an event that
-> never fires). Details and where to report: [issue #16](https://github.com/kroplabeskidu/flipendo/issues/16).
+| | |
+|---|---|
+| ✅ Works | The whole story from Privet Drive to the Chamber, played through. All wizard duels, all Quidditch matches, the Gold Card Challenge, the spell challenges, the menus and the in-game book, cutscenes with subtitles, saving and loading |
+| 🔧 Being fixed | Smaller differences from the original: lighting, a few visual and sound effects ([roadmap](ROADMAP.md#hp2-chamber-of-secrets)) |
 
-If you play it, build from source (below) and point it at your Chamber of Secrets folder (retail 1.0, the one with
-`system/Game.exe`). Please report what works and what doesn't, with where you got to in the game.
+Anything that looks, sounds or behaves differently from the original is a useful bug report: one
+[issue](https://github.com/kroplabeskidu/flipendo/issues) per problem, with the level and a log (`--logfile=flipendo.log`).
 
 ## How to play
 
@@ -117,7 +118,7 @@ If you play it, build from source (below) and point it at your Chamber of Secret
   `Maps/`, `Textures/` and so on. Known versions: UK 1.1, EN retail and a community No-CD,
   Russian (EA Hit-Parade) and its No-CD. If yours isn't
   recognised, the error shows a code (SHA-1); please [report it](CONTRIBUTING.md#other-game-versions).
-- Or **Chamber of Secrets for PC (2002)**, to [playtest it](#chamber-of-secrets-needs-a-playtest).
+- Or **Chamber of Secrets for PC (2002)**, retail 1.0 ([status](#chamber-of-secrets-playable)).
 - **Windows 10/11**, **Linux** (a distribution from 2024 or later), or a **Mac** with Apple Silicon.
 
 ### Get it running
