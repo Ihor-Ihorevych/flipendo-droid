@@ -1,7 +1,7 @@
-# HP2 engine work for later
+# HP2's engine: what differs from HP1
 
-What HP2's engine does that HP1's doesn't, or does differently, to port once HP2 is enabled. Unless an item says it
-was checked in HP2's retail DLLs (`../ida/hp2/`), it hasn't been: read it there before porting. Script-side
+What HP2's engine does that HP1's doesn't, or does differently, and where Flipendo ports it. Unless an item says it
+was checked in HP2's retail DLLs (`../ida/hp2/`), it hasn't been: read it there before changing it. Script-side
 differences are in [gameplay.md](gameplay.md); what both games share is in [`../engine/`](../engine/).
 
 ## GameState: actors screened by the story state

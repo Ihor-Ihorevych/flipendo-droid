@@ -91,8 +91,8 @@ Skurge from GSTATE060, Diffindo from GSTATE090, Spongify from GSTATE140; Flipend
 has. The state is `--gamestate`'s, else the one the story enters the map in, else Harry's own. On a hub (Grounds_hub,
 Entryhall_hub, Grandstaircase_hub), which places Harry with "None", `--level` also sets that state, so only its
 level-start cutscene and characters take part: the first state the story reaches the hub in (GSTATE010, 010, 020), or
-`--gamestate=<GSTATExxx>` for a later visit, e.g. `--level=Grandstaircase_hub --gamestate=GSTATE100`. Nothing else is
-set yet (cards, beans or save slot).
+`--gamestate=<GSTATExxx>` for a later visit, e.g. `--level=Grandstaircase_hub --gamestate=GSTATE100`. Cards, beans and
+the save slot are not set.
 
 ### Automated route through Lev_Tut1
 

@@ -48,12 +48,25 @@ putting anything in one game's folder, check the other game (its code and its sc
    DebugInfo check ([re/engine/scripting.md](re/engine/scripting.md#debuginfo-0x38)), which the bytecode reader handles
    once.
 
-## What `src/hp2/` has so far
+## What `src/hp2/` has
 
 | File | What |
 |---|---|
+| `HP2Audio.cpp` | ALAudio.dll's sound distance, channel priority, ambient sounds, doppler and paused sounds |
 | `HP2Bytecode.cpp` | HP2's token table: the new DebugInfo token at 0x38, and the one-step shift of GlobalFunction..FloatToBool ([scripting.md](re/engine/scripting.md#bytecode-hp1-vs-hp2)) |
-| `HP2Natives.cpp` | `BoneRot`, `IsSoftwareRendering`, `GetCurrentKeyState`, and the `StopSound` adapter |
+| `HP2FireCrab.cpp` | the fire crab ledge fix ([original_bugs.md](re/hp2/original_bugs.md)) |
+| `HP2FrontEnd.cpp` | Game.exe's front end: splashes, New / Load Game, Options ([startup.md](re/hp2/startup.md)) |
+| `HP2GameState.cpp` | GameState: actors screened by the story state ([engine.md](re/hp2/engine.md)) |
+| `HP2LevelStart.cpp` | `--level` for HP2: the story state and the spells learned by then |
+| `HP2LipSync.cpp` | lip sync from a sound's amplitude track |
+| `HP2Lumos.cpp` | Lumos surfaces |
+| `HP2Music.cpp` | Ogg Vorbis music started by name, mixed into one stream |
+| `HP2Natives.cpp` | `BoneRot`, `IsSoftwareRendering`, `GetCurrentKeyState`, and adapters such as `StopSound`'s |
+| `HP2Persist.cpp` | persistent actors across hub travel |
+| `HP2Save.cpp` | queued saves into the front end's slot folder |
+| `HP2Sound.cpp` | the EA-XA ADPCM decoder for HP2's "XA" sounds |
+| `HP2Steps.cpp` | stair smoothing |
+| `HP2Tick.cpp` | tick order (`TickParent`, `TickParent2`) |
 
 ## IDA tags
 
