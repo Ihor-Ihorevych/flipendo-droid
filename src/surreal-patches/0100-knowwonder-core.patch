@@ -1,4 +1,4 @@
-flipendo: build (src/knowwonder/, src/hp1/), natives, engine loop (input, console, saves, view), missing data messages
+flipendo: build (src/knowwonder/, src/hp1/), natives, engine loop (input and KnowWonder's mouse axis scale, console, saves, view), missing data messages
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 330b050a..0f2d5b7c 100644
@@ -15,7 +15,7 @@ index 330b050a..0f2d5b7c 100644
  set_target_properties(SurrealCommon PROPERTIES CXX_STANDARD 20)
  target_precompile_headers(SurrealCommon PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/SurrealEngine/Precomp.h>)
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 6908d4d7..251812ac 100644
+index 6908d4d7..05e70ac5 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,9 @@
@@ -522,7 +522,19 @@ index 6908d4d7..251812ac 100644
  				}
  			}
  		}
-@@ -1579,7 +1757,15 @@ void Engine::UpdateInput(float timeElapsed)
+@@ -1567,7 +1745,10 @@ void Engine::UpdateInput(float timeElapsed)
+ 	{
+ 		if (it.first == "aMouseX" || it.first == "aMouseY")
+ 		{
+-			viewport->Actor()->SetFloat(it.first, it.second.Value / (timeElapsed * 150.0f));
++			// KnowWonder's engine (HP1 and HP2 Engine.dll) adds Speed * counts * 0.01 for a mouse axis and then scales
++			// every input axis by 20 / DeltaTime: Value (Speed * counts * 16) / (80 * DeltaTime)
++			float scale = LaunchInfo.IsKnowWonder() ? 80.0f : 150.0f;
++			viewport->Actor()->SetFloat(it.first, it.second.Value / (timeElapsed * scale));
+ 		}
+ 		else
+ 		{
+@@ -1579,7 +1760,15 @@ void Engine::UpdateInput(float timeElapsed)
  void Engine::OpenWindow()
  {
  	if (!window)
@@ -538,7 +550,7 @@ index 6908d4d7..251812ac 100644
  
  	int width = client->StartupFullscreen ? client->FullscreenViewportX : client->WindowedViewportX;
  	int height = client->StartupFullscreen ? client->FullscreenViewportY : client->WindowedViewportY;
-@@ -1587,10 +1773,23 @@ void Engine::OpenWindow()
+@@ -1587,10 +1776,23 @@ void Engine::OpenWindow()
  
  	std::string versionString = !LaunchInfo.gameVersionString.empty() ? " (v" + LaunchInfo.gameVersionString + ")" : "";
  
@@ -564,7 +576,7 @@ index 6908d4d7..251812ac 100644
  	if (fullscreen)
  		window->ShowFullscreen();
  	else
-@@ -1648,6 +1847,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
+@@ -1648,6 +1850,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
  	{
  		viewport->WindowsMouseX() = (float)(pos.x * window->GetDpiScale());
  		viewport->WindowsMouseY() = (float)(pos.y * window->GetDpiScale());
@@ -573,7 +585,7 @@ index 6908d4d7..251812ac 100644
  	}
  }
  
-@@ -1736,6 +1937,9 @@ void Engine::OnWindowKeyChar(std::string chars)
+@@ -1736,6 +1940,9 @@ void Engine::OnWindowKeyChar(std::string chars)
  
  void Engine::OnWindowKeyDown(EInputKey key)
  {
@@ -583,7 +595,7 @@ index 6908d4d7..251812ac 100644
  	if (playingAvi)
  	{
  		if (key == EInputKey::IK_Escape)
-@@ -1841,6 +2045,9 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
+@@ -1841,6 +2048,9 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
  	if (Frame::RunState != FrameRunState::Running || playingAvi)
  		return;
  
@@ -593,7 +605,7 @@ index 6908d4d7..251812ac 100644
  	bool handled = CallEvent(console, EventName::KeyEvent, { ExpressionValue::ByteValue(key), ExpressionValue::ByteValue(type), ExpressionValue::FloatValue((float)delta) }).ToBool();
  	
  	if (!handled)
-@@ -1854,7 +2061,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
+@@ -1854,7 +2064,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
  
  			for (const std::string& command : GetSubcommands(keybindings[keynames[key]]))
  			{
