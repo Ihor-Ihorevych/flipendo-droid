@@ -164,7 +164,9 @@ namespace KW
 
 	// USurrealAudioDevice::Update, in place of UpdateMusic (src/knowwonder/KWSound.cpp): Galaxy's music update (song
 	// changes with fades, looping unless bDontLoopSong, bSongFinished). Returns the music volume (0-1) to set.
-	float UpdateMusic(AudioDevice* device, UPlayerPawn* player, uint8_t musicVolume, int latency);
+	float UpdateMusic(AudioDevice* device, UPlayerPawn* player, uint8_t musicVolume, uint8_t soundVolume, int latency);
+	// HP1 (Galaxy): the gain the mixer gives a song on top of its music volume, from the ini's SoundVolume (KWSound.cpp)
+	float MusicMixGain(uint8_t soundVolume);
 
 	// Collision (src/knowwonder/KWCollision.cpp): actors with CollideType CT_Box are oriented boxes, not cylinders.
 	bool IsBoxCollider(UActor* actor);

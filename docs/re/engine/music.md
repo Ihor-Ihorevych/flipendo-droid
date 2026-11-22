@@ -49,6 +49,14 @@ The music stream's volume, set every update: `PlayerPawn.PercentMusicVolume` (+0
 (255 x 100) x `MusicFade`, clamped to 0-1. A `MusicEvent` with `bDoBoost` sets `PercentMusicVolume` (e.g. 50 in most of
 Lev_Tut1b, 255 = as loud as it goes) and fades it back over `BoostTime` in script.
 
+Galaxy plays the song on an ordinary sample channel: `Update` starts it with the same voice start as the sound effects
+(not exported: `sub_1060FBF0` [HP1 Galaxy 0x1060FBF0], pan -1), so the sample volume `SetVolumes` sets
+(`SoundVolume` / 255) scales the song too, and as a stereo sample it is centred, 0.707 a side under the mixer's
+square-root pan law ([sound.md](sound.md#galaxydlls-sound-channels)). What reaches the speakers is the stream volume
+above x `SoundVolume` / 255 x 0.707 (`KW::MusicMixGain`); with the disc's `MusicVolume=128` and `SoundVolume=200`,
+0.28 of full scale, not the 0.5 Flipendo played until 2026-11-22 (issue #45, measured below in
+[sound.md](sound.md#master-volumes-measured-against-the-original)).
+
 ## What SurrealEngine did
 
 It played every mp2 song once. When the stream ended, the music thread kept queueing its fixed buffers without
