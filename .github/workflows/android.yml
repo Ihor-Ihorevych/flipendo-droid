@@ -16,7 +16,7 @@ env:
   # The PS2 tab's files, from the releases of https://github.com/Ihor-Ihorevych/hp2ps2recomp (its workflow "Flipendo Android" makes them):
   # the compiler the phone translates a game with, and the runner. Update the runner's tag when that repository's runner is newer.
   PS2_TOOLCHAIN_TAG: toolchain-llvm20.1.8-ndk28.2
-  PS2_RUNNER_TAG: runner-bbe854688
+  PS2_RUNNER_TAG: runner-a342becbc
 
 jobs:
   build:
