@@ -257,6 +257,8 @@ PS2OUT=android/deps/ps2out
 if [ -f "$PS2OUT/libps2main.so" ] && [ -f "$PS2OUT/libps2clang.so" ] && [ -f "$PS2OUT/sysroot.zip" ]; then
 	cp "$PS2OUT/libps2main.so" "$PS2OUT/libSDL2ps2.so" "$PS2OUT/libps2clang.so" "$PS2OUT/libps2lld.so" "$A/lib/arm64-v8a/"
 	mkdir -p "$A/assets/ps2" && cp "$PS2OUT/sysroot.zip" "$A/assets/ps2/"
+	# vector programs met on PC, per disc serial (build-ps2.sh): compiled while the phone prepares a game (PS2_VU_SEED)
+	[ -d "$PS2OUT/vu1seed" ] && cp -r "$PS2OUT/vu1seed" "$A/assets/ps2/"
 else
 	echo "PS2: no android/deps/ps2out (run android/ps2/build-ps2.sh): this APK has no PS2 support"
 fi

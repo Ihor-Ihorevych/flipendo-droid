@@ -212,11 +212,17 @@ public class Ps2Activity extends SDLActivity {
             // Settings > Display > Internal resolution: the card texels per GS pixel the renderer draws its targets with
             {"PS2_HWR_SCALE", String.format(java.util.Locale.US, "%.4f", internalScale(scale)[0])},
             {"PS2_HWR_SCALE_Y", String.format(java.util.Locale.US, "%.4f", internalScale(scale)[1])},
-            // compiler processes at a time: a clang on a 250 KB source takes a few hundred MB, so half the processors, not all
-            {"PS2_EE_LIVE_JOBS", String.valueOf(Math.max(2, Runtime.getRuntime().availableProcessors() / 2))},
+            // compiler processes at a time: a clang on a 250 KB source takes a few hundred MB, so half the processors, and fewer on
+            // phones with little memory (the system kills the app's process when the compilers take too much of 3-4 GB)
+            {"PS2_EE_LIVE_JOBS", String.valueOf(compileJobs())},
         };
         try {
             for (String[] kv : env) Os.setenv(kv[0], kv[1], true);
+            // the game's vector programs met on PC (ps2-native-recomp games/<name>/vu1, packed as assets/ps2/vu1seed/<serial>/): the
+            // runner compiles them while preparing, not in the middle of play, and adds programs it meets later to the same folder
+            File seed = new File(cacheDir, "vu1-seed");
+            copySeed(serial, seed);
+            Os.setenv("PS2_VU_SEED", seed.getPath(), true);
             if (play.getBoolean("perflog", false)) Os.setenv("PS2_SPEED_LOG", "1", true);
             // Game view: Widescreen. The game's camera is widened to the screen's shape through its aspect knobs (the code that
             // computes the camera's horizontal scale; ps2-native-recomp games/<name>/aspect.txt), so more of the world is seen at the sides
@@ -344,12 +350,45 @@ public class Ps2Activity extends SDLActivity {
     // cores at a frequency that fits the frame time instead of letting a bursty load sit on little or slow cores. Ported from the CFR2 app
     // (SpikeActivity.askForPerformance), where it measured as a large gain on this phone.
     static native int[] nativeThreadIds();
+    // the phone's thermal state, battery temperature and charging, for the runner's profile log ("[prof] device: ..." with PS2_PROF=1)
+    static native void nativeDeviceNote(String text);
 
     private android.os.PerformanceHintManager.Session hintSession;
     private int hintThreadCount = -1;
     private boolean frameRateSet;
+    private int perfTicks;
+
+    /** One line about the phone's heat: thermal status (0 none .. 6 shutdown), headroom (1.0 = throttling starts), battery temperature. */
+    private String deviceNote() {
+        StringBuilder s = new StringBuilder();
+        try {
+            android.os.PowerManager pm = (android.os.PowerManager) getSystemService(POWER_SERVICE);
+            s.append("thermal ").append(pm.getCurrentThermalStatus());
+            if (android.os.Build.VERSION.SDK_INT >= 30) s.append(String.format(java.util.Locale.US, " headroom %.2f", pm.getThermalHeadroom(10)));
+        } catch (Throwable e) {
+            // no thermal service
+        }
+        try {
+            android.content.Intent b = registerReceiver(null, new android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED));
+            if (b != null) {
+                s.append(String.format(java.util.Locale.US, " battery %.1f C", b.getIntExtra(android.os.BatteryManager.EXTRA_TEMPERATURE, 0) / 10f));
+                if (b.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) != 0) s.append(" charging");
+            }
+        } catch (Throwable e) {
+            // no battery
+        }
+        return s.toString();
+    }
+
     private final Runnable perfTick = new Runnable() {
         @Override public void run() {
+            if (++perfTicks % 25 == 1) {  // once a second
+                try {
+                    nativeDeviceNote(deviceNote());
+                } catch (Throwable e) {
+                    // a runner without the hook
+                }
+            }
             try {
                 // the game's picture rate (PAL 50 Hz): the phone's frame governor (MediaTek FPSGO here) otherwise spends the first ~13 s learning it
                 // and keeps the processor and graphics clocks low meanwhile (37 fps, then 50 with nothing changed)
@@ -421,6 +460,22 @@ public class Ps2Activity extends SDLActivity {
 
     static int clampInternal(int percent) { return Math.max(20, Math.min(100, percent)); }
 
+    /** Compiler processes for the translation of the game: half the processors, at most 3 with less than 6 GB, 2 with less than 4 GB. */
+    int compileJobs() {
+        int jobs = Math.max(2, Runtime.getRuntime().availableProcessors() / 2);
+        try {
+            android.app.ActivityManager am = (android.app.ActivityManager) getSystemService(ACTIVITY_SERVICE);
+            android.app.ActivityManager.MemoryInfo mi = new android.app.ActivityManager.MemoryInfo();
+            am.getMemoryInfo(mi);
+            long gb = mi.totalMem >> 30;  // (a "4 GB" phone reports a little less than 4)
+            if (gb < 4) jobs = Math.min(jobs, 2);
+            else if (gb < 6) jobs = Math.min(jobs, 3);
+        } catch (Throwable e) {
+            // keep the processor count
+        }
+        return jobs;
+    }
+
     /** The game's picture on the screen at a given internal resolution (percent of the screen's pixels):
      *  { card texels per GS pixel across, down, picture width, picture height } (the GS picture is 640 x 512). */
     float[] internalScale(int percent) {
@@ -429,8 +484,9 @@ public class Ps2Activity extends SDLActivity {
         // the screen's pixels the picture covers: all of the width in widescreen or stretched, a 4:3 box otherwise
         float picW = widescreen() || mode != 0 ? size[0] : Math.min(size[0], size[1] * 4f / 3f), picH = size[1];
         float w = picW * percent / 100f, h = picH * percent / 100f;
-        // never below the PS2's own resolution (1x): a lower percentage only stops at it
-        float sx = Math.max(1f, Math.min(6f, w / 640f)), sy = Math.max(1f, Math.min(6f, h / 512f));
+        // down to half the PS2's own resolution (0.5x), for phones whose card cannot fill even the PS2's pixels at full speed (the
+        // renderer takes 0.25x and up; below half the picture's small text gets hard to read)
+        float sx = Math.max(0.5f, Math.min(6f, w / 640f)), sy = Math.max(0.5f, Math.min(6f, h / 512f));
         return new float[] {sx, sy, 640f * sx, 512f * sy};
     }
 
@@ -485,6 +541,27 @@ public class Ps2Activity extends SDLActivity {
             ui.postDelayed(this, 500);
         }
     };
+
+    /** Copies the vector programs this APK carries for a game into `dir` (files already there are kept). */
+    private void copySeed(String serial, File dir) {
+        String from = "ps2/vu1seed/" + serial;
+        try {
+            String[] names = getAssets().list(from);
+            if (names == null || names.length == 0) return;
+            dir.mkdirs();
+            byte[] buf = new byte[16384];
+            for (String name : names) {
+                File to = new File(dir, name);
+                if (to.length() == 16384) continue;
+                try (java.io.InputStream in = getAssets().open(from + "/" + name);
+                     java.io.FileOutputStream out = new java.io.FileOutputStream(to)) {
+                    for (int n; (n = in.read(buf)) > 0; ) out.write(buf, 0, n);
+                }
+            }
+        } catch (java.io.IOException e) {
+            android.util.Log.e("flipendo", "PS2 vector program seed: " + e);
+        }
+    }
 
     /** The aspect knobs of a game (lines "ADDRESS POWER"), null when its camera cannot follow the screen's shape. */
     static String aspectKnobs(String serial) {
