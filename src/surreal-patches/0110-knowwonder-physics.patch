@@ -1,4 +1,4 @@
-flipendo: KnowWonder physics, pawn movement and collision
+flipendo: KnowWonder physics, pawn movement and collision; mouse settings missing from the user ini keep the class defaults
 
 diff --git a/SurrealEngine/Collision/TopLevel/CollisionSystem.cpp b/SurrealEngine/Collision/TopLevel/CollisionSystem.cpp
 index e9fb62c6..8f4283c6 100644
@@ -361,7 +361,7 @@ index 48026a40..835cb76a 100644
  		StateFrame->SetLatentState(LatentRunState::WaitForLanding);
  }
 diff --git a/SurrealEngine/Packages/Engine/Actors/Pawn/UPlayerPawn.cpp b/SurrealEngine/Packages/Engine/Actors/Pawn/UPlayerPawn.cpp
-index e3c87b45..286f8498 100644
+index e3c87b45..d5f196e1 100644
 --- a/SurrealEngine/Packages/Engine/Actors/Pawn/UPlayerPawn.cpp
 +++ b/SurrealEngine/Packages/Engine/Actors/Pawn/UPlayerPawn.cpp
 @@ -3,6 +3,8 @@
@@ -396,6 +396,34 @@ index e3c87b45..286f8498 100644
  	if (Physics() == PHYS_Spider)
  		return;
  
+@@ -62,8 +71,10 @@ void UPlayerPawn::TickRotating(float elapsed)
+ 
+ void UPlayerPawn::LoadProperties()
+ {
++	// The mouse settings missing from the ini keep the class's defaults (HP1 and HP2: sensitivity 3, smoothing on,
++	// threshold 0.07), as the original engine does for a globalconfig property
+ 	bInvertMouse() = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "bInvertMouse", true);
+-	MouseSensitivity() = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "MouseSensitivity", 5.0f);
++	MouseSensitivity() = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "MouseSensitivity", MouseSensitivity());
+ 	// TODO: Handle the array property this class has (WeaponPriority)
+ 	DodgeClickTime() = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "DodgeClickTime", 0.25f);
+ 	Bob() = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "Bob", 0.016f);
+@@ -76,13 +87,13 @@ void UPlayerPawn::LoadProperties()
+ 	bKeyboardLook() = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "bKeyboardLook", false);
+ 	if (engine->LaunchInfo.ue1Version > 219)
+ 	{
+-		bMaxMouseSmoothing() = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "bMaxMouseSmoothing", false);
++		bMaxMouseSmoothing() = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "bMaxMouseSmoothing", bMaxMouseSmoothing());
+ 		bNoFlash() = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "bNoFlash", false);
+ 		bNoVoices() = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "bNoVoices", false);
+ 		bMessageBeep() = IniPropertyConverter<bool>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "bMessageBeep", true);
+ 		// NetSpeed is missing
+ 		// LanSpeed is missing
+-		MouseSmoothThreshold() = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "MouseSmoothThreshold", 0.16f);
++		MouseSmoothThreshold() = IniPropertyConverter<float>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "MouseSmoothThreshold", MouseSmoothThreshold());
+ 		ngWorldSecret() = IniPropertyConverter<std::string>::FromIniFile(*engine->packages->GetIniFile("user"), "Engine.PlayerPawn", "ngWorldSecret", "");
+ 
+ 		// SE addition: Store/Load the DefaultFOV setting into/from the user.ini file as well
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp
 index 2d58be9f..b558b14d 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Phys.cpp

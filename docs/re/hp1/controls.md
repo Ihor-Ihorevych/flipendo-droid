@@ -59,6 +59,9 @@ height the ground's way (with `climb96end` from 80 to 98).
 
 ## The camera and the mouse's Y axis
 
+How the mouse's counts become `aMouseX` / `aMouseY`, and the cap on how fast the mouse turns Harry:
+[engine/input.md](../engine/input.md).
+
 `Harry.UpdateRotation` zeroes `aLookUp` in `PlayerMove` ("make harry steady"), so the mouse never pitches Harry. The
 camera does it instead, and only while Harry stands still:
 

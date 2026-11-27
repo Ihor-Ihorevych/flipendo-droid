@@ -90,8 +90,6 @@ time, put the camera somewhere fixed, script key presses and player movement and
 `SurrealDebugger` UnrealScript debugger; [UELib](https://github.com/EliotVU/Unreal-Library) for the objects in a package. How the game works under the
 scripts is in the [reverse-engineering notes](re/README.md).
 
-## Where modding is going
+## Not planned
 
-What is planned (an Extras page, per-mod settings, more extras) is phase 6 of the
-[roadmap](../ROADMAP.md#extras-for-hp1-srchp1mods). Not planned: speedrun tools (timer, splits, practice states), since the
-HP1 PC leaderboards accept runs of the original game only, not of reimplementations.
+Speedrun tools (timer, splits, practice states), since the HP1 PC leaderboards accept runs of the original game only, not of reimplementations.

@@ -60,6 +60,15 @@ namespace KW
 	// PackageManager::RegisterFunctions, after upstream registered its natives.
 	void RegisterNatives();
 
+	// PackageManager (constructor): the folder the SE-*.ini files are written to and SavePath is relative to. The game's
+	// System folder when it can be written, else <local app data>/Flipendo/<UserFolderName>/System, an install under
+	// Program Files (src/knowwonder/KWUserFolder.cpp).
+	std::filesystem::path WritableSystemFolder(const std::filesystem::path& gameRoot, const std::filesystem::path& systemFolder);
+	// "<install folder name>-<hash of its full path>"
+	std::string UserFolderName(const std::filesystem::path& gameRoot);
+	// Whether a file can be created in the folder (a probe file, removed again).
+	bool FolderWritable(const std::filesystem::path& folder);
+
 	// UAnimation::Load: HP1's packed animation format.
 	void LoadAnimation(UAnimation* anim, ObjectStream* stream);
 
@@ -160,7 +169,9 @@ namespace KW
 
 	// USurrealAudioDevice::Update, in place of UpdateMusic (src/knowwonder/KWSound.cpp): Galaxy's music update (song
 	// changes with fades, looping unless bDontLoopSong, bSongFinished). Returns the music volume (0-1) to set.
-	float UpdateMusic(AudioDevice* device, UPlayerPawn* player, uint8_t musicVolume, int latency);
+	float UpdateMusic(AudioDevice* device, UPlayerPawn* player, uint8_t musicVolume, uint8_t soundVolume, int latency);
+	// HP1 (Galaxy): the gain the mixer gives a song on top of its music volume, from the ini's SoundVolume (KWSound.cpp)
+	float MusicMixGain(uint8_t soundVolume);
 
 	// Collision (src/knowwonder/KWCollision.cpp): actors with CollideType CT_Box are oriented boxes, not cylinders.
 	bool IsBoxCollider(UActor* actor);

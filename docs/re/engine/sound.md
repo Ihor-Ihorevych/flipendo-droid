@@ -97,8 +97,8 @@ AmbientFactor` (zone-scaled by a render device call when the actor's byte +480 i
 Ported (`KWSound.cpp`): PlaySound/PlayOwnedSound, CheckHearSound and ClientHearSound as above. The Id keeps
 SurrealEngine's actor-pointer packing (`SoundId`), which ModifySound/StopSound and the ambient sounds also use;
 only equal Ids matter. The device (KnowWonder only) keeps volumes as given and uses OpenAL's linear clamped
-distance model with reference distance 0 and rolloff 1, the max gain at full volume: `min(Volume * (1 - d/R), 1)`,
-Galaxy's curve. SurrealEngine's own device rescaled every volume (`(V - 1) / 4 + 1`, 0.8 from 8 up), played at
+distance model with reference distance 0 and rolloff 1, the max gain at the sample volume:
+`min(Volume * (1 - d/R), 1) * SoundVolume / 255`, Galaxy's curve ([master volumes](#master-volumes-measured-against-the-original)). SurrealEngine's own device rescaled every volume (`(V - 1) / 4 + 1`, 0.8 from 8 up), played at
 full volume within a tenth of the radius and was silent from 0.92 of it, and played every sound regardless of
 hearing range or BSP occlusion.
 
@@ -117,6 +117,37 @@ A sound's buffer holds exactly its samples. SurrealEngine's `USound::CheckSoundS
 wrap. HP2's XA sounds carry their sample count (`water_turbulence`: 75793 samples, 2707 blocks of 28 decoded) and
 ALAudio's stream ends there. Found 2026-11-15 looking into issue #34 (crackling in Adv3DungeonQuest), which turned out
 to be the level's music itself: `sm_cda_dadaShaft-S_02.ogg` has a sharp percussion hit, panned right, every 2.93 s.
+
+### Master volumes, measured against the original
+
+`SetVolumes` [HP1 Galaxy 0x10606640] sets the sample volume (`glxSetSampleVolume`) to `SoundVolume` / 255 x 127 of 127,
+with no other factor: a sound at full volume plays at `SoundVolume` / 255. SurrealEngine halves every sound
+(`SoundVolume / 255 * 0.5`, its balance against the music), and Flipendo kept that for HP1 until 2026-11-22: every
+sound effect and voice line 6 dB quieter than the original. The songs go through the same sample volume plus a
+centre pan ([music.md](music.md)), which Flipendo didn't apply, so the music was also about 6 dB too loud. Together the
+dialogue sat 12 dB lower against the music than in the original. HP1 now plays sounds at `SoundVolume` / 255 and the
+song at its stream volume x `KW::MusicMixGain`; HP2 keeps its own path.
+
+Measured on 2026-11-22 (issue #45): the original `HP.exe` in a Windows VM recorded with a WASAPI loopback capture,
+Flipendo with OpenAL Soft's wave writer, both from `Lev_Tut1.unr` (Dumbledore's welcome over
+`JS_Opening_Castle_Fly_Through_mx`). Each dialogue line and the song were decoded from the packages and located in
+the recording by cross-correlation (1.5 s windows aligned one by one; the original's song drifts slightly in time),
+which gives the gain each was played at regardless of what else is playing:
+
+| | dialogue | song | dialogue / song |
+|---|---|---|---|
+| Original, English disc | 0.325 | 0.157 | 6.3 dB |
+| Original, German disc | 0.307 | 0.152 | 6.1 dB |
+| Flipendo before | 0.175 | ~0.33 | about -6 dB |
+| Flipendo now, English | 0.355 | 0.185 | 5.6 dB |
+| Flipendo now, German | 0.346 | 0.183 | 5.5 dB |
+
+The German disc (English/French/German edition; `Core.u` SHA-1 91ca1260, `Engine.u` f8025d48, every DLL and script
+package rebuilt and different from the English disc's) records its dialogue (`AllDialog.ger_uax`, MPEG-1 Layer II,
+44100 Hz, 64 kbit/s, mono) about 11 dB quieter than the English lines (RMS ~1600 against ~5700 of 32768, peaks below
+26000), while the Spanish dub (same format) is as loud as English. Its scripts play dialogue the same way (Volume 3.2,
+capped at full scale), its Galaxy `Update` is the same, and the original plays German and English lines at the same
+gain, so German voices are quieter in the original too; with the 6 dB Flipendo lost on top they were barely audible.
 
 ## HP1 and HP2
 

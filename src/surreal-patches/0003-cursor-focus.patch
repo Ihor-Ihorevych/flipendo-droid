@@ -1,4 +1,4 @@
-flipendo: only recenter the mouse cursor, and only act on raw mouse/keyboard input, while the game window is the active (foreground) window; window icons the right way up; macOS: a window started in fullscreen goes fullscreen reliably, and held mouse buttons count as held keys
+flipendo: only recenter the mouse cursor, and only act on raw mouse/keyboard input, while the game window is the active (foreground) window; window icons the right way up; macOS: a window started in fullscreen goes fullscreen reliably, and held mouse buttons count as held keys; Wayland keeps the fractional part of raw mouse motion
 
 diff --git a/SurrealWidgets/CMakeLists.txt b/SurrealWidgets/CMakeLists.txt
 index 03ecfe9f..45a3fa84 100644
@@ -188,6 +188,43 @@ index 5dfaca1f..f850ab79 100644
  }
  
  void SDL3DisplayWindow::MakeGLContextCurrent()
+diff --git a/SurrealWidgets/src/window/wayland/wayland_display_backend.cpp b/SurrealWidgets/src/window/wayland/wayland_display_backend.cpp
+index 3f3f78a2..ae85ac3d 100644
+--- a/SurrealWidgets/src/window/wayland/wayland_display_backend.cpp
++++ b/SurrealWidgets/src/window/wayland/wayland_display_backend.cpp
+@@ -353,7 +353,18 @@ void WaylandDisplayBackend::ConnectMouseEvents()
+ 		if (currentPointerEvent.event_mask & POINTER_EVENT_RELATIVE_MOTION)
+ 		{
+ 			if (GetMouseLockOwnerWindow() == m_MouseFocusWindow)
+-				OnMouseMoveRawEvent(int(currentPointerEvent.dx_unaccel), int(currentPointerEvent.dy_unaccel));
++			{
++				// The unaccelerated deltas are fractional (libinput normalizes them to 1000 dpi), so a higher-dpi mouse
++				// moving slowly sends steps below 1. Carry the remainder to the next event instead of dropping it.
++				m_RawMouseRemainderX += currentPointerEvent.dx_unaccel;
++				m_RawMouseRemainderY += currentPointerEvent.dy_unaccel;
++				int dx = int(m_RawMouseRemainderX);
++				int dy = int(m_RawMouseRemainderY);
++				m_RawMouseRemainderX -= dx;
++				m_RawMouseRemainderY -= dy;
++				if (dx != 0 || dy != 0)
++					OnMouseMoveRawEvent(dx, dy);
++			}
+ 		}
+ 
+ 		if (currentPointerEvent.event_mask & POINTER_EVENT_BUTTON)
+diff --git a/SurrealWidgets/src/window/wayland/wayland_display_backend.h b/SurrealWidgets/src/window/wayland/wayland_display_backend.h
+index 45ddf57c..b9aa8d51 100644
+--- a/SurrealWidgets/src/window/wayland/wayland_display_backend.h
++++ b/SurrealWidgets/src/window/wayland/wayland_display_backend.h
+@@ -204,6 +204,8 @@ private:
+ 	uint32_t m_MouseSerial = 0;
+ 
+ 	uint32_t m_LastMouseClickTime = 0;
++	double m_RawMouseRemainderX = 0.0;
++	double m_RawMouseRemainderY = 0.0;
+ 
+ 	xkb_context* m_KeymapContext = nullptr;
+ 	xkb_keymap* m_Keymap = nullptr;
 diff --git a/SurrealWidgets/src/window/win32/win32_display_window.cpp b/SurrealWidgets/src/window/win32/win32_display_window.cpp
 index 03451a7d..b8ff6974 100644
 --- a/SurrealWidgets/src/window/win32/win32_display_window.cpp

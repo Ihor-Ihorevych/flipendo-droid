@@ -290,9 +290,16 @@ namespace KW
 		}
 	}
 
+	// IDA Galaxy.dll: ?SetVolumes@UGalaxyAudioSubsystem@@QAEXXZ [HP1 Galaxy 0x10606640] (sample volume SoundVolume / 255 * 127)
+	// IDA Galaxy.dll: not exported: sub_1060FBF0 [HP1 Galaxy 0x1060FBF0]; the voice start Update calls for the sounds and the song (pan -1 for the song), found from Update [HP1 Galaxy 0x106081F0]
+	float MusicMixGain(uint8_t soundVolume)
+	{
+		return soundVolume / 255.0f * 0.70710678f;
+	}
+
 	// IDA Galaxy.dll: ?Update@UGalaxyAudioSubsystem@@UAEXUFPointRegion@@AAVFCoords@@@Z [HP1 Galaxy 0x106081F0] (the music part, from bSongFinished at 0x10608F21; the music channel's volume in the channel loop)
 	// IDA Galaxy.dll: ?SetVolumes@UGalaxyAudioSubsystem@@QAEXXZ [HP1 Galaxy 0x10606640]
-	float UpdateMusic(AudioDevice* device, UPlayerPawn* player, uint8_t musicVolume, int latency)
+	float UpdateMusic(AudioDevice* device, UPlayerPawn* player, uint8_t musicVolume, uint8_t soundVolume, int latency)
 	{
 		// HP2 has no Galaxy music: its scripts play Ogg songs by name (src/hp2/HP2Music.cpp)
 		if (IsHP2())
@@ -408,7 +415,11 @@ namespace KW
 
 		float volume = player->Value<uint8_t>(props.PercentMusicVolume) * musicVolume / (255.0f * 100.0f) * music.fade;
 		music.volume = std::clamp(volume, 0.0f, 1.0f);
-		return music.volume;
+		// Galaxy plays the song on an ordinary sample channel (the same voice start as the sound effects), so the sample
+		// volume (SetVolumes: SoundVolume / 255) scales it too, and a stereo sample is panned to the centre, which the
+		// mixer's square-root pan law plays at 0.707 a side. Measured in the original: the music at 0.46 of ours while
+		// the dialogue matched (issue #45)
+		return music.volume * MusicMixGain(soundVolume);
 	}
 
 	// Actor.GetSoundDuration, as upstream's (the decoded length), with one log line per sound: how long it is, and the bit rate

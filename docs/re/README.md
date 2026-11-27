@@ -29,6 +29,7 @@ A note that says "HP2 not checked" means exactly that: don't assume HP2 is the s
 | [gestures.md](engine/gestures.md) | the Gesture natives that score a drawn spell shape |
 | [textures.md](engine/textures.md) | Fire.dll procedural textures (IceTexture) |
 | [fonts.md](engine/fonts.md) | UFont in the package (CharRemap), character to glyph, system fonts (Console.CreateNativeFont, WinDrv.dll) |
+| [input.md](engine/input.md) | mouse counts to aMouseX (WinDrv, UInput::Exec, ReadInput), the mouse settings' defaults, HP1's turn cap |
 | [packages.md](engine/packages.md) | package file contents SurrealEngine didn't read: Unicode (UTF-16) strings |
 | [native_classes.md](engine/native_classes.md) | native classes with no native code (ImpactSoundSet, LocationID, ...) and leftover natives (FindStairRotation, ScreenToWorld, CreateNativeFont) |
 
@@ -51,7 +52,7 @@ A note that says "HP2 not checked" means exactly that: don't assume HP2 is the s
 |---|---|
 | [gameplay.md](hp2/gameplay.md) | HP2's `hgame` scripts against HP1's: cutscenes from files, queued saves, the new spell system, HP2-only natives; engine differences not checked yet |
 | [startup.md](hp2/startup.md) | how HP2 starts: Game.exe's Windows front end (splash, New/Load/Options), its command lines, the Startup map |
-| [engine.md](hp2/engine.md) | HP2 engine work for later: GameState screening, Lumos surfaces, TurnTo, particle Opacity, ALAudio music and reverb |
+| [engine.md](hp2/engine.md) | HP2's engine against HP1's: GameState screening, Lumos surfaces, TurnTo, particle Opacity, ALAudio music and reverb |
 | [original_bugs.md](hp2/original_bugs.md) | bugs in the original game that Flipendo fixes instead of reproducing; the fire crab ledge logic |
 
 ## Adding a note

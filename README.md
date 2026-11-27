@@ -32,7 +32,7 @@ cutscenes. Nothing is remade; your own copy of a game runs on a modern open-sour
 screen and support for gamepads. One app plays them all: pick the game on the start screen.
 
 - **Harry Potter 1**: all levels are playable.
-- **Harry Potter 2**: playable from the first scene on, with saves, duels and shops; still being polished (see
+- **Harry Potter 2**: the whole story plays through, with saves, duels and shops (a few rough spots, see
   [Status](#status)).
 - **Harry Potter 3** (*Prisoner of Azkaban*, 2004): all 34 levels run on [R3paro](https://github.com/Ihor-Ihorevych/r3paro),
   an open-source engine written in Rust that plays the game's own scripts, with the same touch controls and settings
@@ -147,7 +147,7 @@ Open them with the gear (top right) or the View button on a gamepad. Everything 
 **Harry Potter 1**: every level can be played through, with menus, cutscenes, saving and loading, spell lessons, music and
 voices.
 
-**Harry Potter 2**: the story runs from the first scene on, with saves (six slots), shops, duels, Russian text, subtitles and
+**Harry Potter 2**: the whole story plays through, start to end, with saves (six slots), shops, duels, Russian text, subtitles and
 gamepad support. Known rough spots: the light of Lumos is not exactly on the wand's tip, some translucent walls look red,
 and things the game spawns (jelly beans) do not always follow Harry to the next level. Report what you find.
 

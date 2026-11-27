@@ -1,8 +1,7 @@
 # Troubleshooting
 
 Flipendo runs the game files from your own installation. Most startup problems are a wrong folder or missing
-files, and the error message says which. Harry Potter and the Philosopher's Stone (HP1) is the game that plays today;
-Chamber of Secrets (HP2) is recognised but not playable yet. Run with `--logfile=flipendo.log` to keep the full log; it survives
+files, and the error message says which. Both Philosopher's Stone (HP1) and Chamber of Secrets (HP2) play through. Run with `--logfile=flipendo.log` to keep the full log; it survives
 crashes.
 
 ## Where the game files are expected
@@ -70,6 +69,12 @@ These don't stop the game, but explain missing pictures, sounds or text:
   in the game folder, not in the registry. Full screen is `StartupFullscreen=True` under `[WinDrv.WindowsClient]`,
   with the size in `FullscreenViewportX` / `FullscreenViewportY` (the window size in `WindowedViewportX/Y`). Delete
   the two files to start again from the game's own `HP.ini` / `User.ini`.
+- **Saves and settings of a game under `Program Files`**: Windows doesn't let programs write there, so when the game
+  folder can't be written Flipendo keeps the saves (`Save/`) and the two settings files (`System/`) in a folder of
+  your own instead: `%LOCALAPPDATA%\Flipendo\<install folder name>-<code>` (on Linux and macOS
+  `~/.config/Flipendo/...`). The log names it ("Saves and settings are kept in ..."). Saves the original game made
+  there are in `%LOCALAPPDATA%\VirtualStore`, where Windows redirected them. Once an install has that folder it keeps
+  using it.
 
 - **Rebuilding fails with a file lock**: `SurrealEngine.exe` is still running; close it first.
 - **`CONFLICT` from `tools/build.sh`**: see [engine-hooks.md](engine-hooks.md#changing-a-hook).

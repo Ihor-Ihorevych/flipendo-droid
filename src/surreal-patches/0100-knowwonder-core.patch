@@ -1,4 +1,4 @@
-flipendo: build (src/knowwonder/, src/hp1/), natives, engine loop (input, console, saves, view), missing data messages
+flipendo: build (src/knowwonder/, src/hp1/), natives, engine loop (input and KnowWonder's mouse axis scale, console, saves, view), missing data messages
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 330b050a..492ba706 100644
@@ -36,7 +36,7 @@ index 330b050a..492ba706 100644
  set_target_properties(SurrealCommon PROPERTIES CXX_STANDARD 20)
  target_precompile_headers(SurrealCommon PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/SurrealEngine/Precomp.h>)
 diff --git a/SurrealEngine/Engine.cpp b/SurrealEngine/Engine.cpp
-index 6908d4d7..89976857 100644
+index 6908d4d7..6bb44359 100644
 --- a/SurrealEngine/Engine.cpp
 +++ b/SurrealEngine/Engine.cpp
 @@ -1,6 +1,14 @@
@@ -615,7 +615,19 @@ index 6908d4d7..89976857 100644
  }
  
  void Engine::UpdateInput(float timeElapsed)
-@@ -1579,7 +1791,15 @@ void Engine::UpdateInput(float timeElapsed)
+@@ -1567,7 +1779,10 @@ void Engine::UpdateInput(float timeElapsed)
+ 	{
+ 		if (it.first == "aMouseX" || it.first == "aMouseY")
+ 		{
+-			viewport->Actor()->SetFloat(it.first, it.second.Value / (timeElapsed * 150.0f));
++			// KnowWonder's engine (HP1 and HP2 Engine.dll) adds Speed * counts * 0.01 for a mouse axis and then scales
++			// every input axis by 20 / DeltaTime: Value (Speed * counts * 16) / (80 * DeltaTime)
++			float scale = LaunchInfo.IsKnowWonder() ? 80.0f : 150.0f;
++			viewport->Actor()->SetFloat(it.first, it.second.Value / (timeElapsed * scale));
+ 		}
+ 		else
+ 		{
+@@ -1579,7 +1794,15 @@ void Engine::UpdateInput(float timeElapsed)
  void Engine::OpenWindow()
  {
  	if (!window)
@@ -631,7 +643,7 @@ index 6908d4d7..89976857 100644
  
  	int width = client->StartupFullscreen ? client->FullscreenViewportX : client->WindowedViewportX;
  	int height = client->StartupFullscreen ? client->FullscreenViewportY : client->WindowedViewportY;
-@@ -1587,10 +1807,23 @@ void Engine::OpenWindow()
+@@ -1587,10 +1810,23 @@ void Engine::OpenWindow()
  
  	std::string versionString = !LaunchInfo.gameVersionString.empty() ? " (v" + LaunchInfo.gameVersionString + ")" : "";
  
@@ -657,7 +669,7 @@ index 6908d4d7..89976857 100644
  	if (fullscreen)
  		window->ShowFullscreen();
  	else
-@@ -1606,6 +1839,9 @@ void Engine::TickWindow()
+@@ -1606,6 +1842,9 @@ void Engine::TickWindow()
  {
  	if (window && engine->LaunchInfo.ue1Version > 219)
  	{
@@ -667,7 +679,7 @@ index 6908d4d7..89976857 100644
  		if (viewport->bShowWindowsMouse() && viewport->bWindowsMouseAvailable())
  			window->UnlockCursor();
  		else
-@@ -1648,6 +1884,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
+@@ -1648,6 +1887,8 @@ void Engine::OnWindowMouseMove(const Point& pos)
  	{
  		viewport->WindowsMouseX() = (float)(pos.x * window->GetDpiScale());
  		viewport->WindowsMouseY() = (float)(pos.y * window->GetDpiScale());
@@ -676,7 +688,7 @@ index 6908d4d7..89976857 100644
  	}
  }
  
-@@ -1736,6 +1974,11 @@ void Engine::OnWindowKeyChar(std::string chars)
+@@ -1736,6 +1977,11 @@ void Engine::OnWindowKeyChar(std::string chars)
  
  void Engine::OnWindowKeyDown(EInputKey key)
  {
@@ -688,7 +700,7 @@ index 6908d4d7..89976857 100644
  	if (playingAvi)
  	{
  		if (key == EInputKey::IK_Escape)
-@@ -1841,6 +2084,9 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
+@@ -1841,6 +2087,9 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
  	if (Frame::RunState != FrameRunState::Running || playingAvi)
  		return;
  
@@ -698,7 +710,7 @@ index 6908d4d7..89976857 100644
  	bool handled = CallEvent(console, EventName::KeyEvent, { ExpressionValue::ByteValue(key), ExpressionValue::ByteValue(type), ExpressionValue::FloatValue((float)delta) }).ToBool();
  	
  	if (!handled)
-@@ -1854,7 +2100,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
+@@ -1854,7 +2103,7 @@ void Engine::InputEvent(EInputKey key, EInputType type, int delta)
  
  			for (const std::string& command : GetSubcommands(keybindings[keynames[key]]))
  			{
@@ -834,7 +846,7 @@ index 287956c1..27898722 100644
  }
  
 diff --git a/SurrealEngine/Package/PackageManager.cpp b/SurrealEngine/Package/PackageManager.cpp
-index 333a3135..978c6de9 100644
+index 333a3135..ed357b00 100644
 --- a/SurrealEngine/Package/PackageManager.cpp
 +++ b/SurrealEngine/Package/PackageManager.cpp
 @@ -6,6 +6,7 @@
@@ -853,16 +865,20 @@ index 333a3135..978c6de9 100644
  #include "Packages/ConSys/Events/UConEventTransferObject.h"
  #include "Packages/ConSys/Events/UConEventTrigger.h"
  #include "Packages/ConSys/History/UConHistory.h"
-@@ -313,7 +315,7 @@
+@@ -313,7 +315,11 @@
  PackageManager::PackageManager(const GameLaunchInfo& launchInfo) : launchInfo(launchInfo)
  {
  	gameRootFolderPath = fs::path(launchInfo.gameRootFolder);
 -	gameSystemFolderPath = gameRootFolderPath / "System";
 +	gameSystemFolderPath = File::find_ignoring_case(gameRootFolderPath / "System");
++	gameWritableSystemFolderPath = gameSystemFolderPath;
++	// HP1/HP2 installed under Program Files: ini files and saves go to the player's own folder, or every save fails
++	if (launchInfo.IsKnowWonder())
++		gameWritableSystemFolderPath = KW::WritableSystemFolder(gameRootFolderPath, gameSystemFolderPath);
  
  	RegisterNativeClasses();
  	CreateTransientPackage();
-@@ -339,7 +341,7 @@ void PackageManager::CreateTransientPackage()
+@@ -339,7 +345,7 @@ void PackageManager::CreateTransientPackage()
  	packages["Transient"].set(GC::Alloc<Package>(this, "Transient", ""));
  }
  
@@ -871,7 +887,7 @@ index 333a3135..978c6de9 100644
  {
  	auto& package = packages[name];
  	if (package)
-@@ -352,12 +354,26 @@ Package* PackageManager::GetPackage(const NameString& name)
+@@ -352,12 +358,26 @@ Package* PackageManager::GetPackage(const NameString& name)
  	}
  	else
  	{
@@ -899,7 +915,7 @@ index 333a3135..978c6de9 100644
  Package* PackageManager::LoadMap(const std::string& path)
  {
  	const auto mapPath = convert_path_separators(path);
-@@ -395,6 +411,21 @@ Package* PackageManager::LoadMap(const std::string& path)
+@@ -395,6 +415,21 @@ Package* PackageManager::LoadMap(const std::string& path)
  	if (!absolute_path.has_extension())
  		absolute_path.replace_extension(GetMapExtension());
  
@@ -921,7 +937,7 @@ index 333a3135..978c6de9 100644
  	return GC::Alloc<Package>(this, mapFilename.stem().string(), absolute_path.string());
  }
  
-@@ -462,25 +493,58 @@ void PackageManager::ScanFolder(const std::string& packagedir, const std::string
+@@ -462,25 +497,58 @@ void PackageManager::ScanFolder(const std::string& packagedir, const std::string
  		else
  			langSearchExt = fs::path("." + languageExtension + "_" + searchExt.string());
  
@@ -993,7 +1009,16 @@ index 333a3135..978c6de9 100644
  		}
  	}
  }
-@@ -536,7 +600,12 @@ void PackageManager::ScanPaths()
+@@ -504,7 +572,7 @@ void PackageManager::ScanPaths()
+ 
+ 	// Handle SavePath and CachePath
+ 	const auto savePath = convert_path_separators(GetIniValue("System", "Core.System", "SavePath"));
+-	gameSaveFolderPath = (gameSystemFolderPath / savePath).lexically_normal();
++	gameSaveFolderPath = (gameWritableSystemFolderPath / savePath).lexically_normal();
+ 
+ 	const auto cachePath = convert_path_separators(GetIniValue("System", "Core.System", "CachePath"));
+ 	gameCacheFolderPath = (gameSystemFolderPath / cachePath).lexically_normal();
+@@ -536,7 +604,12 @@ void PackageManager::ScanPaths()
  		auto filename = currentPath.filename();
  
  		// Calculate the final, absolute path
@@ -1007,18 +1032,35 @@ index 333a3135..978c6de9 100644
  
  		// Add map folders in a separate list, so ScanForMaps() can use them
  		if (filename.string() == "*." + GetMapExtension())
-@@ -847,30 +916,30 @@ void PackageManager::LoadEngineIniFiles()
+@@ -819,10 +892,10 @@ void PackageManager::SaveAllIniFiles()
+ 		if (iniFile.first == launchInfo.gameExecutableName || iniFile.first == "System")
+ 		{
+ 			const std::string engineIniName = "SE-" + iniFile.first.ToString() + ".ini";
+-			iniFile.second->UpdateIfExists((gameSystemFolderPath / engineIniName).string());
++			iniFile.second->UpdateIfExists((gameWritableSystemFolderPath / engineIniName).string());
+ 		}
+ 		else if (iniFile.first == "User")
+-			iniFile.second->UpdateIfExists((gameSystemFolderPath / "SE-User.ini").string());
++			iniFile.second->UpdateIfExists((gameWritableSystemFolderPath / "SE-User.ini").string());
+ 		else
+ 			iniFile.second->UpdateFile();
+ 	}
+@@ -847,30 +920,35 @@ void PackageManager::LoadEngineIniFiles()
  	std::string systemIniFileName = "SE-" + systemIniName + ".ini";
  	std::string userIniName = "SE-User.ini";
  
 -	if ( !File::try_open_existing((gameSystemFolderPath / systemIniFileName).string()) )
-+	if ( !File::try_open_existing(File::find_ignoring_case(gameSystemFolderPath / systemIniFileName).string()) )
++	// The SE- files are read from where they are written (GetWritableSystemFolderPath), the game's own from System
++	fs::path systemIniPath = File::find_ignoring_case(gameWritableSystemFolderPath / systemIniFileName);
++	if ( !File::try_open_existing(systemIniPath.string()) )
  	{
  		missing_se_system_ini = true;
  		systemIniFileName = systemIniFileName.substr(3); // Trim off the "SE-" part
 -		if (!File::try_open_existing((gameSystemFolderPath / systemIniFileName).string()))
-+		if (!File::try_open_existing(File::find_ignoring_case(gameSystemFolderPath / systemIniFileName).string()))
- 			systemIniFileName = "Default.ini"; // use the default ini as a last resort
+-			systemIniFileName = "Default.ini"; // use the default ini as a last resort
++		systemIniPath = File::find_ignoring_case(gameSystemFolderPath / systemIniFileName);
++		if (!File::try_open_existing(systemIniPath.string()))
++			systemIniPath = File::find_ignoring_case(gameSystemFolderPath / "Default.ini"); // use the default ini as a last resort
  	}
  
  	// Also load Default.ini, so that we can reset values.
@@ -1026,27 +1068,30 @@ index 333a3135..978c6de9 100644
 +	defaultIniFile = std::make_unique<IniFile>(File::find_ignoring_case(gameSystemFolderPath / "Default.ini").string());
  
 -	iniFiles[systemIniName] = std::make_unique<IniFile>((gameSystemFolderPath / systemIniFileName).string());
-+	iniFiles[systemIniName] = std::make_unique<IniFile>(File::find_ignoring_case(gameSystemFolderPath / systemIniFileName).string());
++	iniFiles[systemIniName] = std::make_unique<IniFile>(systemIniPath.string());
  
  	if (launchInfo.ue1Version > 219)
  	{
 -		if (!File::try_open_existing((gameSystemFolderPath / userIniName).string()))
-+		if (!File::try_open_existing(File::find_ignoring_case(gameSystemFolderPath / userIniName).string()))
++		fs::path userIniPath = File::find_ignoring_case(gameWritableSystemFolderPath / userIniName);
++		if (!File::try_open_existing(userIniPath.string()))
  		{
  			userIniName = userIniName.substr(3); // Trim off the "SE-" part
 -			if (!File::try_open_existing((gameSystemFolderPath / userIniName).string()))
-+			if (!File::try_open_existing(File::find_ignoring_case(gameSystemFolderPath / userIniName).string()))
- 				userIniName = "DefUser.ini";
+-				userIniName = "DefUser.ini";
++			userIniPath = File::find_ignoring_case(gameSystemFolderPath / userIniName);
++			if (!File::try_open_existing(userIniPath.string()))
++				userIniPath = File::find_ignoring_case(gameSystemFolderPath / "DefUser.ini");
  		}
  
 -		iniFiles["User"] = std::make_unique<IniFile>((gameSystemFolderPath / userIniName).string());
 -		defaultUserFile = std::make_unique<IniFile>((gameSystemFolderPath / "DefUser.ini").string());
-+		iniFiles["User"] = std::make_unique<IniFile>(File::find_ignoring_case(gameSystemFolderPath / userIniName).string());
++		iniFiles["User"] = std::make_unique<IniFile>(userIniPath.string());
 +		defaultUserFile = std::make_unique<IniFile>(File::find_ignoring_case(gameSystemFolderPath / "DefUser.ini").string());
  	}
  }
  
-@@ -976,6 +1045,45 @@ Array<IntObject>& PackageManager::GetIntObjects(const NameString& metaclass)
+@@ -976,6 +1054,45 @@ Array<IntObject>& PackageManager::GetIntObjects(const NameString& metaclass)
  	return IntObjects["int"][NameString(metaclass.ToString().substr(pos + 1))];
  }
  
@@ -1092,7 +1137,7 @@ index 333a3135..978c6de9 100644
  std::string PackageManager::Localize(NameString packageName, const NameString& sectionName, const NameString& keyName, const int index)
  {
  	if (packageName == "Engine" && keyName == "ClassCaption")
-@@ -985,6 +1093,38 @@ std::string PackageManager::Localize(NameString packageName, const NameString& s
+@@ -985,6 +1102,38 @@ std::string PackageManager::Localize(NameString packageName, const NameString& s
  		else if (sectionName == "SurrealNetworkDevice") return "Surreal Network";
  	}
  
@@ -1131,7 +1176,7 @@ index 333a3135..978c6de9 100644
  	auto& intFile = intFiles[packageName.ToString() + "." + languageExtension];
  
  	if (!intFile)
-@@ -994,8 +1134,9 @@ std::string PackageManager::Localize(NameString packageName, const NameString& s
+@@ -994,8 +1143,9 @@ std::string PackageManager::Localize(NameString packageName, const NameString& s
  	{
  		try
  		{
@@ -1143,7 +1188,7 @@ index 333a3135..978c6de9 100644
  
  			if (IsUnreal1_227k() || (IsUnrealTournament_469() && launchInfo.gameSubVersion >= 4))
  			{
-@@ -1012,11 +1153,12 @@ std::string PackageManager::Localize(NameString packageName, const NameString& s
+@@ -1012,11 +1162,12 @@ std::string PackageManager::Localize(NameString packageName, const NameString& s
  			if (!intFile)
  			{
  				// Check the System path
@@ -1159,7 +1204,7 @@ index 333a3135..978c6de9 100644
  			}
  		}
  		catch (...)
-@@ -1182,6 +1324,9 @@ void PackageManager::RegisterFunctions()
+@@ -1182,6 +1333,9 @@ void PackageManager::RegisterFunctions()
  	{
  		NRMusicPlayer::RegisterFunctions();
  	}
@@ -1170,10 +1215,10 @@ index 333a3135..978c6de9 100644
  
  void PackageManager::RegisterNativeClasses()
 diff --git a/SurrealEngine/Package/PackageManager.h b/SurrealEngine/Package/PackageManager.h
-index c5c5543b..7a3126f2 100644
+index c5c5543b..b7c1626b 100644
 --- a/SurrealEngine/Package/PackageManager.h
 +++ b/SurrealEngine/Package/PackageManager.h
-@@ -44,13 +44,16 @@ public:
+@@ -44,13 +44,19 @@ public:
  	bool IsCliveBarkersUndying() const { return launchInfo.IsCliveBarkersUndying(); }
  	bool IsKlingonHonorGuard() const  { return launchInfo.IsKlingonHonorGuard(); }
  	bool IsRune() const { return launchInfo.IsRune(); }
@@ -1181,6 +1226,9 @@ index c5c5543b..7a3126f2 100644
  
  	fs::path GetRootFolderPath() const { return gameRootFolderPath; }
  	fs::path GetSystemFolderPath() const { return gameSystemFolderPath; }
++	// Where the SE-*.ini files are written and SavePath starts: the System folder, or for HP1/HP2 a folder of the
++	// player's own when the game folder can't be written (KW::WritableSystemFolder)
++	fs::path GetWritableSystemFolderPath() const { return gameWritableSystemFolderPath; }
  	fs::path GetSaveFolderPath() const { return gameSaveFolderPath; }
 +	void SetSaveFolderPath(const fs::path& path) { gameSaveFolderPath = path; }
  	fs::path GetCacheFolderPath() const { return gameCacheFolderPath; }
@@ -1191,7 +1239,7 @@ index c5c5543b..7a3126f2 100644
  	Array<NameString> GetPackageNames() const;
  	Package* GetSaveInfoPackage(const NameString& saveFolderName);
  	void RemoveSaveInfoPackage(const NameString& saveFolderName);
-@@ -90,6 +93,7 @@ public:
+@@ -90,6 +96,7 @@ public:
  	std::string Localize(NameString packageName, const NameString& sectionName, const NameString& keyName, const int index = 0);
  
  	Array<IntObject>& GetIntObjects(const NameString& metaclass);
@@ -1199,7 +1247,7 @@ index c5c5543b..7a3126f2 100644
  	const Array<std::string>& GetMaps() const { return maps; }
  
  	bool MissingSESystemIni() const { return missing_se_system_ini; }
-@@ -143,6 +147,9 @@ private:
+@@ -143,11 +150,15 @@ private:
  	std::unique_ptr<IniFile> defaultUserFile; // Holds DefUser.ini
  
  	Array<std::string> mapFolders;
@@ -1209,6 +1257,12 @@ index c5c5543b..7a3126f2 100644
  	Array<std::string> maps;
  
  	// So that we don't have to build fs::path()s all over the place
+ 	fs::path gameRootFolderPath;
+ 	fs::path gameSystemFolderPath;
++	fs::path gameWritableSystemFolderPath;
+ 	fs::path gameSaveFolderPath;
+ 	fs::path gameCacheFolderPath;
+ 
 diff --git a/SurrealEngine/Packages/Engine/Actors/UActor_Base.cpp b/SurrealEngine/Packages/Engine/Actors/UActor_Base.cpp
 index a3942d45..0617693b 100644
 --- a/SurrealEngine/Packages/Engine/Actors/UActor_Base.cpp
